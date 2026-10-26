@@ -1,0 +1,66 @@
+# Серверный compose Портала ИБ. Работает только с готовыми образами из релиза:
+# исходников и build-контекстов на сервере нет (сборка — docker-compose.build.yml на машине разработчика).
+name: ibportal
+
+services:
+  db:
+    image: ibportal-db:${VERSION:?VERSION не задан в .env}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ibportal
+      POSTGRES_USER: ${DB_OWNER_USER}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [back]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ibportal"]
+      interval: 10s
+      retries: 5
+
+  backend:
+    image: ibportal-backend:${VERSION:?VERSION не задан в .env}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_APP_USER}:${DB_APP_PASSWORD}@db:5432/ibportal
+      FILES_DIR: /data/files
+      SESSION_SECRET: ${SESSION_SECRET}
+    volumes:
+      - files:/data/files
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [back, front]
+    healthcheck:
+      test: ["CMD", "node", "dist/scripts/healthcheck.js"]
+      interval: 15s
+
+  frontend:
+    image: ibportal-frontend:${VERSION:?VERSION не задан в .env}
+    restart: unless-stopped
+    ports: ["443:8443"]
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on: [backend]
+    networks: [front]
+
+  migrate:                          # разовый запуск: docker compose --profile tools run --rm migrate
+    image: ibportal-backend:${VERSION:?VERSION не задан в .env}
+    profiles: [tools]
+    # Миграции, затем идемпотентный seed прав и системных ролей (ADR-0003).
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/prisma/seed/index.js"]
+    environment:
+      DATABASE_URL: postgresql://${DB_OWNER_USER}:${DB_OWNER_PASSWORD}@db:5432/ibportal
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [back]
+
+volumes:
+  pgdata: { external: true, name: ibportal_pgdata }
+  files:  { external: true, name: ibportal_files }
+
+networks:
+  front: {}
+  back: { internal: true }

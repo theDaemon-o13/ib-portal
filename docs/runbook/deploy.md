@@ -1,0 +1,96 @@
+# Выкладка Портала ИБ
+
+Подробная версия разделов 10–11 CLAUDE.md. Сервер — в закрытом контуре банка, на нём есть только Docker и Docker Compose v2. Claude Code, git и Node на сервере нет.
+
+## Кто что делает
+
+| Шаг | Где | Кто |
+|---|---|---|
+| Сборка релиза `make-release.sh` | Машина разработчика (Mac, Docker Desktop с buildx) | Разработчик |
+| Передача архива на сервер | По регламенту банка | Разработчик → администратор |
+| Выкладка по `RELEASE.md` | Сервер | Администратор |
+| Запись в `deploy-log.md` | Репозиторий | Разработчик со слов администратора |
+
+На сервер передаются только `ibportal-<VERSION>.tar.gz` и `ibportal-<VERSION>.tar.gz.sha256`. Исходники и отдельные файлы кода на сервер не передаются никогда: код приезжает внутри образов.
+
+## Каталоги на сервере
+
+```
+/srv/ibportal/
+├─ deploy/
+│  ├─ docker-compose.yml       # из релиза
+│  ├─ .env                     # chmod 600, только на сервере
+│  ├─ .env.example             # из релиза
+│  ├─ certs/portal.crt, portal.key
+│  └─ scripts/                 # backup.sh, restore.sh, smoke.sh, _common.sh — из релиза
+└─ releases/
+   └─ ibportal-<VERSION>/      # распакованные релизы; два последних не удалять
+```
+
+Тома Docker (создаются вручную один раз, `external: true` в compose): `ibportal_pgdata`, `ibportal_files`, `ibportal_backups`.
+
+## Сборка релиза (разработчик)
+
+Требования: Docker Desktop с `buildx`, доступ к npm-реестру и Docker Hub (базовые образы `node:24.x-alpine`, `nginxinc/nginx-unprivileged`, `postgres:16.4-alpine`).
+
+```bash
+# 1. CHANGELOG.md: раздел «Не выпущено» переименовать в [X.Y.Z] — дата; VERSION = X.Y.Z
+git commit -am "release: X.Y.Z"
+git tag vX.Y.Z
+# 2. Сборка
+./deploy/scripts/make-release.sh
+# 3. Прочитать dist/ibportal-X.Y.Z/RELEASE.md: миграции, «Влияние на данные», новые переменные .env
+```
+
+Пробная сборка с незакоммиченными изменениями: `--allow-dirty` (не для передачи на сервер). Пересобрать ту же версию: `--force`.
+
+Образы собираются строго под `linux/amd64` (`docker buildx build --platform linux/amd64 --load`); скрипт проверяет архитектуру каждого образа. На Mac с Apple Silicon сборка идёт через эмуляцию и занимает заметно дольше.
+
+## Первичная настройка сервера
+
+Команды — в разделе «Первая установка» файла `RELEASE.md`. Важное:
+
+- Пароли в `.env` — случайные: `openssl rand -hex 24`; `SESSION_SECRET` — `openssl rand -hex 32`.
+- `DB_APP_USER` не должен совпадать с `DB_OWNER_USER` и с `ibportal_app` (имя групповой роли).
+- Init-скрипт ролей БД выполняется только на пустом томе `ibportal_pgdata`. Если том уже инициализирован, смена паролей в `.env` сама по себе роли не меняет.
+- Первый администратор: `docker compose run --rm backend node dist/scripts/create-admin.js`. Скрипт спрашивает логин, ФИО и пароль (не отображается при вводе) и проверяет парольную политику.
+
+## Выкладка новой версии
+
+Команды — в разделе «Выкладка» файла `RELEASE.md`. Порядок нельзя менять:
+
+1. Проверка `sha256sum -c` архива и `SHA256SUMS` внутри.
+2. `docker load` образов.
+3. `smoke.sh --before`, затем `backup.sh`. **Если копия не создалась — стоп.**
+4. Обновление `docker-compose.yml` и `scripts/` из релиза; новые переменные — в `.env`.
+5. `VERSION` в `.env`, `migrate` (миграции + seed прав и ролей), `up -d backend frontend`.
+6. `smoke.sh --after`: health, вход, `/me`, выход, число записей не уменьшилось.
+
+## Откат и восстановление
+
+- Совместимые миграции (норма): вернуть прежний `VERSION`, `docker compose up -d backend frontend`.
+- Данные испорчены: `./scripts/restore.sh <копия>`. Скрипт проверяет контрольные суммы, просит ввести имя копии, делает копию текущего состояния, останавливает backend и frontend и заменяет базу (`pg_restore --clean --if-exists --single-transaction`) и файлы. Сервисы после этого поднимает администратор.
+
+## Резервные копии
+
+- Ежедневно по cron: `0 2 * * * cd /srv/ibportal/deploy && ./scripts/backup.sh --rotate >> /var/log/ibportal-backup.log 2>&1`.
+- Ротация: 14 последних копий и по одной за каждый из 6 последних месяцев. Без `--rotate` ничего не удаляется.
+- Состав копии `<дата>_<время>_<версия>/`: `db.dump` (`pg_dump -Fc`), `files.tar.gz`, `manifest.txt`, `SHA256SUMS`.
+- Вынос копий за пределы сервера — по регламенту банка: том `ibportal_backups` (`docker run --rm -v ibportal_backups:/b ...` или путь тома из `docker volume inspect`).
+- Ежемесячная проверка восстановления — в отдельном проекте `ibportal-restoretest` (порядок будет описан отдельно), отметка в `deploy-log.md`.
+
+## Dev-окружение (машина разработчика)
+
+```bash
+cd deploy
+cp .env.dev.example .env.dev
+docker volume create ibportal_dev_pgdata
+docker volume create ibportal_dev_files
+docker compose -f docker-compose.dev.yml --env-file .env.dev up -d db
+docker compose -f docker-compose.dev.yml --env-file .env.dev --profile tools run --rm migrate
+docker compose -f docker-compose.dev.yml --env-file .env.dev run --rm backend npm run create-admin
+docker compose -f docker-compose.dev.yml --env-file .env.dev up -d backend frontend
+# http://localhost:5173 — в Chrome или Firefox (Safari не принимает Secure-cookie на http://localhost)
+```
+
+Новая миграция: `... --profile tools run --rm migrate npx prisma migrate dev --create-only --name <что_меняем>`, затем прочитать SQL, добавить строку «Влияние на данные» в начало файла и применить `... run --rm migrate`. Проверка: `... run --rm migrate npm run check:integrity`.

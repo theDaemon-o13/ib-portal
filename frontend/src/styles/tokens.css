@@ -1,0 +1,59 @@
+/* Токены оформления из docs/prototype/portal-demo.html (:root). Светлая тема, чёрная тема:
+   авто по системе (prefers-color-scheme) или явно через data-theme="light" | "dark" на <html>.
+   Inter входит в сборку (fonts.css) и заменяет SF Pro там, где его нет (Windows). */
+:root{
+  --bg:#F2F2F7;
+  --amb-a:rgba(0,122,255,.20); --amb-b:rgba(90,200,250,.18); --amb-c:rgba(175,82,222,.12);
+  --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.80);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 42%);
+  --glass-line:rgba(255,255,255,.80); --hl:rgba(255,255,255,.95);
+  --line:rgba(60,60,67,.12); --line-2:rgba(60,60,67,.20);
+  --shadow:0 1px 2px rgba(20,30,60,.04),0 12px 32px rgba(20,40,80,.07);
+  --shadow-lg:0 24px 70px rgba(20,40,80,.20),0 2px 8px rgba(20,40,80,.06);
+  --fill:rgba(118,118,128,.12); --fill-2:rgba(118,118,128,.07); --hover:rgba(118,118,128,.08);
+  --solid:#FAFAFC; --solid-2:#F3F3F7; --solid-hover:#EEEEF3; --seg-on:#FFFFFF;
+  --fg:#1D1D1F; --muted:#6E6E73; --faint:#AEAEB2;
+  --accent:#007AFF; --accent-2:#3395FF; --accent-soft:rgba(0,122,255,.12); --accent-fg:#FFFFFF;
+  --crit:#E0352B; --high:#C65D00; --med:#977000; --low:#248A3D; --info:#5856D6;
+  --crit-soft:rgba(255,59,48,.12); --high-soft:rgba(255,149,0,.14); --med-soft:rgba(255,204,0,.18); --low-soft:rgba(52,199,89,.14);
+  --paper:#FFFFFF; --paper-fg:#1D1D1F; --scrim:rgba(0,0,0,.20); --toast-bg:rgba(29,29,31,.86); --toast-fg:#FFFFFF;
+  --f-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  --f-body:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  --f-mono:"SF Mono",ui-monospace,Menlo,"Cascadia Mono",Consolas,monospace;
+  --blur:blur(28px) saturate(180%);
+  --r-lg:22px; --r-md:16px; --r-sm:11px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#000000;
+  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.86);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
+  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
+  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
+  --solid:#0E0E10; --solid-2:#141416; --solid-hover:#19191C; --seg-on:#3A3A3C;
+  --fg:#F5F5F7; --muted:#98989D; --faint:#636366;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF;
+  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
+  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
+  --paper:#1C1C1E; --paper-fg:#F5F5F7; --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000;
+  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.86);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
+  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
+  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
+  --solid:#0E0E10; --solid-2:#141416; --solid-hover:#19191C; --seg-on:#3A3A3C;
+  --fg:#F5F5F7; --muted:#98989D; --faint:#636366;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF;
+  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
+  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
+  --paper:#1C1C1E; --paper-fg:#F5F5F7; --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
+  color-scheme:dark}

@@ -46,7 +46,7 @@
 
 Отступать от стека можно только после согласования с владельцем проекта.
 
-- **Backend:** Node.js 20 LTS, TypeScript (strict), Fastify, Prisma, zod для валидации, `@fastify/swagger` для OpenAPI, exceljs для Excel, argon2 для паролей, pino для логов.
+- **Backend:** Node.js 24 LTS (ADR-0004; Node 20 снят с поддержки 30.04.2026), TypeScript (strict), Fastify, Prisma, zod для валидации, `@fastify/swagger` для OpenAPI, exceljs для Excel, argon2 для паролей, pino для логов.
 - **Frontend:** React 18, Vite, TypeScript (strict), React Router, TanStack Query. Типы API генерируются из OpenAPI (`openapi-typescript`) и вручную не правятся. pdf.js для просмотра PDF.
 - **БД:** PostgreSQL 16.
 - **Контейнеры:** Docker и Docker Compose v2.
@@ -98,7 +98,7 @@
 | `ibportal_owner` | Владелец схемы, DDL | Только команда миграции (сервис `migrate`) |
 | `ibportal_app` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` на таблицы данных; на `audit_log` только `INSERT` и `SELECT` | Работающий backend |
 
-Права выдаются скриптом `db/init/01-app-role.sh` при первой инициализации и закрепляются через `ALTER DEFAULT PRIVILEGES`.
+Права выдаются скриптом `db/init/01-app-role.sh` при первой инициализации и закрепляются через `ALTER DEFAULT PRIVILEGES`. Права приложения выдаются групповой роли `ibportal_app` (NOLOGIN); логин backend (`DB_APP_USER`) — её член. Запрет `UPDATE`, `DELETE`, `TRUNCATE` на `audit_log` выдаётся первой миграцией и дублируется триггером (ADR-0002).
 
 ### 3.7. Файлы
 
@@ -128,6 +128,7 @@ ib-portal/
 │     ├─ deploy.md              # копия раздела 11 с деталями сервера
 │     └─ deploy-log.md          # журнал выкладок: дата, версия, кто, результат
 ├─ db/
+│  ├─ Dockerfile                # postgres + init-скрипт: на сервер скрипт приезжает в образе
 │  └─ init/01-app-role.sh       # роли PostgreSQL, выполняется на пустом томе
 ├─ backend/
 │  ├─ Dockerfile
@@ -141,7 +142,8 @@ ib-portal/
 │  │  ├─ plugins/               # auth, rbac, audit, errors, swagger
 │  │  ├─ modules/<модуль>/      # routes.ts, service.ts, schema.ts, *.test.ts
 │  │  └─ lib/                   # рабочие дни, формулы, excel, файлы
-│  └─ scripts/                  # create-admin, seed-demo (dev), check-integrity
+│  ├─ openapi.json              # контракт API (npm run openapi:export), из него генерируются типы frontend
+│  └─ scripts/                  # create-admin, seed-demo (dev), check-integrity, healthcheck
 ├─ frontend/
 │  ├─ Dockerfile
 │  ├─ nginx.conf
@@ -151,15 +153,20 @@ ib-portal/
 │     ├─ styles/tokens.css      # токены из прототипа
 │     ├─ components/
 │     └─ pages/<раздел>/
-└─ deploy/
-   ├─ docker-compose.yml
-   ├─ docker-compose.dev.yml
-   ├─ .env.example              # .env в git не попадает
-   ├─ certs/                    # в git не попадает
-   └─ scripts/
-      ├─ backup.sh
-      ├─ restore.sh             # с явным подтверждением
-      └─ smoke.sh
+├─ deploy/
+│  ├─ docker-compose.yml        # серверный: только образы, без build и путей к исходникам
+│  ├─ docker-compose.build.yml  # overlay со сборкой под linux/amd64 (машина разработчика)
+│  ├─ docker-compose.dev.yml
+│  ├─ .env.example              # .env в git не попадает
+│  ├─ .env.dev.example          # заглушки для dev
+│  ├─ RELEASE.template.md       # шаблон инструкции к релизу
+│  ├─ certs/                    # в git не попадает
+│  └─ scripts/
+│     ├─ backup.sh
+│     ├─ restore.sh             # с явным подтверждением
+│     ├─ smoke.sh
+│     └─ make-release.sh        # только на машине разработчика
+└─ dist/                        # собранные релизы, в git не попадает
 ```
 
 Модули backend: `auth`, `rbac`, `users`, `catalogs`, `registers` (конструктор, поля, записи, автоматизации), `vulns` (импорт сканера, сроки), `tasks`, `mail-intake`, `documents`, `risks`, `evidence`, `form-templates`, `files`, `dashboard`, `monitor`, `audit`.
@@ -303,8 +310,10 @@ ib-portal/
 ### Сервисы и сети
 
 - Сеть `back` объявлена с `internal: true`, у неё нет выхода наружу. Порт наружу публикует только `frontend`.
-- Образы приложения тегируются версией из `VERSION`, базовые образы закреплены по точной версии.
+- Образы приложения (`ibportal-db`, `ibportal-backend`, `ibportal-frontend`) тегируются версией из `VERSION` и собираются под `linux/amd64`. Базовые образы закреплены по точной версии.
 - Процессы в контейнерах работают не от root.
+- Серверный `deploy/docker-compose.yml` не содержит `build:` и путей к исходникам: на сервере есть только образы. Сборка описана в `deploy/docker-compose.build.yml` и выполняется на машине разработчика (раздел 11).
+- Init-скрипт ролей БД входит в образ `ibportal-db` (`db/Dockerfile`: `postgres:16.4-alpine` + `db/init/`), а не монтируется с диска.
 
 Каркас `deploy/docker-compose.yml`:
 
@@ -313,7 +322,7 @@ name: ibportal
 
 services:
   db:
-    image: postgres:16.4-alpine
+    image: ibportal-db:${VERSION}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ibportal
@@ -323,7 +332,6 @@ services:
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../db/init:/docker-entrypoint-initdb.d:ro
     networks: [back]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ibportal"]
@@ -332,7 +340,6 @@ services:
 
   backend:
     image: ibportal-backend:${VERSION}
-    build: ../backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -350,7 +357,6 @@ services:
 
   frontend:
     image: ibportal-frontend:${VERSION}
-    build: ../frontend
     restart: unless-stopped
     ports: ["443:8443"]
     volumes:
@@ -361,7 +367,7 @@ services:
   migrate:                          # разовый запуск: docker compose --profile tools run --rm migrate
     image: ibportal-backend:${VERSION}
     profiles: [tools]
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/prisma/seed/index.js"]
     environment:
       DATABASE_URL: postgresql://${DB_OWNER_USER}:${DB_OWNER_PASSWORD}@db:5432/ibportal
     depends_on:
@@ -377,20 +383,28 @@ networks:
   back: { internal: true }
 ```
 
+Сервис `migrate` после миграций выполняет идемпотентный seed прав и системных ролей (ADR-0003).
+
 `deploy/docker-compose.dev.yml` запускается как проект `ibportal-dev`:
-- использует свои тома `ibportal_dev_pgdata` и `ibportal_dev_files`;
-- публикует БД только на `127.0.0.1:5433`;
-- запускает backend и frontend в режиме разработки.
+- использует свои тома `ibportal_dev_pgdata` и `ibportal_dev_files` (тоже `external: true`, создаются вручную);
+- база называется `ibportal_dev`, публикуется только на `127.0.0.1:5433`;
+- запускает backend и frontend в режиме разработки (стадии `dev` в Dockerfile, исходники монтируются с хоста);
+- переменные — из `deploy/.env.dev` (образец `deploy/.env.dev.example`).
+
+Cookie сессии всегда `Secure`. На `http://localhost` её принимают Chrome и Firefox, Safari — нет: dev проверяется в Chrome или Firefox.
 
 ### Первичная настройка сервера (один раз)
+
+Полная последовательность — в `RELEASE.md` каждого релиза и в `docs/runbook/deploy.md`. Коротко:
 
 ```bash
 docker volume create ibportal_pgdata
 docker volume create ibportal_files
 docker volume create ibportal_backups
+# распаковать релиз, проверить sha256, docker load, скопировать docker-compose.yml, .env.example и scripts/ в /srv/ibportal/deploy
 cd /srv/ibportal/deploy
 cp .env.example .env && chmod 600 .env      # заполнить пароли и VERSION
-# положить сертификат и ключ в ./certs
+# положить сертификат и ключ в ./certs (portal.crt, portal.key)
 docker compose up -d db
 docker compose --profile tools run --rm migrate
 docker compose run --rm backend node dist/scripts/create-admin.js   # спросит логин и пароль
@@ -400,46 +414,65 @@ docker compose up -d
 
 ## 11. Ручная выкладка (CI/CD нет)
 
-Каждая выкладка записывается в `docs/runbook/deploy-log.md`: дата, версия, кто выкладывал, номер резервной копии, результат.
+На сервере нет Claude Code, git и Node — только Docker. Разработчик собирает готовый релиз на своей машине, администратор выкладывает его по `RELEASE.md` из релиза.
 
-### A. Сборка (машина с доступом к npm)
+**На сервер никогда не передаются исходники и отдельные файлы кода** (`.ts`, `.js`, `.sql`, `Dockerfile`, `package.json`, каталоги `backend/`, `frontend/`, `db/`). Код приезжает только внутри образов. Кроме образов в релиз входят лишь файлы эксплуатации: `docker-compose.yml`, `scripts/` (backup, restore, smoke), `.env.example`, `CHANGELOG.md`, `RELEASE.md`, `SHA256SUMS`. Если для выкладки понадобился какой-то ещё файл, его место — в образе, а не рядом с ним.
+
+Каждая выкладка записывается в `docs/runbook/deploy-log.md`: дата, версия, кто выкладывал, имя резервной копии, результат. Администратор передаёт эти данные разработчику.
+
+### A. Сборка релиза (машина разработчика)
 
 ```bash
-git checkout v0.3.0                 # тег релиза; VERSION = 0.3.0
-cd deploy
-VERSION=0.3.0 docker compose build backend frontend
-docker save ibportal-backend:0.3.0 ibportal-frontend:0.3.0 | gzip > ibportal-0.3.0.tar.gz
-sha256sum ibportal-0.3.0.tar.gz > ibportal-0.3.0.tar.gz.sha256
+# CHANGELOG: перенести «Не выпущено» в раздел [0.3.0]; VERSION = 0.3.0; закоммитить
+git tag v0.3.0
+./deploy/scripts/make-release.sh
 ```
 
-Архив, контрольную сумму и `CHANGELOG.md` перенести на сервер в закрытом контуре.
+`make-release.sh`:
+1. Проверяет, что дерево git чистое, и предупреждает, если тег `v<VERSION>` не стоит на текущем коммите.
+2. Собирает `ibportal-db`, `ibportal-backend`, `ibportal-frontend` командой `docker buildx build --platform linux/amd64 --load` и проверяет архитектуру образов.
+3. Сохраняет образы: `docker save | gzip` → `ibportal-images-<VERSION>.tar.gz`.
+4. Копирует `docker-compose.yml`, `scripts/`, `CHANGELOG.md`, `.env.example`.
+5. Создаёт `RELEASE.md` из `deploy/RELEASE.template.md`: изменения, миграции и их «Влияние на данные», новые переменные `.env`, команды выкладки и отката, проверки после.
+6. Считает `SHA256SUMS` и упаковывает всё в `dist/ibportal-<VERSION>.tar.gz` с файлом `.sha256`.
+
+Перед передачей прочитать `RELEASE.md`. Если у миграции нет строки «Влияние на данные» или она удаляет данные, релиз не передаётся.
+
+Администратору передаются только `dist/ibportal-<VERSION>.tar.gz` и `dist/ibportal-<VERSION>.tar.gz.sha256`.
 
 ### B. Выкладка на сервере
 
 ```bash
-cd /srv/ibportal/deploy
+cd /srv/ibportal/releases
 sha256sum -c ibportal-0.3.0.tar.gz.sha256
-gunzip -c ibportal-0.3.0.tar.gz | docker load
+tar -xzf ibportal-0.3.0.tar.gz && cd ibportal-0.3.0 && sha256sum -c SHA256SUMS
+docker load -i ibportal-images-0.3.0.tar.gz
+cd /srv/ibportal/deploy
+./scripts/smoke.sh --before
 ./scripts/backup.sh                     # ОБЯЗАТЕЛЬНО. Если копия не создалась — стоп
+cp /srv/ibportal/releases/ibportal-0.3.0/docker-compose.yml .
+cp /srv/ibportal/releases/ibportal-0.3.0/scripts/*.sh scripts/
+# новые переменные из RELEASE.md — в .env
 sed -i 's/^VERSION=.*/VERSION=0.3.0/' .env
 docker compose --profile tools run --rm migrate
 docker compose up -d backend frontend   # db не перезапускаем без необходимости
-./scripts/smoke.sh                      # health, вход, количество записей до и после
+./scripts/smoke.sh --after              # health, вход, количество записей до и после
 ```
 
 ### C. Откат
 
-1. Если миграции в релизе совместимы с прошлой версией (так должно быть всегда, раздел 3.3): вернуть прежний `VERSION` в `.env` и выполнить `docker compose up -d backend frontend`.
-2. Если релиз всё же испортил данные: остановить backend, выполнить `./scripts/restore.sh <файл копии>`, вернуть прежний `VERSION`, поднять сервисы. Восстановление спрашивает подтверждение и само делает копию текущего состояния перед заменой.
+1. Если миграции в релизе совместимы с прошлой версией (так должно быть всегда, раздел 3.3): вернуть прежний `VERSION` в `.env` и выполнить `docker compose up -d backend frontend`. Образы прошлой версии остаются на сервере после `docker load`; не удалять их, пока новая версия не проработала хотя бы неделю.
+2. Если релиз всё же испортил данные: выполнить `./scripts/restore.sh <имя копии>`, вернуть прежний `VERSION`, поднять сервисы. Восстановление проверяет контрольные суммы, спрашивает подтверждение вводом имени копии, само делает копию текущего состояния и останавливает backend и frontend перед заменой.
 
 ### Резервные копии
 
 - `backup.sh` пишет в том `ibportal_backups`:
-  - `pg_dump -Fc` базы;
+  - `pg_dump -Fc` базы (и проверяет, что дамп читается `pg_restore --list`);
   - архив тома файлов;
-  - файл с версией и контрольными суммами.
+  - `manifest.txt` с версией и `SHA256SUMS`.
   - Имя копии: `<дата>_<время>_<версия>`.
-- Копия делается автоматически перед каждой выкладкой и ежедневно по cron на сервере. Хранятся 14 ежедневных и 6 ежемесячных копий.
+- Для работы с томами скрипты используют одноразовый контейнер из образа `ibportal-backend` текущей версии, без сети. Сторонние образы на сервер не нужны.
+- Копия делается автоматически перед каждой выкладкой и ежедневно по cron на сервере (`./scripts/backup.sh --rotate`). Хранятся 14 последних и по одной за каждый из 6 последних месяцев. Без `--rotate` скрипт ничего не удаляет.
 - Копии регулярно выносятся за пределы сервера по регламенту банка.
 - Раз в месяц восстановление проверяется в отдельном compose-проекте `ibportal-restoretest`, проверка отмечается в `deploy-log.md`.
 

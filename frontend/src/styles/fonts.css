@@ -1,0 +1,6 @@
+/* Inter собирается в бандл из пакета @fontsource/inter: файлы woff2 лежат рядом со статикой,
+   никаких внешних CDN и Google Fonts (закрытый контур). */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';

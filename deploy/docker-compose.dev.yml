@@ -1,0 +1,85 @@
+# Dev-окружение: отдельный проект ibportal-dev со своими томами (CLAUDE.md, раздел 3.8).
+# Тома создаются один раз вручную и не удаляются даже `down -v`:
+#   docker volume create ibportal_dev_pgdata && docker volume create ibportal_dev_files
+# Запуск (из каталога deploy):
+#   docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
+name: ibportal-dev
+
+x-backend-dev: &backend-dev
+  build: { context: ../backend, target: dev }
+  image: ibportal-backend:dev
+  volumes:
+    - ../backend:/app
+    - /app/node_modules             # зависимости из образа (собраны под Linux), не с хоста
+
+services:
+  db:
+    build: ../db
+    image: ibportal-db:dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ibportal_dev
+      POSTGRES_USER: ${DB_OWNER_USER}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    ports: ["127.0.0.1:5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [back]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ibportal_dev"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    <<: *backend-dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${DB_APP_USER}:${DB_APP_PASSWORD}@db:5432/ibportal_dev
+      FILES_DIR: /data/files
+      SESSION_SECRET: ${SESSION_SECRET}
+      LOG_LEVEL: debug
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+      - files:/data/files
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [back, front]
+
+  frontend:
+    build: { context: ../frontend, target: dev }
+    image: ibportal-frontend:dev
+    environment:
+      VITE_HOST: 0.0.0.0
+      VITE_BACKEND_URL: http://backend:3000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    ports: ["127.0.0.1:5173:5173"]
+    depends_on: [backend]
+    networks: [front]
+
+  # Миграции и seed от владельца схемы:
+  #   docker compose -f docker-compose.dev.yml --env-file .env.dev --profile tools run --rm migrate
+  # Новая миграция (только создать файл, без применения):
+  #   ... run --rm migrate npx prisma migrate dev --create-only --name <что_меняем>
+  migrate:
+    <<: *backend-dev
+    profiles: [tools]
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run seed"]
+    environment:
+      DATABASE_URL: postgresql://${DB_OWNER_USER}:${DB_OWNER_PASSWORD}@db:5432/ibportal_dev
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [back]
+
+volumes:
+  pgdata: { external: true, name: ibportal_dev_pgdata }
+  files:  { external: true, name: ibportal_dev_files }
+
+networks:
+  front: {}
+  back: { internal: true }

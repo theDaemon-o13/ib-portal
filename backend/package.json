@@ -1,0 +1,44 @@
+{
+  "name": "ibportal-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "dev": "tsx watch src/server.ts",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "start": "node dist/src/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:create": "prisma migrate dev --create-only",
+    "seed": "tsx prisma/seed/index.ts",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "check:integrity": "tsx scripts/check-integrity.ts",
+    "openapi:export": "tsx scripts/export-openapi.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.0.2",
+    "@fastify/swagger": "9.5.1",
+    "@prisma/client": "6.16.2",
+    "argon2": "0.44.0",
+    "fastify": "5.6.0",
+    "fastify-type-provider-zod": "6.0.0",
+    "prisma": "6.16.2",
+    "zod": "4.1.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.35.0",
+    "@types/node": "24.3.1",
+    "eslint": "9.35.0",
+    "pino-pretty": "13.1.1",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.43.0",
+    "vitest": "3.2.4"
+  }
+}

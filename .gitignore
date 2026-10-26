@@ -1,6 +1,18 @@
-.DS_Store
+# секреты
 .env
-deploy/.env
+.env.*
+*.env
+!.env.example
+!.env.dev.example
 deploy/certs/
+
+# сборка, зависимости и релизы (dist/ibportal-<VERSION>/ из make-release.sh)
 node_modules/
 dist/
+coverage/
+*.tsbuildinfo
+
+# служебное
+.DS_Store
+*.log
+deploy/scripts/.smoke/
