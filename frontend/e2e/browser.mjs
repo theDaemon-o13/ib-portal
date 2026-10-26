@@ -143,6 +143,15 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       }
     },
 
+    /** Выбрать файл в <input type=file> (как пользователь в диалоге выбора файла). */
+    async setFiles(cssSelector, paths) {
+      const { root } = await send('DOM.getDocument', { depth: 0 });
+      const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: cssSelector });
+      if (!nodeId) throw new Error(`нет элемента ${cssSelector}`);
+      await send('DOM.setFileInputFiles', { nodeId, files: paths });
+      await sleep(150);
+    },
+
     text: (expr) => evaluate(`(() => { const el = ${expr}; return el ? el.textContent.trim() : null; })()`),
     toast: () => evaluate(`document.querySelector('.toast.on')?.textContent ?? null`),
 

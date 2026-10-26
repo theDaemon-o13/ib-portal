@@ -34,6 +34,11 @@ async function main() {
     FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE']) AS p`;
   check(migrationsAccess[0]?.granted === false, 'ibportal_app: нет доступа к _prisma_migrations');
 
+  const decisionPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public.register_decisions', p)) AS granted
+    FROM unnest(ARRAY['UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+  check(decisionPrivs[0]?.granted === false, 'ibportal_app: нет UPDATE, DELETE, TRUNCATE на register_decisions');
+
   const appCanCreate = await prisma.$queryRaw<{ ok: boolean }[]>`
     SELECT has_schema_privilege('ibportal_app', 'public', 'CREATE') AS ok`;
   check(appCanCreate[0]?.ok === false, 'ibportal_app не может создавать объекты в схеме public');

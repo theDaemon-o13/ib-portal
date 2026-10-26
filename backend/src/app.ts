@@ -17,6 +17,7 @@ import { calendarRoutes } from './modules/calendar/routes.js';
 import { catalogRoutes } from './modules/catalogs/routes.js';
 import { formTemplateRoutes } from './modules/form-templates/routes.js';
 import { healthRoutes } from './modules/health/routes.js';
+import { IMPORT_BODY_LIMIT, registerRoutes, XLSX_TYPE } from './modules/registers/routes.js';
 import { roleRoutes } from './modules/roles/routes.js';
 import { journalRoutes } from './modules/settings/journal.js';
 import { userRoutes } from './modules/users/routes.js';
@@ -47,6 +48,10 @@ export async function buildApp(deps: AppDeps) {
   base.setSerializerCompiler(serializerCompiler);
   installErrorHandler(base);
   installRouteAccessCheck(base);
+  // Файл импорта Excel приходит телом запроса как есть (без multipart).
+  base.addContentTypeParser([XLSX_TYPE, 'application/octet-stream'], { parseAs: 'buffer', bodyLimit: IMPORT_BODY_LIMIT }, (_req, body, done) => {
+    done(null, body);
+  });
   const app = base.withTypeProvider<ZodTypeProvider>();
 
   await app.register(cookie, { secret: deps.sessionSecret });
@@ -70,6 +75,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });
   await app.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(journalRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db });
 
   app.get('/api/v1/openapi.json', { config: { public: true }, schema: { hide: true } }, async () => app.swagger());
 

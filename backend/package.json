@@ -27,6 +27,7 @@
     "@fastify/swagger": "9.5.1",
     "@prisma/client": "6.16.2",
     "argon2": "0.44.0",
+    "exceljs": "4.4.0",
     "fastify": "5.12.6",
     "fastify-type-provider-zod": "6.0.0",
     "prisma": "6.16.2",
@@ -49,5 +50,10 @@
     "argon2@0.44.0": true,
     "esbuild@0.25.12": true,
     "esbuild@0.28.2": true
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }

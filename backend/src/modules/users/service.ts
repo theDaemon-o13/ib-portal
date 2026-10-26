@@ -8,6 +8,7 @@ import { toPage } from '../../lib/pagination.js';
 import { passwordExpiresAt } from '../../lib/password-policy.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
+import { recomputeSearchForUser } from '../registers/definition.js';
 import { assertUsersManageKept, lockRbac } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 
@@ -157,6 +158,8 @@ export async function updateUser(
     if (changes.length === 0) return toDto(u);
     const res = await tx.user.updateMany({ where: { id, version: input.version }, data: { ...(data as object), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.user.findUnique({ where: { id } }), 'Пользователь');
+    // ФИО участвует в поиске по реестрам (поле «сотрудник»).
+    if (data.fullName !== undefined) await recomputeSearchForUser(tx, id);
     // Снятие роли не должно лишить себя или всех пользователей права users.manage.
     await assertUsersManageKept(tx, actor.id);
     await auditSettings(tx, actor, {

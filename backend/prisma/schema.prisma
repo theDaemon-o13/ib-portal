@@ -32,8 +32,11 @@ model User {
 
   passwordHistory PasswordHistory[]
   mailRules       CatalogItem[]
-  roles           UserRole[]        @relation("UserRoles")
-  assignedRoles   UserRole[]        @relation("UserRolesAssignedBy")
+  ownedRegisters  Register[]
+  decisions       RegisterDecision[]
+  registerImports RegisterImport[]
+  roles           UserRole[]         @relation("UserRoles")
+  assignedRoles   UserRole[]         @relation("UserRolesAssignedBy")
   sessions        Session[]
   auditEntries    AuditLog[]
 
@@ -253,4 +256,148 @@ model FormTemplateField {
 
   @@index([templateId, sortOrder])
   @@map("form_template_fields")
+}
+
+// ---------------------------------------------------------------------------
+// Конструктор реестров (этап 3). CHECK и частичные уникальные индексы — в SQL миграции.
+// Значения записи хранятся по id поля (values: { fieldId: значение }), списки — по id варианта.
+// ---------------------------------------------------------------------------
+
+model Register {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String    @default("")
+  ownerUserId String?   @map("owner_user_id") @db.Uuid
+  /// Резерв для системных реестров (реестр уязвимостей — этап 4).
+  systemKey   String?   @unique @map("system_key")
+  /// Следующий номер записи (колонка ID в Excel).
+  nextNumber  Int       @default(1) @map("next_number")
+  version     Int       @default(1)
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner   User?            @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  fields  RegisterField[]
+  records RegisterRecord[]
+  imports RegisterImport[]
+
+  @@map("registers")
+}
+
+model RegisterField {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId    String    @map("register_id") @db.Uuid
+  label         String
+  /// text | select | number | date | user | calc | decision
+  type          String
+  sortOrder     Int       @default(0) @map("sort_order")
+  /// dimension | metric | date | deadline — совместимость с типом проверяет CHECK
+  analyticsRole String?   @map("analytics_role")
+  /// Заголовок записи (одно текстовое поле в реестре).
+  isTitle       Boolean   @default(false) @map("is_title")
+  /// Поле статуса (один список в реестре); закрытые варианты — is_closed.
+  isStatus      Boolean   @default(false) @map("is_status")
+  /// Только у вычисляемого поля: { fromFieldId, byFieldId, days: { optionId: N }, overrideFieldId }
+  calcRule      Json?     @map("calc_rule")
+  version       Int       @default(1)
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  register  Register              @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  options   RegisterFieldOption[]
+  decisions RegisterDecision[]
+
+  @@index([registerId, sortOrder])
+  @@map("register_fields")
+}
+
+model RegisterFieldOption {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fieldId    String    @map("field_id") @db.Uuid
+  label      String
+  sortOrder  Int       @default(0) @map("sort_order")
+  /// Закрытый статус (для поля-статуса).
+  isClosed   Boolean   @default(false) @map("is_closed")
+  version    Int       @default(1)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  field     RegisterField      @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  decisions RegisterDecision[]
+
+  @@index([fieldId, sortOrder])
+  @@map("register_field_options")
+}
+
+model RegisterRecord {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId String    @map("register_id") @db.Uuid
+  /// Номер записи в реестре — колонка ID при экспорте и импорте.
+  number     Int
+  /// { fieldId: значение }. Вычисляемые поля и решения здесь не хранятся.
+  values     Json      @default("{}")
+  /// Отображаемые значения для поиска; пересчитываются при записи.
+  searchText String    @default("") @map("search_text")
+  version    Int       @default(1)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  register  Register           @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  decisions RegisterDecision[]
+
+  @@unique([registerId, number])
+  @@map("register_records")
+}
+
+/// Решения другого отдела. Только пополняется; вносится с документом-основанием (файл — этап 7).
+model RegisterDecision {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordId       String   @map("record_id") @db.Uuid
+  fieldId        String   @map("field_id") @db.Uuid
+  optionId       String   @map("option_id") @db.Uuid
+  documentTitle  String   @map("document_title")
+  documentNumber String   @map("document_number")
+  documentDate   DateTime @map("document_date") @db.Date
+  /// На этапе 7: внешний ключ на files и NOT NULL.
+  fileId         String?  @map("file_id") @db.Uuid
+  decidedBy      String   @map("decided_by") @db.Uuid
+  decidedAt      DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  record RegisterRecord      @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  field  RegisterField       @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  option RegisterFieldOption @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  author User                @relation(fields: [decidedBy], references: [id], onDelete: Restrict)
+
+  @@index([recordId, fieldId, decidedAt(sort: Desc)])
+  @@map("register_decisions")
+}
+
+/// Импорт Excel: предпросмотр хранится до применения (30 минут). Файл не хранится — только имя и sha256.
+model RegisterImport {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId String    @map("register_id") @db.Uuid
+  /// preview | applied | cancelled | expired
+  status     String    @default("preview")
+  fileName   String    @map("file_name")
+  fileSha256 String    @map("file_sha256")
+  summary    Json
+  /// Нормализованные изменения и версии записей на момент предпросмотра.
+  payload    Json
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  appliedAt  DateTime? @map("applied_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+
+  register Register @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  author   User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([registerId, createdAt])
+  @@map("register_imports")
 }

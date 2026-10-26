@@ -10,7 +10,7 @@ export default tseslint.config(
     // Сквозные тесты выполняются в Node (встроенные fetch и WebSocket), а не в браузере.
     files: ['e2e/**/*.mjs'],
     languageOptions: {
-      globals: { process: 'readonly', fetch: 'readonly', WebSocket: 'readonly', setTimeout: 'readonly', URL: 'readonly' },
+      globals: { process: 'readonly', fetch: 'readonly', WebSocket: 'readonly', setTimeout: 'readonly', URL: 'readonly', Buffer: 'readonly' },
     },
   },
   {

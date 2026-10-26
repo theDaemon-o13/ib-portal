@@ -1,0 +1,117 @@
+// Чистые функции конструктора реестров: без React, покрыты тестами.
+import type { FieldType, RegisterDetail, RegisterField, RegisterRecord } from '../../api/registers';
+
+export const TYPE_NAMES: Record<FieldType, string> = {
+  text: 'Текст',
+  select: 'Список',
+  number: 'Число',
+  date: 'Дата',
+  user: 'Сотрудник',
+  calc: 'Вычисляемое',
+  decision: 'Решение другого отдела',
+};
+
+export const ROLE_NAMES: Record<string, string> = {
+  '': 'Не используется',
+  dimension: 'Группировка (график)',
+  metric: 'Показатель (среднее, максимум)',
+  date: 'Динамика по датам',
+  deadline: 'Контроль сроков',
+};
+
+/** Совместимость роли аналитики с типом — та же, что на сервере. */
+export const ALLOWED_ROLES: Record<FieldType, string[]> = {
+  text: [],
+  select: ['dimension'],
+  decision: ['dimension'],
+  user: ['dimension'],
+  number: ['metric'],
+  date: ['date', 'deadline'],
+  calc: ['deadline', 'date'],
+};
+
+/** Безопасные смены типа: куда можно перевести поле (окончательно решает сервер с предпросмотром). */
+export function typeTargets(type: FieldType): FieldType[] {
+  if (type === 'calc' || type === 'decision') return [];
+  if (type === 'text') return ['number', 'date', 'select', 'user'];
+  return ['text', ...(['number', 'date', 'select', 'user'] as FieldType[]).filter((t) => t !== type)];
+}
+
+export function fieldName(reg: RegisterDetail, id: string | null | undefined): string {
+  return reg.fields.find((f) => f.id === id)?.label ?? '?';
+}
+
+/** «Выявлено» + срок по «Уровень» (Высокий 14 дн., Средний 30 дн.); если задано «Новый срок» — оно. */
+export function describeRule(reg: RegisterDetail, field: RegisterField): string {
+  const r = field.calcRule;
+  if (!r) return '';
+  const by = reg.fields.find((f) => f.id === r.byFieldId);
+  const days = Object.entries(r.days)
+    .map(([o, n]) => `${by?.options.find((x) => x.id === o)?.label ?? '?'} ${n} дн.`)
+    .join(', ');
+  return `«${fieldName(reg, r.fromFieldId)}» + срок по «${fieldName(reg, r.byFieldId)}» (${days})${
+    r.overrideFieldId ? `; если задано «${fieldName(reg, r.overrideFieldId)}» — берётся оно` : ''
+  }`;
+}
+
+export const isWritable = (t: FieldType) => t !== 'calc' && t !== 'decision';
+
+/** Черновик формы: все значения — строки, как в полях ввода. */
+export type Draft = Record<string, string>;
+
+export function draftOf(reg: RegisterDetail, rec: RegisterRecord | null): Draft {
+  const d: Draft = {};
+  for (const f of reg.fields) {
+    if (!isWritable(f.type)) continue;
+    const v = rec?.values[f.id];
+    d[f.id] = v === undefined ? '' : String(v);
+  }
+  return d;
+}
+
+/** Значение из поля ввода → для API: число для числовых полей, null — очистить. */
+export function toApiValue(type: FieldType, s: string): string | number | null {
+  const t = s.trim();
+  if (t === '') return null;
+  if (type === 'number') {
+    const n = Number(t.replace(',', '.'));
+    return Number.isFinite(n) ? n : t;
+  }
+  return t;
+}
+
+/** Только изменённые поля: PATCH не трогает остальное (и не мешает чужим правкам других полей). */
+export function changedValues(reg: RegisterDetail, original: Draft, draft: Draft): Record<string, string | number | null> {
+  const out: Record<string, string | number | null> = {};
+  for (const f of reg.fields) {
+    if (!isWritable(f.type) || f.archived) continue;
+    const before = toApiValue(f.type, original[f.id] ?? '');
+    const after = toApiValue(f.type, draft[f.id] ?? '');
+    if (before !== after) out[f.id] = after;
+  }
+  return out;
+}
+
+/** Отступы слева для первых n закреплённых столбцов по их ширинам. */
+export function pinOffsets(widths: number[], n: number): number[] {
+  const out: number[] = [];
+  let left = 0;
+  for (let i = 0; i < Math.min(n, widths.length); i++) {
+    out.push(left);
+    left += widths[i] ?? 0;
+  }
+  return out;
+}
+
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}.${m}.${y}`;
+}
+
+/** Колонки таблицы записей: неархивные поля по порядку (заголовок — первым). */
+export function visibleColumns(reg: RegisterDetail): RegisterField[] {
+  const live = reg.fields.filter((f) => !f.archived);
+  const title = live.find((f) => f.isTitle);
+  return title ? [title, ...live.filter((f) => f !== title)] : live;
+}

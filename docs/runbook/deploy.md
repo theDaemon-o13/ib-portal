@@ -100,4 +100,6 @@ docker compose -f docker-compose.dev.yml --env-file .env.dev up -d backend front
 
 Сервисы `backend` и `migrate` в dev сами выполняют `prisma generate` при запуске, поэтому после изменения схемы достаточно перезапустить их.
 
+После добавления или обновления npm-зависимостей dev-образы нужно пересобрать, а анонимный том `node_modules` — обновить: `docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build -V backend` (и `frontend`, если менялся он). Флаг `-V` пересоздаёт только анонимные тома с зависимостями, тома данных `ibportal_dev_*` не затрагиваются.
+
 Новая миграция: `... --profile tools run --rm migrate npx prisma migrate dev --create-only --name <что_меняем>`, затем прочитать SQL, добавить строку «Влияние на данные» в начало файла и применить `... run --rm migrate`. Проверка: `... run --rm migrate npm run check:integrity`.

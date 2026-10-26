@@ -5,6 +5,7 @@ export const PERMISSIONS = [
   { code: 'ib.work', name: 'Работа в разделах ИБ', description: 'Дашборд, мониторинг, реестры, задачи, доказательная база' },
   { code: 'records.edit', name: 'Записи реестров: добавление и правка', description: 'Карточка записи, импорт из Excel' },
   { code: 'records.delete', name: 'Записи реестров: удаление', description: '' },
+  { code: 'registers.manage', name: 'Реестры: создание и настройка полей', description: 'Конструктор реестров: реестры, поля, списки, смена типа поля' },
   { code: 'tasks.delete', name: 'Задачи: удаление', description: 'Архивировать задачу может любой сотрудник ИБ' },
   { code: 'evidence.review', name: 'Доказательства: проверка', description: 'Принять или отклонить доказательство' },
   { code: 'docs.manage', name: 'Документы: управление', description: 'Создание, запуск пересмотра, отправка на согласование за автора' },
@@ -35,7 +36,7 @@ export const SYSTEM_ROLES = [
     name: 'Супер-администратор',
     description: 'Полный доступ к настройкам, удаление задач и записей',
     permissions: [
-      'ib.work', 'records.edit', 'records.delete', 'tasks.delete', 'evidence.review',
+      'ib.work', 'records.edit', 'records.delete', 'registers.manage', 'tasks.delete', 'evidence.review',
       'docs.manage', 'settings.manage', 'users.manage',
     ],
   },

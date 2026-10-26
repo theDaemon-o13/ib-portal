@@ -3,6 +3,7 @@ import { HomeRedirect, ProtectedShell, RequireUser, Section } from './components
 import { NAV } from './nav';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { LoginPage } from './pages/login/LoginPage';
+import { RegistersPage } from './pages/registers/RegistersPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { StubPage } from './pages/stub/StubPage';
 
@@ -16,6 +17,8 @@ export function App() {
         {NAV.map((item) =>
           item.path === '/settings' ? (
             <Route key={item.path} path="/settings/:tab?" element={<Section item={item}><SettingsPage /></Section>} />
+          ) : item.path === '/registers' ? (
+            <Route key={item.path} path="/registers/:registerId?/:tab?" element={<Section item={item}><RegistersPage /></Section>} />
           ) : (
             <Route key={item.path} path={item.path} element={<Section item={item}><StubPage item={item} /></Section>} />
           ),
