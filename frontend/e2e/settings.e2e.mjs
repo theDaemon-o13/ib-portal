@@ -63,7 +63,43 @@ before(async () => {
   assert.notEqual(await ui.evaluate('location.pathname'), '/change-password', 'у пользователя e2e не должно быть обязательной смены пароля');
 });
 
-after(() => {
+/**
+ * Уборка после прогона: всё, что создано с пометкой этого прогона, архивируется (или отключается),
+ * даже если тест упал на середине. Удаление — только там, где архива нет (запись календаря, пустая роль).
+ */
+async function cleanup() {
+  const mark = `E2E-${RUN}`;
+  await ui.evaluate(`(async () => {
+    const mark = ${JSON.stringify(mark)};
+    const j = (r) => r.json();
+    const post = (url, body, method = 'POST') => fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const cats = (await j(await fetch('/api/v1/catalogs'))).items;
+    for (const c of cats) {
+      for (const i of (await j(await fetch('/api/v1/catalogs/' + c.code + '/items?includeArchived=true'))).items) {
+        if (!i.value.includes(mark)) continue;
+        if (c.kind === 'statuses') await post('/api/v1/catalog-items/' + i.id, { version: i.version, value: i.value.replace(' ' + mark, '') }, 'PATCH');
+        else if (!i.archived && !i.isSystem) await post('/api/v1/catalog-items/' + i.id + '/archive', { version: i.version });
+      }
+    }
+    for (const t of (await j(await fetch('/api/v1/form-templates?includeArchived=true'))).items) {
+      if (t.name.includes(mark) && !t.archived) await post('/api/v1/form-templates/' + t.id + '/archive', { version: t.version });
+    }
+    for (const y of [new Date().getFullYear(), new Date().getFullYear() + 1]) {
+      for (const d of (await j(await fetch('/api/v1/calendar/days?year=' + y))).items) {
+        if (d.title.includes(mark)) await post('/api/v1/calendar/days/' + d.id + '/delete', { version: d.version });
+      }
+    }
+    for (const r of (await j(await fetch('/api/v1/roles'))).items) {
+      if (r.name.includes(mark) && r.userCount === 0) await post('/api/v1/roles/' + r.id + '/delete', { version: r.version });
+    }
+    for (const u of (await j(await fetch('/api/v1/users?limit=200'))).items) {
+      if (u.login.includes(${JSON.stringify(RUN)}) && u.isActive) await post('/api/v1/users/' + u.id + '/disable', { version: u.version });
+    }
+  })()`).catch(() => undefined);
+}
+
+after(async () => {
+  if (ui) await cleanup();
   if (ui) {
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
     ui.close();

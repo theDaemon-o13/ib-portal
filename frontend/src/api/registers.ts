@@ -22,6 +22,7 @@ export type ImportResult = Res<'/api/v1/register-imports/{id}/apply', 'post'>;
 export type NewField = Body<'/api/v1/registers/{id}/fields', 'post'>;
 export type FieldPatch = Body<'/api/v1/register-fields/{id}', 'patch'>;
 export type RecordValues = Body<'/api/v1/registers/{id}/records', 'post'>['values'];
+export type Widget = Res<'/api/v1/registers/{id}/analytics', 'get'>['items'][number];
 
 export const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -60,6 +61,7 @@ export const registersApi = {
   list: (includeArchived: boolean) =>
     request<Res<'/api/v1/registers', 'get'>>('GET', `/api/v1/registers${includeArchived ? '?includeArchived=true' : ''}`),
   get: (id: string) => request<RegisterDetail>('GET', `/api/v1/registers/${id}`),
+  analytics: (id: string) => request<Res<'/api/v1/registers/{id}/analytics', 'get'>>('GET', `/api/v1/registers/${id}/analytics`),
   create: (body: Body<'/api/v1/registers', 'post'>) => request<RegisterDetail>('POST', '/api/v1/registers', body),
   update: (id: string, body: Body<'/api/v1/registers/{id}', 'patch'>) => request<RegisterDetail>('PATCH', `/api/v1/registers/${id}`, body),
   archive: (id: string, version: number) => request<RegisterDetail>('POST', `/api/v1/registers/${id}/archive`, { version }),

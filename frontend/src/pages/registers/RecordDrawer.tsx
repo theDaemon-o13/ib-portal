@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Overlay } from '../../components/Overlay';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../../api/client';
 import { registersApi, type RegisterDetail, type RegisterField, type RegisterRecord } from '../../api/registers';
@@ -187,7 +188,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const title = isNew ? 'Новая запись' : (record?.display[titleField?.id ?? ''] || 'Без названия');
 
   return (
-    <>
+    <Overlay>
       <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
       <aside className="drawer wide" role="dialog" aria-modal="true" aria-label="Запись реестра">
         <div className="dr-h">
@@ -258,6 +259,6 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
           )}
         </div>
       </aside>
-    </>
+    </Overlay>
   );
 }

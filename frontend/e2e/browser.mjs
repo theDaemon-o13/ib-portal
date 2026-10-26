@@ -152,6 +152,24 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await sleep(150);
     },
 
+    /** Размер окна (CSS-пиксели). */
+    async viewport(width, height) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+      await sleep(200);
+    },
+
+    /** Снимок видимой части страницы в PNG. */
+    async screenshot() {
+      const { data } = await send('Page.captureScreenshot', { format: 'png' });
+      return Buffer.from(data, 'base64');
+    },
+
+    /** Открыть произвольный адрес (например, file:// прототипа). */
+    async open(url) {
+      await send('Page.navigate', { url });
+      await sleep(800);
+    },
+
     text: (expr) => evaluate(`(() => { const el = ${expr}; return el ? el.textContent.trim() : null; })()`),
     toast: () => evaluate(`document.querySelector('.toast.on')?.textContent ?? null`),
 

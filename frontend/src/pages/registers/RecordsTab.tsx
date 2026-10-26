@@ -14,12 +14,18 @@ interface Col {
 }
 
 const pinKey = (id: string) => `ibportal.registers.pin.${id}`;
+/** По умолчанию закреплены 2 столбца, как в прототипе. */
+export const DEFAULT_PIN = 2;
+export function parsePin(raw: string | null): number {
+  if (raw === null || raw.trim() === '') return DEFAULT_PIN;
+  const v = Number(raw);
+  return Number.isInteger(v) && v >= 0 && v <= 4 ? v : DEFAULT_PIN;
+}
 function loadPin(id: string): number {
   try {
-    const v = Number(window.localStorage.getItem(pinKey(id)));
-    return Number.isInteger(v) && v >= 0 && v <= 4 ? v : 1;
+    return parsePin(window.localStorage.getItem(pinKey(id)));
   } catch {
-    return 1;
+    return DEFAULT_PIN;
   }
 }
 function savePin(id: string, n: number) {

@@ -46,3 +46,27 @@ describe('логика реестров', () => {
     expect(pinOffsets([200], 0)).toEqual([]);
   });
 });
+
+describe('закрепление столбцов', () => {
+  it('по умолчанию 2, как в прототипе; сохранённое значение 0–4 уважается', async () => {
+    const { parsePin, DEFAULT_PIN } = await import('./RecordsTab');
+    expect(DEFAULT_PIN).toBe(2);
+    expect(parsePin(null)).toBe(2);
+    expect(parsePin('')).toBe(2);
+    expect(parsePin('0')).toBe(0);
+    expect(parsePin('4')).toBe(4);
+    expect(parsePin('7')).toBe(2);
+  });
+});
+
+describe('адрес конструктора', () => {
+  it('#реестр/вкладка; неизвестная и неактивная вкладка — «Записи»', async () => {
+    const { parseRegHash } = await import('./RegistersPage');
+    const id = '6872a7a5-8ef5-4cf6-b96e-d4adb7482343';
+    expect(parseRegHash(`#${id}/fields`)).toEqual({ id, tab: 'fields' });
+    expect(parseRegHash(`#${id}`)).toEqual({ id, tab: 'records' });
+    expect(parseRegHash(`#${id}/automation`)).toEqual({ id, tab: 'records' });
+    expect(parseRegHash('#abc/fields')).toEqual({ id: null, tab: 'fields' });
+    expect(parseRegHash('')).toEqual({ id: null, tab: 'records' });
+  });
+});

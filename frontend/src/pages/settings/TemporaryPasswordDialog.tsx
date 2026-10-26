@@ -1,3 +1,4 @@
+import { Overlay } from '../../components/Overlay';
 import { useEffect, useRef, useState } from 'react';
 import type { WithTemporaryPassword } from '../../api/settings';
 
@@ -36,6 +37,7 @@ export function TemporaryPasswordDialog({
   };
 
   return (
+    <Overlay>
     <div className="backdrop" role="presentation">
       <div className="modal panel" role="dialog" aria-modal="true" aria-labelledby="tp-title">
         <h2 id="tp-title">{title}</h2>
@@ -58,5 +60,6 @@ export function TemporaryPasswordDialog({
         </div>
       </div>
     </div>
+    </Overlay>
   );
 }

@@ -7,6 +7,7 @@ import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
+import { registerAnalytics } from './analytics.service.js';
 import * as excel from './excel.service.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
@@ -133,6 +134,24 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
     preHandler: view,
     schema: { tags: ['registers'], summary: 'Реестр с полями', params: IdParams, response: { 200: RegisterDetail, ...errors } },
   }, async (request) => asDetail(await loadRegister(db, request.params.id)));
+
+  app.get('/registers/:id/analytics', {
+    preHandler: view,
+    schema: {
+      tags: ['registers'], summary: 'Предпросмотр «Попадёт на дашборд»: виджеты по полям с ролью аналитики', params: IdParams,
+      response: {
+        200: z.object({
+          items: z.array(z.object({
+            fieldId: z.string(), label: z.string(), role: z.string(),
+            kind: z.enum(['distribution', 'metric', 'timeline', 'deadline']),
+            rows: z.array(z.object({ label: z.string(), count: z.number().int() })),
+            empty: z.number().int(), avg: z.number().nullable(), max: z.number().nullable(), filled: z.number().int(),
+          })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => ({ items: await registerAnalytics(db, request.params.id) }));
 
   app.post('/registers', {
     preHandler: manage,

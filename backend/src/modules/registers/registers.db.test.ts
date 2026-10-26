@@ -248,3 +248,26 @@ describe('записи', () => {
       await expectCode(records.listRecords(tx, x.reg.id, { limit: 10, sort: x.f.due }), 'BAD_SORT');
     }));
 });
+
+describe('предпросмотр «Попадёт на дашборд»', () => {
+  it('распределение по значениям, показатель, сроки; архивные записи не считаются', async () => {
+    const { registerAnalytics } = await import('./analytics.service.js');
+    await inTx(async (tx) => {
+      const x = await makeRegister(tx);
+      const score = (await x.reload()).fields.find((f) => f.id === x.f.score);
+      await structure.updateField(tx, x.actor, x.f.score, { version: score?.version ?? 0, analyticsRole: 'metric' });
+      for (const [lvl, s] of [['Высокий', 9], ['Высокий', 7], ['Средний', 2]] as const) {
+        await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: `${lvl}${s}`, [x.f.level]: x.opt('level', lvl), [x.f.score]: s } });
+      }
+      const extra = await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: 'Без уровня', [x.f.score]: 100 } });
+      await records.setRecordArchived(tx, x.actor, extra.id, extra.version, true);
+      await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: 'Пусто' } });
+      const w = await registerAnalytics(tx, x.reg.id);
+      const level = w.find((i) => i.fieldId === x.f.level);
+      expect(level).toMatchObject({ kind: 'distribution', empty: 1, rows: [{ label: 'Высокий', count: 2 }, { label: 'Средний', count: 1 }, { label: 'Низкий', count: 0 }] });
+      expect(w.find((i) => i.fieldId === x.f.score)).toMatchObject({ kind: 'metric', avg: 6, max: 9, filled: 3 });
+      expect(w.find((i) => i.fieldId === x.f.due)).toMatchObject({ kind: 'deadline' });
+      expect(w.find((i) => i.fieldId === x.f.status)?.rows[0]).toEqual({ label: 'Новый', count: 4 });
+    });
+  });
+});

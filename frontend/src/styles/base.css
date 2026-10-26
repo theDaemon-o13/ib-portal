@@ -1,4 +1,7 @@
 /* Базовые стили оболочки по прототипу: стекло, сайдбар, кнопки, поля. */
+/* Светлая тема явно: иначе флажки и списки браузер рисует по схеме ОС (чёрные квадраты).
+   В чёрной теме tokens.css задаёт color-scheme: dark с более высокой специфичностью. */
+:root{color-scheme:light}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 #root{min-height:100%}
@@ -218,8 +221,75 @@ select.inp{appearance:auto}
 }
 
 /* ---------- конструктор реестров (по прототипу) ---------- */
-.reg-split{grid-template-columns:248px minmax(0,1fr)}
-.reg-split.rec-mode{grid-template-columns:minmax(0,1fr)}
+/* Вкладка «Поля»: таблица | «Попадёт на дашборд» (колонка списка реестров заменена выбором в шапке). */
+.reg-split{grid-template-columns:minmax(0,1fr) 296px}
+.panel > .tabs{margin:12px 14px 2px}
+
+/* Шапка конструктора: одна строка фиксированной высоты. Колонки фиксированы, длинные имя реестра
+   и владелец сжимаются с многоточием — переключатель вкладок не сдвигается между вкладками. */
+.reg-bar{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr) auto auto;align-items:center;gap:14px;
+  height:60px;padding:0 12px 0 10px;margin-bottom:12px;position:relative;z-index:6}
+.reg-bar .tabs.reg-tabs{margin:0}
+.reg-bar .tabs [aria-disabled="true"]{opacity:.45;cursor:default}
+.reg-owner{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.picker,.menu{position:relative;min-width:0}
+.picker-btn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:var(--fill);border-radius:11px;padding:8px 12px;color:var(--fg);text-align:left}
+.picker-btn:hover{background:var(--fill-2)}
+.picker-btn .reg-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.picker-btn .chev{color:var(--muted);font-size:12px}
+/* Непрозрачный фон: внутри стеклянной шапки вложенное размытие не захватывает таблицу под ней. */
+.picker-pop,.menu-pop{position:absolute;top:calc(100% + 6px);z-index:20;background:var(--solid);border:1px solid var(--line-2);
+  box-shadow:var(--shadow-lg);border-radius:18px}
+.picker-pop{left:0;width:min(380px,calc(100vw - 32px));padding:10px;display:grid;gap:8px}
+.picker-pop .inp{width:100%}
+.picker-list{max-height:320px;overflow:auto;padding:0}
+.picker-new{border-top:1px solid var(--line);padding-top:8px}
+.picker-new .inp{flex:1}
+.menu-pop{right:0;min-width:200px;padding:6px;display:grid}
+.menu-pop button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:9px;color:var(--fg);font-size:13px}
+.menu-pop button:hover{background:var(--hover)}
+.menu-btn{font-size:18px;line-height:1;padding:4px 10px}
+
+/* Таблица полей: строка — одна линия; ширины как в прототипе, «Тип» узкая. */
+.fields-tbl{table-layout:fixed}
+.fields-tbl col.c-label{width:24%}
+.fields-tbl col.c-type{width:88px}
+.fields-tbl col.c-role{width:168px}
+.fields-tbl col.c-order{width:60px}
+.fields-tbl td,.fields-tbl th{vertical-align:middle;padding:10px 8px}
+.fields-tbl td:first-child,.fields-tbl th:first-child{padding-left:14px}
+.fields-tbl th{white-space:normal}
+.fields-tbl td.values-cell{white-space:normal;font-size:12px;line-height:1.35}
+.fields-tbl .cv{flex-wrap:wrap}
+.fields-tbl .role-select{width:100%;min-width:0}
+.fields-tbl tr.field-row{cursor:pointer;transition:background .15s}
+.fields-tbl tr.field-row:hover td{background:var(--hover)}
+.fields-tbl tr.field-row:focus{outline:none}
+.fields-tbl tr.field-row:focus td{background:var(--accent-soft)}
+.order-btns{justify-content:flex-end;gap:0}
+.order-btns .btn{padding-inline:5px}
+.add-field{grid-template-columns:1.4fr 1fr 1.4fr 1.2fr auto}
+
+/* Панель «Настройки поля» */
+.fd-section{display:grid;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.fd-section:last-child{border-bottom:0}
+.fd-label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+.fd-label .inp{width:100%}
+.type-change{padding:10px 12px;border-radius:var(--r-md);background:var(--fill-2)}
+
+/* «Попадёт на дашборд» */
+.preview-col{align-self:start}
+.prev{display:grid;gap:10px}
+.prev-card{border:0;border-radius:var(--r-md);padding:12px 14px;display:grid;gap:8px;background:var(--fill-2)}
+.prev-card .ttl{font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.role-ic{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.bars{display:grid;gap:9px}
+.bar-row{display:grid;grid-template-columns:minmax(0,1fr) 86px 30px;gap:10px;align-items:center;font-size:12.5px}
+.bar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{height:6px;border-radius:99px;background:var(--fill);overflow:hidden}
+.bar-fill{display:block;height:100%;border-radius:99px;background:var(--accent);min-width:2px}
+.bar-n{text-align:right}
+.big-n{font-size:24px}
 .reg-title{margin:0;font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:-.015em}
 .reg-switch{width:auto;max-width:280px}
 .pad{padding:8px 12px}
@@ -231,7 +301,6 @@ select.inp{appearance:auto}
 .fields-tbl td.wrap{white-space:normal;max-width:360px}
 .sub-row > td{background:var(--fill-2);padding:8px 12px 12px}
 .options-editor .cat-tbl td{padding:6px 10px}
-.add-field{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .add-field .span-all{grid-column:1/-1}
 .calc-editor{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end}
 .calc-editor label,.calc-days label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
@@ -286,8 +355,18 @@ table.recs tr.archived td{color:var(--faint)}
 .warn-list,.err-list{margin:0;padding-left:18px;font-size:12.5px;color:var(--high)}
 .err-list{color:var(--crit)}
 
+@media (max-width:1180px){
+  .reg-split{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:860px){
+  .reg-bar{grid-template-columns:minmax(0,1fr) auto;height:auto;padding:10px;row-gap:8px}
+  .reg-bar .reg-owner{display:none}
+  .reg-bar .reg-tabs{grid-column:1/-1;grid-row:2}
+}
 @media (max-width:860px){
   .reg-split{grid-template-columns:1fr}
+  .fields-tbl{table-layout:auto}
+  .add-field{grid-template-columns:1fr}
   .recform{grid-template-columns:1fr}
   .imp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }

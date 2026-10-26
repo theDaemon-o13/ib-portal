@@ -5,5 +5,6 @@ export const rkeys = {
   records: (id: string) => ['registers', 'records', id] as const,
   record: (id: string) => ['registers', 'record', id] as const,
   history: (id: string) => ['registers', 'history', id] as const,
+  analytics: (id: string) => ['registers', 'analytics', id] as const,
   userOptions: ['settings', 'userOptions'] as const,
 };

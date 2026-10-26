@@ -1,3 +1,4 @@
+import { Overlay } from '../../components/Overlay';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { registersApi, type ImportPreview, type RegisterDetail } from '../../api/registers';
@@ -36,6 +37,7 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
   });
 
   return (
+    <Overlay>
     <div className="backdrop" role="presentation">
       <div className="modal panel wide-modal" role="dialog" aria-modal="true" aria-labelledby="imp-title">
         <h2 id="imp-title">Импорт в «{reg.name}»</h2>
@@ -76,5 +78,6 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
         </div>
       </div>
     </div>
+    </Overlay>
   );
 }
