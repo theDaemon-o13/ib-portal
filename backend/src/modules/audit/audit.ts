@@ -1,4 +1,5 @@
-import type { PrismaClient, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import type { Db } from '../../lib/db.js';
 
 export interface AuditEntry {
   userId: string | null;
@@ -14,7 +15,7 @@ export interface AuditWriter {
   write(entry: AuditEntry): Promise<void>;
 }
 
-export function prismaAuditWriter(prisma: PrismaClient): AuditWriter {
+export function prismaAuditWriter(prisma: Db): AuditWriter {
   return {
     async write(entry) {
       await prisma.auditLog.create({

@@ -3,6 +3,7 @@ import { isLocked, registerFailure, registerSuccess } from '../../lib/lockout.js
 import {
   PASSWORD_HISTORY_DEPTH,
   checkPasswordStrength,
+  isPasswordExpired,
   isRecentlyUsed,
   violationMessage,
 } from '../../lib/password-policy.js';
@@ -51,12 +52,16 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date() 
   const getDummyHash = () => (dummyHash ??= hasher.hash('dummy-password-for-timing'));
 
   async function toAuthUser(user: UserRecord): Promise<AuthUser> {
+    const access = await repo.getAccess(user.id);
+    const passwordExpired = isPasswordExpired(user.passwordChangedAt, now());
     return {
       id: user.id,
       login: user.login,
       fullName: user.fullName,
-      mustChangePassword: user.mustChangePassword,
-      permissions: new Set(await repo.getPermissions(user.id)),
+      mustChangePassword: user.mustChangePassword || passwordExpired,
+      passwordExpired,
+      permissions: new Set(access.permissions),
+      roleNames: access.roleNames,
     };
   }
 
@@ -196,7 +201,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date() 
     await audit.write({ userId: user.id, action: 'auth.password_changed', entity: 'user', entityId: user.id, ip: client.ip });
 
     const updated = await repo.findUserById(user.id);
-    return toAuthUser(updated ?? { ...user, mustChangePassword: false });
+    return toAuthUser(updated ?? { ...user, mustChangePassword: false, passwordChangedAt: at });
   }
 
   return { login, resolveSession, logout, changePassword };

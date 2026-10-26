@@ -26,7 +26,9 @@ services:
     ports: ["127.0.0.1:5433:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks: [back]
+    # Docker не публикует порты контейнера, у которого только internal-сети:
+    # dbhost нужна лишь для 127.0.0.1:5433 (psql, DBeaver, npm run test:db с хоста). Только в dev.
+    networks: [back, dbhost]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ibportal_dev"]
       interval: 5s
@@ -34,6 +36,8 @@ services:
 
   backend:
     <<: *backend-dev
+    restart: unless-stopped
+    command: ["sh", "-c", "npx prisma generate >/dev/null && npm run dev"]
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${DB_APP_USER}:${DB_APP_PASSWORD}@db:5432/ibportal_dev
@@ -52,6 +56,8 @@ services:
   frontend:
     build: { context: ../frontend, target: dev }
     image: ibportal-frontend:dev
+    # Vite падает, если файл подменяют во время чтения (например, sed -i); пусть поднимается сам.
+    restart: unless-stopped
     environment:
       VITE_HOST: 0.0.0.0
       VITE_BACKEND_URL: http://backend:3000
@@ -69,7 +75,8 @@ services:
   migrate:
     <<: *backend-dev
     profiles: [tools]
-    command: ["sh", "-c", "npx prisma migrate deploy && npm run seed"]
+    # prisma generate: клиент в образе собран по схеме на момент сборки, а схема монтируется с хоста.
+    command: ["sh", "-c", "npx prisma generate >/dev/null && npx prisma migrate deploy && npm run seed"]
     environment:
       DATABASE_URL: postgresql://${DB_OWNER_USER}:${DB_OWNER_PASSWORD}@db:5432/ibportal_dev
     depends_on:
@@ -83,3 +90,4 @@ volumes:
 networks:
   front: {}
   back: { internal: true }
+  dbhost: {}

@@ -29,6 +29,11 @@ async function main() {
     'триггеры запрета правки audit_log на месте',
   );
 
+  const migrationsAccess = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public._prisma_migrations', p)) AS granted
+    FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE']) AS p`;
+  check(migrationsAccess[0]?.granted === false, 'ibportal_app: нет доступа к _prisma_migrations');
+
   const appCanCreate = await prisma.$queryRaw<{ ok: boolean }[]>`
     SELECT has_schema_privilege('ibportal_app', 'public', 'CREATE') AS ok`;
   check(appCanCreate[0]?.ok === false, 'ibportal_app не может создавать объекты в схеме public');

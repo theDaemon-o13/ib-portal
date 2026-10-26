@@ -16,17 +16,22 @@ model User {
   id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   login              String    @unique
   fullName           String    @map("full_name")
+  position           String    @default("")
+  department         String    @default("")
   passwordHash       String    @map("password_hash")
   mustChangePassword Boolean   @default(true) @map("must_change_password")
-  passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  /// От этой даты считается срок действия пароля (90 дней).
+  passwordChangedAt  DateTime  @default(now()) @map("password_changed_at") @db.Timestamptz(3)
   failedLoginCount   Int       @default(0) @map("failed_login_count")
   lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(3)
   lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(3)
   isActive           Boolean   @default(true) @map("is_active")
+  version            Int       @default(1)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   passwordHistory PasswordHistory[]
+  mailRules       CatalogItem[]
   roles           UserRole[]        @relation("UserRoles")
   assignedRoles   UserRole[]        @relation("UserRolesAssignedBy")
   sessions        Session[]
@@ -64,6 +69,7 @@ model Role {
   name        String   @unique
   description String   @default("")
   isSystem    Boolean  @default(false) @map("is_system")
+  version     Int      @default(1)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -131,4 +137,120 @@ model AuditLog {
   @@index([at])
   @@index([entity, entityId])
   @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// Настройки (этап 2). Частичные уникальные индексы и CHECK — в SQL миграции.
+// ---------------------------------------------------------------------------
+
+/// Набор справочников фиксирован, создаётся seed.
+model Catalog {
+  code        String  @id
+  name        String
+  description String  @default("")
+  /// values | statuses | mail_rules
+  kind        String
+  hasColor    Boolean @default(false) @map("has_color")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  items CatalogItem[]
+
+  @@map("catalogs")
+}
+
+model CatalogItem {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  catalogCode String    @map("catalog_code")
+  value       String
+  /// Ключ тона из tokens.css: accent, info, low, high, med, crit, muted
+  color       String?
+  /// Есть только у системных значений, на них опирается логика.
+  systemKey   String?   @map("system_key")
+  isSystem    Boolean   @default(false) @map("is_system")
+  /// Только для правил разбора почты.
+  keywords    String[]  @default([])
+  ownerUserId String?   @map("owner_user_id") @db.Uuid
+  sortOrder   Int       @default(0) @map("sort_order")
+  version     Int       @default(1)
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  catalog Catalog @relation(fields: [catalogCode], references: [code], onDelete: Restrict)
+  owner   User?   @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+
+  @@unique([catalogCode, systemKey])
+  @@index([catalogCode, sortOrder])
+  @@map("catalog_items")
+}
+
+/// Производственный календарь РТ: отклонения от обычной недели.
+model WorkCalendarDay {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  day       DateTime  @db.Date
+  /// holiday — нерабочий день; workday — рабочий день (перенос на выходной)
+  kind      String
+  title     String
+  version   Int       @default(1)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([day])
+  @@map("work_calendar_days")
+}
+
+/// Настройки портала: ключ → значение (например, выходные дни недели).
+model AppSetting {
+  key       String   @id
+  value     Json
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("app_settings")
+}
+
+/// Отметки однократного seed: стартовые значения создаются только при первой установке.
+model SeedMarker {
+  key       String   @id
+  appliedAt DateTime @default(now()) @map("applied_at") @db.Timestamptz(3)
+
+  @@map("seed_markers")
+}
+
+model FormTemplate {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  /// Документ-основание текстом; ссылка на documents появится на этапе 6.
+  basis       String    @default("")
+  validMonths Int       @map("valid_months")
+  version     Int       @default(1)
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  fields FormTemplateField[]
+
+  @@map("form_templates")
+}
+
+model FormTemplateField {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId String    @map("template_id") @db.Uuid
+  label      String
+  /// min | max | yes | text
+  checkKind  String    @map("check_kind")
+  threshold  Decimal?  @db.Decimal(14, 2)
+  sortOrder  Int       @default(0) @map("sort_order")
+  version    Int       @default(1)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  template FormTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([templateId, sortOrder])
+  @@map("form_template_fields")
 }

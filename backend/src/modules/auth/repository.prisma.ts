@@ -1,5 +1,5 @@
-import type { PrismaClient } from '@prisma/client';
-import { collectPermissions, type PermissionCode } from '../../lib/permissions.js';
+import { withTx, type Db } from '../../lib/db.js';
+import { collectPermissions } from '../../lib/permissions.js';
 import type { AuthRepository, UserRecord } from './repository.js';
 
 const userSelect = {
@@ -8,12 +8,13 @@ const userSelect = {
   fullName: true,
   passwordHash: true,
   mustChangePassword: true,
+  passwordChangedAt: true,
   failedLoginCount: true,
   lockedUntil: true,
   isActive: true,
 } as const;
 
-export function prismaAuthRepository(prisma: PrismaClient): AuthRepository {
+export function prismaAuthRepository(prisma: Db): AuthRepository {
   return {
     findUserByLogin: (login): Promise<UserRecord | null> =>
       prisma.user.findUnique({ where: { login }, select: userSelect }),
@@ -21,14 +22,16 @@ export function prismaAuthRepository(prisma: PrismaClient): AuthRepository {
     findUserById: (id): Promise<UserRecord | null> =>
       prisma.user.findUnique({ where: { id }, select: userSelect }),
 
-    async getPermissions(userId): Promise<PermissionCode[]> {
+    async getAccess(userId) {
       const links = await prisma.userRole.findMany({
         where: { userId },
-        select: { role: { select: { permissions: { select: { permissionCode: true } } } } },
+        select: { role: { select: { name: true, permissions: { select: { permissionCode: true } } } } },
+        orderBy: { role: { name: 'asc' } },
       });
-      return collectPermissions(
-        links.map((l) => ({ permissions: l.role.permissions.map((p) => p.permissionCode) })),
-      );
+      return {
+        permissions: collectPermissions(links.map((l) => ({ permissions: l.role.permissions.map((p) => p.permissionCode) }))),
+        roleNames: links.map((l) => l.role.name),
+      };
     },
 
     async saveLockout(userId, state) {
@@ -88,13 +91,13 @@ export function prismaAuthRepository(prisma: PrismaClient): AuthRepository {
     },
 
     async changePassword(userId, newHash, previousHash, at) {
-      await prisma.$transaction([
-        prisma.passwordHistory.create({ data: { userId, passwordHash: previousHash, createdAt: at } }),
-        prisma.user.update({
+      await withTx(prisma, async (tx) => {
+        await tx.passwordHistory.create({ data: { userId, passwordHash: previousHash, createdAt: at } });
+        await tx.user.update({
           where: { id: userId },
-          data: { passwordHash: newHash, mustChangePassword: false, passwordChangedAt: at },
-        }),
-      ]);
+          data: { passwordHash: newHash, mustChangePassword: false, passwordChangedAt: at, version: { increment: 1 } },
+        });
+      });
     },
 
     async ping() {

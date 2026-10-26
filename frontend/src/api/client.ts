@@ -2,7 +2,7 @@
 // который вручную не правится: npm run gen:api.
 import type { paths } from './generated/schema';
 
-type JsonOf<T> = T extends { content: { 'application/json': infer B } } ? B : never;
+export type JsonOf<T> = T extends { content: { 'application/json': infer B } } ? B : never;
 
 export type MeResponse = JsonOf<paths['/api/v1/auth/me']['get']['responses'][200]>;
 export type Me = MeResponse['user'];
@@ -20,7 +20,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: 'GET' | 'POST', url: string, body?: unknown): Promise<T> {
+export async function request<T>(method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, {
@@ -44,6 +44,6 @@ async function request<T>(method: 'GET' | 'POST', url: string, body?: unknown): 
 export const authApi = {
   me: () => request<MeResponse>('GET', '/api/v1/auth/me'),
   login: (body: LoginBody) => request<MeResponse>('POST', '/api/v1/auth/login', body),
-  logout: () => request<void>('POST', '/api/v1/auth/logout'),
+  logout: () => request<undefined>('POST', '/api/v1/auth/logout'),
   changePassword: (body: ChangePasswordBody) => request<MeResponse>('POST', '/api/v1/auth/change-password', body),
 };

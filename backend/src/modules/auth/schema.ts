@@ -18,6 +18,8 @@ export const Me = z.object({
   login: z.string(),
   fullName: z.string(),
   mustChangePassword: z.boolean(),
+  passwordExpired: z.boolean(),
+  roles: z.array(z.string()),
   permissions: z.array(z.enum(PERMISSION_CODES as [PermissionCode, ...PermissionCode[]])),
 });
 
@@ -29,6 +31,8 @@ export function toMe(user: AuthUser): z.infer<typeof Me> {
     login: user.login,
     fullName: user.fullName,
     mustChangePassword: user.mustChangePassword,
+    passwordExpired: user.passwordExpired,
+    roles: [...user.roleNames],
     permissions: [...user.permissions],
   };
 }

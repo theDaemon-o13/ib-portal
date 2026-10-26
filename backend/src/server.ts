@@ -9,6 +9,7 @@ const config = loadConfig();
 const prisma = createPrisma(config.DATABASE_URL);
 
 const app = await buildApp({
+  db: prisma,
   repo: prismaAuthRepository(prisma),
   audit: prismaAuditWriter(prisma),
   hasher: argon2Hasher,

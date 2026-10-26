@@ -45,18 +45,23 @@ helper "du -sh '$DIR' | cut -f1" | sed "s/^/  размер: /"
 echo "Копия создана: $NAME"
 
 if [ "$ROTATE" = 1 ]; then
-  info "ротация: 14 последних + по одной за 6 последних месяцев"
-  mapfile -t ALL < <(helper "ls -1 /backups" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}_' | sort)
-  declare -A KEEP=()
-  for n in "${ALL[@]: -14}"; do KEEP["$n"]=1; done
-  declare -A MONTH_LAST=()
-  for n in "${ALL[@]}"; do MONTH_LAST["${n:0:7}"]="$n"; done
-  mapfile -t MONTHS < <(printf '%s\n' "${!MONTH_LAST[@]}" | sort | tail -n 6)
-  for m in "${MONTHS[@]}"; do KEEP["${MONTH_LAST[$m]}"]=1; done
-  for n in "${ALL[@]}"; do
-    if [ -z "${KEEP[$n]:-}" ]; then
+  info "ротация: 14 последних + по одной (последней) за каждый из 6 последних месяцев"
+  # Только каталоги с именем копии <дата>_<время>_<версия>; прочее в томе не трогается.
+  ALL="$(helper "ls -1 /backups" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}_' | sort || true)"
+  [ -n "$ALL" ] || die "после создания копии список копий пуст — ротация остановлена"
+  KEEP="$(
+    {
+      printf '%s\n' "$ALL" | tail -n 14
+      printf '%s\n' "$ALL" \
+        | awk '{ last[substr($0, 1, 7)] = $0 } END { for (m in last) print m, last[m] }' \
+        | sort | tail -n 6 | cut -d' ' -f2
+    } | sort -u
+  )"
+  printf '%s\n' "$ALL" | while read -r n; do
+    if ! printf '%s\n' "$KEEP" | grep -qxF "$n"; then
       echo "  удаляю старую копию $n"
       helper "rm -rf '/backups/$n'"
     fi
   done
+  echo "  осталось копий: $(printf '%s\n' "$KEEP" | wc -l | tr -d ' ')"
 fi

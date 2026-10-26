@@ -7,9 +7,9 @@ import { installRouteAccessCheck, requireAuth, requirePerm } from './rbac.js';
 import '../types.js';
 
 const users: Record<string, AuthUser> = {
-  staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, permissions: new Set<PermissionCode>(['ib.work']) },
-  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, permissions: new Set<PermissionCode>(['docs.approve.legal']) },
-  fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, permissions: new Set<PermissionCode>(['ib.work']) },
+  staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, passwordExpired: false, roleNames: [], permissions: new Set<PermissionCode>(['ib.work']) },
+  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], permissions: new Set<PermissionCode>(['docs.approve.legal']) },
+  fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, passwordExpired: false, roleNames: [], permissions: new Set<PermissionCode>(['ib.work']) },
 };
 
 async function testApp() {

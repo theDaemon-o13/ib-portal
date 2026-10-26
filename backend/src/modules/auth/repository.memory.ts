@@ -6,6 +6,7 @@ export class MemoryAuthRepository implements AuthRepository {
   readonly users = new Map<string, UserRecord>();
   readonly sessions = new Map<string, SessionRecord>();
   readonly permissions = new Map<string, PermissionCode[]>();
+  readonly roleNames = new Map<string, string[]>();
   readonly history = new Map<string, string[]>();
   healthy = true;
 
@@ -13,6 +14,7 @@ export class MemoryAuthRepository implements AuthRepository {
     this.users.set(user.id, {
       fullName: user.login,
       mustChangePassword: false,
+      passwordChangedAt: new Date(),
       failedLoginCount: 0,
       lockedUntil: null,
       isActive: true,
@@ -27,8 +29,8 @@ export class MemoryAuthRepository implements AuthRepository {
   async findUserById(id: string) {
     return this.users.get(id) ?? null;
   }
-  async getPermissions(userId: string) {
-    return this.permissions.get(userId) ?? [];
+  async getAccess(userId: string) {
+    return { permissions: this.permissions.get(userId) ?? [], roleNames: this.roleNames.get(userId) ?? [] };
   }
   async saveLockout(userId: string, state: { failedLoginCount: number; lockedUntil: Date | null }) {
     const u = this.users.get(userId);
@@ -67,12 +69,13 @@ export class MemoryAuthRepository implements AuthRepository {
   async getPasswordHistory(userId: string, limit: number) {
     return (this.history.get(userId) ?? []).slice(0, limit);
   }
-  async changePassword(userId: string, newHash: string, previousHash: string) {
+  async changePassword(userId: string, newHash: string, previousHash: string, at: Date) {
     const u = this.users.get(userId);
     if (!u) return;
     this.history.set(userId, [previousHash, ...(this.history.get(userId) ?? [])]);
     u.passwordHash = newHash;
     u.mustChangePassword = false;
+    u.passwordChangedAt = at;
   }
   async ping() {
     return this.healthy;

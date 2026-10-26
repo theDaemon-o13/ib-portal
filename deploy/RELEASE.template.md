@@ -114,7 +114,8 @@ docker compose up -d backend frontend
 ```bash
 cd /srv/ibportal/deploy
 ./scripts/restore.sh                       # список копий
-./scripts/restore.sh <имя копии из шага 3> # спросит подтверждение и сам сделает копию текущего состояния
+./scripts/restore.sh <имя копии из шага 3> # спросит подтверждение, сделает копию текущего состояния и в конце проверит целостность
+# если проверка целостности не пройдена — сервисы не поднимать, связаться с разработчиком
 sed -i 's/^VERSION=.*/VERSION={{PREV_VERSION}}/' .env
 docker compose up -d backend frontend
 ./scripts/smoke.sh

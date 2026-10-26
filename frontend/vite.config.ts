@@ -11,7 +11,7 @@ export default defineConfig({
     host: process.env.VITE_HOST ?? '127.0.0.1',
     port: 5173,
     strictPort: true,
-    proxy: { '/api': { target: backend, changeOrigin: false } },
+    proxy: { '/api': { target: backend, changeOrigin: false, xfwd: true } },
   },
   build: {
     outDir: 'dist',

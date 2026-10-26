@@ -47,11 +47,23 @@ info "остановка backend и frontend"
 compose stop backend frontend
 
 info "восстановление базы"
-helper "cat '$DIR/db.dump'" | compose exec -T db sh -c \
-  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --single-transaction --exit-on-error'
+# Одна транзакция. Перед пересозданием таблиц снимаются DEFAULT PRIVILEGES роли приложения,
+# иначе новые таблицы получат полный набор прав и запрет UPDATE/DELETE на audit_log
+# потеряется: в дампе есть только GRANT, а не REVOKE. Точные права таблиц и сами
+# DEFAULT PRIVILEGES возвращаются из дампа (записи ACL и DEFAULT ACL).
+helper "cat '$DIR/db.dump'" | compose exec -T db sh -c '
+  {
+    echo "ALTER DEFAULT PRIVILEGES FOR ROLE \"$POSTGRES_USER\" IN SCHEMA public REVOKE ALL ON TABLES FROM ibportal_app;"
+    echo "ALTER DEFAULT PRIVILEGES FOR ROLE \"$POSTGRES_USER\" IN SCHEMA public REVOKE ALL ON SEQUENCES FROM ibportal_app;"
+    pg_restore --clean --if-exists -f -
+  } | psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --single-transaction -v ON_ERROR_STOP=1 -q -o /dev/null'
 
 info "восстановление файлов"
 HELPER_FILES_MODE="" helper "find /data/files -mindepth 1 -delete && tar -C /data/files -xzf '$DIR/files.tar.gz'"
+
+info "проверка целостности: права ролей, триггеры аудита, права и роли портала"
+compose --profile tools run --rm -T migrate node dist/scripts/check-integrity.js \
+  || die "проверка целостности не пройдена: сервисы не поднимать, обратиться к разработчику"
 
 cat <<MSG
 

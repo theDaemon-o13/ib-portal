@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:db": "vitest run --config vitest.db.config.ts",
     "migrate:dev": "prisma migrate dev",
     "migrate:create": "prisma migrate dev --create-only",
     "seed": "tsx prisma/seed/index.ts",
@@ -26,10 +27,10 @@
     "@fastify/swagger": "9.5.1",
     "@prisma/client": "6.16.2",
     "argon2": "0.44.0",
-    "fastify": "5.6.0",
+    "fastify": "5.12.6",
     "fastify-type-provider-zod": "6.0.0",
     "prisma": "6.16.2",
-    "zod": "4.1.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@eslint/js": "9.35.0",
@@ -39,6 +40,14 @@
     "tsx": "4.20.5",
     "typescript": "5.9.2",
     "typescript-eslint": "8.43.0",
-    "vitest": "3.2.4"
+    "vitest": "3.2.7"
+  },
+  "allowScripts": {
+    "@prisma/client@6.16.2": true,
+    "@prisma/engines@6.16.2": true,
+    "prisma@6.16.2": true,
+    "argon2@0.44.0": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
   }
 }

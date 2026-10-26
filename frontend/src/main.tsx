@@ -6,6 +6,7 @@ import { ApiError } from './api/client';
 import { App } from './App';
 import { ME_KEY } from './auth/useMe';
 import { initTheme } from './components/ThemeSwitch';
+import { ToastProvider } from './components/Toast';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -32,7 +33,9 @@ createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

@@ -45,3 +45,17 @@ describe('парольная политика', () => {
     expect(await isRecentlyUsed('new', hashes, verify)).toBe(false);
   });
 });
+
+describe('срок действия пароля', () => {
+  const changed = new Date('2026-01-01T10:00:00Z');
+  const day = 24 * 60 * 60 * 1000;
+
+  it('90 дней', async () => {
+    const { PASSWORD_MAX_AGE_DAYS, isPasswordExpired, passwordExpiresAt } = await import('./password-policy.js');
+    expect(PASSWORD_MAX_AGE_DAYS).toBe(90);
+    expect(isPasswordExpired(changed, new Date(changed.getTime() + 89 * day))).toBe(false);
+    expect(isPasswordExpired(changed, new Date(changed.getTime() + 90 * day - 1))).toBe(false);
+    expect(isPasswordExpired(changed, new Date(changed.getTime() + 90 * day))).toBe(true);
+    expect(passwordExpiresAt(changed).toISOString()).toBe('2026-04-01T10:00:00.000Z');
+  });
+});

@@ -1,0 +1,50 @@
+// Набор справочников фиксирован (CLAUDE.md, раздел 6). Значения в них настраиваются в интерфейсе.
+import type { Tone } from './tones.js';
+
+export type CatalogKind = 'values' | 'statuses' | 'mail_rules';
+
+export interface CatalogDef {
+  code: string;
+  name: string;
+  description: string;
+  kind: CatalogKind;
+  hasColor: boolean;
+}
+
+export const CATALOGS = [
+  { code: 'task_categories', name: 'Категории задач', description: 'Задачи: доска, фильтры, карточка и быстрая постановка', kind: 'values', hasColor: true },
+  { code: 'task_statuses', name: 'Статусы задач', description: 'Колонки доски задач. Набор статусов фиксирован, названия можно менять', kind: 'statuses', hasColor: false },
+  { code: 'task_priorities', name: 'Приоритеты задач', description: 'Карточка задачи, черновик задачи из письма', kind: 'values', hasColor: false },
+  { code: 'mail_rules', name: 'Правила разбора почты', description: 'Почта → задача: ключевые слова определяют категорию письма и ответственного', kind: 'mail_rules', hasColor: false },
+  { code: 'systems', name: 'Системы', description: 'Реестр рисков ИБ (актив), формы подтверждения в доказательной базе', kind: 'values', hasColor: false },
+  { code: 'document_types', name: 'Типы документов', description: 'Реестр внутренних документов ИБ', kind: 'values', hasColor: false },
+] as const satisfies readonly CatalogDef[];
+
+export type CatalogCode = (typeof CATALOGS)[number]['code'];
+
+export const CATALOG_CODES = CATALOGS.map((c) => c.code) as [CatalogCode, ...CatalogCode[]];
+
+export interface SystemItemDef {
+  catalog: CatalogCode;
+  key: string;
+  value: string;
+  color?: Tone;
+  /** Пояснение, почему значение системное. */
+  why: string;
+}
+
+/** Системные значения: на них опирается логика портала. Не удаляются и не архивируются. */
+export const SYSTEM_ITEMS: readonly SystemItemDef[] = [
+  { catalog: 'task_categories', key: 'mail', value: 'Почта', color: 'info', why: 'задачи из писем создаются с этой категорией' },
+  { catalog: 'task_categories', key: 'register', value: 'Реестр', color: 'crit', why: 'её ставят автоматизации реестров' },
+  { catalog: 'task_statuses', key: 'new', value: 'Новые', why: 'статус участвует в маршруте задачи' },
+  { catalog: 'task_statuses', key: 'work', value: 'В работе', why: 'статус участвует в маршруте задачи' },
+  { catalog: 'task_statuses', key: 'review', value: 'На проверке', why: 'статус участвует в маршруте задачи' },
+  { catalog: 'task_statuses', key: 'done', value: 'Готово', why: 'статус участвует в маршруте задачи' },
+  { catalog: 'task_priorities', key: 'normal', value: 'Обычный', why: 'приоритет по умолчанию' },
+  { catalog: 'task_priorities', key: 'high', value: 'Высокий', why: 'ставится по слову «срочно» в письме' },
+];
+
+export function systemItemWhy(catalog: string, key: string | null): string | null {
+  return SYSTEM_ITEMS.find((s) => s.catalog === catalog && s.key === key)?.why ?? null;
+}

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildApp, type App } from '../../app.js';
+import { createPrisma } from '../../lib/db.js';
 import { LOCK_DURATION_MS } from '../../lib/lockout.js';
 import { SESSION_IDLE_MS } from '../../lib/session-token.js';
 import { FakeClock, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
@@ -20,7 +21,8 @@ beforeEach(async () => {
   hasher = fakeHasher();
   clock = new FakeClock();
   repo.addUser({ id: 'u1', login: 'ivanov', fullName: 'И. Иванов', passwordHash: `hash:${PASSWORD}` }, ['ib.work']);
-  app = await buildApp({ repo, audit, hasher, sessionSecret: TEST_SECRET, now: clock.now });
+  // Маршруты настроек здесь не вызываются: клиент без подключения к базе.
+  app = await buildApp({ db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'), repo, audit, hasher, sessionSecret: TEST_SECRET, now: clock.now });
 });
 
 async function login(loginName: string, password: string) {
@@ -58,12 +60,14 @@ describe('вход и сессия', () => {
   });
 
   it('неизвестный логин — тот же ответ, что и неверный пароль', async () => {
-    const unknown = await login('nobody', PASSWORD);
-    const wrong = await login('ivanov', 'wrong');
+    const typedPassword = 'Typed-Secret-9431';
+    const unknown = await login('nobody', typedPassword);
+    const wrong = await login('ivanov', typedPassword);
     expect(unknown.statusCode).toBe(401);
     expect(unknown.json()).toEqual(wrong.json());
     expect(audit.entries[0]).toMatchObject({ action: 'auth.login_failed', userId: null, diff: { reason: 'unknown_user' } });
-    expect(JSON.stringify(audit.entries)).not.toContain('wrong');
+    // Введённый пароль в журнал аудита не попадает.
+    expect(JSON.stringify(audit.entries)).not.toContain(typedPassword);
   });
 
   it('5 неудачных попыток блокируют вход на 15 минут, пароль при этом не проверяется', async () => {
@@ -173,5 +177,34 @@ describe('health', () => {
     repo.healthy = false;
     const down = await app.inject({ url: '/api/health' });
     expect(down.statusCode).toBe(503);
+  });
+});
+
+describe('срок действия пароля', () => {
+  it('после 90 дней пароль нужно сменить, после смены доступ восстанавливается', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    repo.addUser({
+      id: 'u3', login: 'sidorov', passwordHash: `hash:${PASSWORD}`,
+      passwordChangedAt: new Date(clock.now().getTime() - 90 * day),
+    }, ['ib.work']);
+    const res = await login('sidorov', PASSWORD);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().user).toMatchObject({ mustChangePassword: true, passwordExpired: true });
+
+    const cookie = sessionCookie(res);
+    const changed = await app.inject({
+      method: 'POST', url: '/api/v1/auth/change-password', headers: { cookie },
+      payload: { currentPassword: PASSWORD, newPassword: 'Fresh-Password-2026' },
+    });
+    expect(changed.json().user).toMatchObject({ mustChangePassword: false, passwordExpired: false });
+  });
+
+  it('за день до истечения смена не требуется', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    repo.addUser({
+      id: 'u4', login: 'kuznetsov', passwordHash: `hash:${PASSWORD}`,
+      passwordChangedAt: new Date(clock.now().getTime() - 89 * day),
+    }, ['ib.work']);
+    expect((await login('kuznetsov', PASSWORD)).json().user.passwordExpired).toBe(false);
   });
 });

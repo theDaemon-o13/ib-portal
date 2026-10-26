@@ -31,7 +31,7 @@
 
 ## Сборка релиза (разработчик)
 
-Требования: Docker Desktop с `buildx`, доступ к npm-реестру и Docker Hub (базовые образы `node:24.x-alpine`, `nginxinc/nginx-unprivileged`, `postgres:16.4-alpine`).
+Требования: Docker Desktop с `buildx`, доступ к npm-реестру и Docker Hub (базовые образы закреплены по тегу и digest в Dockerfile: `node:24.22.1-alpine3.24`, `nginxinc/nginx-unprivileged:1.28.2-alpine3.23`, `postgres:16.15-alpine3.24`).
 
 ```bash
 # 1. CHANGELOG.md: раздел «Не выпущено» переименовать в [X.Y.Z] — дата; VERSION = X.Y.Z
@@ -69,7 +69,8 @@ git tag vX.Y.Z
 ## Откат и восстановление
 
 - Совместимые миграции (норма): вернуть прежний `VERSION`, `docker compose up -d backend frontend`.
-- Данные испорчены: `./scripts/restore.sh <копия>`. Скрипт проверяет контрольные суммы, просит ввести имя копии, делает копию текущего состояния, останавливает backend и frontend и заменяет базу (`pg_restore --clean --if-exists --single-transaction`) и файлы. Сервисы после этого поднимает администратор.
+- Данные испорчены: `./scripts/restore.sh <копия>`. Скрипт проверяет контрольные суммы, просит ввести имя копии, делает копию текущего состояния, останавливает backend и frontend и заменяет базу одной транзакцией и файлы. В конце запускается `check-integrity`. Сервисы после этого поднимает администратор, и только если проверка пройдена.
+- Почему восстановление не обычный `pg_restore --clean`: таблицы при пересоздании получили бы полный набор прав из `ALTER DEFAULT PRIVILEGES`, и запрет `UPDATE`/`DELETE` на `audit_log` потерялся бы (в дампе есть только `GRANT`). `restore.sh` снимает default privileges в той же транзакции, а точные права и default privileges возвращаются из дампа.
 
 ## Резервные копии
 
@@ -77,7 +78,7 @@ git tag vX.Y.Z
 - Ротация: 14 последних копий и по одной за каждый из 6 последних месяцев. Без `--rotate` ничего не удаляется.
 - Состав копии `<дата>_<время>_<версия>/`: `db.dump` (`pg_dump -Fc`), `files.tar.gz`, `manifest.txt`, `SHA256SUMS`.
 - Вынос копий за пределы сервера — по регламенту банка: том `ibportal_backups` (`docker run --rm -v ibportal_backups:/b ...` или путь тома из `docker volume inspect`).
-- Ежемесячная проверка восстановления — в отдельном проекте `ibportal-restoretest` (порядок будет описан отдельно), отметка в `deploy-log.md`.
+- Ежемесячная проверка восстановления — в отдельном проекте `ibportal-restoretest` (порядок будет описан отдельно), отметка в `deploy-log.md`. Скрипты работают с другими томами через переменные `IBPORTAL_BACKUP_VOLUME` и `IBPORTAL_FILES_VOLUME` и с другим compose-проектом через стандартные `COMPOSE_PROJECT_NAME` и `COMPOSE_FILE`. На рабочем сервере эти переменные не задаются.
 
 ## Dev-окружение (машина разработчика)
 
@@ -92,5 +93,11 @@ docker compose -f docker-compose.dev.yml --env-file .env.dev run --rm backend np
 docker compose -f docker-compose.dev.yml --env-file .env.dev up -d backend frontend
 # http://localhost:5173 — в Chrome или Firefox (Safari не принимает Secure-cookie на http://localhost)
 ```
+
+Тесты с настоящим PostgreSQL (нужна запущенная dev-база на `127.0.0.1:5433`): `cd backend && npm run test:db`. Скрипт пересоздаёт одноразовую базу `ibportal_test`, применяет миграции и seed; пароли берёт из `deploy/.env.dev`.
+
+Сквозной тест интерфейса: `cd frontend && E2E_LOGIN=admin.dev E2E_PASSWORD=... npm run test:e2e`. Он запускает установленный Chrome без окна (путь можно задать в `CHROME_PATH`), работает только с `localhost` и проходит все операции изменения раздела «Настройки» настоящими событиями мыши и клавиатуры, проверяя тело запросов и результат на экране. Создаёт значения с пометкой «E2E» и удаляет их; созданный тестом пользователь `e2e.*` остаётся отключённым, записи журнала аудита остаются. Выпадающие списки и поля даты заполняются программно (в headless Chrome их нельзя открыть мышью).
+
+Сервисы `backend` и `migrate` в dev сами выполняют `prisma generate` при запуске, поэтому после изменения схемы достаточно перезапустить их.
 
 Новая миграция: `... --profile tools run --rm migrate npx prisma migrate dev --create-only --name <что_меняем>`, затем прочитать SQL, добавить строку «Влияние на данные» в начало файла и применить `... run --rm migrate`. Проверка: `... run --rm migrate npm run check:integrity`.

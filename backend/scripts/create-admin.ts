@@ -5,7 +5,7 @@ import { createPrisma } from '../src/lib/db.js';
 import { checkPasswordStrength, violationMessage } from '../src/lib/password-policy.js';
 import { argon2Hasher } from '../src/lib/passwords.js';
 import { normalizeLogin } from '../src/modules/auth/service.js';
-import { ask, askHidden } from './prompt.js';
+import { ask, askHidden, closePrompt } from './prompt.js';
 
 const LOGIN_RE = /^[a-z0-9._-]{3,64}$/;
 
@@ -48,13 +48,21 @@ async function main() {
           action: 'user.created',
           entity: 'user',
           entityId: created.id,
-          diff: { login, fullName, roles: ['super_admin'], via: 'create-admin' },
+          diff: {
+            summary: `Пользователи: создан ${fullName} (${login}) командой create-admin, роль «${superAdmin.name}»`,
+            actorRoles: [],
+            login,
+            fullName,
+            roles: ['super_admin'],
+            via: 'create-admin',
+          },
         },
       });
       return created;
     });
     console.log(`Администратор ${user.login} создан с ролью «${superAdmin.name}»`);
   } finally {
+    closePrompt();
     await prisma.$disconnect();
   }
 }

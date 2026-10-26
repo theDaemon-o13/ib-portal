@@ -2,7 +2,10 @@
 // Запускается сервисом migrate после prisma migrate deploy, от владельца схемы.
 // Ничего не удаляет и не перетирает состав ролей, изменённый в интерфейсе.
 import { PrismaClient } from '@prisma/client';
+import { CATALOGS, SYSTEM_ITEMS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
+import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
+import { seedStarter } from './starter.js';
 
 const prisma = new PrismaClient();
 
@@ -40,8 +43,44 @@ async function main() {
       data: SUPER_ADMIN_LOCKED.map((permissionCode) => ({ roleId: superAdmin.id, permissionCode })),
       skipDuplicates: true,
     });
+
+    // Справочники: набор фиксирован, названия и описания обновляются.
+    for (const [index, c] of CATALOGS.entries()) {
+      const data = { name: c.name, description: c.description, kind: c.kind, hasColor: c.hasColor, sortOrder: index };
+      await tx.catalog.upsert({ where: { code: c.code }, create: { code: c.code, ...data }, update: data });
+    }
+
+    // Системные значения создаются, если их нет. Существующие не трогаются:
+    // статусы администратор мог переименовать.
+    for (const item of SYSTEM_ITEMS) {
+      const existing = await tx.catalogItem.findUnique({
+        where: { catalogCode_systemKey: { catalogCode: item.catalog, systemKey: item.key } },
+      });
+      if (existing) continue;
+      const max = await tx.catalogItem.aggregate({ where: { catalogCode: item.catalog }, _max: { sortOrder: true } });
+      await tx.catalogItem.create({
+        data: {
+          catalogCode: item.catalog,
+          systemKey: item.key,
+          isSystem: true,
+          value: item.value,
+          color: item.color ?? null,
+          sortOrder: (max._max.sortOrder ?? 0) + 1,
+        },
+      });
+      console.log(`Создано системное значение «${item.value}»`);
+    }
+
+    // Рабочая неделя по умолчанию — пятидневка.
+    await tx.appSetting.upsert({
+      where: { key: 'work_week' },
+      create: { key: 'work_week', value: { weekendDays: [...DEFAULT_WEEKEND_DAYS] } },
+      update: {},
+    });
+
+    await seedStarter(tx);
   });
-  console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}`);
+  console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}, справочников ${CATALOGS.length}`);
 }
 
 main()

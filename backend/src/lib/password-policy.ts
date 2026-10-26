@@ -6,6 +6,17 @@ export const PASSWORD_MAX_LENGTH = 256;
 export const PASSWORD_MIN_CLASSES = 3;
 /** Нельзя повторять последние N паролей, включая текущий. */
 export const PASSWORD_HISTORY_DEPTH = 5;
+/** Срок действия пароля, дней (инструкция по парольной защите). */
+export const PASSWORD_MAX_AGE_DAYS = 90;
+
+/** Пароль истёк: со дня смены прошло PASSWORD_MAX_AGE_DAYS дней или больше. */
+export function isPasswordExpired(changedAt: Date, now: Date): boolean {
+  return now.getTime() - changedAt.getTime() >= PASSWORD_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+}
+
+export function passwordExpiresAt(changedAt: Date): Date {
+  return new Date(changedAt.getTime() + PASSWORD_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
+}
 
 export type PasswordViolation = 'too_short' | 'too_long' | 'too_few_classes' | 'contains_login';
 

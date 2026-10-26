@@ -6,6 +6,7 @@ export interface UserRecord {
   fullName: string;
   passwordHash: string;
   mustChangePassword: boolean;
+  passwordChangedAt: Date;
   failedLoginCount: number;
   lockedUntil: Date | null;
   isActive: boolean;
@@ -32,8 +33,8 @@ export interface NewSession {
 export interface AuthRepository {
   findUserByLogin(login: string): Promise<UserRecord | null>;
   findUserById(id: string): Promise<UserRecord | null>;
-  /** Сумма прав всех ролей пользователя. */
-  getPermissions(userId: string): Promise<PermissionCode[]>;
+  /** Сумма прав всех ролей пользователя и названия ролей. */
+  getAccess(userId: string): Promise<{ permissions: PermissionCode[]; roleNames: string[] }>;
 
   saveLockout(userId: string, state: { failedLoginCount: number; lockedUntil: Date | null }): Promise<void>;
   recordSuccessfulLogin(userId: string, at: Date): Promise<void>;

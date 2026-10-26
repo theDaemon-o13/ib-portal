@@ -56,8 +56,10 @@ export function ChangePasswordPage({ me }: { me: Me }) {
         <Brand />
         <div>
           <h1>Смена пароля</h1>
-          {me.mustChangePassword && (
-            <p className="hint">Перед началом работы задайте собственный пароль.</p>
+          {me.passwordExpired ? (
+            <p className="hint">Срок действия пароля — 90 дней, он истёк. Задайте новый пароль, чтобы продолжить работу.</p>
+          ) : (
+            me.mustChangePassword && <p className="hint">Перед началом работы задайте собственный пароль.</p>
           )}
         </div>
         <label>

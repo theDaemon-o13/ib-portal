@@ -4,8 +4,10 @@
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DEPLOY_DIR"
 
-BACKUP_VOLUME=ibportal_backups
-FILES_VOLUME=ibportal_files
+# На сервере имена по умолчанию. Переопределяются только для проверочных проектов
+# (ibportal-restoretest), чтобы не трогать рабочие тома.
+BACKUP_VOLUME="${IBPORTAL_BACKUP_VOLUME:-ibportal_backups}"
+FILES_VOLUME="${IBPORTAL_FILES_VOLUME:-ibportal_files}"
 
 die() { echo "ОШИБКА: $*" >&2; exit 1; }
 info() { echo "→ $*"; }

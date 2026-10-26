@@ -1,8 +1,23 @@
 import { stdin, stdout } from 'node:process';
-import { createInterface } from 'node:readline/promises';
+import { createInterface } from 'node:readline';
+import { createInterface as createPromiseInterface } from 'node:readline/promises';
+
+// Без терминала (ввод из конвейера) все ответы читаются из одного потока строк:
+// отдельный readline на каждый вопрос забрал бы в буфер весь ввод сразу.
+let pipedLines: AsyncIterator<string> | null = null;
+
+async function readPipedLine(question: string): Promise<string> {
+  stdout.write(question);
+  pipedLines ??= createInterface({ input: stdin, terminal: false })[Symbol.asyncIterator]();
+  const next = await pipedLines.next();
+  stdout.write('\n');
+  if (next.done) throw new Error('Ввод закончился раньше, чем были получены все ответы');
+  return next.value;
+}
 
 export async function ask(question: string): Promise<string> {
-  const rl = createInterface({ input: stdin, output: stdout });
+  if (!stdin.isTTY) return (await readPipedLine(question)).trim();
+  const rl = createPromiseInterface({ input: stdin, output: stdout });
   try {
     return (await rl.question(question)).trim();
   } finally {
@@ -10,9 +25,9 @@ export async function ask(question: string): Promise<string> {
   }
 }
 
-/** Ввод без отображения символов. Без терминала (ввод из конвейера) читает строку как есть. */
+/** Ввод без отображения символов. Без терминала читает строку как есть. */
 export async function askHidden(question: string): Promise<string> {
-  if (!stdin.isTTY) return ask(question);
+  if (!stdin.isTTY) return readPipedLine(question);
   stdout.write(question);
   return new Promise((resolve, reject) => {
     let value = '';
@@ -47,4 +62,10 @@ export async function askHidden(question: string): Promise<string> {
     };
     stdin.on('data', onData);
   });
+}
+
+/** Закрыть stdin после последнего вопроса, чтобы процесс завершился. */
+export function closePrompt(): void {
+  void pipedLines?.return?.();
+  stdin.pause();
 }

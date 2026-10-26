@@ -7,6 +7,13 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
+    // Сквозные тесты выполняются в Node (встроенные fetch и WebSocket), а не в браузере.
+    files: ['e2e/**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly', fetch: 'readonly', WebSocket: 'readonly', setTimeout: 'readonly', URL: 'readonly' },
+    },
+  },
+  {
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,

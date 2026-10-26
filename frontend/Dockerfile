@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Frontend Портала ИБ: SPA собирается в статику, nginx отдаёт её и проксирует /api на backend.
-ARG NODE_IMAGE=node:24.11.0-alpine3.22
-ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.28.0-alpine3.21
+ARG NODE_IMAGE=node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.28.2-alpine3.23@sha256:7377697a821c131a924a7105fafbe7414db4e9fcc77a6f08f776f33f141ec3f8
 
 # Dev-образ для docker-compose.dev.yml: vite с горячей перезагрузкой, исходники монтируются с хоста.
 FROM ${NODE_IMAGE} AS dev
