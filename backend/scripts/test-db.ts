@@ -9,7 +9,7 @@ import { PrismaClient } from '@prisma/client';
 
 const backendDir = fileURLToPath(new URL('..', import.meta.url));
 
-function devEnv(): Record<string, string> {
+export function devEnv(): Record<string, string> {
   // Пароли dev-окружения: deploy/.env.dev, иначе заглушки из .env.dev.example.
   for (const name of ['.env.dev', '.env.dev.example']) {
     const path = fileURLToPath(new URL(`../../deploy/${name}`, import.meta.url));

@@ -3,7 +3,7 @@ import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { APPROVAL_PERMISSIONS, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode } from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
-import { assertUsersManageKept, lockRbac } from './invariant.js';
+import { assertKioskExclusive, assertUsersManageKept, lockRbac } from './invariant.js';
 
 export async function listPermissions(db: Db) {
   return db.permission.findMany({ orderBy: { sortOrder: 'asc' }, select: { code: true, name: true, description: true } });
@@ -142,6 +142,7 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     else await tx.rolePermission.delete({ where: { roleId_permissionCode: { roleId, permissionCode: perm } } });
     await tx.role.update({ where: { id: roleId }, data: { version: { increment: 1 } } });
     if (!granted) await assertUsersManageKept(tx, actor.id);
+    if (granted) await assertKioskExclusive(tx);
     const permName = (await tx.permission.findUnique({ where: { code: perm } }))?.name ?? perm;
     await auditSettings(tx, actor, {
       action: granted ? 'role.permission.granted' : 'role.permission.revoked',

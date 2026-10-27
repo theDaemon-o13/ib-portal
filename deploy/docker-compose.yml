@@ -31,6 +31,11 @@ services:
       # Часовой пояс «сегодня» для сроков и автоматизаций; интервал проверки правил, 0 — выключено
       APP_TZ: ${APP_TZ:-Asia/Dushanbe}
       AUTOMATION_INTERVAL_MIN: ${AUTOMATION_INTERVAL_MIN:-60}
+      # Кому верить в X-Forwarded-For: только nginx портала (его постоянный адрес в сети front, см. FRONTEND_IP).
+      # За PT AF или балансировщиком — добавить их адреса через запятую.
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.31.250.6}
+      # Адреса настенных мониторов (IP и подсети через запятую). Пусто — вход учётной записи монитора запрещён.
+      MONITOR_ALLOWED_IPS: ${MONITOR_ALLOWED_IPS:-}
     volumes:
       - files:/data/files
     depends_on:
@@ -47,7 +52,10 @@ services:
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on: [backend]
-    networks: [front]
+    networks:
+      # Постоянный адрес: backend доверяет X-Forwarded-For только ему (TRUSTED_PROXY_IPS).
+      # Последний адрес подсети /29: Docker раздаёт динамические адреса с начала (.2), гонки при старте нет.
+      front: { ipv4_address: "${FRONTEND_IP:-172.31.250.6}" }
 
   migrate:                          # разовый запуск: docker compose --profile tools run --rm migrate
     image: ibportal-backend:${VERSION:?VERSION не задан в .env}
@@ -65,5 +73,10 @@ volumes:
   files:  { external: true, name: ibportal_files }
 
 networks:
-  front: {}
+  # Подсеть задана явно, чтобы у nginx был постоянный адрес. Если пересекается с сетями банка —
+  # поменять FRONT_SUBNET, FRONTEND_IP и TRUSTED_PROXY_IPS в .env.
+  front:
+    ipam:
+      config:
+        - subnet: ${FRONT_SUBNET:-172.31.250.0/29}
   back: { internal: true }

@@ -53,6 +53,7 @@ model User {
   reviewedEvidence     Evidence[]           @relation("EvidenceReviewer")
   evidenceFilesAdded   EvidenceFile[]       @relation("EvidenceFileAdder")
   evidenceFilesRemoved EvidenceFile[]       @relation("EvidenceFileRemover")
+  dashboardTiles       DashboardTile[]
   roles                UserRole[]           @relation("UserRoles")
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
   sessions             Session[]
@@ -314,6 +315,7 @@ model Register {
   scanReports ScanReport[]
   automations RegisterAutomation[]
   events      AutomationEvent[]
+  tiles       DashboardTile[]
 
   @@map("registers")
 }
@@ -333,6 +335,8 @@ model RegisterField {
   isTitle       Boolean   @default(false) @map("is_title")
   /// Поле статуса (один список в реестре); закрытые варианты — is_closed.
   isStatus      Boolean   @default(false) @map("is_status")
+  /// Ключ импорта Excel без колонки ID (одно текстовое поле в реестре; частичный уникальный индекс в SQL).
+  isImportKey   Boolean   @default(false) @map("is_import_key")
   /// Только у вычисляемого поля. kind: due_date (по умолчанию) | vuln_score — см. lib/register-values.ts
   calcRule      Json?     @map("calc_rule")
   /// Системное поле: переименовать можно, удалить, архивировать и сменить тип — нет.
@@ -348,6 +352,7 @@ model RegisterField {
   catalog   Catalog?              @relation(fields: [catalogCode], references: [code], onDelete: Restrict)
   options   RegisterFieldOption[]
   decisions RegisterDecision[]
+  tiles     DashboardTile[]
 
   @@index([registerId, sortOrder])
   @@map("register_fields")
@@ -386,6 +391,8 @@ model RegisterRecord {
   searchText     String    @default("") @map("search_text")
   /// Поля, исправленные вручную: автоматический пересчёт их не перетирает (критичность уязвимости).
   manualFieldIds String[]  @default([]) @map("manual_field_ids") @db.Uuid
+  /// Нормализованное значение поля-ключа импорта; заполняет триггер, уникально среди неудалённых записей реестра.
+  importKey      String?   @map("import_key")
   version        Int       @default(1)
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -898,4 +905,30 @@ model EvidenceFile {
   @@id([evidenceId, fileId])
   @@index([fileId])
   @@map("evidence_files")
+}
+
+// ---------------------------------------------------------------------------
+// Дашборд (этап 8)
+// ---------------------------------------------------------------------------
+
+/// Плитка-счётчик: записи реестра, где поле ∈ {значения}, без закрытых. Удаление мягкое (без DELETE у роли приложения).
+model DashboardTile {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId String    @map("register_id") @db.Uuid
+  fieldId    String    @map("field_id") @db.Uuid
+  title      String
+  /// id значений списка или справочника.
+  optionIds  String[]  @map("option_ids") @db.Uuid
+  sortOrder  Int       @default(0) @map("sort_order")
+  version    Int       @default(1)
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  register Register      @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  field    RegisterField @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  author   User          @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@map("dashboard_tiles")
 }

@@ -1,4 +1,14 @@
 import { z } from 'zod';
+import { parseIpList } from './lib/ip-list.js';
+
+/** Список IP и подсетей: ошибка в .env видна при старте, а не при первом входе. */
+function checkIpList(v: string, ctx: z.RefinementCtx): void {
+  try {
+    parseIpList(v);
+  } catch (e) {
+    ctx.addIssue({ code: 'custom', message: (e as Error).message });
+  }
+}
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -7,8 +17,11 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL не задан'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET должен быть не короче 32 символов'),
   FILES_DIR: z.string().default('/data/files'),
-  // Адреса прокси, которым верим в X-Forwarded-For: nginx в сети front.
-  TRUST_PROXY: z.string().default('loopback,uniquelocal'),
+  // Адреса прокси, которым верим в X-Forwarded-For (IP и подсети через запятую): nginx портала
+  // с постоянным адресом в сети front (compose). За PT AF или балансировщиком — добавить его адрес.
+  TRUSTED_PROXY_IPS: z.string().default('127.0.0.1,::1').superRefine(checkIpList),
+  // Адреса настенных мониторов (IP и подсети через запятую). Пусто — вход киоска запрещён.
+  MONITOR_ALLOWED_IPS: z.string().default('').superRefine(checkIpList),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   // Часовой пояс банка: «сегодня» для сроков и автоматизаций (lib/today.ts).
   APP_TZ: z.string().default('Asia/Dushanbe').refine((tz) => {

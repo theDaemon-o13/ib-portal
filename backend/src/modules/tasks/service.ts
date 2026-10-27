@@ -122,6 +122,8 @@ export async function getTaskRow(db: Db, id: string) {
 export interface TaskListQuery {
   archived: boolean;
   categoryId?: string;
+  /** Только открытые просроченные (ссылка с дашборда и мониторинга). */
+  overdue?: boolean;
   limit: number;
   cursor?: string;
 }
@@ -130,7 +132,9 @@ export async function listTasks(db: Db, q: TaskListQuery) {
   const today = todayIso();
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
   const scope: Prisma.TaskWhereInput = { deletedAt: null, archivedAt: q.archived ? { not: null } : null };
-  const where: Prisma.TaskWhereInput = { ...scope, ...(q.categoryId ? { categoryId: q.categoryId } : {}) };
+  const where: Prisma.TaskWhereInput = {
+    ...scope, ...(q.categoryId ? { categoryId: q.categoryId } : {}), ...(q.overdue && !q.archived ? overdueTaskWhere(today) : {}),
+  };
   const [rows, total, byCategory, archivedTotal] = await Promise.all([
     db.task.findMany({
       where,
@@ -153,10 +157,14 @@ export async function listTasks(db: Db, q: TaskListQuery) {
   };
 }
 
+/** Открытая просроченная задача: не в архиве, не удалена, не выполнена, срок раньше сегодня. Одно правило для меню, списка и дашборда. */
+export function overdueTaskWhere(today: string): Prisma.TaskWhereInput {
+  return { deletedAt: null, archivedAt: null, completedAt: null, dueDate: { lt: new Date(`${today}T00:00:00Z`) } };
+}
+
 /** Счётчик в меню: открытые просроченные задачи отдела и мои. */
 export async function taskSummary(db: Db, userId: string) {
-  const today = new Date(`${todayIso()}T00:00:00Z`);
-  const overdue: Prisma.TaskWhereInput = { deletedAt: null, archivedAt: null, completedAt: null, dueDate: { lt: today } };
+  const overdue = overdueTaskWhere(todayIso());
   const [all, mine] = await Promise.all([db.task.count({ where: overdue }), db.task.count({ where: { ...overdue, assigneeId: userId } })]);
   return { overdue: all, overdueMine: mine };
 }

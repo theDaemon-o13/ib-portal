@@ -67,6 +67,7 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       querystring: z.object({
         archived: z.enum(['true', 'false']).optional(),
         categoryId: z.string().uuid().optional(),
+        overdue: z.enum(['true', 'false']).optional(),
         limit: z.coerce.number().int().min(1).max(svc.BOARD_LIMIT).default(svc.BOARD_LIMIT),
         cursor: z.string().max(20).optional(),
       }),
@@ -80,7 +81,7 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     },
   }, async (request) => {
     const q = request.query;
-    const page = await svc.listTasks(db, { archived: q.archived === 'true', categoryId: q.categoryId, limit: q.limit, cursor: q.cursor });
+    const page = await svc.listTasks(db, { archived: q.archived === 'true', categoryId: q.categoryId, overdue: q.overdue === 'true', limit: q.limit, cursor: q.cursor });
     return { ...page, items: page.items.map(asTask) };
   });
 

@@ -18,6 +18,9 @@ function authenticated(request: FastifyRequest, allowDuringPasswordChange: boole
   const user = request.user;
   if (!user) throw unauthorized();
   if (user.mustChangePassword && !allowDuringPasswordChange) throw passwordChangeRequired();
+  // Настенный монитор — только маршруты, явно открытые для него (config.kiosk): /monitor, вход и выход.
+  // Правило общее, поэтому новый маршрут не откроется киоску незаметно, даже с requireAuth.
+  if (user.kiosk && request.routeOptions.config?.kiosk !== true) throw forbidden();
   return user;
 }
 

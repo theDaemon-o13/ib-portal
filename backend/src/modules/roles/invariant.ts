@@ -34,3 +34,30 @@ export async function assertUsersManageKept(tx: Db, actorId: string): Promise<vo
     throw conflict('SELF_USERS_MANAGE', 'Нельзя снять с себя право управлять пользователями и ролями');
   }
 }
+
+/**
+ * Право «Настенный монитор» исключительное (ADR-0012): роль с ним не содержит других прав,
+ * пользователь с такой ролью не получает других ролей. Проверяется после изменения, в той же транзакции.
+ */
+export async function assertKioskExclusive(tx: Db): Promise<void> {
+  const mixedRoles = await tx.$queryRaw<{ name: string }[]>`
+    SELECT r.name FROM roles r JOIN role_permissions p ON p.role_id = r.id
+    GROUP BY r.id, r.name HAVING bool_or(p.permission_code = 'monitor.kiosk') AND count(*) > 1`;
+  if (mixedRoles.length) {
+    throw conflict(
+      'KIOSK_EXCLUSIVE',
+      `Право «Настенный монитор» не сочетается с другими правами (роль «${mixedRoles[0]?.name}»). Заведите для монитора отдельную роль`,
+    );
+  }
+  const mixedUsers = await tx.$queryRaw<{ full_name: string }[]>`
+    SELECT u.full_name FROM users u JOIN user_roles ur ON ur.user_id = u.id
+    GROUP BY u.id, u.full_name
+    HAVING count(*) > 1 AND bool_or(EXISTS (
+      SELECT 1 FROM role_permissions p WHERE p.role_id = ur.role_id AND p.permission_code = 'monitor.kiosk'))`;
+  if (mixedUsers.length) {
+    throw conflict(
+      'KIOSK_EXCLUSIVE',
+      `Учётная запись настенного монитора не получает других ролей (${mixedUsers[0]?.full_name}). Для работы в портале заведите отдельного пользователя`,
+    );
+  }
+}

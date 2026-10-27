@@ -97,6 +97,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         typeId: z.string().uuid().optional(),
         q: z.string().max(200).optional(),
         waiting: z.enum(['me']).optional(),
+        review: z.enum(['due']).optional(),
         limit: z.coerce.number().int().min(1).max(svc.LIST_LIMIT).default(200),
         cursor: z.string().max(20).optional(),
       }),
@@ -105,7 +106,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
   }, async (request) => {
     const q = request.query;
     return svc.listDocuments(db, await access(request), {
-      archived: q.archived === 'true', status: q.status, typeId: q.typeId, q: q.q, waiting: q.waiting === 'me', limit: q.limit, cursor: q.cursor,
+      archived: q.archived === 'true', status: q.status, typeId: q.typeId, q: q.q, waiting: q.waiting === 'me', review: q.review === 'due', limit: q.limit, cursor: q.cursor,
     });
   });
 

@@ -1,5 +1,5 @@
 // Чистые функции конструктора реестров: без React, покрыты тестами.
-import type { CalcRule, Deadline, DueRule, FieldOption, FieldType, RegisterDetail, RegisterField, RegisterRecord, ScoreRule } from '../../api/registers';
+import { FILTER_PARAMS, type CalcRule, type Deadline, type DueRule, type FieldOption, type FieldType, type RecordFilterParams, type RegisterDetail, type RegisterField, type RegisterRecord, type ScoreRule } from '../../api/registers';
 
 export const TYPE_NAMES: Record<FieldType, string> = {
   text: 'Текст',
@@ -170,4 +170,36 @@ export function visibleColumns(reg: RegisterDetail): RegisterField[] {
   const live = reg.fields.filter((f) => !f.archived);
   const title = live.find((f) => f.isTitle);
   return title ? [title, ...live.filter((f) => f !== title)] : live;
+}
+
+const DEADLINE_NAMES: Record<string, string> = { overdue: 'Просрочено', soon: '≤ 7 дней', ok: 'В срок', closed: 'Закрыто', none: 'Без срока' };
+
+/** Фильтр из адреса (ссылки дашборда) — только параметры фильтра, без поиска и ?record. */
+export function filterFromParams(params: URLSearchParams): RecordFilterParams {
+  const out: RecordFilterParams = {};
+  for (const k of FILTER_PARAMS) {
+    const v = params.get(k);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
+/** Подпись применённого фильтра: «Открытые · Критичность: Критическая, Высокая». */
+export function describeFilter(reg: RegisterDetail, f: RecordFilterParams): string[] {
+  const parts: string[] = [];
+  if (f.state === 'open') parts.push('Открытые');
+  if (f.state === 'closed') parts.push('Закрытые');
+  if (f.deadline) parts.push(f.deadline.split(',').map((s) => DEADLINE_NAMES[s] ?? s).join(', '));
+  if (f.f) {
+    const [fieldId, values = ''] = f.f.split(':');
+    const field = reg.fields.find((x) => x.id === fieldId);
+    const labels = values.split(',').filter(Boolean).map((v) => (v === 'empty' ? 'не заполнено' : field?.options.find((o) => o.id === v)?.label ?? 'выбранное значение'));
+    parts.push(`${field?.label ?? 'Поле'}: ${labels.join(', ')}`);
+  }
+  if (f.date) {
+    const field = reg.fields.find((x) => x.id === f.date);
+    const range = [f.from ? `с ${formatDate(f.from)}` : '', f.to ? `по ${formatDate(f.to)}` : ''].filter(Boolean).join(' ');
+    parts.push(`${field?.label ?? 'Дата'}: ${range || 'заполнено'}`);
+  }
+  return parts;
 }

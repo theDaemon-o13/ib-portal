@@ -11,6 +11,8 @@ export interface AuthUser {
   permissions: ReadonlySet<PermissionCode>;
   /** Названия ролей: пишутся в журнал изменений («кто, с какими ролями»). */
   roleNames: readonly string[];
+  /** Учётная запись настенного монитора (право monitor.kiosk): только маршруты с config.kiosk. */
+  kiosk: boolean;
 }
 
 declare module 'fastify' {
@@ -21,5 +23,7 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     /** Маршрут доступен без входа. Ставится явно и только для health, login и openapi. */
     public?: boolean;
+    /** Маршрут доступен настенному монитору (право monitor.kiosk). Остальные маршруты отвечают ему 403. */
+    kiosk?: boolean;
   }
 }

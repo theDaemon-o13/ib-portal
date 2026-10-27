@@ -14,6 +14,10 @@ export const PERMISSIONS = [
   { code: 'docs.approve.board', name: 'Документы: этап «Утверждение правлением»', description: 'Утверждение документа' },
   { code: 'settings.manage', name: 'Настройки: справочники и шаблоны форм', description: '' },
   { code: 'users.manage', name: 'Настройки: пользователи, роли и права', description: '' },
+  {
+    code: 'monitor.kiosk', name: 'Настенный монитор',
+    description: 'Только экран мониторинга, вход с адресов MONITOR_ALLOWED_IPS. Не сочетается с другими правами и ролями',
+  },
 ] as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
@@ -22,6 +26,12 @@ export const PERMISSION_CODES: readonly PermissionCode[] = PERMISSIONS.map((p) =
 
 /** Права, которые нельзя снять с системной роли «Супер-администратор». */
 export const SUPER_ADMIN_LOCKED: readonly PermissionCode[] = ['settings.manage', 'users.manage'];
+
+/**
+ * Учётная запись настенного монитора: видит только /monitor. Право исключительное —
+ * роль с ним не содержит других прав, а пользователь с такой ролью не получает других ролей.
+ */
+export const KIOSK_PERMISSION = 'monitor.kiosk' as const satisfies PermissionCode;
 
 /** Права этапов согласования: не входят в роль супер-администратора (разделение полномочий). */
 export const APPROVAL_PERMISSIONS: readonly PermissionCode[] = [
@@ -64,6 +74,12 @@ export const SYSTEM_ROLES = [
     description: 'Утверждает документы',
     permissions: ['docs.approve.board'],
   },
+  {
+    code: 'kiosk',
+    name: 'Настенный монитор',
+    description: 'Только экран мониторинга; вход с разрешённых адресов',
+    permissions: ['monitor.kiosk'],
+  },
 ] as const satisfies readonly {
   code: string;
   name: string;
@@ -85,5 +101,7 @@ export function collectPermissions(roles: readonly { permissions: readonly strin
       if (isPermissionCode(code)) result.add(code);
     }
   }
+  // Киоск не получает других прав, даже если состав ролей нарушил правило исключительности.
+  if (result.has(KIOSK_PERMISSION)) return [KIOSK_PERMISSION];
   return PERMISSION_CODES.filter((code) => result.has(code));
 }

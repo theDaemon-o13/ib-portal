@@ -45,6 +45,7 @@ export function DocumentsPage() {
   const query: DocQuery = {
     archived,
     waiting: filter === 'waiting',
+    review: filter === 'review',
     status: STATUS_FILTERS.some((s) => s.key === filter) ? (filter as DocStatus) : undefined,
     q: search,
   };
@@ -86,6 +87,11 @@ export function DocumentsPage() {
           <button type="button" aria-pressed={filter === 'waiting'} onClick={() => setParam({ filter: 'waiting', doc: null })}>
             Ждут вас <span className="mono">{summary.data?.waitingForMe ?? 0}</span>
           </button>
+          {ibWork && (
+            <button type="button" aria-pressed={filter === 'review'} title="Пересмотр просрочен или идёт, либо дата пересмотра в ближайшие 30 дней" onClick={() => setParam({ filter: 'review', doc: null })}>
+              К пересмотру
+            </button>
+          )}
           {ibWork && STATUS_FILTERS.map((s) => (
             <button key={s.key} type="button" aria-pressed={filter === s.key} onClick={() => setParam({ filter: s.key, doc: null })}>
               {s.title}{s.key === 'review_overdue' && <> <span className="mono">{summary.data?.reviewOverdue ?? 0}</span></>}

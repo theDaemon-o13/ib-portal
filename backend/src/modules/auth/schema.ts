@@ -21,6 +21,8 @@ export const Me = z.object({
   passwordExpired: z.boolean(),
   roles: z.array(z.string()),
   permissions: z.array(z.enum(PERMISSION_CODES as [PermissionCode, ...PermissionCode[]])),
+  /** Настенный монитор: интерфейс показывает только /monitor. */
+  kiosk: z.boolean(),
 });
 
 export const MeResponse = z.object({ user: Me });
@@ -34,5 +36,6 @@ export function toMe(user: AuthUser): z.infer<typeof Me> {
     passwordExpired: user.passwordExpired,
     roles: [...user.roleNames],
     permissions: [...user.permissions],
+    kiosk: user.kiosk,
   };
 }

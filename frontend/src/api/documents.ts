@@ -21,6 +21,8 @@ export interface DocQuery {
   archived: boolean;
   status?: DocStatus;
   waiting?: boolean;
+  /** «К пересмотру» (этап 8): пересмотр просрочен или идёт, либо дата пересмотра в ближайшие 30 дней. */
+  review?: boolean;
   q?: string;
 }
 
@@ -28,6 +30,7 @@ function qs(q: DocQuery): string {
   const p = new URLSearchParams({ archived: String(q.archived) });
   if (q.status) p.set('status', q.status);
   if (q.waiting) p.set('waiting', 'me');
+  if (q.review) p.set('review', 'due');
   if (q.q?.trim()) p.set('q', q.q.trim());
   return p.toString();
 }

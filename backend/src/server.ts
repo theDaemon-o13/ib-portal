@@ -2,6 +2,7 @@ import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPrisma } from './lib/db.js';
 import { diskFileStore } from './lib/file-store.js';
+import { parseIpList } from './lib/ip-list.js';
 import { argon2Hasher } from './lib/passwords.js';
 import { prismaAuditWriter } from './modules/audit/audit.js';
 import { prismaAuthRepository } from './modules/auth/repository.prisma.js';
@@ -18,7 +19,9 @@ const app = await buildApp({
   hasher: argon2Hasher,
   sessionSecret: config.SESSION_SECRET,
   files: diskFileStore(config.FILES_DIR),
-  trustProxy: config.TRUST_PROXY,
+  // Список, а не «доверять всем частным сетям»: иначе любой ПК в 10.x подставит свой X-Forwarded-For.
+  trustProxy: parseIpList(config.TRUSTED_PROXY_IPS).entries.join(',') || false,
+  kioskAllowedIps: parseIpList(config.MONITOR_ALLOWED_IPS),
   automationIntervalMin: config.AUTOMATION_INTERVAL_MIN,
   logger: {
     level: config.LOG_LEVEL,

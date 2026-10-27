@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { HomeRedirect, ProtectedShell, RequireUser, Section } from './components/guards';
+import { HomeRedirect, MonitorRoute, ProtectedShell, RequireUser, Section } from './components/guards';
 import { NAV } from './nav';
+import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { DocumentsPage } from './pages/documents/DocumentsPage';
 import { EvidencePage } from './pages/evidence/EvidencePage';
@@ -15,10 +16,14 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/change-password" element={<RequireUser>{(me) => <ChangePasswordPage me={me} />}</RequireUser>} />
+      {/* Мониторинг — на весь экран, без меню (настенный монитор). */}
+      <Route path="/monitor" element={<MonitorRoute />} />
       <Route element={<ProtectedShell />}>
         <Route index element={<HomeRedirect />} />
-        {NAV.map((item) =>
-          item.path === '/settings' ? (
+        {NAV.filter((item) => item.path !== '/monitor').map((item) =>
+          item.path === '/dashboard' ? (
+            <Route key={item.path} path="/dashboard" element={<Section item={item}><DashboardPage /></Section>} />
+          ) : item.path === '/settings' ? (
             <Route key={item.path} path="/settings/:tab?" element={<Section item={item}><SettingsPage /></Section>} />
           ) : item.path === '/tasks' ? (
             <Route key={item.path} path="/tasks" element={<Section item={item}><TasksPage /></Section>} />

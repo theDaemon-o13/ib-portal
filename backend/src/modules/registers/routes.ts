@@ -13,6 +13,7 @@ import * as excel from './excel.service.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
 import { loadRegister } from './definition.js';
+import { parseRecordFilter, RecordFilterQuery } from './filter.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
@@ -49,6 +50,8 @@ const Field = z.object({
   analyticsRole: z.string().nullable(),
   isTitle: z.boolean(),
   isStatus: z.boolean(),
+  /** Ключ импорта Excel без колонки ID (этап 8). */
+  isImportKey: z.boolean(),
   calcRule: CalcRuleOut.nullable(),
   archived: z.boolean(),
   version: z.number().int(),
@@ -131,6 +134,14 @@ const ImportSummary = z.object({
   fieldChanges: z.array(z.object({ fieldId: z.string(), label: z.string(), count: z.number().int() })),
   errors: z.array(z.object({ row: z.number().int(), id: z.string().nullable(), field: z.string().nullable(), message: z.string() })),
   warnings: z.array(z.string()),
+  /** id — по колонке ID; key — по полю-ключу импорта (этап 8). */
+  matchBy: z.enum(['id', 'key']),
+  keyField: z.object({ id: z.string(), label: z.string() }).nullable(),
+  /** Сопоставление каждой строки файла: ID или ключ из файла, номер записи, что будет сделано. */
+  matches: z.array(z.object({ row: z.number().int(), key: z.string(), number: z.number().int().nullable(), action: z.enum(['add', 'update', 'unchanged', 'error']) })),
+  /** Импорт по ключу: действующие записи, которых нет в файле, — кандидаты на «Выведено» (портал их не меняет). */
+  missing: z.array(z.object({ id: z.string(), number: z.number().int(), key: z.string(), title: z.string() })),
+  missingTotal: z.number().int(),
 });
 export const ImportPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ImportSummary });
 const Label = z.string().trim().min(1).max(200);
@@ -230,6 +241,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         analyticsRole: Role.nullable().optional(),
         isTitle: z.boolean().optional(),
         isStatus: z.boolean().optional(),
+        isImportKey: z.boolean().optional(),
         calcRule: CalcRule.optional(),
       }),
       response: { 200: RegisterDetail, ...errors },
@@ -306,6 +318,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
     schema: {
       tags: ['register-records'], summary: 'Записи реестра: поиск, сортировка, пагинация', params: IdParams,
       querystring: PageQuery.extend({
+        ...RecordFilterQuery.shape,
         q: z.string().max(200).optional(),
         /** number, deadline (контроль сроков: просрочено → скоро → в срок → закрыто) или id поля. */
         sort: z.string().max(64).optional(),
@@ -317,8 +330,10 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       response: { 200: z.object({ items: z.array(RegisterRecord), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => {
+    const { state, deadline, f, date, from, to, ...rest } = request.query;
+    const filter = parseRecordFilter(await loadRegister(db, request.params.id), { state, deadline, f, date, from, to });
     const page = await records.listRecords(db, request.params.id, {
-      ...request.query, includeArchived: request.query.includeArchived === 'true', withEvents: request.query.withEvents === 'true', withTasks: request.query.withTasks === 'true',
+      ...rest, includeArchived: rest.includeArchived === 'true', withEvents: rest.withEvents === 'true', withTasks: rest.withTasks === 'true', filter,
     });
     return { ...page, items: page.items.map(asRecord) };
   });

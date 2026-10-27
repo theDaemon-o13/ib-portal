@@ -1,5 +1,6 @@
 // Однократные шаги seed для конструктора реестров (отметки в seed_markers).
 import type { Prisma } from '@prisma/client';
+import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../../src/modules/dashboard/incidents.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -69,5 +70,21 @@ export async function seedRegisters(tx: Tx): Promise<void> {
       });
     }
     return `Стартовый реестр «${INCIDENTS.name}»: полей ${INCIDENTS.fields.length}`;
+  });
+
+  // Этап 8: стартовый реестр инцидентов — системный (KPI «Инциденты за 30 дней»). Один раз; если реестр
+  // удалён, архивирован или переименован администратором — не трогаем, KPI покажет «не настроен».
+  await once(tx, 'system.register.incidents.v1', async () => {
+    if (await tx.register.findUnique({ where: { systemKey: INCIDENT_REGISTER_KEY } })) return 'Реестр инцидентов уже системный';
+    const candidates = await tx.register.findMany({
+      where: { systemKey: null, archivedAt: null, name: { equals: INCIDENTS.name, mode: 'insensitive' } },
+      include: { fields: { where: { label: 'Дата выявления', type: 'date', deletedAt: null, archivedAt: null } } },
+    });
+    const reg = candidates.length === 1 ? candidates[0] : undefined;
+    const date = reg?.fields.length === 1 ? reg.fields[0] : undefined;
+    if (!reg || !date) return `«${INCIDENTS.name}» с полем «Дата выявления» не найден — KPI «Инциденты за 30 дней» не настроен`;
+    await tx.register.update({ where: { id: reg.id }, data: { systemKey: INCIDENT_REGISTER_KEY, version: { increment: 1 } } });
+    await tx.registerField.update({ where: { id: date.id }, data: { systemKey: INCIDENT_DATE_KEY, version: { increment: 1 } } });
+    return `«${reg.name}» — системный реестр (KPI «Инциденты за 30 дней»), поле «${date.label}» — системное`;
   });
 }

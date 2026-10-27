@@ -2,7 +2,7 @@
 import type { Prisma } from '@prisma/client';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
-import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import {
   ALLOWED_ROLES,
   displayValue,
@@ -29,6 +29,7 @@ import {
   userIdsIn,
   type FieldMeta,
   type RegisterDef,
+  importKeyDuplicates,
 } from './definition.js';
 
 const TYPE_NAMES: Record<FieldType, string> = {
@@ -298,6 +299,7 @@ export interface FieldUpdate {
   analyticsRole?: AnalyticsRole | null;
   isTitle?: boolean;
   isStatus?: boolean;
+  isImportKey?: boolean;
   calcRule?: DueDateRule;
 }
 
@@ -338,6 +340,24 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
       data.isStatus = input.isStatus;
       changes.push(input.isStatus ? 'назначено полем статуса' : 'больше не поле статуса');
     }
+    let rekey = false;
+    if (input.isImportKey !== undefined && input.isImportKey !== field.isImportKey) {
+      if (input.isImportKey) {
+        if (field.type !== 'text') throw badRequest('IMPORT_KEY_TEXT', 'Ключом импорта может быть только текстовое поле');
+        if (field.archived) throw badRequest('ARCHIVED_FIELD', 'Архивное поле не может быть ключом импорта');
+        const dups = await importKeyDuplicates(tx, reg.id, field.id);
+        if (dups.length) {
+          const list = dups.slice(0, 5).map((d) => `«${d.value}» — записи ${d.numbers.map((n) => `#${n}`).join(', ')}`).join('; ');
+          throw new AppError(409, 'IMPORT_KEY_DUPLICATES', `Значения «${field.label}» повторяются: ${list}${dups.length > 5 ? '…' : ''}. Исправьте их, затем назначьте ключ`, {
+            duplicates: dups.map((d) => ({ value: d.value, numbers: d.numbers })),
+          });
+        }
+        await tx.registerField.updateMany({ where: { registerId: reg.id, isImportKey: true }, data: { isImportKey: false, version: { increment: 1 } } });
+      }
+      data.isImportKey = input.isImportKey;
+      changes.push(input.isImportKey ? 'назначено ключом импорта' : 'больше не ключ импорта');
+      rekey = true;
+    }
     if (input.calcRule !== undefined) {
       if (field.type !== 'calc') throw badRequest('BAD_CALC_RULE', 'Правило вычисления бывает только у вычисляемого поля');
       // Сроки и оценка системного реестра заданы процедурой (п. 7.1–7.3) и меняются только выпуском портала.
@@ -349,10 +369,12 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
     if (!changes.length) return reg;
     const res = await tx.registerField.updateMany({ where: { id: fieldId, version: input.version }, data: { ...data, version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerField.findFirst({ where: { id: fieldId, deletedAt: null } }), 'Поле');
+    // Ключ импорта пересчитывает триггер (register_records_import_key) по новому полю-ключу.
+    if (rekey) await tx.$executeRaw`UPDATE register_records SET import_key = NULL WHERE register_id = ${reg.id}::uuid`;
     await auditSettings(tx, actor, {
       action: 'register.field.updated', entity: 'register_field', entityId: fieldId,
       summary: `Реестр «${reg.name}», поле «${field.label}»: ${changes.join(', ')}`,
-      before: { label: field.label, analyticsRole: field.analyticsRole, isTitle: field.isTitle, isStatus: field.isStatus, calcRule: field.calcRule },
+      before: { label: field.label, analyticsRole: field.analyticsRole, isTitle: field.isTitle, isStatus: field.isStatus, isImportKey: field.isImportKey, calcRule: field.calcRule },
       after: { ...data },
     });
     return loadRegister(tx, reg.id);
@@ -384,6 +406,7 @@ function assertDetachable(reg: RegisterDef, field: FieldMeta, what: string) {
   assertNotSystemField(field, what);
   if (field.isTitle) throw conflict('TITLE_FIELD', `Поле-заголовок нельзя ${what}: сначала назначьте заголовком другое текстовое поле`);
   if (field.isStatus) throw conflict('STATUS_FIELD', `Поле статуса нельзя ${what}: сначала снимите признак статуса`);
+  if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', `Ключ импорта нельзя ${what}: сначала снимите признак ключа`);
   const deps = calcDependents(reg, field.id).filter((d) => d.id !== field.id);
   if (deps.length) throw conflict('CALC_DEPENDENCY', `Поле используется в правиле вычисления «${deps.map((d) => d.label).join('», «')}» — сначала измените правило`);
 }
@@ -446,6 +469,7 @@ async function planTypeChange(tx: Db, reg: RegisterDef, field: FieldMeta, to: Fi
   assertNotSystemField(field, 'менять тип');
   if (field.isTitle) throw conflict('TITLE_FIELD', 'Тип поля-заголовка не меняется: заголовок всегда текстовый');
   if (field.isStatus) throw conflict('STATUS_FIELD', 'Тип поля статуса не меняется: сначала снимите признак статуса');
+  if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', 'Тип ключа импорта не меняется: сначала снимите признак ключа');
   if (calcDependents(reg, field.id).some((d) => d.id !== field.id)) {
     throw conflict('CALC_DEPENDENCY', 'Поле используется в правиле вычисляемого поля — сначала измените правило');
   }

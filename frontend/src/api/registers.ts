@@ -58,7 +58,13 @@ export interface RecordQuery {
   includeArchived?: boolean;
   withTasks?: boolean;
   cursor?: string;
+  /** Фильтр из адреса (ссылки дашборда, этап 8): state, deadline, f, date, from, to — как есть. */
+  filter?: RecordFilterParams;
 }
+
+/** Параметры фильтра записей — те же имена, что в адресе страницы и в API. */
+export const FILTER_PARAMS = ['state', 'deadline', 'f', 'date', 'from', 'to'] as const;
+export type RecordFilterParams = Partial<Record<(typeof FILTER_PARAMS)[number], string>>;
 
 function qs(params: Record<string, string | undefined>): string {
   const p = new URLSearchParams();
@@ -113,7 +119,7 @@ export const registersApi = {
   records: (registerId: string, q: RecordQuery) =>
     request<RecordPage>('GET', `/api/v1/registers/${registerId}/records${qs({
       q: q.q, sort: q.sort, dir: q.dir, cursor: q.cursor, limit: '100', includeArchived: q.includeArchived ? 'true' : undefined,
-      withTasks: q.withTasks ? 'true' : undefined,
+      withTasks: q.withTasks ? 'true' : undefined, ...q.filter,
     })}`),
   record: (id: string) => request<RegisterRecord>('GET', `/api/v1/register-records/${id}`),
   history: (id: string) => request<Res<'/api/v1/register-records/{id}/history', 'get'>>('GET', `/api/v1/register-records/${id}/history`),

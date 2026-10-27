@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { AppError } from '../lib/errors.js';
+import { AppError, forbidden } from '../lib/errors.js';
 import { SESSION_COOKIE } from '../lib/session-token.js';
 import type { AuthService, ClientInfo } from '../modules/auth/service.js';
 
@@ -64,5 +64,10 @@ export function installAuth(app: FastifyInstance, auth: AuthService): void {
     }
     request.user = resolved.user;
     request.sessionId = resolved.sessionId;
+    // Настенный монитор: закрытые для него маршруты отвечают 403 до разбора запроса (guard в rbac.ts — второй слой).
+    const config = request.routeOptions.config as { kiosk?: boolean; public?: boolean } | undefined;
+    if (resolved.user.kiosk && request.url.startsWith('/api/v1/') && config?.kiosk !== true && config?.public !== true) {
+      throw forbidden();
+    }
   });
 }

@@ -14,4 +14,9 @@ describe('меню по правам', () => {
     expect(visibleNav([]).map((i) => i.title)).toEqual(['Документы']);
     expect(homePath([])).toBe('/documents');
   });
+
+  it('настенный монитор видит только «Мониторинг»', () => {
+    expect(visibleNav(['monitor.kiosk']).map((i) => i.title)).toEqual(['Мониторинг']);
+    expect(homePath(['monitor.kiosk'])).toBe('/monitor');
+  });
 });

@@ -7,9 +7,10 @@ import { installRouteAccessCheck, requireAuth, requirePerm } from './rbac.js';
 import '../types.js';
 
 const users: Record<string, AuthUser> = {
-  staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, passwordExpired: false, roleNames: [], permissions: new Set<PermissionCode>(['ib.work']) },
-  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], permissions: new Set<PermissionCode>(['docs.approve.legal']) },
-  fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, passwordExpired: false, roleNames: [], permissions: new Set<PermissionCode>(['ib.work']) },
+  staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['ib.work']) },
+  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['docs.approve.legal']) },
+  kiosk: { id: '4', login: 'wall', fullName: 'Монитор', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: true, permissions: new Set<PermissionCode>(['monitor.kiosk']) },
+  fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['ib.work']) },
 };
 
 async function testApp() {
@@ -24,6 +25,7 @@ async function testApp() {
   app.get('/api/v1/ib', { preHandler: requirePerm('ib.work') }, async () => ({ ok: true }));
   app.get('/api/v1/any', { preHandler: requireAuth() }, async () => ({ ok: true }));
   app.get('/api/v1/me', { preHandler: requireAuth({ allowDuringPasswordChange: true }) }, async () => ({ ok: true }));
+  app.get('/api/v1/wall', { preHandler: requireAuth(), config: { kiosk: true } }, async () => ({ ok: true }));
   await app.ready();
   return app;
 }
@@ -76,6 +78,23 @@ describe('requirePerm', () => {
     const app = Fastify();
     installRouteAccessCheck(app);
     expect(() => app.get('/api/v1/login', { config: { public: true } }, async () => ({}))).not.toThrow();
+  });
+});
+
+describe('настенный монитор (monitor.kiosk)', () => {
+  it('открыты только маршруты с config.kiosk — даже requireAuth без права закрыт', async () => {
+    const app = await testApp();
+    for (const url of ['/api/v1/ib', '/api/v1/any', '/api/v1/me']) {
+      const res = await app.inject({ url, headers: { 'x-test-user': 'kiosk' } });
+      expect(res.statusCode, url).toBe(403);
+    }
+    expect((await app.inject({ url: '/api/v1/wall', headers: { 'x-test-user': 'kiosk' } })).statusCode).toBe(200);
+    // Обычный пользователь маршрут киоска тоже видит.
+    expect((await app.inject({ url: '/api/v1/wall', headers: { 'x-test-user': 'staff' } })).statusCode).toBe(200);
+  });
+
+  it('право киоска исключительное: остальные права роли не действуют', () => {
+    expect(collectPermissions([{ permissions: ['ib.work', 'monitor.kiosk'] }, { permissions: ['users.manage'] }])).toEqual(['monitor.kiosk']);
   });
 });
 

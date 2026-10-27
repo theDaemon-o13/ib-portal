@@ -23,6 +23,8 @@ import {
   dateOf,
   deadlineField,
   deadlineState,
+  importKeyField,
+  importKeyOwner,
   isClosed,
   loadRegister,
   loadUsers,
@@ -33,6 +35,7 @@ import {
   type RecordDto,
   type RegisterDef,
 } from './definition.js';
+import { baseSql, filterInMemory, filterSql, type RecordFilter } from './filter.js';
 
 const recordSelect = {
   id: true, number: true, values: true, version: true, archivedAt: true, createdAt: true, updatedAt: true, manualFieldIds: true,
@@ -50,6 +53,8 @@ export interface ListQuery {
   withEvents?: boolean;
   /** Только записи с открытыми задачами (этап 5). */
   withTasks?: boolean;
+  /** Фильтр по состоянию, срокам, значению поля, дате (этап 8, ссылки дашборда). */
+  filter?: RecordFilter;
 }
 
 /** Сортировка, которую нельзя выразить в SQL: вычисляемые поля и контроль сроков (календарь РТ). */
@@ -64,9 +69,12 @@ const STATE_RANK = { overdue: 0, soon: 1, ok: 2, closed: 3, none: 4 } as const;
  * Порядок записей по вычисляемому значению. «Контроль сроков»: просрочено → скоро → в срок → закрыто → без срока,
  * внутри группы — по дате срока. Реестр читается целиком (только id и значения): тысячи строк — это быстро.
  */
-async function idsSortedInMemory(db: Db, reg: RegisterDef, where: Prisma.Sql, sort: string, dir: 'asc' | 'desc'): Promise<string[]> {
-  const rows = await db.$queryRaw<{ id: string; number: number; values: Values }[]>`
+async function idsSortedInMemory(
+  db: Db, reg: RegisterDef, where: Prisma.Sql, sort: string, dir: 'asc' | 'desc', keep: ((values: Values) => boolean) | null,
+): Promise<string[]> {
+  const all = await db.$queryRaw<{ id: string; number: number; values: Values }[]>`
     SELECT r.id, r.number, r."values" FROM register_records r WHERE ${where}`;
+  const rows = keep ? all.filter((r) => keep(r.values)) : all;
   const calendar = await calendarFor(db, reg);
   const sign = dir === 'asc' ? 1 : -1;
   let keyed: { id: string; number: number; a: number; b: string | number | null }[];
@@ -122,25 +130,38 @@ export async function listRecords(db: Db, registerId: string, q: ListQuery) {
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
   const dir = q.dir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
   const search = q.q?.trim().toLowerCase();
-  const where = Prisma.sql`r.register_id = ${registerId}::uuid AND r.deleted_at IS NULL
-    ${q.includeArchived ? Prisma.empty : Prisma.sql`AND r.archived_at IS NULL`}
+  const filter = q.filter ?? {};
+  const where = Prisma.sql`${baseSql(registerId, q.includeArchived)} ${filterSql(reg, filter)}
     ${search ? Prisma.sql`AND r.search_text LIKE ${`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}` : Prisma.empty}
     ${q.withEvents ? Prisma.sql`AND EXISTS (SELECT 1 FROM automation_events e WHERE e.record_id = r.id AND e.status = 'new')` : Prisma.empty}
     ${q.withTasks ? Prisma.sql`AND EXISTS (SELECT 1 FROM tasks t WHERE t.record_id = r.id AND t.completed_at IS NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL)` : Prisma.empty}`;
-  const ids = q.sort && sortsInMemory(reg, q.sort)
-    ? (await idsSortedInMemory(db, reg, where, q.sort, q.dir ?? 'asc')).slice(offset, offset + q.limit + 1).map((id) => ({ id }))
-    : await db.$queryRaw<{ id: string }[]>`
+  // Сроки и вычисляемые даты фильтруются в памяти (как и сортируются): тот же код, что у countRecords.
+  const keep = await filterInMemory(db, reg, filter);
+  let ids: { id: string }[];
+  let total: number;
+  if ((q.sort && sortsInMemory(reg, q.sort)) || keep) {
+    const all = q.sort && sortsInMemory(reg, q.sort)
+      ? await idsSortedInMemory(db, reg, where, q.sort, q.dir ?? 'asc', keep)
+      : (await db.$queryRaw<{ id: string; values: Values }[]>`
+          SELECT r.id, r."values" FROM register_records r WHERE ${where}
+          ORDER BY ${orderExpr(reg, q.sort)} ${dir} NULLS LAST, r.number DESC`).filter((r) => keep?.(r.values) ?? true).map((r) => r.id);
+    total = all.length;
+    ids = all.slice(offset, offset + q.limit + 1).map((id) => ({ id }));
+  } else {
+    ids = await db.$queryRaw<{ id: string }[]>`
       SELECT r.id FROM register_records r WHERE ${where}
       ORDER BY ${orderExpr(reg, q.sort)} ${dir} NULLS LAST, r.number DESC
       LIMIT ${q.limit + 1} OFFSET ${offset}`;
-  const total = await db.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM register_records r WHERE ${where}`;
+    const [row] = await db.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM register_records r WHERE ${where}`;
+    total = Number(row?.n ?? 0);
+  }
   const pageIds = ids.slice(0, q.limit).map((r) => r.id);
   const rows = await db.registerRecord.findMany({ where: { id: { in: pageIds } }, select: recordSelect });
   const ordered = pageIds.map((id) => rows.find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r);
   return {
     items: await toRecordDtos(db, reg, ordered),
     nextCursor: ids.length > q.limit ? String(offset + q.limit) : null,
-    total: Number(total[0]?.n ?? 0),
+    total,
   };
 }
 
@@ -221,6 +242,13 @@ function describeChanges(reg: RegisterDef, before: Values, after: Values, fields
   }));
 }
 
+/** Ключ импорта уникален среди неудалённых записей (индекс в БД); здесь — понятная ошибка до записи. */
+async function assertImportKeyFree(tx: Db, reg: RegisterDef, values: Values, exceptId: string | null): Promise<void> {
+  const owner = await importKeyOwner(tx, reg, values, exceptId);
+  const key = importKeyField(reg);
+  if (owner && key) throw conflict('IMPORT_KEY_TAKEN', `«${key.label}» = ${owner.value} уже есть в записи #${owner.number}`);
+}
+
 /** Следующий номер записи в реестре (атомарно, под блокировкой строки реестра). */
 export async function nextNumbers(db: Db, registerId: string, count: number): Promise<number> {
   const rows = await db.$queryRaw<{ first: number }[]>`
@@ -244,6 +272,7 @@ export async function createRecord(db: Db, actor: Actor, registerId: string, inp
     const status = reg.fields.find((f) => f.isStatus && !f.archived);
     const firstStatus = status?.options.find((o) => !o.archived);
     if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
+    await assertImportKeyFree(tx, reg, values, null);
     const number = await nextNumbers(tx, registerId, 1);
     const users = await loadUsers(tx, userIdsIn(reg, [values]));
     const row = await tx.registerRecord.create({
@@ -280,6 +309,7 @@ export async function updateRecord(db: Db, actor: Actor, id: string, input: { ve
     });
     const changed = [...edited.changed, ...reg.fields.filter((f) => derived.includes(f.id) && !edited.changed.includes(f))]
       .filter((f) => !sameValue(current[f.id], values[f.id]));
+    await assertImportKeyFree(tx, reg, values, id);
     const users = await loadUsers(tx, userIdsIn(reg, [current, values]));
     const res = await tx.registerRecord.updateMany({
       where: { id, version: input.version, deletedAt: null },

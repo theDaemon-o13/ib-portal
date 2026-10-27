@@ -24,6 +24,8 @@ export interface FieldMeta extends FieldDef {
   analyticsRole: string | null;
   isTitle: boolean;
   isStatus: boolean;
+  /** Ключ импорта Excel без колонки ID (этап 8): текстовое поле, значения уникальны среди неудалённых записей. */
+  isImportKey: boolean;
   version: number;
   systemKey: string | null;
   /** Поле «Значение справочника»: код справочника; варианты — его значения. */
@@ -75,6 +77,7 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
       analyticsRole: f.analyticsRole,
       isTitle: f.isTitle,
       isStatus: f.isStatus,
+      isImportKey: f.isImportKey,
       calcRule: (f.calcRule as CalcRule | null) ?? null,
       archived: f.archivedAt !== null,
       version: f.version,
@@ -119,6 +122,47 @@ export async function optionUsage(db: Db, fieldId: string, optionId: string): Pr
 /** Поля, ссылающиеся на fieldId в правиле вычисления. */
 export function calcDependents(reg: RegisterDef, fieldId: string): FieldMeta[] {
   return reg.fields.filter((f) => f.calcRule !== null && calcRuleFieldIds(f.calcRule).includes(fieldId));
+}
+
+/** Поле-ключ импорта (этап 8): не более одного неархивного в реестре. */
+export function importKeyField(reg: RegisterDef): FieldMeta | undefined {
+  return reg.fields.find((f) => f.isImportKey && !f.archived);
+}
+
+/**
+ * Нормализация ключа — той же функцией БД, что и в триггере (register_import_key):
+ * без регистра, крайних и повторных пробелов; пустое — null.
+ */
+export async function normalizeImportKeys(db: Db, raw: readonly string[]): Promise<Map<string, string | null>> {
+  const uniq = [...new Set(raw)];
+  if (!uniq.length) return new Map();
+  const rows = await db.$queryRaw<{ raw: string; key: string | null }[]>`
+    SELECT k AS raw, register_import_key(k) AS key FROM unnest(${uniq}::text[]) AS k`;
+  return new Map(rows.map((r) => [r.raw, r.key]));
+}
+
+/** Повторяющиеся значения поля среди неудалённых записей — нельзя назначить ключом импорта. */
+export async function importKeyDuplicates(db: Db, registerId: string, fieldId: string) {
+  const rows = await db.$queryRaw<{ value: string; numbers: number[] }[]>`
+    SELECT min("values" ->> ${fieldId}) AS value, array_agg(number ORDER BY number) AS numbers
+    FROM register_records
+    WHERE register_id = ${registerId}::uuid AND deleted_at IS NULL AND register_import_key("values" ->> ${fieldId}) IS NOT NULL
+    GROUP BY register_import_key("values" ->> ${fieldId}) HAVING count(*) > 1
+    ORDER BY 1 LIMIT 50`;
+  return rows;
+}
+
+/** Запись с таким же ключом импорта (кроме exceptId) — для понятной ошибки до записи в БД. */
+export async function importKeyOwner(db: Db, reg: RegisterDef, values: Values, exceptId: string | null): Promise<{ number: number; value: string } | null> {
+  const key = importKeyField(reg);
+  const raw = key ? values[key.id] : undefined;
+  if (!key || typeof raw !== 'string') return null;
+  const rows = await db.$queryRaw<{ number: number }[]>`
+    SELECT number FROM register_records
+    WHERE register_id = ${reg.id}::uuid AND deleted_at IS NULL AND import_key = register_import_key(${raw})
+      ${exceptId ? Prisma.sql`AND id <> ${exceptId}::uuid` : Prisma.empty}
+    LIMIT 1`;
+  return rows[0] ? { number: rows[0].number, value: raw } : null;
 }
 
 /** Поле срока для контроля сроков: первое неархивное с ролью «срок». */

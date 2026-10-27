@@ -31,16 +31,19 @@ function shownHeaders(ws: ExcelJS.Worksheet): string[] {
 
 /**
  * Отчёт сканера — лист «Хосты» и лист с колонками «CVE» и «Пакет».
- * Выгрузка реестра — скрытый лист «_поля» или колонка ID в первой строке листа с данными.
+ * Выгрузка реестра — скрытый лист «_поля» или колонка ID в первой строке листа с данными;
+ * у реестра с ключом импорта (этап 8) — ещё и колонка ключа (например, выгрузка Device Monitor).
  * Иначе — ошибка с перечнем того, что ожидалось и что найдено.
  */
-export function detectFormat(wb: ExcelJS.Workbook): FileFormat {
+export function detectFormat(wb: ExcelJS.Workbook, importKeyLabel?: string): FileFormat {
   const sheets = wb.worksheets;
   const hasHosts = sheets.some((ws) => norm(ws.name) === HOSTS_SHEET);
   if (hasHosts && sheets.some((ws) => norm(ws.name) !== HOSTS_SHEET && headerMap(ws))) return 'scan';
 
   const data = sheets.filter((ws) => ws.name !== MAP_SHEET && ws.name !== HELP_SHEET);
   if (wb.getWorksheet(MAP_SHEET) || data.some((ws) => headersOf(ws, 1).some((h) => h.toLowerCase() === 'id'))) return 'records';
+  const key = importKeyLabel?.trim().toLowerCase();
+  if (key && data.some((ws) => headersOf(ws, 1).some((h) => h.toLowerCase() === key))) return 'records';
 
   const found = sheets.length
     ? sheets.map((ws) => {
@@ -51,5 +54,5 @@ export function detectFormat(wb: ExcelJS.Workbook): FileFormat {
     : 'листов нет';
   throw badRequest('UNKNOWN_FORMAT',
     `Не удалось распознать файл. Ожидался отчёт сканера (лист «Хосты» и лист с колонками «${SCAN_HEADERS.cve}» и «${SCAN_HEADERS.pkg}») `
-    + `или выгрузка реестра (колонка «ID» или скрытый лист «${MAP_SHEET}» — файл из кнопки «Экспорт в Excel»). В файле: ${found}.`);
+    + `или выгрузка реестра (колонка «ID»${importKeyLabel ? ` или колонка ключа «${importKeyLabel}»` : ''} или скрытый лист «${MAP_SHEET}» — файл из кнопки «Экспорт в Excel»). В файле: ${found}.`);
 }

@@ -68,6 +68,13 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     }
     // Тело ответа API забирается на перехвате (Fetch): из буфера Network Chrome теряет ответы
     // на запросы, у которых тело — файл (предпросмотр импорта), с ошибкой «evicted from inspector cache».
+    if (m.method === 'Fetch.requestPaused' && m.params.responseStatusCode === undefined && m.params.responseErrorReason === undefined) {
+      // Этап запроса: перехватывается, только пока включён обрыв (ui.failRequests) — «сервер недоступен».
+      const { requestId, request } = m.params;
+      const fail = blocked.some((part) => request.url.includes(part));
+      void (fail ? send('Fetch.failRequest', { requestId, errorReason: 'ConnectionRefused' }) : send('Fetch.continueRequest', { requestId })).catch(() => undefined);
+      return;
+    }
     if (m.method === 'Fetch.requestPaused') {
       const { requestId, networkId } = m.params;
       const got = send('Fetch.getResponseBody', { requestId }).catch((e) => ({ error: e.message }));
@@ -77,7 +84,9 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     if (m.method === 'Runtime.exceptionThrown') consoleErrors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
   });
   await send('Network.enable');
-  await send('Fetch.enable', { patterns: [{ urlPattern: `${baseUrl}/api/*`, requestStage: 'Response' }] });
+  const responsePattern = { urlPattern: `${baseUrl}/api/*`, requestStage: 'Response' };
+  const blocked = [];
+  await send('Fetch.enable', { patterns: [responsePattern] });
   await send('Runtime.enable');
   await send('Page.enable');
 
@@ -196,6 +205,37 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       if (!nodeId) throw new Error(`нет элемента ${cssSelector}`);
       await send('DOM.setFileInputFiles', { nodeId, files: paths });
       await sleep(150);
+    },
+
+    /** Обрывать запросы к адресам, содержащим urlPart (сервер недоступен), пока не вызван allowRequests(). */
+    async failRequests(urlPart) {
+      blocked.push(urlPart);
+      await send('Fetch.enable', { patterns: [responsePattern, { urlPattern: `${baseUrl}/api/*`, requestStage: 'Request' }] });
+    },
+    async allowRequests() {
+      blocked.length = 0;
+      await send('Fetch.enable', { patterns: [responsePattern] });
+    },
+
+    /** Нажать и отпустить клавишу (ArrowLeft, ArrowRight, Space, Escape). */
+    async press(key) {
+      const keys = {
+        ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 },
+        ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 },
+        Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
+        Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
+      };
+      const k = keys[key];
+      if (!k) throw new Error(`нет клавиши ${key}`);
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', ...k });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', ...k, text: undefined });
+      await sleep(120);
+    },
+
+    /** Подвинуть мышь (панель управления мониторингом появляется при движении). */
+    async moveMouse(x, y) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+      await sleep(80);
     },
 
     /** Размер окна (CSS-пиксели). */

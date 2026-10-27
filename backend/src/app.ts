@@ -9,13 +9,17 @@ import {
 } from 'fastify-type-provider-zod';
 import type { Db } from './lib/db.js';
 import type { FileStore } from './lib/file-store.js';
+import type { IpList } from './lib/ip-list.js';
 import type { PasswordHasher } from './lib/passwords.js';
 import type { AuditWriter } from './modules/audit/audit.js';
 import type { AuthRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { automationRoutes } from './modules/automations/routes.js';
 import { taskRoutes } from './modules/tasks/routes.js';
+import { CACHE_TTL_MS, createCache } from './modules/dashboard/cache.js';
+import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { documentRoutes } from './modules/documents/routes.js';
+import { monitorRoutes } from './modules/monitor/routes.js';
 import { evidenceRoutes } from './modules/evidence/routes.js';
 import { fileRoutes } from './modules/files/routes.js';
 import { createAuthService } from './modules/auth/service.js';
@@ -46,6 +50,8 @@ export interface AppDeps {
   trustProxy?: FastifyServerOptions['trustProxy'];
   /** Хранилище содержимого файлов (FILES_DIR); без него загрузка и выдача файлов отвечают 500. */
   files?: FileStore;
+  /** Адреса настенных мониторов (MONITOR_ALLOWED_IPS); не задано — вход киоска запрещён. */
+  kioskAllowedIps?: IpList;
   /** Фоновая проверка автоматизаций, интервал в минутах; не задано или 0 — выключена (тесты). */
   automationIntervalMin?: number;
 }
@@ -76,7 +82,7 @@ export async function buildApp(deps: AppDeps) {
     transform: jsonSchemaTransform,
   });
 
-  const auth = createAuthService({ repo: deps.repo, audit: deps.audit, hasher: deps.hasher, now: deps.now });
+  const auth = createAuthService({ repo: deps.repo, audit: deps.audit, hasher: deps.hasher, now: deps.now, kioskAllowedIps: deps.kioskAllowedIps });
   installAuth(base, auth);
 
   await app.register(healthRoutes, { prefix: '/api', ping: () => deps.repo.ping() });
@@ -94,6 +100,10 @@ export async function buildApp(deps: AppDeps) {
   await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(fileRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
+  // Дашборд и мониторинг делят кэш: KPI считаются раз в минуту для обоих.
+  const cache = createCache(CACHE_TTL_MS, deps.now);
+  await app.register(dashboardRoutes, { prefix: '/api/v1', db: deps.db, cache });
+  await app.register(monitorRoutes, { prefix: '/api/v1', db: deps.db, cache });
 
   if (deps.automationIntervalMin) installJobs(base, { db: deps.db, intervalMs: deps.automationIntervalMin * 60_000, now: deps.now });
 

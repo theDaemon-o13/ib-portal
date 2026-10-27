@@ -1,12 +1,13 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   registersApi, VULN_REGISTER_KEY, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, type ScanPreview,
+  FILTER_PARAMS,
 } from '../../api/registers';
 import { useToast } from '../../components/Toast';
 import { ImportDialog } from './ImportDialog';
-import { deadlineChip, deadlineFieldOf, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
+import { deadlineChip, deadlineFieldOf, describeFilter, filterFromParams, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
 import { rkeys } from './keys';
 import { RecordDrawer } from './RecordDrawer';
 import { ScanImportDialog } from './ScanImportDialog';
@@ -115,6 +116,17 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   // ?record=<id> — открыть карточку записи по ссылке (из доказательства, задачи).
   // Адрес реестра — в хеше (#id/records): убираем только ?record, не трогая хеш.
   const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Фильтр из ссылки дашборда (?state=open&f=…): виден плашкой, крестик снимает его, хеш реестра остаётся.
+  const filter = filterFromParams(params);
+  const filterParts = describeFilter(reg, filter);
+  const clearFilter = () => {
+    const next = new URLSearchParams(params);
+    for (const k of FILTER_PARAMS) next.delete(k);
+    const search = next.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }, { replace: true });
+  };
   const [open, setOpenState] = useState<string | null>(() => params.get('record'));
   const setOpen = (id: string | null) => {
     setOpenState(id);
@@ -137,8 +149,8 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   }, [qInput]);
 
   const query = useInfiniteQuery({
-    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, withTasks],
-    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, withTasks, cursor: pageParam }),
+    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, withTasks, filter],
+    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, withTasks, filter, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -235,6 +247,12 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
         </select>
         <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> С архивными</label>
         <label className="check"><input type="checkbox" checked={withTasks} onChange={(e) => setWithTasks(e.target.checked)} /> С задачами</label>
+        {filterParts.length > 0 && (
+          <span className="chip acc rec-filter" data-testid="record-filter">
+            Фильтр: {filterParts.join(' · ')}
+            <button type="button" className="chip-x" aria-label="Снять фильтр" onClick={clearFilter}>×</button>
+          </span>
+        )}
         <span className="hint mono">{rows.length} из {total}</span>
         {canEdit && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
       </div>
@@ -261,7 +279,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           <tbody>
             {query.isPending && <tr><td colSpan={cols.length} className="hint">Загрузка…</td></tr>}
             {query.isError && <tr><td colSpan={cols.length} className="form-error">{query.error.message}</td></tr>}
-            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q || withTasks ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
+            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q || withTasks || filterParts.length ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
             {rows.map((rec) => (
               <tr key={rec.id} className={`rec-row${rec.closed ? ' closed' : ''}${rec.archived ? ' archived' : ''}`} tabIndex={0}
                 title="Открыть карточку записи" onClick={() => setOpen(rec.id)}

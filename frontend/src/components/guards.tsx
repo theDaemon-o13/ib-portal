@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { Navigate, useLocation, useOutletContext } from 'react-router-dom';
 import type { Me } from '../api/client';
 import { useMe } from '../auth/useMe';
-import { canSee, homePath, type NavItem } from '../nav';
+import { canSee, homePath, isKiosk, NAV, type NavItem } from '../nav';
+import { MonitorPage } from '../pages/monitor/MonitorPage';
 import { Shell } from './Shell';
 
 function Loading() {
@@ -22,7 +23,23 @@ export function RequireUser({ children }: { children: (me: Me) => ReactNode }) {
 export function ProtectedShell() {
   return (
     <RequireUser>
-      {(me) => (me.mustChangePassword ? <Navigate to="/change-password" replace /> : <Shell me={me} />)}
+      {(me) => (me.mustChangePassword ? <Navigate to="/change-password" replace />
+        // Настенный монитор видит только /monitor: любой другой адрес ведёт туда.
+        : isKiosk(me.permissions) ? <Navigate to="/monitor" replace />
+          : <Shell me={me} />)}
+    </RequireUser>
+  );
+}
+
+const MONITOR = NAV.find((i) => i.path === '/monitor') as NavItem;
+
+/** /monitor — без меню слева: экран на всю стену. Доступ — ib.work или настенный монитор. */
+export function MonitorRoute() {
+  return (
+    <RequireUser>
+      {(me) => (me.mustChangePassword ? <Navigate to="/change-password" replace />
+        : canSee(MONITOR, me.permissions) ? <MonitorPage me={me} />
+          : <Navigate to={homePath(me.permissions)} replace />)}
     </RequireUser>
   );
 }

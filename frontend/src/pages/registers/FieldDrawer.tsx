@@ -99,7 +99,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
   const roles = ALLOWED_ROLES[field.type];
   // Системное поле (реестр уязвимостей): переименовать можно, остальное держит формулы и импорт сканера.
   const system = !!field.systemKey;
-  const canDetach = !field.isTitle && !field.isStatus && !system;
+  const canDetach = !field.isTitle && !field.isStatus && !field.isImportKey && !system;
 
   return (
     <Overlay>
@@ -113,6 +113,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
               <span className="type">{TYPE_NAMES[field.type]}</span>
               {field.isTitle && <span className="chip acc">Заголовок</span>}
               {field.isStatus && <span className="chip info">Статус</span>}
+              {field.isImportKey && <span className="chip acc" title="Импорт Excel без колонки ID сопоставляет строки по этому полю">Ключ импорта</span>}
               {field.archived && <span className="chip">В архиве</span>}
               {system && <span className="chip" title="Не удаляется, не архивируется, тип не меняется">Системное</span>}
             </div>
@@ -194,7 +195,14 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
                   {field.isStatus ? 'Снять признак статуса' : 'Сделать статусом'}
                 </button>
               )}
+              {field.type === 'text' && !field.archived && (
+                <button className="btn sm" type="button" disabled={patch.isPending}
+                  onClick={() => patch.mutate({ body: { isImportKey: !field.isImportKey }, ok: field.isImportKey ? 'Поле больше не ключ импорта' : `«${field.label}» — ключ импорта: файл без колонки ID сопоставляется по нему` })}>
+                  {field.isImportKey ? 'Снять ключ импорта' : 'Сделать ключом импорта'}
+                </button>
+              )}
               {field.isTitle && <span className="hint">Это заголовок записи. Чтобы сменить, назначьте заголовком другое текстовое поле.</span>}
+              {field.isImportKey && <span className="hint">Значения уникальны (без учёта регистра и пробелов). Импорт без колонки ID: найдена запись — обновление, нет — новая.</span>}
               {field.type !== 'text' && field.type !== 'select' && <span className="hint">Заголовком бывает текстовое поле, статусом — список.</span>}
             </div>
             <label className="fd-label">Для аналитики

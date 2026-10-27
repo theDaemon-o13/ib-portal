@@ -7,7 +7,9 @@ import {
   isRecentlyUsed,
   violationMessage,
 } from '../../lib/password-policy.js';
+import type { IpList } from '../../lib/ip-list.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
+import { KIOSK_PERMISSION } from '../../lib/permissions.js';
 import {
   SESSION_IDLE_MS,
   SESSION_MAX_AGE_MS,
@@ -24,6 +26,8 @@ export interface AuthServiceDeps {
   audit: AuditWriter;
   hasher: PasswordHasher;
   now?: () => Date;
+  /** Адреса настенных мониторов (MONITOR_ALLOWED_IPS). Не задано или пусто — вход киоска запрещён. */
+  kioskAllowedIps?: IpList;
 }
 
 export interface ClientInfo {
@@ -46,7 +50,9 @@ export function normalizeLogin(login: string): string {
   return login.trim().toLowerCase();
 }
 
-export function createAuthService({ repo, audit, hasher, now = () => new Date() }: AuthServiceDeps) {
+export function createAuthService({ repo, audit, hasher, now = () => new Date(), kioskAllowedIps }: AuthServiceDeps) {
+  const kioskIpAllowed = (ip: string | null) => kioskAllowedIps?.has(ip) ?? false;
+
   // Хэш-заглушка: на несуществующий логин тратим столько же времени, сколько на настоящий.
   let dummyHash: Promise<string> | null = null;
   const getDummyHash = () => (dummyHash ??= hasher.hash('dummy-password-for-timing'));
@@ -62,6 +68,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date() 
       passwordExpired,
       permissions: new Set(access.permissions),
       roleNames: access.roleNames,
+      kiosk: access.permissions.includes(KIOSK_PERMISSION),
     };
   }
 
@@ -112,6 +119,17 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date() 
       throw invalidCredentials();
     }
 
+    // Настенный монитор входит только с разрешённых адресов. Ответ — как на неверный пароль,
+    // счётчик неудачных попыток не растёт: пароль верный, и учётную запись это не блокирует.
+    const authUser = await toAuthUser(user);
+    if (authUser.kiosk && !kioskIpAllowed(client.ip)) {
+      await audit.write({
+        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
+        diff: { login, reason: 'kiosk_ip_denied' }, ip: client.ip,
+      });
+      throw invalidCredentials();
+    }
+
     const reset = registerSuccess();
     await repo.saveLockout(user.id, reset);
     await repo.recordSuccessfulLogin(user.id, at);
@@ -128,7 +146,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date() 
     });
     await audit.write({ userId: user.id, action: 'auth.login', entity: 'user', entityId: user.id, ip: client.ip });
 
-    return { token, sessionId, user: await toAuthUser(user) };
+    return { token, sessionId, user: authUser };
   }
 
   /** Проверяет токен из cookie. Неактивную или истёкшую сессию закрывает. */
@@ -138,27 +156,39 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date() 
     if (!session || session.revokedAt) return null;
 
     const at = now();
-    const idle = at.getTime() - session.lastSeenAt.getTime() > SESSION_IDLE_MS;
-    const expired = at.getTime() >= session.expiresAt.getTime();
-    if (idle || expired) {
+    const expire = async (reason: 'idle' | 'max_age') => {
       await repo.revokeSession(sessionId, at);
       await audit.write({
         userId: session.userId, action: 'auth.session_expired', entity: 'session', entityId: sessionId.slice(0, 12),
-        diff: { reason: idle ? 'idle' : 'max_age' }, ip: client.ip,
+        diff: { reason }, ip: client.ip,
       });
       return null;
-    }
+    };
+    if (at.getTime() >= session.expiresAt.getTime()) return expire('max_age');
+    const idle = at.getTime() - session.lastSeenAt.getTime() > SESSION_IDLE_MS;
 
     const user = await repo.findUserById(session.userId);
     if (!user || !user.isActive) {
       await repo.revokeSession(sessionId, at);
       return null;
     }
+    const authUser = await toAuthUser(user);
+    // Настенный монитор не завершается по бездействию (только абсолютный срок, 12 часов),
+    // но работает только с разрешённого адреса: перенесённая на другой ПК сессия закрывается.
+    if (!authUser.kiosk && idle) return expire('idle');
+    if (authUser.kiosk && !kioskIpAllowed(client.ip)) {
+      await repo.revokeSession(sessionId, at);
+      await audit.write({
+        userId: session.userId, action: 'auth.kiosk_ip_denied', entity: 'session', entityId: sessionId.slice(0, 12),
+        diff: { reason: 'ip_not_allowed' }, ip: client.ip,
+      });
+      return null;
+    }
 
     if (at.getTime() - session.lastSeenAt.getTime() >= SESSION_TOUCH_INTERVAL_MS) {
       await repo.touchSession(sessionId, at);
     }
-    return { sessionId, user: await toAuthUser(user) };
+    return { sessionId, user: authUser };
   }
 
   async function logout(sessionId: string, userId: string, client: ClientInfo) {

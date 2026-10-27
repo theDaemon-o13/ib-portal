@@ -74,6 +74,8 @@ export function TasksPage() {
   const openId = params.get('task');
   const archived = params.get('archive') === '1';
   const categoryId = params.get('category') ?? '';
+  // ?overdue=1 — ссылка с дашборда «Просроченные задачи».
+  const overdue = params.get('overdue') === '1' && !archived;
   const [mailOpen, setMailOpen] = useState(false);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -82,7 +84,7 @@ export function TasksPage() {
   const statuses = useQuery({ queryKey: tkeys.statuses, queryFn: () => settingsApi.items('task_statuses', false) });
   const categories = useQuery({ queryKey: tkeys.categories, queryFn: () => settingsApi.items('task_categories', false) });
   const people = useQuery({ queryKey: ['settings', 'userOptions'], queryFn: settingsApi.userOptions });
-  const tasks = useQuery({ queryKey: tkeys.list(archived, categoryId), queryFn: () => tasksApi.list({ archived, categoryId: categoryId || undefined }) });
+  const tasks = useQuery({ queryKey: tkeys.list(archived, categoryId, overdue), queryFn: () => tasksApi.list({ archived, categoryId: categoryId || undefined, overdue }) });
   const all = useQuery({ queryKey: tkeys.list(archived, ''), queryFn: () => tasksApi.list({ archived }), enabled: !!categoryId });
 
   const setParam = useCallback((patch: Record<string, string | null>) => {
@@ -192,6 +194,12 @@ export function TasksPage() {
       {archived && (
         <div className="note arch-note">
           Показаны задачи в архиве: {tasks.data?.total ?? 0}. Откройте карточку, чтобы вернуть задачу на доску. Чтобы выйти из архива, нажмите «Архив» ещё раз.
+        </div>
+      )}
+      {overdue && (
+        <div className="note arch-note" data-testid="overdue-filter">
+          Показаны только просроченные задачи: {tasks.data?.total ?? 0}.{' '}
+          <button type="button" className="btn ghost sm" onClick={() => setParam({ overdue: null })}>Показать все</button>
         </div>
       )}
       {!archived && (

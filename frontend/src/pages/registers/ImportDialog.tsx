@@ -1,9 +1,11 @@
 import { Overlay } from '../../components/Overlay';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { registersApi, type ImportPreview, type RegisterDetail } from '../../api/registers';
 import { useToast } from '../../components/Toast';
 import { rkeys } from './keys';
+
+const MATCH_NAMES = { add: 'новая запись', update: 'обновление', unchanged: 'без изменений', error: 'ошибка — не применяется' } as const;
 
 /** Импорт Excel, шаг 1 → 2: предпросмотр (ничего не изменено), затем применение одной транзакцией. */
 export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; preview: ImportPreview; onClose: () => void }) {
@@ -11,6 +13,9 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
   const toast = useToast();
   const s = preview.summary;
   const nothing = s.added + s.updated === 0;
+  const byKey = s.matchBy === 'key';
+  const [show, setShow] = useState<'all' | 'add' | 'update' | 'unchanged' | 'error'>('all');
+  const matches = s.matches.filter((m) => show === 'all' || m.action === show);
 
   const apply = useMutation({
     mutationFn: () => registersApi.applyImport(preview.id),
@@ -41,7 +46,9 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
     <div className="backdrop" role="presentation">
       <div className="modal panel wide-modal" role="dialog" aria-modal="true" aria-labelledby="imp-title">
         <h2 id="imp-title">Импорт в «{reg.name}»</h2>
-        <p className="imp-kind">Файл распознан как <span className="chip info">Выгрузка реестра</span> — записи обновляются по колонке ID.</p>
+        {byKey
+          ? <p className="imp-kind">Сопоставление по ключу <span className="chip acc">{s.keyField?.label}</span>: найдена запись — обновление, нет — новая. Колонки ID в файле нет.</p>
+          : <p className="imp-kind">Файл распознан как <span className="chip info">Выгрузка реестра</span> — записи обновляются по колонке ID.</p>}
         <p className="hint">Файл «{s.fileName}», строк: {s.rows}. Пока ничего не изменено.</p>
         <div className="imp-kpis">
           <div><b className="mono">{s.added}</b><span>добавится</span></div>
@@ -69,6 +76,49 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+        {byKey && s.matches.length > 0 && (
+          <div className="grid-gap">
+            <div className="row sb">
+              <div className="eyebrow">Сопоставление строк файла</div>
+              <div className="filters" role="group" aria-label="Показать строки">
+                {([['all', 'Все'], ['add', 'Новые'], ['update', 'Изменятся'], ['unchanged', 'Без изменений'], ['error', 'Ошибки']] as const).map(([k, t]) => (
+                  <button key={k} type="button" aria-pressed={show === k} onClick={() => setShow(k)}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div className="tbl-wrap imp-errors">
+              <table className="cat-tbl" aria-label="Сопоставление строк">
+                <thead><tr><th>Строка</th><th>{s.keyField?.label}</th><th>Запись</th><th>Что будет</th></tr></thead>
+                <tbody>
+                  {matches.map((m) => (
+                    <tr key={m.row}>
+                      <td className="mono">{m.row}</td><td>{m.key || '—'}</td><td className="mono">{m.number ? `#${m.number}` : '—'}</td>
+                      <td>{MATCH_NAMES[m.action]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {byKey && (
+          <div className="grid-gap">
+            <div className="eyebrow">Нет в файле: {s.missingTotal}</div>
+            {s.missingTotal === 0
+              ? <div className="hint">Все действующие записи реестра есть в файле</div>
+              : (
+                <>
+                  <p className="hint">Действующие записи, которых нет в файле, — кандидаты на «Выведено». Портал их не меняет: проверьте и закройте вручную.</p>
+                  <div className="tbl-wrap imp-errors">
+                    <table className="cat-tbl" aria-label="Нет в файле">
+                      <thead><tr><th>Запись</th><th>{s.keyField?.label}</th><th>Заголовок</th></tr></thead>
+                      <tbody>{s.missing.map((m) => <tr key={m.id}><td className="mono">#{m.number}</td><td>{m.key || '—'}</td><td>{m.title}</td></tr>)}</tbody>
+                    </table>
+                  </div>
+                </>
+              )}
           </div>
         )}
         <div className="row end">

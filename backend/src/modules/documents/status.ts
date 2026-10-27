@@ -39,6 +39,17 @@ export function docStatus(d: { hasApproved: boolean; workingStage: number | null
 }
 
 /**
+ * «Документ к пересмотру» (дашборд, этап 8): пересмотр просрочен или идёт, либо утверждённый документ
+ * с датой пересмотра в ближайшие REVIEW_NOTICE_DAYS дней (включительно).
+ */
+export function needsReview(d: { status: DocStatus; reviewDue: string | null }, today: string): boolean {
+  if (d.status === 'review_overdue' || d.status === 'in_review') return true;
+  if (d.status !== 'approved' || d.reviewDue === null) return false;
+  const left = (Date.parse(`${d.reviewDue}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000;
+  return left <= REVIEW_NOTICE_DAYS;
+}
+
+/**
  * Дата + N месяцев (YYYY-MM-DD). Если такого дня в месяце нет — последний день месяца:
  * 31.01 + 1 мес. = 28.02 (29.02 в високосный год).
  */

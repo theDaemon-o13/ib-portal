@@ -9,11 +9,17 @@ export interface NavItem {
   icon: IconName;
   /** Право, без которого пункт скрыт. undefined — виден всем вошедшим. */
   perm?: 'ib.work';
+  /** Доступен учётной записи настенного монитора (monitor.kiosk). */
+  kiosk?: boolean;
 }
+
+/** Право настенного монитора: видит только /monitor (ADR-0012). */
+export const KIOSK_PERMISSION = 'monitor.kiosk';
+export const isKiosk = (permissions: readonly string[]) => permissions.includes(KIOSK_PERMISSION);
 
 export const NAV: NavItem[] = [
   { path: '/dashboard', title: 'Дашборд', icon: 'dash', perm: 'ib.work' },
-  { path: '/monitor', title: 'Мониторинг', icon: 'monitor', perm: 'ib.work' },
+  { path: '/monitor', title: 'Мониторинг', icon: 'monitor', perm: 'ib.work', kiosk: true },
   { path: '/registers', title: 'Конструктор реестров', icon: 'builder', perm: 'ib.work' },
   { path: '/tasks', title: 'Задачи', icon: 'tasks', perm: 'ib.work' },
   { path: '/documents', title: 'Документы', icon: 'docs' },
@@ -22,6 +28,7 @@ export const NAV: NavItem[] = [
 ];
 
 export function canSee(item: NavItem, permissions: readonly string[]): boolean {
+  if (isKiosk(permissions)) return item.kiosk === true;
   return item.perm === undefined || permissions.includes(item.perm);
 }
 

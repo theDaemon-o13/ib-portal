@@ -19,7 +19,9 @@ import { auditSettings, type Actor } from '../settings/common.js';
 import { applyDerived } from '../vulns/derive.js';
 import {
   assertNotArchived,
+  importKeyField,
   loadRegister,
+  normalizeImportKeys,
   loadUsers,
   searchTextOf,
   toRecordDtos,
@@ -27,6 +29,7 @@ import {
   type FieldMeta,
   type RegisterDef,
 } from './definition.js';
+import { baseSql, closedSql } from './filter.js';
 import { nextNumbers } from './records.service.js';
 
 export const IMPORT_MAX_ROWS = 20_000;
@@ -158,6 +161,8 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
     '4. Сотрудник: «ФИО (логин)». Только ФИО — если такое имя у единственного сотрудника, иначе ошибка.',
     '5. Перед применением портал показывает предпросмотр: что добавится, что изменится, строки с ошибками.',
   ]) help.addRow([line]);
+  const key = importKeyField(reg);
+  if (key) help.addRow([`6. Без колонки ID строки сопоставляются по «${key.label}» (ключ импорта): найдена запись — обновление, нет — новая запись. Регистр и лишние пробелы не важны.`]);
   help.getColumn(3).alignment = { wrapText: true, vertical: 'top' };
 
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
@@ -174,6 +179,24 @@ export interface ImportIssue {
   message: string;
 }
 
+/** Сопоставление строки файла с записью: по ID или по ключу импорта (этап 8). */
+export interface ImportMatch {
+  row: number;
+  /** Значение ID или ключа из файла, как написано. */
+  key: string;
+  /** Номер найденной записи; null — новая запись или ошибка. */
+  number: number | null;
+  action: 'add' | 'update' | 'unchanged' | 'error';
+}
+
+/** Действующая запись, которой нет в файле (импорт по ключу): кандидат на «Выведено». Портал её не меняет. */
+export interface ImportMissing {
+  id: string;
+  number: number;
+  key: string;
+  title: string;
+}
+
 export interface ImportSummary {
   fileName: string;
   rows: number;
@@ -184,6 +207,12 @@ export interface ImportSummary {
   fieldChanges: { fieldId: string; label: string; count: number }[];
   errors: ImportIssue[];
   warnings: string[];
+  /** id — по колонке ID; key — по полю-ключу импорта. */
+  matchBy: 'id' | 'key';
+  keyField: { id: string; label: string } | null;
+  matches: ImportMatch[];
+  missing: ImportMissing[];
+  missingTotal: number;
 }
 
 interface ImportPayload {
@@ -193,9 +222,12 @@ interface ImportPayload {
 }
 
 const MAX_ISSUES = 500;
+const MAX_MISSING = 2000;
 
-function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDef, warnings: string[]) {
-  const cols = new Map<number, { kind: ColKind; field?: FieldMeta }>();
+type ColMap = Map<number, { kind: ColKind; field?: FieldMeta }>;
+
+function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDef, warnings: string[]): { cols: ColMap; matchBy: 'id' | 'key' } {
+  const cols: ColMap = new Map();
   const headerRow = ws.getRow(1);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: true }, (cell, col) => {
@@ -245,10 +277,13 @@ function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDe
       else cols.set(col, { kind: isWritable(field.type) ? 'value' : 'readonly', field });
     });
   }
-  if (![...cols.values()].some((c) => c.kind === 'id')) {
-    throw badRequest('NO_ID_COLUMN', 'В файле нет колонки ID. Выгрузите реестр кнопкой «Экспорт в Excel» и заполните этот файл');
-  }
-  return cols;
+  if ([...cols.values()].some((c) => c.kind === 'id')) return { cols, matchBy: 'id' };
+  // Без колонки ID — по ключу импорта, если он задан и его колонка есть в файле (выгрузка Device Monitor и т. п.).
+  const key = importKeyField(reg);
+  if (key && [...cols.values()].some((c) => c.kind === 'value' && c.field?.id === key.id)) return { cols, matchBy: 'key' };
+  throw badRequest('NO_ID_COLUMN', key
+    ? `В файле нет колонки ID и колонки ключа «${key.label}». Добавьте одну из них или выгрузите реестр кнопкой «Экспорт в Excel»`
+    : 'В файле нет колонки ID. Выгрузите реестр кнопкой «Экспорт в Excel» и заполните этот файл');
 }
 
 export async function readWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
@@ -261,6 +296,15 @@ export async function readWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
   return wb;
 }
 
+/** Текст ячейки ключа или ID — как написано в файле. */
+function cellText(v: ReturnType<typeof cellPrimitive>): string {
+  if (v === null) return '';
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : v.toISOString().slice(0, 10);
+  return String(v).trim();
+}
+
+const recordCols = { id: true, number: true, values: true, version: true, archivedAt: true, deletedAt: true, createdAt: true, updatedAt: true } as const;
+
 export async function previewImport(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string) {
   const reg = await loadRegister(db, registerId);
   assertNotArchived(reg);
@@ -271,80 +315,117 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   if (ws.rowCount - 1 > IMPORT_MAX_ROWS) throw badRequest('TOO_MANY_ROWS', `В файле больше ${IMPORT_MAX_ROWS} строк`);
 
   const warnings: string[] = [];
-  const cols = mapColumns(wb, ws, reg, warnings);
-  const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0] as number;
+  const { cols, matchBy } = mapColumns(wb, ws, reg, warnings);
+  const keyField = importKeyField(reg) ?? null;
+  const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0];
+  const keyCol = keyField ? [...cols.entries()].find(([, c]) => c.kind === 'value' && c.field?.id === keyField.id)?.[0] : undefined;
+  const matchCol = (matchBy === 'id' ? idCol : keyCol) as number;
   const allUsers = await db.user.findMany({ select: { id: true, login: true, fullName: true, isActive: true } });
 
-  // Записи, на которые ссылается файл.
-  const numbers: number[] = [];
-  ws.eachRow((row, n) => {
-    if (n === 1) return;
-    const v = cellPrimitive(row.getCell(idCol).value);
-    const num = typeof v === 'number' ? v : typeof v === 'string' && /^\s*\d+\s*$/.test(v) ? Number(v) : NaN;
-    if (Number.isInteger(num) && num > 0) numbers.push(num);
+  // Первый проход: что в файле в колонке сопоставления.
+  const dataRows: { rowNumber: number; row: ExcelJS.Row }[] = [];
+  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+    if ([...cols.keys()].every((c) => cellPrimitive(row.getCell(c).value) === null)) return;
+    dataRows.push({ rowNumber, row });
   });
-  const existing = await db.registerRecord.findMany({
-    where: { registerId, number: { in: numbers } },
-    select: { id: true, number: true, values: true, version: true, archivedAt: true, deletedAt: true, createdAt: true, updatedAt: true },
-  });
+  const rawMatch = dataRows.map((d) => cellText(cellPrimitive(d.row.getCell(matchCol).value)));
+  // Значения ключа после правок строки (в обоих режимах): проверка уникальности ключа до применения.
+  const rawKeys = keyCol ? dataRows.map((d) => cellText(cellPrimitive(d.row.getCell(keyCol).value))) : [];
+  const norm = await normalizeImportKeys(db, [...rawKeys, ...(matchBy === 'key' ? rawMatch : [])]);
+
+  type Existing = { id: string; number: number; values: Prisma.JsonValue; version: number; archivedAt: Date | null; deletedAt: Date | null; createdAt: Date; updatedAt: Date };
+  let existing: Existing[];
+  if (matchBy === 'id') {
+    const numbers = rawMatch.filter((v) => /^\d+$/.test(v)).map(Number).filter((n) => n > 0 && Number.isSafeInteger(n));
+    existing = await db.registerRecord.findMany({ where: { registerId, number: { in: numbers } }, select: recordCols });
+  } else {
+    const keys = [...new Set(rawMatch.map((v) => norm.get(v)).filter((k): k is string => !!k))];
+    existing = await db.registerRecord.findMany({ where: { registerId, deletedAt: null, importKey: { in: keys } }, select: { ...recordCols, importKey: true } });
+  }
   const byNumber = new Map(existing.map((r) => [r.number, r]));
+  const byKey = new Map(matchBy === 'key' ? (existing as (Existing & { importKey: string | null })[]).map((r) => [r.importKey as string, r]) : []);
+  // Ключ импорта у других записей реестра: новые значения ключа не должны с ними совпасть.
+  const keyOwners = new Map<string, { id: string; number: number }>();
+  if (keyField) {
+    const wanted = [...new Set(rawKeys.map((v) => norm.get(v)).filter((k): k is string => !!k))];
+    if (wanted.length) {
+      for (const r of await db.registerRecord.findMany({ where: { registerId, deletedAt: null, importKey: { in: wanted } }, select: { id: true, number: true, importKey: true } })) {
+        keyOwners.set(r.importKey as string, { id: r.id, number: r.number });
+      }
+    }
+  }
   // Отображаемые значения «только для чтения» (вычисляемый срок, решение) — для предупреждения об изменениях.
   const shownByNumber = new Map(
     (await toRecordDtos(db, reg, existing.filter((r) => !r.deletedAt))).map((d) => [d.number, d.display]),
   );
   const titleField = reg.fields.find((f) => f.isTitle && !f.archived);
 
+  // Повторы в колонке сопоставления: по ID — ошибка в повторе; по ключу — во всех строках с этим ключом
+  // (непонятно, какая из них верная).
+  const seen = new Map<string, number[]>();
+  rawMatch.forEach((v, i) => {
+    const k = matchBy === 'key' ? norm.get(v) : /^\d+$/.test(v) ? String(Number(v)) : null;
+    if (k) seen.set(k, [...(seen.get(k) ?? []), dataRows[i]?.rowNumber ?? 0]);
+  });
+
   const errors: ImportIssue[] = [];
+  const matches: ImportMatch[] = [];
   let errorRows = 0;
   let unchanged = 0;
   let readonlyChanged = 0;
-  let rowsTotal = 0;
   const fieldCounts = new Map<string, number>();
   const payload: ImportPayload = {
     creates: [],
     updates: [],
     fieldVersions: Object.fromEntries(reg.fields.map((f) => [f.id, f.version])),
   };
-  const seen = new Map<number, number>();
   const issue = (i: ImportIssue) => {
     if (errors.length < MAX_ISSUES) errors.push(i);
   };
+  // Новый ключ → строка, которая его получит (повторы ключа среди изменений файла).
+  const keyClaims = new Map<string, number>();
 
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const cells = [...cols.keys()].map((c) => cellPrimitive(row.getCell(c).value));
-    if (cells.every((c) => c === null)) return;
-    rowsTotal++;
+  for (const [i, { row, rowNumber }] of dataRows.entries()) {
     const rowErrors: ImportIssue[] = [];
-    const idRaw = cellPrimitive(row.getCell(idCol).value);
-    let rec: (typeof existing)[number] | undefined;
-    let num: number | null = null;
-    if (idRaw !== null) {
-      num = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' && /^\s*\d+\s*$/.test(idRaw) ? Number(idRaw) : NaN;
-      if (!Number.isInteger(num) || num <= 0) {
-        rowErrors.push({ row: rowNumber, id: String(idRaw), field: 'ID', message: 'ID — номер записи (целое число)' });
+    const matchRaw = rawMatch[i] ?? '';
+    let rec: Existing | undefined;
+    if (matchBy === 'id') {
+      if (matchRaw !== '') {
+        const num = /^\d+$/.test(matchRaw) ? Number(matchRaw) : NaN;
+        if (!Number.isInteger(num) || num <= 0) {
+          rowErrors.push({ row: rowNumber, id: matchRaw, field: 'ID', message: 'ID — номер записи (целое число)' });
+        } else {
+          const rows = seen.get(String(num)) ?? [];
+          if (rows[0] !== rowNumber) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `ID ${num} уже встречается в строке ${rows[0]}` });
+          rec = byNumber.get(num);
+          if (!rec) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `Записи с ID ${num} нет в реестре — новая запись так не создаётся. Для новой оставьте ID пустым` });
+          else if (rec.deletedAt) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `Запись ${num} удалена` });
+          else if (rec.archivedAt) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `Запись ${num} в архиве — верните её на портале` });
+        }
+      }
+    } else {
+      const key = norm.get(matchRaw) ?? null;
+      const label = (keyField as FieldMeta).label;
+      if (!key) {
+        rowErrors.push({ row: rowNumber, id: null, field: label, message: `Заполните «${label}»: по нему строка сопоставляется с записью` });
       } else {
-        const dup = seen.get(num);
-        if (dup !== undefined) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `ID ${num} уже встречается в строке ${dup}` });
-        else seen.set(num, rowNumber);
-        rec = byNumber.get(num);
-        if (!rec) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `Записи с ID ${num} нет в реестре — новая запись так не создаётся. Для новой оставьте ID пустым` });
-        else if (rec.deletedAt) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `Запись ${num} удалена` });
-        else if (rec.archivedAt) rowErrors.push({ row: rowNumber, id: String(num), field: 'ID', message: `Запись ${num} в архиве — верните её на портале` });
+        const rows = seen.get(key) ?? [];
+        if (rows.length > 1) {
+          rowErrors.push({ row: rowNumber, id: matchRaw, field: label, message: `«${matchRaw}» встречается в строках ${rows.join(', ')} — оставьте одну` });
+        }
+        rec = byKey.get(key);
+        if (rec?.archivedAt) rowErrors.push({ row: rowNumber, id: matchRaw, field: label, message: `Запись #${rec.number} с «${matchRaw}» в архиве — верните её на портале` });
       }
     }
     const current = (rec?.values ?? {}) as Values;
     const changes: Values = {};
     for (const [col, c] of cols) {
-      if (c.kind === 'id' || !c.field) continue;
+      if (c.kind !== 'value' || !c.field) continue; // ID и «только для чтения» не импортируются
       const f = c.field;
-      if (c.kind === 'readonly' || c.kind === 'doc') {
-        // Только чтение: не меняется; если в файле другое значение — предупреждение.
-        continue;
-      }
       const r = parseCell(f, row.getCell(col).value, { users: allUsers });
       if (!r.ok) {
-        rowErrors.push({ row: rowNumber, id: num !== null ? String(num) : null, field: f.label, message: r.error });
+        rowErrors.push({ row: rowNumber, id: matchRaw || null, field: f.label, message: r.error });
         continue;
       }
       if (r.value === null) continue; // пустая ячейка не меняет значение
@@ -366,26 +447,66 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     if (!rec && rowErrors.length === 0 && titleField && changes[titleField.id] === undefined) {
       rowErrors.push({ row: rowNumber, id: null, field: titleField.label, message: `Для новой записи заполните «${titleField.label}»` });
     }
+    // Ключ импорта уникален: новое значение не должно принадлежать другой записи или другой строке файла.
+    if (keyField && rowErrors.length === 0 && typeof changes[keyField.id] === 'string') {
+      const newKey = norm.get(String(changes[keyField.id]).trim()) ?? null;
+      const owner = newKey ? keyOwners.get(newKey) : undefined;
+      const claimed = newKey ? keyClaims.get(newKey) : undefined;
+      if (owner && owner.id !== rec?.id) {
+        rowErrors.push({ row: rowNumber, id: matchRaw || null, field: keyField.label, message: `«${changes[keyField.id]}» уже есть в записи #${owner.number}` });
+      } else if (newKey && claimed !== undefined) {
+        rowErrors.push({ row: rowNumber, id: matchRaw || null, field: keyField.label, message: `«${changes[keyField.id]}» уже встречается в строке ${claimed}` });
+      } else if (newKey) {
+        keyClaims.set(newKey, rowNumber);
+      }
+    }
     if (rowErrors.length) {
       errorRows++;
       rowErrors.forEach(issue);
-      return;
+      matches.push({ row: rowNumber, key: matchRaw, number: rec?.number ?? null, action: 'error' });
+      continue;
     }
     for (const fid of Object.keys(changes)) fieldCounts.set(fid, (fieldCounts.get(fid) ?? 0) + 1);
     if (rec) {
-      if (Object.keys(changes).length === 0) unchanged++;
-      else payload.updates.push({ row: rowNumber, recordId: rec.id, number: rec.number, version: rec.version, changes });
+      if (Object.keys(changes).length === 0) {
+        unchanged++;
+        matches.push({ row: rowNumber, key: matchRaw, number: rec.number, action: 'unchanged' });
+      } else {
+        payload.updates.push({ row: rowNumber, recordId: rec.id, number: rec.number, version: rec.version, changes });
+        matches.push({ row: rowNumber, key: matchRaw, number: rec.number, action: 'update' });
+      }
     } else {
       payload.creates.push({ row: rowNumber, values: changes });
+      matches.push({ row: rowNumber, key: matchRaw, number: null, action: 'add' });
     }
-  });
+  }
+
+  // Импорт по ключу: действующие незакрытые записи, которых нет в файле, — кандидаты на «Выведено».
+  let missing: ImportMissing[] = [];
+  let missingTotal = 0;
+  if (matchBy === 'key' && keyField) {
+    const inFile = new Set(rawMatch.map((v) => norm.get(v)).filter((k): k is string => !!k));
+    const active = await db.$queryRaw<{ id: string; number: number; values: Values; import_key: string | null }[]>`
+      SELECT r.id, r.number, r."values", r.import_key FROM register_records r
+      WHERE ${baseSql(reg.id)} AND NOT ${closedSql(reg)}
+      ORDER BY r.number`;
+    const absent = active.filter((r) => !r.import_key || !inFile.has(r.import_key));
+    missingTotal = absent.length;
+    missing = absent.slice(0, MAX_MISSING).map((r) => ({
+      id: r.id,
+      number: r.number,
+      key: typeof r.values[keyField.id] === 'string' ? String(r.values[keyField.id]) : '',
+      title: titleField && typeof r.values[titleField.id] === 'string' ? String(r.values[titleField.id]) : '',
+    }));
+    if (missingTotal > missing.length) warnings.push(`Нет в файле: показаны первые ${missing.length} из ${missingTotal}`);
+  }
 
   if (readonlyChanged) warnings.push(`В колонках «только для чтения» изменено значений: ${readonlyChanged}. Они не импортируются`);
   if (errorRows > errors.length) warnings.push(`Показаны первые ${errors.length} ошибок`);
 
   const summary: ImportSummary = {
     fileName,
-    rows: rowsTotal,
+    rows: dataRows.length,
     added: payload.creates.length,
     updated: payload.updates.length,
     unchanged,
@@ -393,6 +514,11 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     fieldChanges: reg.fields.filter((f) => fieldCounts.has(f.id)).map((f) => ({ fieldId: f.id, label: f.label, count: fieldCounts.get(f.id) ?? 0 })),
     errors,
     warnings,
+    matchBy,
+    keyField: keyField ? { id: keyField.id, label: keyField.label } : null,
+    matches,
+    missing,
+    missingTotal,
   };
   const sha256 = createHash('sha256').update(buffer).digest('hex');
   const imp = await withTx(db, async (tx) => {
@@ -409,8 +535,8 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     });
     await auditSettings(tx, actor, {
       action: 'register.import.previewed', entity: 'register_import', entityId: created.id,
-      summary: `«${reg.name}»: предпросмотр импорта «${fileName}» — добавится ${summary.added}, изменится ${summary.updated}, строк с ошибками ${summary.errorRows}`,
-      after: { fileName, sha256, added: summary.added, updated: summary.updated, errorRows: summary.errorRows },
+      summary: `«${reg.name}»: предпросмотр импорта «${fileName}»${matchBy === 'key' ? ` по ключу «${keyField?.label}»` : ''} — добавится ${summary.added}, изменится ${summary.updated}, строк с ошибками ${summary.errorRows}${matchBy === 'key' ? `, нет в файле ${missingTotal}` : ''}`,
+      after: { fileName, sha256, matchBy, added: summary.added, updated: summary.updated, errorRows: summary.errorRows, ...(matchBy === 'key' ? { missing: missingTotal } : {}) },
     });
     return created;
   });
@@ -421,7 +547,9 @@ export async function getImport(db: Db, id: string) {
   const imp = await db.registerImport.findUnique({ where: { id } });
   if (!imp || imp.kind !== 'records') throw notFound('Импорт');
   const status = imp.status === 'preview' && imp.expiresAt < new Date() ? 'expired' : imp.status;
-  return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary: imp.summary as unknown as ImportSummary };
+  // Предпросмотры до этапа 8 — без сопоставления по ключу.
+  const summary = { matchBy: 'id', keyField: null, matches: [], missing: [], missingTotal: 0, ...(imp.summary as object) } as unknown as ImportSummary;
+  return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary };
 }
 
 // ---------------------------------------------------------------- импорт: применение
@@ -479,6 +607,26 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
       const f = reg.fields.find((x) => x.id === fid);
       if (!f || !optionOk(f, v)) throw conflict('IMPORT_STALE', 'После предпросмотра изменились значения списков. Повторите предпросмотр');
       if (f.type === 'user') usersNeeded.add(String(v));
+    }
+    // Ключ импорта: если после предпросмотра кто-то завёл запись с тем же ключом — не применяем ничего.
+    const keyField = importKeyField(reg);
+    if (keyField) {
+      const newKeys = [...payload.creates.map((c) => c.values[keyField.id]), ...payload.updates.map((u) => u.changes[keyField.id])]
+        .filter((v): v is string => typeof v === 'string');
+      const norm = await normalizeImportKeys(tx, newKeys);
+      const keys = [...new Set([...norm.values()].filter((k): k is string => !!k))];
+      if (keys.length) {
+        const updating = new Set(payload.updates.map((u) => u.recordId));
+        const taken = await tx.registerRecord.findMany({
+          where: { registerId: reg.id, deletedAt: null, importKey: { in: keys } },
+          select: { id: true, number: true, importKey: true },
+        });
+        const createKeys = new Set(payload.creates.map((c) => norm.get(String(c.values[keyField.id] ?? ''))).filter(Boolean));
+        const clash = taken.filter((t) => !updating.has(t.id) || createKeys.has(t.importKey));
+        if (clash.length) {
+          throw conflict('IMPORT_STALE', `После предпросмотра появились записи с тем же «${keyField.label}» (${clash.slice(0, 10).map((c) => `#${c.number}`).join(', ')}). Повторите предпросмотр`);
+        }
+      }
     }
     const users = await loadUsers(tx, [...usersNeeded, ...userIdsIn(reg, current.map((r) => r.values))]);
 

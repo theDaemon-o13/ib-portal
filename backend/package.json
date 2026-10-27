@@ -20,6 +20,7 @@
     "seed": "tsx prisma/seed/index.ts",
     "create-admin": "tsx scripts/create-admin.ts",
     "check:integrity": "tsx scripts/check-integrity.ts",
+    "check:schema": "tsx scripts/check-schema.ts",
     "openapi:export": "tsx scripts/export-openapi.ts"
   },
   "dependencies": {

@@ -13,6 +13,7 @@ import { SYSTEM_ITEMS } from '../src/lib/catalogs.js';
 import { APPROVAL_PERMISSIONS, PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../src/lib/permissions.js';
 import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.js';
 import { RISK_FIELDS, RISK_REGISTER_KEY } from '../src/modules/risks/definition.js';
+import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../src/modules/dashboard/incidents.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -150,6 +151,34 @@ async function main() {
     const missing = RISK_FIELDS.filter((f) => f.system && !keys.has(f.key)).map((f) => f.label);
     check(missing.length === 0, 'у реестра рисков ИБ все системные поля', `нет: ${missing.join(', ')}`);
   }
+
+  // Этап 8: дашборд, ключ импорта, настенный монитор.
+  const tilePrivs = await prisma.$queryRaw<{ p: string; granted: boolean }[]>`
+    SELECT p, has_table_privilege('ibportal_app', 'public.dashboard_tiles', p) AS granted
+    FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+  const tp = (x: string) => tilePrivs.find((r) => r.p === x)?.granted === true;
+  check(tp('SELECT') && tp('INSERT') && tp('UPDATE') && !tp('DELETE') && !tp('TRUNCATE'), 'ibportal_app: dashboard_tiles — SELECT, INSERT, UPDATE, без DELETE и TRUNCATE');
+  const keyTrigger = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM pg_trigger WHERE tgrelid = 'public.register_records'::regclass AND tgname = 'register_records_import_key'`;
+  check(Number(keyTrigger[0]?.n ?? 0) === 1, 'триггер ключа импорта register_records_import_key на месте');
+  const staleKeys = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM register_records r
+    LEFT JOIN register_fields f ON f.register_id = r.register_id AND f.is_import_key AND f.deleted_at IS NULL
+    WHERE r.import_key IS DISTINCT FROM CASE WHEN f.id IS NULL THEN NULL ELSE register_import_key(r."values" ->> f.id::text) END`;
+  check(Number(staleKeys[0]?.n ?? 0) === 0, 'import_key записей совпадает с полем-ключом', `расходится у ${staleKeys[0]?.n} записей`);
+  const incidents = await prisma.register.findUnique({ where: { systemKey: INCIDENT_REGISTER_KEY }, include: { fields: { where: { systemKey: INCIDENT_DATE_KEY, deletedAt: null } } } });
+  if (incidents) check(incidents.fields.length === 1, 'у реестра инцидентов есть системное поле «Дата выявления»');
+  else console.log('· системного «Реестра инцидентов» нет — KPI «Инциденты за 30 дней» не настроен');
+  const kioskMixed = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM (
+      SELECT r.id FROM roles r JOIN role_permissions p ON p.role_id = r.id
+      GROUP BY r.id HAVING bool_or(p.permission_code = 'monitor.kiosk') AND count(*) > 1
+      UNION ALL
+      SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id = u.id
+      GROUP BY u.id HAVING count(*) > 1 AND bool_or(EXISTS (
+        SELECT 1 FROM role_permissions p WHERE p.role_id = ur.role_id AND p.permission_code = 'monitor.kiosk'))
+    ) x`;
+  check(Number(kioskMixed[0]?.n ?? 0) === 0, 'право «Настенный монитор» ни с чем не сочетается (роли и пользователи)');
 
   await checkFileStore(process.argv.includes('--sha'));
 

@@ -27,6 +27,7 @@ export const authRoutes: FastifyPluginAsyncZod<{ auth: AuthService }> = async (a
 
   app.post('/logout', {
     preHandler: duringPasswordChange,
+    config: { kiosk: true },
     schema: {
       tags,
       summary: 'Выход',
@@ -41,6 +42,7 @@ export const authRoutes: FastifyPluginAsyncZod<{ auth: AuthService }> = async (a
 
   app.get('/me', {
     preHandler: duringPasswordChange,
+    config: { kiosk: true },
     schema: {
       tags,
       summary: 'Текущий пользователь и его права',
@@ -53,6 +55,7 @@ export const authRoutes: FastifyPluginAsyncZod<{ auth: AuthService }> = async (a
 
   app.post('/change-password', {
     preHandler: duringPasswordChange,
+    config: { kiosk: true },
     schema: {
       tags,
       summary: 'Смена пароля',

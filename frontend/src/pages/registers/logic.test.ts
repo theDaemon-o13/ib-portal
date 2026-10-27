@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RegisterDetail, RegisterRecord } from '../../api/registers';
-import { changedValues, deadlineChip, deadlineFieldOf, describeRule, draftOf, formatCalc, optionTone, pinOffsets, toApiValue, typeTargets, visibleColumns } from './logic';
+import { changedValues, deadlineChip, deadlineFieldOf, describeFilter, describeRule, filterFromParams, draftOf, formatCalc, optionTone, pinOffsets, toApiValue, typeTargets, visibleColumns } from './logic';
 
 const field = (id: string, label: string, type: RegisterDetail['fields'][number]['type'], extra: Partial<RegisterDetail['fields'][number]> = {}) => ({
-  id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, calcRule: null, archived: false, version: 1, systemKey: null, catalogCode: null, options: [], ...extra,
+  id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, isImportKey: false, calcRule: null, archived: false, version: 1, systemKey: null, catalogCode: null, options: [], ...extra,
 });
 const reg: RegisterDetail = {
   id: 'r', name: 'Р', description: '', ownerUserId: null, archived: false, version: 1, systemKey: null,
@@ -101,5 +101,15 @@ describe('адрес конструктора', () => {
     expect(parseRegHash(`#${id}/unknown`)).toEqual({ id, tab: 'records' });
     expect(parseRegHash('#abc/fields')).toEqual({ id: null, tab: 'fields' });
     expect(parseRegHash('')).toEqual({ id: null, tab: 'records' });
+  });
+});
+
+describe('фильтр из ссылки дашборда', () => {
+  it('берёт только параметры фильтра и подписывает их по полям реестра', () => {
+    const f = filterFromParams(new URLSearchParams('state=open&deadline=overdue,soon&f=lvl:h,empty&record=x&q=abc'));
+    expect(f).toEqual({ state: 'open', deadline: 'overdue,soon', f: 'lvl:h,empty' });
+    expect(describeFilter(reg, f)).toEqual(['Открытые', 'Просрочено, ≤ 7 дней', 'Уровень: Высокий, не заполнено']);
+    expect(describeFilter(reg, { date: 'lvl', from: '2026-10-01', to: '2026-10-27' })).toEqual(['Уровень: с 01.10.2026 по 27.10.2026']);
+    expect(describeFilter(reg, {})).toEqual([]);
   });
 });

@@ -5,7 +5,7 @@ import { badRequest } from '../../lib/errors.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { runAutomations } from '../automations/service.js';
-import { loadRegister } from '../registers/definition.js';
+import { importKeyField, loadRegister } from '../registers/definition.js';
 import * as excel from '../registers/excel.service.js';
 import { IMPORT_BODY_LIMIT, ImportPreview } from '../registers/routes.js';
 import { actorOf } from '../settings/common.js';
@@ -81,9 +81,10 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
   }, async (request, reply) => {
     if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
     const fileName = fileNameOf(request.headers['x-file-name'], 'import.xlsx');
-    const format = detectFormat(await excel.readWorkbook(request.body));
+    const reg = await loadRegister(db, request.params.id);
+    const format = detectFormat(await excel.readWorkbook(request.body), importKeyField(reg)?.label);
     if (format === 'scan') {
-      if (!isVulnRegister(await loadRegister(db, request.params.id))) {
+      if (!isVulnRegister(reg)) {
         throw badRequest('NOT_VULN_REGISTER', 'Файл распознан как отчёт сканера — его загружают в «Реестр уязвимостей»');
       }
       return reply.status(201).send({ format, scan: await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileName) });

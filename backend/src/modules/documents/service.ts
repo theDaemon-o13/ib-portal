@@ -18,7 +18,7 @@ import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
 import {
-  addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, isDocUrl, LAST_STAGE, STAGES, stageName, DOC_STATUS_NAMES,
+  addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, isDocUrl, LAST_STAGE, needsReview, STAGES, stageName, DOC_STATUS_NAMES,
   type DocStatus,
 } from './status.js';
 
@@ -57,6 +57,14 @@ export async function accessOf(db: Db, userId: string): Promise<DocAccess> {
     manage: perms.has('docs.manage'),
   };
 }
+
+/**
+ * Взгляд отдела ИБ на реестр документов (дашборд и мониторинг, этап 8): все неархивные документы,
+ * без «моих» согласований. Пользователь-заглушка: результат одинаков для всех, кому он виден, и кэшируется.
+ */
+export const DEPARTMENT_VIEW: DocAccess = {
+  userId: '00000000-0000-0000-0000-000000000000', perms: new Set(['ib.work']), superAdmin: false, ibWork: true, manage: false,
+};
 
 const permName = (code: string) => PERMISSIONS.find((p) => p.code === code)?.name ?? code;
 
@@ -190,6 +198,8 @@ export interface DocListQuery {
   typeId?: string;
   q?: string;
   waiting?: boolean;
+  /** Только «к пересмотру» (needsReview) — ссылка с дашборда. */
+  review?: boolean;
   limit: number;
   cursor?: string;
 }
@@ -213,7 +223,8 @@ export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
   const needle = q.q?.trim().toLowerCase();
   const items = rows
     .map(({ d, shown }) => toItem(a, d, mine, shown, today))
-    .filter((x) => (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle)))
+    .filter((x) => (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle))
+      && (!q.review || needsReview(x, today)))
     // Сначала то, что ждёт вас, затем просроченный пересмотр, дальше по названию.
     .sort((x, y) => Number(y.waitingForMe) - Number(x.waitingForMe)
       || Number(y.status === 'review_overdue') - Number(x.status === 'review_overdue')
