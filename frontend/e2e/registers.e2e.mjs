@@ -135,7 +135,8 @@ async function openField(label) {
 /** Боковая панель у правого края окна, затемнение — на всё окно (а не внутри стеклянной колонки). */
 async function assertDrawerPlacement(drawerExpr) {
   const g = await ui.evaluate(`(() => { const d = ${drawerExpr}.getBoundingClientRect(); const b = document.querySelector('.drawer-backdrop').getBoundingClientRect();
-    return { right: Math.round(innerWidth - d.right), bw: Math.round(b.width), bh: Math.round(b.height), w: innerWidth, h: innerHeight }; })()`);
+    // Затемнение — fixed inset:0, то есть всё окно без места под полосу прокрутки; панель — у его правого края.
+    return { right: Math.round(b.right - d.right), bw: Math.round(b.width), bh: Math.round(b.height), w: Math.round(document.body.clientWidth), h: innerHeight }; })()`);
   assert.ok(g.right >= 0 && g.right <= 24, `панель у правого края окна (отступ ${g.right}px)`);
   assert.deepEqual([g.bw, g.bh], [g.w, g.h], 'затемнение на всё окно');
 }

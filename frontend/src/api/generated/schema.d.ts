@@ -12427,20 +12427,21 @@ export interface paths {
                                     recipients: ({
                                         /** @enum {string} */
                                         kind: "field";
-                                        /** Format: uuid */
                                         fieldId: string;
                                     } | {
                                         /** @enum {string} */
                                         kind: "label";
+                                        itemId: string | null;
                                         label: string;
+                                        missing: boolean;
                                     } | {
                                         /** @enum {string} */
                                         kind: "user";
-                                        /** Format: uuid */
                                         userId: string;
                                         name?: string;
                                     })[];
                                 };
+                                recipientMissing: boolean;
                                 enabled: boolean;
                                 archived: boolean;
                                 version: number;
@@ -12584,7 +12585,9 @@ export interface paths {
                             } | {
                                 /** @enum {string} */
                                 kind: "label";
-                                label: string;
+                                /** Format: uuid */
+                                itemId?: string;
+                                label?: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "user";
@@ -12634,20 +12637,21 @@ export interface paths {
                                 recipients: ({
                                     /** @enum {string} */
                                     kind: "field";
-                                    /** Format: uuid */
                                     fieldId: string;
                                 } | {
                                     /** @enum {string} */
                                     kind: "label";
+                                    itemId: string | null;
                                     label: string;
+                                    missing: boolean;
                                 } | {
                                     /** @enum {string} */
                                     kind: "user";
-                                    /** Format: uuid */
                                     userId: string;
                                     name?: string;
                                 })[];
                             };
+                            recipientMissing: boolean;
                             enabled: boolean;
                             archived: boolean;
                             version: number;
@@ -12809,7 +12813,9 @@ export interface paths {
                             } | {
                                 /** @enum {string} */
                                 kind: "label";
-                                label: string;
+                                /** Format: uuid */
+                                itemId?: string;
+                                label?: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "user";
@@ -12860,20 +12866,21 @@ export interface paths {
                                 recipients: ({
                                     /** @enum {string} */
                                     kind: "field";
-                                    /** Format: uuid */
                                     fieldId: string;
                                 } | {
                                     /** @enum {string} */
                                     kind: "label";
+                                    itemId: string | null;
                                     label: string;
+                                    missing: boolean;
                                 } | {
                                     /** @enum {string} */
                                     kind: "user";
-                                    /** Format: uuid */
                                     userId: string;
                                     name?: string;
                                 })[];
                             };
+                            recipientMissing: boolean;
                             enabled: boolean;
                             archived: boolean;
                             version: number;
@@ -13036,20 +13043,21 @@ export interface paths {
                                 recipients: ({
                                     /** @enum {string} */
                                     kind: "field";
-                                    /** Format: uuid */
                                     fieldId: string;
                                 } | {
                                     /** @enum {string} */
                                     kind: "label";
+                                    itemId: string | null;
                                     label: string;
+                                    missing: boolean;
                                 } | {
                                     /** @enum {string} */
                                     kind: "user";
-                                    /** Format: uuid */
                                     userId: string;
                                     name?: string;
                                 })[];
                             };
+                            recipientMissing: boolean;
                             enabled: boolean;
                             archived: boolean;
                             version: number;
@@ -13216,20 +13224,21 @@ export interface paths {
                                 recipients: ({
                                     /** @enum {string} */
                                     kind: "field";
-                                    /** Format: uuid */
                                     fieldId: string;
                                 } | {
                                     /** @enum {string} */
                                     kind: "label";
+                                    itemId: string | null;
                                     label: string;
+                                    missing: boolean;
                                 } | {
                                     /** @enum {string} */
                                     kind: "user";
-                                    /** Format: uuid */
                                     userId: string;
                                     name?: string;
                                 })[];
                             };
+                            recipientMissing: boolean;
                             enabled: boolean;
                             archived: boolean;
                             version: number;
@@ -13640,6 +13649,7 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "label";
                                     label: string;
+                                    itemId?: string | null;
                                 })[];
                                 triggerKey: string;
                                 fireAt: string;

@@ -24,19 +24,31 @@ const ConditionSchema = z.discriminatedUnion('kind', [
 ]);
 const RecipientSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('field'), fieldId: z.string().uuid() }),
-  z.object({ kind: z.literal('label'), label: z.string().trim().min(1).max(100) }),
+  /** Метка — по id значения справочника «Получатели уведомлений»; название принимается для совместимости. */
+  z.object({ kind: z.literal('label'), itemId: z.string().uuid().optional(), label: z.string().trim().min(1).max(100).optional() })
+    .refine((r) => r.itemId || r.label, 'Укажите метку получателя'),
   z.object({ kind: z.literal('user'), userId: z.string().uuid(), name: z.string().optional() }),
 ]);
 const ActionSchema = z.object({
   eventType: z.enum(EVENT_TYPES),
   recipients: z.array(RecipientSchema).min(1).max(svc.MAX_RECIPIENTS),
 });
+const ActionOut = z.object({
+  eventType: z.enum(EVENT_TYPES),
+  recipients: z.array(z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('field'), fieldId: z.string() }),
+    /** missing — метки нет в справочнике: «получатель не найден», задачи по ней без ответственного. */
+    z.object({ kind: z.literal('label'), itemId: z.string().nullable(), label: z.string(), missing: z.boolean() }),
+    z.object({ kind: z.literal('user'), userId: z.string(), name: z.string().optional() }),
+  ])),
+});
 const Rule = z.object({
   id: z.string(),
   registerId: z.string(),
   systemKey: z.string().nullable(),
   condition: ConditionSchema,
-  action: ActionSchema,
+  action: ActionOut,
+  recipientMissing: z.boolean(),
   enabled: z.boolean(),
   archived: z.boolean(),
   version: z.number().int(),
@@ -47,7 +59,7 @@ const Rule = z.object({
 });
 const EventRecipient = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('user'), userId: z.string(), name: z.string() }),
-  z.object({ kind: z.literal('label'), label: z.string() }),
+  z.object({ kind: z.literal('label'), label: z.string(), itemId: z.string().nullable().optional() }),
 ]);
 const Event = z.object({
   id: z.string(),

@@ -36,15 +36,15 @@ catalogItemUsage.register('register_records', async (db: Db, ids) => {
   return out;
 });
 
-/** Метка «Получатели уведомлений» в правилах автоматизаций (по названию). */
+/** Метка «Получатели уведомлений» в правилах автоматизаций: по id (до привязки — по названию). */
 catalogItemUsage.register('automation_labels', async (db: Db, ids) => {
   const out = new Map<string, number>();
   const items = await db.catalogItem.findMany({ where: { id: { in: [...ids] }, catalogCode: RECIPIENTS_CATALOG }, select: { id: true, value: true } });
   if (!items.length) return out;
   const rules = await db.registerAutomation.findMany({ where: { deletedAt: null }, select: { action: true } });
   for (const item of items) {
-    const n = rules.filter((r) => ((r.action as { recipients?: { kind: string; label?: string }[] }).recipients ?? [])
-      .some((x) => x.kind === 'label' && x.label?.toLowerCase() === item.value.toLowerCase())).length;
+    const n = rules.filter((r) => ((r.action as { recipients?: { kind: string; label?: string; itemId?: string | null }[] }).recipients ?? [])
+      .some((x) => x.kind === 'label' && (x.itemId ? x.itemId === item.id : x.label?.toLowerCase() === item.value.toLowerCase()))).length;
     if (n) add(out, item.id, n);
   }
   return out;

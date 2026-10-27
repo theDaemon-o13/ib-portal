@@ -68,21 +68,31 @@ export async function seedVulns(tx: Tx): Promise<void> {
     ids.score = score.id;
     ids.due = due.id;
 
+    // Метки — по id системных значений «Получателей уведомлений» (их seed создаёт раньше, ADR-0009).
+    const label = async (key: string) => {
+      const item = await tx.catalogItem.findUnique({ where: { catalogCode_systemKey: { catalogCode: 'notify_recipients', systemKey: key } } });
+      if (!item) throw new Error(`нет системной метки ${key}`);
+      return { kind: 'label', itemId: item.id, label: item.value };
+    };
+    const dikt = await label('dikt_head');
+    const owner = await label('system_owner');
+    const bank = await label('bank_management');
+    const ib = await label('ib_head');
     const rules: { key: string; condition: Prisma.InputJsonValue; action: Prisma.InputJsonValue }[] = [
       {
         key: 'vuln.remind_before_due',
         condition: { kind: 'before', fieldId: ids.due, days: 3 },
-        action: { eventType: 'remind', recipients: [{ kind: 'field', fieldId: ids.owner }, { kind: 'label', label: 'Руководитель ДИКТ' }] },
+        action: { eventType: 'remind', recipients: [{ kind: 'field', fieldId: ids.owner }, dikt] },
       },
       {
         key: 'vuln.overdue_notify',
         condition: { kind: 'overdue', fieldId: ids.due },
-        action: { eventType: 'notify', recipients: [{ kind: 'label', label: 'Руководитель ДИКТ' }, { kind: 'label', label: 'Владелец системы' }] },
+        action: { eventType: 'notify', recipients: [dikt, owner] },
       },
       {
         key: 'vuln.overdue_escalate',
         condition: { kind: 'overdue', fieldId: ids.due, workdays: 10, unlessFilledFieldId: ids.measures },
-        action: { eventType: 'escalate', recipients: [{ kind: 'label', label: 'Руководство Банка' }, { kind: 'label', label: 'Начальник ИБ' }] },
+        action: { eventType: 'escalate', recipients: [bank, ib] },
       },
     ];
     for (const r of rules) {

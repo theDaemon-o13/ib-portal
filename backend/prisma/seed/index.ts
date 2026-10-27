@@ -83,6 +83,9 @@ async function main() {
     await seedStarter(tx);
     await seedRegisters(tx);
     await seedVulns(tx);
+    // Правила, созданные до справочника меток (первая установка: миграция шла раньше seed), — привязать по названию.
+    const [linked] = await tx.$queryRaw<{ n: number }[]>`SELECT link_recipient_labels() AS n`;
+    if (linked?.n) console.log(`Привязаны метки получателей в правилах: ${linked.n}`);
   });
   console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}, справочников ${CATALOGS.length}`);
 }

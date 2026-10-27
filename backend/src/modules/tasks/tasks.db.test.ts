@@ -146,15 +146,35 @@ describe('события автоматизаций → задачи', () => {
       expect(await automations.runAutomations(tx, { now: DEC_1, registerId: x.reg.id })).toMatchObject({ created: 0, tasksCreated: 0 });
     }));
 
-  it('метка, переименование которой отвяжет правила, не переименовывается; используемая система не удаляется', () =>
+  it('правило ссылается на метку по id: переименование не отвязывает; системная метка не удаляется; используемая система не удаляется', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
-      const custom = await catalogs.createItem(tx, x.actor, RECIPIENTS_CATALOG, { value: 'Дежурный ДИКТ', emails: ['duty@example.tj'] });
-      await automations.createRule(tx, x.actor, x.reg.id, {
-        condition: { kind: 'before', fieldId: x.vf.due.id, days: 1 },
-        action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'дежурный дикт' }] },
+      const duty = await makeUser(tx, ['ib_staff'], { fullName: 'Дежурный Первый' });
+      const custom = await catalogs.createItem(tx, x.actor, RECIPIENTS_CATALOG, { value: 'Дежурный ДИКТ', memberIds: [duty.id], emails: ['duty@example.tj'] });
+      // Старый клиент присылает название — сохраняется id метки.
+      const rule = await automations.createRule(tx, x.actor, x.reg.id, {
+        condition: { kind: 'overdue', fieldId: x.vf.due.id },
+        action: { eventType: 'notify', recipients: [{ kind: 'label', label: 'дежурный дикт' }] },
       });
-      await expectCode(catalogs.updateItem(tx, x.actor, custom.id, { version: custom.version, value: 'Дежурный' }), 'LABEL_IN_USE');
+      expect(rule.action.recipients).toEqual([{ kind: 'label', itemId: custom.id, label: 'Дежурный ДИКТ', missing: false }]);
+      const stored = await tx.registerAutomation.findUniqueOrThrow({ where: { id: rule.id } });
+      expect((stored.action as { recipients: unknown[] }).recipients).toEqual([{ kind: 'label', itemId: custom.id, label: 'Дежурный ДИКТ' }]);
+
+      // Переименование метки, которая используется в правиле, — можно; правило показывает новое название и ставит задачи её участникам.
+      const renamed = await catalogs.updateItem(tx, x.actor, custom.id, { version: custom.version, value: 'Дежурная смена ДИКТ' });
+      expect(renamed.usage).toBe(1);
+      const [after] = (await automations.listRules(tx, x.reg.id, { includeArchived: false })).filter((r) => r.id === rule.id);
+      expect([after?.then, after?.recipientMissing]).toEqual(['Уведомить: Дежурная смена ДИКТ', false]);
+      const a = await vuln(tx, x, 'R');
+      await automations.runAutomations(tx, { now: DEC_1, registerId: x.reg.id });
+      const ta = (await tasksOf(tx, a.id)).filter((t) => t.automationId === rule.id);
+      expect(ta.map((t) => [t.who, t.recipientLabel])).toEqual([['Дежурный Первый', 'Дежурная смена ДИКТ']]);
+      // Используемую метку не удалить — только архив; системную — ни то, ни другое.
+      await expectCode(catalogs.deleteItem(tx, x.actor, custom.id, renamed.version), 'IN_USE');
+      const sysLabel = await label(tx, 'Руководитель ДИКТ');
+      await expectCode(catalogs.deleteItem(tx, x.actor, sysLabel.id, sysLabel.version), 'SYSTEM_VALUE');
+      await expectCode(catalogs.archiveItem(tx, x.actor, sysLabel.id, sysLabel.version), 'SYSTEM_VALUE');
+
       await expectCode(automations.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'before', fieldId: x.vf.due.id, days: 1 }, action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'Нет такой' }] },
       }), 'BAD_RULE');
@@ -178,6 +198,48 @@ describe('события автоматизаций → задачи', () => {
       await expectCode(structure.previewTypeChange(tx, own.id, 'catalog'), 'TYPE_CHANGE_FORBIDDEN');
       // «Значение справочника» → текст можно (подпись значения).
       expect((await structure.previewTypeChange(tx, docField.id, 'text')).kind).toBe('empty');
+    }));
+});
+
+describe('перенос текстовых меток в правилах на id (миграция rule_recipient_ids)', () => {
+  it('найденная метка получает id; ненайденная — «получатель не найден», правило работает; повторный перенос ничего не ломает', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      const dikt = await makeUser(tx, ['ib_staff'], { fullName: 'ДИКТ Старый' });
+      await setLabel(tx, x, 'Руководитель ДИКТ', { memberIds: [dikt.id] });
+      // Правило в формате этапов 4–5: метки — только по названию.
+      const legacy = await tx.registerAutomation.create({
+        data: {
+          registerId: x.reg.id, createdBy: x.actor.id,
+          condition: { kind: 'overdue', fieldId: x.vf.due.id },
+          action: { eventType: 'notify', recipients: [{ kind: 'label', label: ' руководитель  дикт ' }, { kind: 'label', label: 'Удалённая метка' }, { kind: 'field', fieldId: x.vf.owner.id }] },
+        },
+      });
+      const [first] = await tx.$queryRaw<{ n: number }[]>`SELECT link_recipient_labels() AS n`;
+      expect(first?.n).toBeGreaterThanOrEqual(1);
+      const diktItem = await label(tx, 'Руководитель ДИКТ');
+      const moved = await tx.registerAutomation.findUniqueOrThrow({ where: { id: legacy.id } });
+      expect((moved.action as { recipients: unknown[] }).recipients).toEqual([
+        { kind: 'label', label: ' руководитель  дикт ', itemId: diktItem.id },
+        { kind: 'label', label: 'Удалённая метка', itemId: null },
+        { kind: 'field', fieldId: x.vf.owner.id },
+      ]);
+      expect(moved.version).toBe(legacy.version);
+      // Повторный вызов (seed) не трогает привязанные метки.
+      await tx.$queryRaw`SELECT link_recipient_labels()`;
+      expect((await tx.registerAutomation.findUniqueOrThrow({ where: { id: legacy.id } })).action).toEqual(moved.action);
+
+      // В «Автоматизации» видно «получатель не найден»; правило срабатывает: по найденной метке — задача участнику,
+      // по ненайденной — задача без ответственного.
+      const dto = must((await automations.listRules(tx, x.reg.id, { includeArchived: false })).find((r) => r.id === legacy.id));
+      expect(dto.recipientMissing).toBe(true);
+      expect(dto.then).toBe('Уведомить: Руководитель ДИКТ, Удалённая метка (получатель не найден), Ответственный');
+      const a = await vuln(tx, x, 'L');
+      await automations.runAutomations(tx, { now: DEC_1, registerId: x.reg.id });
+      const ta = (await tasksOf(tx, a.id)).filter((t) => t.automationId === legacy.id);
+      expect(ta.map((t) => t.who ?? `не назначен: ${t.recipientLabel}`).sort()).toEqual([
+        'ДИКТ Старый', 'не назначен: «Удалённая метка»: получатель не найден, «Ответственный» не назначен',
+      ]);
     }));
 });
 

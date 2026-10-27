@@ -260,10 +260,6 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
           throw conflict('SYSTEM_VALUE', 'Системное значение нельзя переименовать: на него опирается логика портала');
         }
         await assertUnique(tx, item.catalogCode, value, id);
-        // Правила автоматизаций ссылаются на метку по названию: переименование их бы отвязало.
-        if (item.catalogCode === RECIPIENTS_CATALOG && ((await catalogItemUsage.count(tx, [id])).get(id) ?? 0) > 0) {
-          throw conflict('LABEL_IN_USE', `Метка «${item.value}» используется в правилах автоматизаций — переименование отвяжет их. Добавьте новую метку и замените её в правилах`);
-        }
         data.value = value;
         changes.push(`переименовано «${item.value}» → «${value}»`);
       }

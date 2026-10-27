@@ -4,6 +4,8 @@
 :root{color-scheme:light}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+/* Место под полосу прокрутки всегда занято: переключатели и панели не сдвигаются, когда страница становится выше окна */
+html{scrollbar-gutter:stable}
 #root{min-height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 /* ambient light field the glass refracts */

@@ -60,12 +60,12 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   });
   const addRecipient = (r: Recipient) => {
     const same = (x: Recipient) => (x.kind === 'field' && r.kind === 'field' ? x.fieldId === r.fieldId
-      : x.kind === 'label' && r.kind === 'label' ? x.label === r.label
+      : x.kind === 'label' && r.kind === 'label' ? x.itemId === r.itemId
         : x.kind === 'user' && r.kind === 'user' && x.userId === r.userId);
     if (!recipients.some(same)) setRecipients([...recipients, r]);
   };
   const recipientName = (r: Recipient) => (r.kind === 'field' ? `${reg.fields.find((f) => f.id === r.fieldId)?.label ?? '?'} (из записи)`
-    : r.kind === 'user' ? (r.name ?? 'сотрудник') : r.label);
+    : r.kind === 'user' ? (r.name ?? 'сотрудник') : (r.label ?? ''));
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(undefined); };
 
   if (!dates.length && !selects.length) {
@@ -130,7 +130,7 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
           {users.map((f) => <button key={f.id} type="button" className="btn sm" onClick={() => addRecipient({ kind: 'field', fieldId: f.id })}>+ {f.label}</button>)}
           {labels.data?.items.map((l) => (
             <button key={l.id} type="button" className="btn sm" title={l.members.length || l.emails.length ? [...l.members.map((m) => m.fullName), ...l.emails].join(', ') : 'У метки пока нет участников — задача будет без ответственного'}
-              onClick={() => addRecipient({ kind: 'label', label: l.value })}>+ {l.value}</button>
+              onClick={() => addRecipient({ kind: 'label', itemId: l.id, label: l.value })}>+ {l.value}</button>
           ))}
           <select className="inp" value="" aria-label="Сотрудник-получатель"
             onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'user', userId: u.id, name: u.fullName }); }}>
@@ -158,7 +158,12 @@ function RuleRow({ reg, rule, canManage }: { reg: RegisterDetail; rule: Automati
   return (
     <tr className={rule.enabled ? undefined : 'archived'}>
       <td><b>Когда</b> {rule.when}{rule.systemKey && <> <span className="chip" title="Правило процедуры (п. 7.4): только включается и выключается">Системное</span></>}</td>
-      <td><b>Тогда</b> {rule.then}</td>
+      <td>
+        <b>Тогда</b> {rule.then}
+        {rule.recipientMissing && (
+          <div><span className="chip crit" title="Метки нет в справочнике «Получатели уведомлений»: по ней задачи ставятся без ответственного. Удалите получателя из правила или верните метку">получатель не найден</span></div>
+        )}
+      </td>
       <td>
         {canManage && (
           <div className="row act">

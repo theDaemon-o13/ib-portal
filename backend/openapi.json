@@ -31410,8 +31410,6 @@
                                 ]
                               },
                               "recipients": {
-                                "minItems": 1,
-                                "maxItems": 6,
                                 "type": "array",
                                 "items": {
                                   "oneOf": [
@@ -31425,9 +31423,7 @@
                                           ]
                                         },
                                         "fieldId": {
-                                          "type": "string",
-                                          "format": "uuid",
-                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          "type": "string"
                                         }
                                       },
                                       "required": [
@@ -31445,15 +31441,24 @@
                                             "label"
                                           ]
                                         },
+                                        "itemId": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
                                         "label": {
-                                          "type": "string",
-                                          "minLength": 1,
-                                          "maxLength": 100
+                                          "type": "string"
+                                        },
+                                        "missing": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "kind",
-                                        "label"
+                                        "itemId",
+                                        "label",
+                                        "missing"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -31467,9 +31472,7 @@
                                           ]
                                         },
                                         "userId": {
-                                          "type": "string",
-                                          "format": "uuid",
-                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          "type": "string"
                                         },
                                         "name": {
                                           "type": "string"
@@ -31490,6 +31493,9 @@
                               "recipients"
                             ],
                             "additionalProperties": false
+                          },
+                          "recipientMissing": {
+                            "type": "boolean"
                           },
                           "enabled": {
                             "type": "boolean"
@@ -31518,6 +31524,7 @@
                           "systemKey",
                           "condition",
                           "action",
+                          "recipientMissing",
                           "enabled",
                           "archived",
                           "version",
@@ -31891,6 +31898,11 @@
                                     "label"
                                   ]
                                 },
+                                "itemId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
                                 "label": {
                                   "type": "string",
                                   "minLength": 1,
@@ -31898,8 +31910,7 @@
                                 }
                               },
                               "required": [
-                                "kind",
-                                "label"
+                                "kind"
                               ]
                             },
                             {
@@ -32091,8 +32102,6 @@
                           ]
                         },
                         "recipients": {
-                          "minItems": 1,
-                          "maxItems": 6,
                           "type": "array",
                           "items": {
                             "oneOf": [
@@ -32106,9 +32115,7 @@
                                     ]
                                   },
                                   "fieldId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -32126,15 +32133,24 @@
                                       "label"
                                     ]
                                   },
+                                  "itemId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "label": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 100
+                                    "type": "string"
+                                  },
+                                  "missing": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
                                   "kind",
-                                  "label"
+                                  "itemId",
+                                  "label",
+                                  "missing"
                                 ],
                                 "additionalProperties": false
                               },
@@ -32148,9 +32164,7 @@
                                     ]
                                   },
                                   "userId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   },
                                   "name": {
                                     "type": "string"
@@ -32171,6 +32185,9 @@
                         "recipients"
                       ],
                       "additionalProperties": false
+                    },
+                    "recipientMissing": {
+                      "type": "boolean"
                     },
                     "enabled": {
                       "type": "boolean"
@@ -32199,6 +32216,7 @@
                     "systemKey",
                     "condition",
                     "action",
+                    "recipientMissing",
                     "enabled",
                     "archived",
                     "version",
@@ -32572,6 +32590,11 @@
                                     "label"
                                   ]
                                 },
+                                "itemId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
                                 "label": {
                                   "type": "string",
                                   "minLength": 1,
@@ -32579,8 +32602,7 @@
                                 }
                               },
                               "required": [
-                                "kind",
-                                "label"
+                                "kind"
                               ]
                             },
                             {
@@ -32774,8 +32796,6 @@
                           ]
                         },
                         "recipients": {
-                          "minItems": 1,
-                          "maxItems": 6,
                           "type": "array",
                           "items": {
                             "oneOf": [
@@ -32789,9 +32809,7 @@
                                     ]
                                   },
                                   "fieldId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -32809,15 +32827,24 @@
                                       "label"
                                     ]
                                   },
+                                  "itemId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "label": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 100
+                                    "type": "string"
+                                  },
+                                  "missing": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
                                   "kind",
-                                  "label"
+                                  "itemId",
+                                  "label",
+                                  "missing"
                                 ],
                                 "additionalProperties": false
                               },
@@ -32831,9 +32858,7 @@
                                     ]
                                   },
                                   "userId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   },
                                   "name": {
                                     "type": "string"
@@ -32854,6 +32879,9 @@
                         "recipients"
                       ],
                       "additionalProperties": false
+                    },
+                    "recipientMissing": {
+                      "type": "boolean"
                     },
                     "enabled": {
                       "type": "boolean"
@@ -32882,6 +32910,7 @@
                     "systemKey",
                     "condition",
                     "action",
+                    "recipientMissing",
                     "enabled",
                     "archived",
                     "version",
@@ -33265,8 +33294,6 @@
                           ]
                         },
                         "recipients": {
-                          "minItems": 1,
-                          "maxItems": 6,
                           "type": "array",
                           "items": {
                             "oneOf": [
@@ -33280,9 +33307,7 @@
                                     ]
                                   },
                                   "fieldId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -33300,15 +33325,24 @@
                                       "label"
                                     ]
                                   },
+                                  "itemId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "label": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 100
+                                    "type": "string"
+                                  },
+                                  "missing": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
                                   "kind",
-                                  "label"
+                                  "itemId",
+                                  "label",
+                                  "missing"
                                 ],
                                 "additionalProperties": false
                               },
@@ -33322,9 +33356,7 @@
                                     ]
                                   },
                                   "userId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   },
                                   "name": {
                                     "type": "string"
@@ -33345,6 +33377,9 @@
                         "recipients"
                       ],
                       "additionalProperties": false
+                    },
+                    "recipientMissing": {
+                      "type": "boolean"
                     },
                     "enabled": {
                       "type": "boolean"
@@ -33373,6 +33408,7 @@
                     "systemKey",
                     "condition",
                     "action",
+                    "recipientMissing",
                     "enabled",
                     "archived",
                     "version",
@@ -33756,8 +33792,6 @@
                           ]
                         },
                         "recipients": {
-                          "minItems": 1,
-                          "maxItems": 6,
                           "type": "array",
                           "items": {
                             "oneOf": [
@@ -33771,9 +33805,7 @@
                                     ]
                                   },
                                   "fieldId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -33791,15 +33823,24 @@
                                       "label"
                                     ]
                                   },
+                                  "itemId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "label": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": 100
+                                    "type": "string"
+                                  },
+                                  "missing": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
                                   "kind",
-                                  "label"
+                                  "itemId",
+                                  "label",
+                                  "missing"
                                 ],
                                 "additionalProperties": false
                               },
@@ -33813,9 +33854,7 @@
                                     ]
                                   },
                                   "userId": {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    "type": "string"
                                   },
                                   "name": {
                                     "type": "string"
@@ -33836,6 +33875,9 @@
                         "recipients"
                       ],
                       "additionalProperties": false
+                    },
+                    "recipientMissing": {
+                      "type": "boolean"
                     },
                     "enabled": {
                       "type": "boolean"
@@ -33864,6 +33906,7 @@
                     "systemKey",
                     "condition",
                     "action",
+                    "recipientMissing",
                     "enabled",
                     "archived",
                     "version",
@@ -34726,6 +34769,12 @@
                                     },
                                     "label": {
                                       "type": "string"
+                                    },
+                                    "itemId": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
                                     }
                                   },
                                   "required": [

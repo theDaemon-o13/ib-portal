@@ -31,23 +31,31 @@ function liveField(reg: RegisterDef, id: string | null | undefined): FieldMeta |
 
 /** Что можно выбрать получателем: метки справочника и сотрудники с ib.work. */
 export interface RecipientChoices {
-  labels: readonly string[];
+  labels: readonly { id: string; value: string; archived: boolean }[];
   users: ReadonlyMap<string, string>;
+}
+
+/** Названия меток получателей по id (неудалённые, и архивные): правила ссылаются на метку по id (ADR-0005). */
+export type LabelNames = ReadonlyMap<string, string>;
+
+export async function loadLabels(db: Db): Promise<LabelNames> {
+  const rows = await db.catalogItem.findMany({ where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null }, select: { id: true, value: true } });
+  return new Map(rows.map((r) => [r.id, r.value]));
 }
 
 export async function recipientChoices(db: Db): Promise<RecipientChoices> {
   const [labels, users] = await Promise.all([
-    db.catalogItem.findMany({ where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null, archivedAt: null }, select: { value: true } }),
+    db.catalogItem.findMany({ where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null }, select: { id: true, value: true, archivedAt: true } }),
     db.user.findMany({
       where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
       select: { id: true, fullName: true },
     }),
   ]);
-  return { labels: labels.map((l) => l.value), users: new Map(users.map((u) => [u.id, u.fullName])) };
+  return { labels: labels.map((l) => ({ id: l.id, value: l.value, archived: l.archivedAt !== null })), users: new Map(users.map((u) => [u.id, u.fullName])) };
 }
 
 export function validateRule(
-  reg: RegisterDef, condition: Condition, action: Action, choices: RecipientChoices,
+  reg: RegisterDef, condition: Condition, action: Action, choices: RecipientChoices, before?: Action,
 ): { condition: Condition; action: Action } {
   let cond: Condition;
   const field = liveField(reg, condition.fieldId);
@@ -97,10 +105,15 @@ export function validateRule(
       if (!name) throw badRequest('BAD_RULE', 'Получатель-сотрудник — только активный пользователь с доступом к разделам ИБ');
       return { kind: 'user', userId: r.userId, name };
     }
-    // Метка — из справочника «Получатели уведомлений»: за ней стоят пользователи и e-mail.
-    const label = choices.labels.find((l) => l.toLowerCase() === r.label.trim().replace(/\s+/g, ' ').toLowerCase());
-    if (!label) throw badRequest('BAD_RULE', `Метки «${r.label}» нет в справочнике «Получатели уведомлений» — добавьте её в настройках`);
-    return { kind: 'label', label };
+    // Метка — значение справочника «Получатели уведомлений» по id; название — только снимок для описания.
+    // Старые клиенты присылают название — оно сопоставляется со справочником.
+    const byName = (r.label ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const item = r.itemId ? choices.labels.find((l) => l.id === r.itemId) : choices.labels.find((l) => l.value.toLowerCase() === byName);
+    if (!item) throw badRequest('BAD_RULE', `Метки «${r.label ?? r.itemId ?? ''}» нет в справочнике «Получатели уведомлений» — добавьте её в настройках`);
+    // Архивную метку новым правилам не выбрать; в правиле, где она уже была, она остаётся.
+    const kept = before?.recipients.some((x) => x.kind === 'label' && x.itemId === item.id);
+    if (item.archived && !kept) throw badRequest('BAD_RULE', `Метка «${item.value}» в архиве — выберите другую`);
+    return { kind: 'label', itemId: item.id, label: item.value };
   });
   return { condition: cond, action: { eventType: action.eventType, recipients } };
 }
@@ -122,8 +135,21 @@ export function describeCondition(reg: RegisterDef, c: Condition): string {
   }
 }
 
-export function describeAction(reg: RegisterDef, a: Action): string {
-  const who = a.recipients.map((r) => (r.kind === 'field' ? fieldName(reg, r.fieldId) : r.kind === 'user' ? (r.name ?? 'сотрудник') : r.label)).join(', ');
+/** Получатель-метка: актуальное название по id; без id или удалённая — «получатель не найден». */
+export function resolveLabel(r: { itemId?: string | null; label?: string }, labels: LabelNames): { itemId: string | null; label: string; missing: boolean } {
+  const name = r.itemId ? labels.get(r.itemId) : undefined;
+  return name !== undefined
+    ? { itemId: r.itemId ?? null, label: name, missing: false }
+    : { itemId: r.itemId ?? null, label: r.label ?? '', missing: true };
+}
+
+export function describeAction(reg: RegisterDef, a: Action, labels: LabelNames): string {
+  const who = a.recipients.map((r) => {
+    if (r.kind === 'field') return fieldName(reg, r.fieldId);
+    if (r.kind === 'user') return r.name ?? 'сотрудник';
+    const l = resolveLabel(r, labels);
+    return l.missing ? `${l.label || 'метка'} (получатель не найден)` : l.label;
+  }).join(', ');
   return `${EVENT_TYPE_NAMES[a.eventType]}: ${who}`;
 }
 
@@ -134,20 +160,27 @@ type RuleRow = {
   enabled: boolean; version: number; archivedAt: Date | null; createdAt: Date;
 };
 
-function toRuleDto(reg: RegisterDef, r: RuleRow) {
+function toRuleDto(reg: RegisterDef, r: RuleRow, labels: LabelNames) {
   const condition = r.condition as unknown as Condition;
-  const action = r.action as unknown as Action;
+  const stored = r.action as unknown as Action;
+  // В ответе у метки — актуальное название и признак «получатель не найден».
+  const action = {
+    eventType: stored.eventType,
+    recipients: stored.recipients.map((x) => (x.kind === 'label' ? { kind: 'label' as const, ...resolveLabel(x, labels) } : x)),
+  };
   return {
     id: r.id,
     registerId: r.registerId,
     systemKey: r.systemKey,
     condition,
     action,
+    /** Есть получатель-метка, которой нет в справочнике: задачи по ней — без ответственного. */
+    recipientMissing: action.recipients.some((x) => x.kind === 'label' && x.missing),
     enabled: r.enabled,
     archived: r.archivedAt !== null,
     version: r.version,
     when: describeCondition(reg, condition),
-    then: describeAction(reg, action),
+    then: describeAction(reg, stored, labels),
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -155,18 +188,19 @@ export type RuleDto = ReturnType<typeof toRuleDto>;
 
 export async function listRules(db: Db, registerId: string, opts: { includeArchived: boolean }) {
   const reg = await loadRegister(db, registerId);
+  const labels = await loadLabels(db);
   const rows = await db.registerAutomation.findMany({
     where: { registerId, deletedAt: null, ...(opts.includeArchived ? {} : { archivedAt: null }) },
     orderBy: { createdAt: 'asc' },
   });
-  return rows.map((r) => toRuleDto(reg, r));
+  return rows.map((r) => toRuleDto(reg, r, labels));
 }
 
 async function getRule(db: Db, id: string) {
   const rule = await db.registerAutomation.findFirst({ where: { id, deletedAt: null } });
   if (!rule) throw notFound('Правило');
   const reg = await loadRegister(db, rule.registerId);
-  return { rule, reg };
+  return { rule, reg, labels: await loadLabels(db) };
 }
 
 export async function createRule(db: Db, actor: Actor, registerId: string, input: { condition: Condition; action: Action }) {
@@ -174,13 +208,14 @@ export async function createRule(db: Db, actor: Actor, registerId: string, input
     const reg = await loadRegister(tx, registerId);
     assertNotArchived(reg);
     const v = validateRule(reg, input.condition, input.action, await recipientChoices(tx));
+    const labels = await loadLabels(tx);
     const r = await tx.registerAutomation.create({
       data: {
         registerId, createdBy: actor.id,
         condition: v.condition as unknown as Prisma.InputJsonValue, action: v.action as unknown as Prisma.InputJsonValue,
       },
     });
-    const dto = toRuleDto(reg, r);
+    const dto = toRuleDto(reg, r, labels);
     await auditSettings(tx, actor, {
       action: 'register.automation.created', entity: 'register_automation', entityId: r.id,
       summary: `Реестр «${reg.name}»: правило «${dto.when} → ${dto.then}»`, after: { condition: v.condition, action: v.action },
@@ -194,15 +229,16 @@ export async function updateRule(
   input: { version: number; condition?: Condition; action?: Action; enabled?: boolean },
 ) {
   return withTx(db, async (tx) => {
-    const { rule, reg } = await getRule(tx, id);
+    const { rule, reg, labels } = await getRule(tx, id);
     assertNotArchived(reg);
     if (rule.version !== input.version) throw versionConflict();
     const data: Prisma.RegisterAutomationUpdateManyMutationInput = {};
-    const before = toRuleDto(reg, rule);
+    const before = toRuleDto(reg, rule, labels);
     if (input.condition || input.action) {
       // Системные правила п. 7.4 заданы процедурой: их можно только выключить.
       if (rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не меняется — его можно только выключить');
-      const v = validateRule(reg, input.condition ?? before.condition, input.action ?? before.action, await recipientChoices(tx));
+      const storedAction = rule.action as unknown as Action;
+      const v = validateRule(reg, input.condition ?? before.condition, input.action ?? storedAction, await recipientChoices(tx), storedAction);
       data.condition = v.condition as unknown as Prisma.InputJsonValue;
       data.action = v.action as unknown as Prisma.InputJsonValue;
     }
@@ -210,7 +246,7 @@ export async function updateRule(
     if (!Object.keys(data).length) return before;
     const res = await tx.registerAutomation.updateMany({ where: { id, version: input.version }, data: { ...data, version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
-    const after = toRuleDto(reg, await tx.registerAutomation.findUniqueOrThrow({ where: { id } }));
+    const after = toRuleDto(reg, await tx.registerAutomation.findUniqueOrThrow({ where: { id } }), labels);
     const what = data.enabled === undefined ? `«${before.when} → ${before.then}» → «${after.when} → ${after.then}»` : `«${after.when} → ${after.then}» ${after.enabled ? 'включено' : 'выключено'}`;
     await auditSettings(tx, actor, {
       action: 'register.automation.updated', entity: 'register_automation', entityId: id,
@@ -224,16 +260,16 @@ export async function updateRule(
 
 export async function setRuleArchived(db: Db, actor: Actor, id: string, version: number, archived: boolean) {
   return withTx(db, async (tx) => {
-    const { rule, reg } = await getRule(tx, id);
+    const { rule, reg, labels } = await getRule(tx, id);
     assertNotArchived(reg);
     if (archived && rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не уходит в архив — его можно выключить');
     if ((rule.archivedAt !== null) === archived) {
       if (rule.version !== version) throw versionConflict();
-      return toRuleDto(reg, rule);
+      return toRuleDto(reg, rule, labels);
     }
     const res = await tx.registerAutomation.updateMany({ where: { id, version }, data: { archivedAt: archived ? new Date() : null, version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
-    const dto = toRuleDto(reg, await tx.registerAutomation.findUniqueOrThrow({ where: { id } }));
+    const dto = toRuleDto(reg, await tx.registerAutomation.findUniqueOrThrow({ where: { id } }), labels);
     await auditSettings(tx, actor, {
       action: archived ? 'register.automation.archived' : 'register.automation.restored', entity: 'register_automation', entityId: id,
       summary: `Реестр «${reg.name}»: правило «${dto.when} → ${dto.then}» ${archived ? 'в архиве' : 'возвращено из архива'}`,
@@ -245,14 +281,14 @@ export async function setRuleArchived(db: Db, actor: Actor, id: string, version:
 /** Удалить можно только правило без событий; с событиями — в архив (события ссылаются на правило). */
 export async function deleteRule(db: Db, actor: Actor, id: string, version: number) {
   await withTx(db, async (tx) => {
-    const { rule, reg } = await getRule(tx, id);
+    const { rule, reg, labels } = await getRule(tx, id);
     assertNotArchived(reg);
     if (rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не удаляется — его можно выключить');
     const events = await tx.automationEvent.count({ where: { automationId: id } });
     if (events > 0) throw conflict('HAS_EVENTS', `По правилу есть события (${events}). Отправьте его в архив`);
     const res = await tx.registerAutomation.updateMany({ where: { id, version }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
-    const dto = toRuleDto(reg, rule);
+    const dto = toRuleDto(reg, rule, labels);
     await auditSettings(tx, actor, {
       action: 'register.automation.deleted', entity: 'register_automation', entityId: id,
       summary: `Реестр «${reg.name}»: удалено правило «${dto.when} → ${dto.then}»`,
@@ -263,13 +299,14 @@ export async function deleteRule(db: Db, actor: Actor, id: string, version: numb
 
 // ---------------------------------------------------------------- события
 
-export type EventRecipient = { kind: 'user'; userId: string; name: string } | { kind: 'label'; label: string };
+export type EventRecipient = { kind: 'user'; userId: string; name: string } | { kind: 'label'; label: string; itemId?: string | null };
 
 export async function listEvents(
   db: Db, registerId: string,
   q: { status?: 'new' | 'processed'; recordId?: string; limit: number; cursor?: string },
 ) {
   const reg = await loadRegister(db, registerId);
+  const labels = await loadLabels(db);
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
   const where: Prisma.AutomationEventWhereInput = {
     registerId, ...(q.status ? { status: q.status } : {}), ...(q.recordId ? { recordId: q.recordId } : {}),
@@ -294,7 +331,7 @@ export async function listEvents(
   const title = reg.fields.find((f) => f.isTitle);
   return {
     items: rows.slice(0, q.limit).map((e) => {
-      const rule = toRuleDto(reg, e.automation);
+      const rule = toRuleDto(reg, e.automation, labels);
       const values = e.record.values as Values;
       return {
         id: e.id,
@@ -328,12 +365,13 @@ export async function processEvent(db: Db, actor: Actor, id: string) {
     if (!e) throw notFound('Событие');
     if (e.status === 'processed') return;
     const reg = await loadRegister(tx, e.registerId);
+    const labels = await loadLabels(tx);
     const res = await tx.automationEvent.updateMany({
       where: { id, status: 'new' },
       data: { status: 'processed', processedAt: new Date(), processedBy: actor.id },
     });
     if (res.count === 0) return;
-    const rule = toRuleDto(reg, e.automation);
+    const rule = toRuleDto(reg, e.automation, labels);
     await auditSettings(tx, actor, {
       action: 'automation_event.processed', entity: 'register_record', entityId: e.recordId,
       summary: `«${reg.name}», запись #${e.record.number}: событие «${rule.when} → ${rule.then}» обработано`,
@@ -376,6 +414,7 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
       orderBy: { createdAt: 'asc' },
     });
     const calendar = await loadFullWorkCalendar(tx);
+    const labels = await loadLabels(tx);
     const byRegister = new Map<string, typeof rules>();
     for (const r of rules) byRegister.set(r.registerId, [...(byRegister.get(r.registerId) ?? []), r]);
     let checked = 0;
@@ -407,7 +446,11 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
           const t = evaluate(condition, view, today, calendar);
           if (!t) continue;
           const recipients: EventRecipient[] = action.recipients.map((x) => {
-            if (x.kind === 'label') return { kind: 'label', label: x.label };
+            if (x.kind === 'label') {
+              // Снимок: актуальное название и id метки; метки нет — задача будет без ответственного.
+              const l = resolveLabel(x, labels);
+              return l.missing ? { kind: 'label', label: `«${l.label || 'метка'}»: получатель не найден`, itemId: null } : { kind: 'label', label: l.label, itemId: l.itemId };
+            }
             if (x.kind === 'user') return { kind: 'user', userId: x.userId, name: x.name ?? 'сотрудник' };
             const uid = values[x.fieldId];
             const u = typeof uid === 'string' ? users.get(uid) : undefined;
@@ -437,7 +480,7 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
     const tasks = await tasksFromEvents(tx, {
       registerId: opts.registerId, today, calendar,
       describe: (reg, r) => {
-        const dto = toRuleDto(reg, { ...(r as { condition: Prisma.JsonValue; action: Prisma.JsonValue }), id: '', registerId: reg.id, systemKey: null, enabled: true, version: 1, archivedAt: null, createdAt: new Date() });
+        const dto = toRuleDto(reg, { ...(r as { condition: Prisma.JsonValue; action: Prisma.JsonValue }), id: '', registerId: reg.id, systemKey: null, enabled: true, version: 1, archivedAt: null, createdAt: new Date() }, labels);
         return { when: dto.when, then: dto.then };
       },
     });

@@ -30,7 +30,8 @@ export type Condition =
  */
 export type Recipient =
   | { kind: 'field'; fieldId: string }
-  | { kind: 'label'; label: string }
+  /** Метка по id значения справочника (ADR-0005); label — название на момент сохранения, для старых версий. */
+  | { kind: 'label'; itemId?: string | null; label?: string }
   | { kind: 'user'; userId: string; name?: string };
 
 export interface Action {

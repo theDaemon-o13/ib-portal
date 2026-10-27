@@ -10,7 +10,7 @@ import { loadRegister, type RegisterDef } from '../registers/definition.js';
 import { systemItemId, TITLE_MAX } from './service.js';
 
 type EventType = 'remind' | 'notify' | 'escalate';
-type SnapshotRecipient = { kind: 'user'; userId: string; name: string } | { kind: 'label'; label: string };
+type SnapshotRecipient = { kind: 'user'; userId: string; name: string } | { kind: 'label'; label: string; itemId?: string | null };
 
 const TITLE_PREFIX: Record<EventType, string> = { remind: 'Напоминание', notify: 'Уведомление', escalate: 'Эскалация' };
 /** Срок задачи: напоминание — к сроку записи; уведомление — 3 рабочих дня; эскалация — 1 рабочий день. */
@@ -56,9 +56,11 @@ export async function tasksFromEvents(
   const ibUsers = new Set((await tx.user.findMany({ where: { isActive: true, ...IB_WORK }, select: { id: true } })).map((u) => u.id));
   const labels = await tx.catalogItem.findMany({
     where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null },
-    select: { value: true, systemKey: true, members: { select: { userId: true } } },
+    select: { id: true, value: true, systemKey: true, members: { select: { userId: true } } },
   });
-  const labelOf = (l: string) => labels.find((x) => x.value.toLowerCase() === l.toLowerCase());
+  // Метка — по id (ADR-0005); события до перехода на id несут только название.
+  const labelOf = (r: { label: string; itemId?: string | null }) =>
+    (r.itemId !== undefined ? labels.find((x) => x.id === r.itemId) : labels.find((x) => x.value.toLowerCase() === r.label.toLowerCase()));
   const registers = new Map<string, RegisterDef>();
   const work = (n: number) => isoDate(addWorkingDays(parseIsoDate(opts.today), n, opts.calendar));
   const now = new Date();
@@ -96,7 +98,7 @@ export async function tasksFromEvents(
         else add(null, r.name);
         continue;
       }
-      const item = labelOf(r.label);
+      const item = labelOf(r);
       if (item?.systemKey === SYSTEM_OWNER_KEY) {
         if (systemOwner && ibUsers.has(systemOwner)) add(systemOwner, item.value);
         else add(null, item.value);

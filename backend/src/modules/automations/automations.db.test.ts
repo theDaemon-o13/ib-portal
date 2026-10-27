@@ -70,10 +70,10 @@ describe('правила п. 7.4 по расписанию', () => {
       ]);
       const events = await eventsOf(tx, x);
       expect(events.find((e) => e.cve === 'A' && e.rule === 'vuln.overdue_notify')?.recipients).toEqual([
-        { kind: 'label', label: 'Руководитель ДИКТ' }, { kind: 'label', label: 'Владелец системы' },
+        { kind: 'label', label: 'Руководитель ДИКТ', itemId: expect.any(String) }, { kind: 'label', label: 'Владелец системы', itemId: expect.any(String) },
       ]);
       expect(events.find((e) => e.cve === 'E')?.recipients).toEqual([
-        { kind: 'user', userId: owner.id, name: 'Фарход Ответственный' }, { kind: 'label', label: 'Руководитель ДИКТ' },
+        { kind: 'user', userId: owner.id, name: 'Фарход Ответственный' }, { kind: 'label', label: 'Руководитель ДИКТ', itemId: expect.any(String) },
       ]);
 
       // Повторный прогон в тот же день (через час, после перезапуска) — ничего нового.
