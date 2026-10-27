@@ -17,6 +17,8 @@ describe('документы: подписи', () => {
     expect(historyText(h({ stage: 3 }))).toBe('утвердил(а) версию 2');
     expect(historyText(h({ decision: 'returned', comment: 'Нет раздела 4' }))).toBe('вернул(а) версию 2 на доработку с этапа «Юридический отдел»: Нет раздела 4');
     expect(historyText(h({ decision: 'revision_started', stage: 0, comment: '' }))).toBe('создал(а) версию 2 для пересмотра');
+    expect(historyText(h({ decision: 'skipped', stage: 1, stageName: 'Начальник ИБ', comment: 'Не требуется: автор — Начальник ИБ.' })))
+      .toBe('этап «Начальник ИБ» не требуется (версия 2). Не требуется: автор — Начальник ИБ.');
   });
   it('пересмотр и подпись этапа', () => {
     expect(reviewLabel({ reviewDue: null, status: 'draft' })).toBe('—');

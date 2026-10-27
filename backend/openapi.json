@@ -41387,6 +41387,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -41396,7 +41402,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -41503,7 +41510,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -42395,6 +42403,12 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "skipped": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -42404,7 +42418,8 @@
                           "approvers",
                           "hint",
                           "actedBy",
-                          "actedAt"
+                          "actedAt",
+                          "skipped"
                         ],
                         "additionalProperties": false
                       }
@@ -42511,7 +42526,8 @@
                               "submitted",
                               "approved",
                               "returned",
-                              "revision_started"
+                              "revision_started",
+                              "skipped"
                             ]
                           },
                           "comment": {
@@ -43214,6 +43230,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -43223,7 +43245,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -43330,7 +43353,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -44025,6 +44049,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -44034,7 +44064,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -44141,7 +44172,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -44836,6 +44868,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -44845,7 +44883,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -44952,7 +44991,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -45647,6 +45687,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -45656,7 +45702,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -45763,7 +45810,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -46464,6 +46512,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -46473,7 +46527,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -46580,7 +46635,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -47265,6 +47321,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -47274,7 +47336,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -47381,7 +47444,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {
@@ -48066,6 +48130,12 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "skipped": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -48075,7 +48145,8 @@
                                   "approvers",
                                   "hint",
                                   "actedBy",
-                                  "actedAt"
+                                  "actedAt",
+                                  "skipped"
                                 ],
                                 "additionalProperties": false
                               }
@@ -48182,7 +48253,8 @@
                                       "submitted",
                                       "approved",
                                       "returned",
-                                      "revision_started"
+                                      "revision_started",
+                                      "skipped"
                                     ]
                                   },
                                   "comment": {

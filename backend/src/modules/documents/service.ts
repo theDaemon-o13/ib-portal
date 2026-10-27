@@ -1,7 +1,8 @@
 // Документы (этап 6, ADR-0010): реестр внутренних документов ИБ, версии, маршрут согласования, пересмотр.
 // Права: маршруты пускают любого вошедшего (requireAuth), а кто что может — решает этот сервис:
-// этап «Автор» — владелец или docs.manage; этапы 1–3 — право этапа (docs.approve.*), но не супер-администратор
-// (ни через какую роль) и не тот, кто уже согласовал другой этап этой версии (разделение полномочий).
+// этап «Автор» — владелец или docs.manage; этапы 1–3 — право этапа (docs.approve.*), но не владелец документа,
+// не супер-администратор (ни через какую роль) и не тот, кто уже согласовал другой этап этой версии
+// (разделение полномочий). Этап, который некому согласовать, кроме владельца, пропускается с записью в истории.
 // Без ib.work видны только утверждённые документы, «ждёт вас» и согласованные вами в текущем круге.
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
@@ -99,6 +100,9 @@ function verdict(a: DocAccess, d: DocRow, mine: MyDecisions): Verdict {
   } else {
     if (!a.perms.has(st.perm)) {
       return { ok: false, code: 'FORBIDDEN', reason: `Этап «${st.name}» согласует пользователь с правом «${permName(st.perm)}»` };
+    }
+    if (d.ownerId === a.userId) {
+      return { ok: false, code: 'SEPARATION_OF_DUTIES', reason: 'Владелец не согласует этапы своего документа, кроме «Автор»: так сохраняется разделение полномочий' };
     }
     if (a.superAdmin) {
       return { ok: false, code: 'SEPARATION_OF_DUTIES', reason: 'Супер-администратор не согласует документы: так сохраняется разделение полномочий' };
@@ -232,11 +236,12 @@ async function getRow(db: Db, id: string) {
   return d;
 }
 
-/** Кто может согласовать этап: имена активных пользователей с правом (без супер-администраторов). */
+/** Кто может согласовать этап: имена активных пользователей с правом (без супер-администраторов и владельца). */
 async function approversByStage(db: Db, d: DocRow) {
   const users = await db.user.findMany({
     where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: { in: STAGES.flatMap((s) => (s.perm ? [s.perm] : [])) } } } } } } },
     select: {
+      id: true,
       fullName: true,
       roles: { select: { role: { select: { code: true, permissions: { select: { permissionCode: true } } } } } },
     },
@@ -246,7 +251,7 @@ async function approversByStage(db: Db, d: DocRow) {
     if (s.perm === null) return { names: [d.owner.fullName], hint: `владелец или право «${permName('docs.manage')}»` };
     const perm = s.perm;
     const names = users
-      .filter((u) => !u.roles.some((r) => r.role.code === 'super_admin') && u.roles.some((r) => r.role.permissions.some((p) => p.permissionCode === perm)))
+      .filter((u) => u.id !== d.ownerId && !u.roles.some((r) => r.role.code === 'super_admin') && u.roles.some((r) => r.role.permissions.some((p) => p.permissionCode === perm)))
       .map((u) => u.fullName);
     return { names, hint: `право «${permName(perm)}»` };
   });
@@ -270,7 +275,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
   });
 
   // Маршрут показанной версии: кто согласовал этапы в текущем круге.
-  const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && (h.decision === 'submitted' || h.decision === 'approved'));
+  const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && ['submitted', 'approved', 'skipped'].includes(h.decision));
   const approvers = await approversByStage(db, d);
   const route = STAGES.map((s, i) => {
     const act = roundActs.find((h) => h.stage === s.stage);
@@ -278,7 +283,9 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     return {
       stage: s.stage, name: s.name, state: state as 'done' | 'current' | 'todo',
       approvers: approvers[i]?.names ?? [], hint: approvers[i]?.hint ?? '',
-      actedBy: act ? act.actor.fullName : null, actedAt: act ? act.at.toISOString() : null,
+      actedBy: act && act.decision !== 'skipped' ? act.actor.fullName : null, actedAt: act ? act.at.toISOString() : null,
+      /** Этап пропущен: согласовать мог только владелец документа. */
+      skipped: act?.decision === 'skipped' ? act.comment : null,
     };
   });
 
@@ -305,7 +312,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     versions: visibleVersions.map((x) => ({ no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote })),
     history: history.map((h) => ({
       id: h.id, at: h.at.toISOString(), actor: h.actor.fullName, stage: h.stage, stageName: stageName(h.stage),
-      decision: h.decision as 'submitted' | 'approved' | 'returned' | 'revision_started', comment: h.comment, versionNo: h.versionNo, round: h.round,
+      decision: h.decision as 'submitted' | 'approved' | 'returned' | 'revision_started' | 'skipped', comment: h.comment, versionNo: h.versionNo, round: h.round,
     })),
   };
 }
@@ -527,13 +534,13 @@ export async function submitDocument(db: Db, actor: Actor, id: string, input: Ro
     if (input.stage !== 0) throw conflict('STAGE_CHANGED', 'Отправить на согласование можно только с этапа «Автор». Обновите страницу');
     const { d, w } = await routeContext(tx, actor, id, input);
     await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: 0, decision: 'submitted', comment: '', actorId: actor.id });
-    await tx.documentVersion.update({ where: { id: w.id }, data: { stage: 1 } });
     await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на согласование (версия ${w.no})`);
     await auditSettings(tx, actor, {
       action: 'document.submitted', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) отправлен на согласование`,
       after: { versionNo: w.no, round: w.round },
     });
+    await moveTo(tx, actor, d, w, 1);
   });
 }
 
@@ -544,28 +551,72 @@ export async function approveDocument(db: Db, actor: Actor, id: string, input: R
     const { d, w } = await routeContext(tx, actor, id, input);
     await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'approved', comment: (input.comment ?? '').trim().slice(0, COMMENT_MAX), actorId: actor.id });
     if (w.stage < LAST_STAGE) {
-      await tx.documentVersion.update({ where: { id: w.id }, data: { stage: w.stage + 1 } });
       await auditSettings(tx, actor, {
         action: 'document.approved_stage', entity: 'document', entityId: id,
         summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): этап «${stageName(w.stage)}» согласован`,
         after: { versionNo: w.no, round: w.round, stage: w.stage },
       });
-      return;
     }
-    // Утверждение: версия становится действующей и больше не меняется (триггер), цикл пересмотра — от сегодня.
-    const now = new Date();
-    const due = addMonthsIso(todayIso(now), d.reviewMonths);
-    await tx.documentVersion.update({ where: { id: w.id }, data: { approvedAt: now } });
-    await tx.document.update({
-      where: { id },
-      data: { approvedVersionId: w.id, workingVersionId: null, reviewDue: new Date(`${due}T00:00:00Z`) },
-    });
-    await closeDocumentTasks(tx, id, 'review', `Версия ${w.no} утверждена, следующий пересмотр — до ${formatDateRu(due)}`);
+    await moveTo(tx, actor, d, w, w.stage + 1);
+  });
+}
+
+/**
+ * Этап, который некому согласовать, кроме владельца: у владельца есть право этапа, а других активных
+ * пользователей с этим правом (не супер-администраторов) нет. Тогда этап не требуется — иначе документ встанет.
+ */
+async function skipReason(tx: Db, d: DocRow, stage: number): Promise<string | null> {
+  const perm = STAGES[stage]?.perm;
+  if (!perm) return null;
+  const owner = await accessOf(tx, d.ownerId);
+  if (!owner.perms.has(perm)) return null;
+  const others = await tx.user.count({
+    where: {
+      id: { not: d.ownerId },
+      isActive: true,
+      AND: [
+        { roles: { some: { role: { permissions: { some: { permissionCode: perm } } } } } },
+        { roles: { none: { role: { code: 'super_admin' } } } },
+      ],
+    },
+  });
+  if (others > 0) return null;
+  return `Не требуется: автор — ${stageName(stage)}. Владелец документа ${d.owner.fullName} имеет право «${permName(perm)}», других согласующих нет`;
+}
+
+/**
+ * Перевести рабочую версию на этап next. Этапы, где согласовать может только владелец, пропускаются
+ * с записью «skipped» в истории (кто владелец, почему пропущен); после последнего этапа — утверждение.
+ */
+async function moveTo(tx: Db, actor: Actor, d: DocRow, w: VersionRow, next: number) {
+  let stage = next;
+  for (; stage <= LAST_STAGE; stage++) {
+    const reason = await skipReason(tx, d, stage);
+    if (!reason) break;
+    await addDecision(tx, { documentId: d.id, versionId: w.id, versionNo: w.no, round: w.round, stage, decision: 'skipped', comment: reason, actorId: d.ownerId });
     await auditSettings(tx, actor, {
-      action: 'document.approved', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) утверждён, пересмотр до ${formatDateRu(due)}`,
-      after: { versionNo: w.no, round: w.round, reviewDue: due },
+      action: 'document.stage_skipped', entity: 'document', entityId: d.id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): этап «${stageName(stage)}» не требуется — автор ${d.owner.fullName}`,
+      after: { versionNo: w.no, round: w.round, stage, ownerId: d.ownerId, reason },
     });
+  }
+  if (stage <= LAST_STAGE) {
+    await tx.documentVersion.update({ where: { id: w.id }, data: { stage } });
+    return;
+  }
+  // Утверждение: версия становится действующей и больше не меняется (триггер), цикл пересмотра — от сегодня.
+  const now = new Date();
+  const due = addMonthsIso(todayIso(now), d.reviewMonths);
+  await tx.documentVersion.update({ where: { id: w.id }, data: { stage: LAST_STAGE, approvedAt: now } });
+  await tx.document.update({
+    where: { id: d.id },
+    data: { approvedVersionId: w.id, workingVersionId: null, reviewDue: new Date(`${due}T00:00:00Z`) },
+  });
+  await closeDocumentTasks(tx, d.id, 'review', `Версия ${w.no} утверждена, следующий пересмотр — до ${formatDateRu(due)}`);
+  await auditSettings(tx, actor, {
+    action: 'document.approved', entity: 'document', entityId: d.id,
+    summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) утверждён, пересмотр до ${formatDateRu(due)}`,
+    after: { versionNo: w.no, round: w.round, reviewDue: due },
   });
 }
 

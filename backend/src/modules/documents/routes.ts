@@ -47,6 +47,8 @@ const DocDetail = DocItem.extend({
   route: z.array(z.object({
     stage: z.number().int(), name: z.string(), state: z.enum(['done', 'current', 'todo']),
     approvers: z.array(z.string()), hint: z.string(), actedBy: z.string().nullable(), actedAt: z.string().nullable(),
+    /** Этап не требуется (согласовать мог только владелец): причина. */
+    skipped: z.string().nullable(),
   })),
   can: z.object({ edit: z.boolean(), submit: z.boolean(), approve: z.boolean(), revise: z.boolean(), manage: z.boolean() }),
   blockedReason: z.string().nullable(),
@@ -55,7 +57,7 @@ const DocDetail = DocItem.extend({
   })),
   history: z.array(z.object({
     id: z.string(), at: z.string(), actor: z.string(), stage: z.number().int(), stageName: z.string(),
-    decision: z.enum(['submitted', 'approved', 'returned', 'revision_started']), comment: z.string(), versionNo: z.number().int(), round: z.number().int(),
+    decision: z.enum(['submitted', 'approved', 'returned', 'revision_started', 'skipped']), comment: z.string(), versionNo: z.number().int(), round: z.number().int(),
   })),
 });
 type DetailOut = z.infer<typeof DocDetail>;

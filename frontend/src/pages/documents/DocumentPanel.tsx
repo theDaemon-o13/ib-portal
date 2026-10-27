@@ -153,9 +153,10 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
                 <div>
                   <b>{r.name}</b>
                   <small title={r.hint}>{r.stage === 0 ? `Владелец: ${r.approvers.join(', ')}` : r.approvers.join(', ') || 'никто не назначен — выдайте право роли'}</small>
+                  {r.skipped && <small className="skip-why">{r.skipped}</small>}
                 </div>
                 <small className="vr">
-                  {r.actedBy
+                  {r.skipped ? <>не требуется<br />{formatDateTime(r.actedAt)}</> : r.actedBy
                     ? <>{r.stage === 0 ? 'отправил(а)' : 'согласовал(а)'}: {r.actedBy}<br />{formatDateTime(r.actedAt)}</>
                     : r.state === 'current' && !d.archived ? <b className="wait">ожидает</b> : null}
                 </small>

@@ -469,6 +469,7 @@ textarea.mail-raw{min-height:150px}
 .vstep small{color:var(--muted);font-size:12px}
 .vstep .vr{text-align:right;font-size:11.5px;line-height:1.35;max-width:150px;overflow-wrap:anywhere}
 .docs-tbl td.mono,.docs-tbl td:last-child{white-space:nowrap}
+.vstep .skip-why{display:block;margin-top:2px;font-style:italic}
 .vstep .wait{color:var(--accent);font-weight:600;font-size:12px;display:inline}
 .tone-accent{color:var(--accent)}.w600{font-weight:600}
 .hist-item.returned{color:var(--fg)}

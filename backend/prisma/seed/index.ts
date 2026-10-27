@@ -2,11 +2,12 @@
 // Запускается сервисом migrate после prisma migrate deploy, от владельца схемы.
 // Ничего не удаляет и не перетирает состав ролей, изменённый в интерфейсе.
 import { PrismaClient } from '@prisma/client';
-import { CATALOGS, SYSTEM_ITEMS } from '../../src/lib/catalogs.js';
+import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedRegisters } from './registers.js';
 import { seedStarter } from './starter.js';
+import { seedSystemItems } from './system-items.js';
 import { seedVulns } from './vulns.js';
 
 const prisma = new PrismaClient();
@@ -52,35 +53,7 @@ async function main() {
       await tx.catalog.upsert({ where: { code: c.code }, create: { code: c.code, ...data }, update: data });
     }
 
-    // Системные значения создаются, если их нет. Существующие не трогаются:
-    // статусы администратор мог переименовать.
-    for (const item of SYSTEM_ITEMS) {
-      const existing = await tx.catalogItem.findUnique({
-        where: { catalogCode_systemKey: { catalogCode: item.catalog, systemKey: item.key } },
-      });
-      if (existing) continue;
-      // Администратор уже завёл значение с таким названием — оно становится системным (уникальность названия).
-      const sameName = await tx.catalogItem.findFirst({
-        where: { catalogCode: item.catalog, deletedAt: null, systemKey: null, value: { equals: item.value, mode: 'insensitive' } },
-      });
-      if (sameName) {
-        await tx.catalogItem.update({ where: { id: sameName.id }, data: { systemKey: item.key, isSystem: true, archivedAt: null } });
-        console.log(`Значение «${sameName.value}» стало системным`);
-        continue;
-      }
-      const max = await tx.catalogItem.aggregate({ where: { catalogCode: item.catalog }, _max: { sortOrder: true } });
-      await tx.catalogItem.create({
-        data: {
-          catalogCode: item.catalog,
-          systemKey: item.key,
-          isSystem: true,
-          value: item.value,
-          color: item.color ?? null,
-          sortOrder: (max._max.sortOrder ?? 0) + 1,
-        },
-      });
-      console.log(`Создано системное значение «${item.value}»`);
-    }
+    await seedSystemItems(tx);
 
     // Рабочая неделя по умолчанию — пятидневка.
     await tx.appSetting.upsert({

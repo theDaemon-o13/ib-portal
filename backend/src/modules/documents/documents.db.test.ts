@@ -125,7 +125,7 @@ describe('документы: маршрут согласования', () => {
       expect((await svc.documentSummary(tx, await svc.accessOf(tx, adminHead.id))).waitingForMe).toBe(0);
     }));
 
-  it('один человек не согласует два этапа одной версии — и автор не согласует свой документ на следующем этапе', () =>
+  it('один человек не согласует два этапа одной версии', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const multi = await makeUser(tx, ['ib_staff', 'ib_head', 'legal'], { fullName: 'Два права' });
@@ -135,16 +135,88 @@ describe('документы: маршрут согласования', () => {
       await expectCode(act(tx, svc.approveDocument, multi, id), 'SEPARATION_OF_DUTIES');
       expect((await view(tx, multi, id)).blockedReason).toMatch(/уже согласовали этап «Начальник ИБ»/);
       await act(tx, svc.approveDocument, x.legal, id);
+    }));
+});
 
-      // Автор с правом «Начальник ИБ»: отправил сам — свой этап «Начальник ИБ» не согласует.
-      const headAuthor = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник-автор' });
-      const own = await x.create('Регламент', headAuthor.id);
-      await act(tx, svc.submitDocument, headAuthor, own);
-      await expectCode(act(tx, svc.approveDocument, headAuthor, own), 'SEPARATION_OF_DUTIES');
-      // Отправка за автора (docs.manage) снимает конфликт: тогда начальник-автор согласует свой этап.
-      const other = await x.create('Положение', headAuthor.id);
-      await act(tx, svc.submitDocument, x.admin, other);
-      await act(tx, svc.approveDocument, headAuthor, other);
+describe('документы: владелец и этапы своего документа', () => {
+  it('владелец с правом этапа при наличии другого согласующего не согласует — даже если отправил другой (docs.manage)', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const headOwner = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник-владелец' });
+      const id = await x.create('Регламент', headOwner.id);
+      await act(tx, svc.submitDocument, x.admin, id); // отправил не владелец
+      const d = await view(tx, headOwner, id);
+      expect(d.current.stage).toBe(1); // этап не пропущен: есть другой начальник ИБ
+      expect(d.route[1]?.skipped).toBeNull();
+      expect(d.route[1]?.approvers).toEqual(['Начальник ИБ']); // владельца в списке согласующих нет
+      expect(d.can.approve).toBe(false);
+      expect(d.blockedReason).toMatch(/Владелец не согласует этапы своего документа/);
+      expect(d.waitingForMe).toBe(false);
+      await expectCode(act(tx, svc.approveDocument, headOwner, id), 'SEPARATION_OF_DUTIES');
+      await expectCode(act(tx, svc.returnDocument, headOwner, id, 'сам себе'), 'SEPARATION_OF_DUTIES');
+      await act(tx, svc.approveDocument, x.head, id);
+      expect((await view(tx, headOwner, id)).current.stage).toBe(2);
+    }));
+
+  it('владелец — единственный начальник ИБ: этап «Начальник ИБ» пропущен с записью в истории; юрист и правление обязательны', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      await tx.user.update({ where: { id: x.head.id }, data: { isActive: false } }); // другого начальника ИБ нет
+      const headOwner = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Единственный начальник' });
+      const id = await x.create('Политика', headOwner.id);
+      await act(tx, svc.submitDocument, headOwner, id);
+
+      const d = await view(tx, headOwner, id);
+      expect(d.current.stage).toBe(2); // сразу у юриста
+      expect(d.route.map((r) => r.state)).toEqual(['done', 'done', 'current', 'todo']);
+      expect(d.route[1]?.skipped).toMatch(/^Не требуется: автор — Начальник ИБ\. Владелец документа Единственный начальник/);
+      expect(d.route[1]?.actedBy).toBeNull();
+      const skip = must(d.history.find((h) => h.decision === 'skipped'));
+      expect(skip).toMatchObject({ stage: 1, actor: 'Единственный начальник', versionNo: 1, round: 1 });
+      expect(skip.comment).toMatch(/других согласующих нет/);
+      const audit = await tx.auditLog.findFirstOrThrow({ where: { entity: 'document', entityId: id, action: 'document.stage_skipped' } });
+      expect((audit.diff as { after: { ownerId: string } }).after.ownerId).toBe(headOwner.id);
+
+      // Юрист и правление обязательны: владелец за них не согласует, документ ждёт их.
+      await expectCode(act(tx, svc.approveDocument, headOwner, id), 'FORBIDDEN');
+      expect((await view(tx, x.legal, id)).waitingForMe).toBe(true);
+      await act(tx, svc.approveDocument, x.legal, id);
+      expect((await view(tx, headOwner, id)).status).toBe('in_approval');
+      await act(tx, svc.approveDocument, x.board, id);
+      expect((await view(tx, headOwner, id)).status).toBe('approved');
+
+      // Возврат и повторная отправка: этап снова пропускается в новом круге.
+      await svc.reviseDocument(tx, await x.as(headOwner), id, { version: (await cur(tx, id)).version });
+      await act(tx, svc.submitDocument, headOwner, id);
+      await act(tx, svc.returnDocument, x.legal, id, 'Уточните раздел 2');
+      await act(tx, svc.submitDocument, headOwner, id);
+      const again = await view(tx, headOwner, id);
+      expect(again.current).toMatchObject({ no: 2, round: 2, stage: 2 });
+      expect(again.history.filter((h) => h.decision === 'skipped' && h.versionNo === 2).map((h) => h.round)).toEqual([2, 1]);
+    }));
+
+  it('пропуск последнего этапа утверждает документ; без права этапа у владельца этап не пропускается', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      await tx.user.update({ where: { id: x.board.id }, data: { isActive: false } });
+      const boardOwner = await makeUser(tx, ['ib_staff', 'board'], { fullName: 'Владелец из правления' });
+      const id = await x.create('Стратегия', boardOwner.id);
+      await act(tx, svc.submitDocument, boardOwner, id);
+      await act(tx, svc.approveDocument, x.head, id);
+      await act(tx, svc.approveDocument, x.legal, id);
+      const d = await view(tx, boardOwner, id);
+      expect(d.status).toBe('approved');
+      expect(d.route[3]?.skipped).toMatch(/Не требуется: автор — Утверждение правлением/);
+
+      // Правления нет совсем, а у владельца права нет — этап не пропускается: документ ждёт, «никто не назначен».
+      await tx.user.update({ where: { id: boardOwner.id }, data: { isActive: false } });
+      const plain = await x.create('Без правления');
+      await act(tx, svc.submitDocument, x.owner, plain);
+      await act(tx, svc.approveDocument, x.head, plain);
+      await act(tx, svc.approveDocument, x.legal, plain);
+      const p = await view(tx, x.owner, plain);
+      expect(p.current.stage).toBe(3);
+      expect(p.route[3]).toMatchObject({ state: 'current', skipped: null, approvers: [] });
     }));
 });
 

@@ -16047,6 +16047,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -16071,7 +16072,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -16396,6 +16397,7 @@ export interface paths {
                                 hint: string;
                                 actedBy: string | null;
                                 actedAt: string | null;
+                                skipped: string | null;
                             }[];
                             can: {
                                 edit: boolean;
@@ -16420,7 +16422,7 @@ export interface paths {
                                 stage: number;
                                 stageName: string;
                                 /** @enum {string} */
-                                decision: "submitted" | "approved" | "returned" | "revision_started";
+                                decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                 comment: string;
                                 versionNo: number;
                                 round: number;
@@ -16628,6 +16630,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -16652,7 +16655,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -16860,6 +16863,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -16884,7 +16888,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -17096,6 +17100,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -17120,7 +17125,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -17332,6 +17337,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -17356,7 +17362,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -17570,6 +17576,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -17594,7 +17601,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -17804,6 +17811,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -17828,7 +17836,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
@@ -18038,6 +18046,7 @@ export interface paths {
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
+                                    skipped: string | null;
                                 }[];
                                 can: {
                                     edit: boolean;
@@ -18062,7 +18071,7 @@ export interface paths {
                                     stage: number;
                                     stageName: string;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
                                     comment: string;
                                     versionNo: number;
                                     round: number;

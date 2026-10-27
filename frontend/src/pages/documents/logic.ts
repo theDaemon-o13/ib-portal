@@ -25,6 +25,8 @@ export function historyText(h: DocDetail['history'][number]): string {
       return h.stage === 3 ? `утвердил(а) версию ${h.versionNo}` : `согласовал(а) этап «${h.stageName}», версия ${h.versionNo}`;
     case 'returned':
       return `вернул(а) версию ${h.versionNo} на доработку с этапа «${h.stageName}»: ${h.comment}`;
+    case 'skipped':
+      return `этап «${h.stageName}» не требуется (версия ${h.versionNo}). ${h.comment}`;
     case 'revision_started':
       return `создал(а) версию ${h.versionNo} для пересмотра${h.comment ? `: ${h.comment}` : ''}`;
   }
