@@ -5,7 +5,7 @@ import { categoryTone, dueLabel, initials, sortColumn, workload } from './logic'
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
   status: { id: 's', value: 'Новые', color: null, systemKey: 'new' }, priority: { id: 'p', value: 'Обычный', color: null, systemKey: 'normal' },
-  category: { id: 'c', value: 'Проект', color: 'accent', systemKey: null }, assignee: null, record: null, automationId: null, recipientLabel: null,
+  category: { id: 'c', value: 'Проект', color: 'accent', systemKey: null }, assignee: null, record: null, automationId: null, recipientLabel: null, document: null,
   completedAt: null, createdBy: null, createdAt: '', updatedAt: '', archived: false, commentCount: 0, version: 1, ...extra,
 });
 

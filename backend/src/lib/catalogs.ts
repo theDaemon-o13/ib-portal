@@ -27,6 +27,8 @@ export type CatalogCode = (typeof CATALOGS)[number]['code'];
 export const RECIPIENTS_CATALOG = 'notify_recipients';
 /** Справочник систем: у значения — владелец системы. */
 export const SYSTEMS_CATALOG = 'systems';
+/** Справочник типов документов: тип документа ссылается на значение по id. */
+export const DOCUMENT_TYPES_CATALOG = 'document_types';
 /** Метка «Владелец системы»: участников нет, получатель — владелец системы записи. */
 export const SYSTEM_OWNER_KEY = 'system_owner';
 
@@ -45,6 +47,7 @@ export interface SystemItemDef {
 export const SYSTEM_ITEMS: readonly SystemItemDef[] = [
   { catalog: 'task_categories', key: 'mail', value: 'Почта', color: 'info', why: 'задачи из писем создаются с этой категорией' },
   { catalog: 'task_categories', key: 'register', value: 'Реестр', color: 'crit', why: 'её ставят автоматизации реестров' },
+  { catalog: 'task_categories', key: 'documents', value: 'Документы', color: 'accent', why: 'её ставят пересмотр и возврат документа на доработку' },
   { catalog: 'task_statuses', key: 'new', value: 'Новые', why: 'статус участвует в маршруте задачи' },
   { catalog: 'task_statuses', key: 'work', value: 'В работе', why: 'статус участвует в маршруте задачи' },
   { catalog: 'task_statuses', key: 'review', value: 'На проверке', why: 'статус участвует в маршруте задачи' },

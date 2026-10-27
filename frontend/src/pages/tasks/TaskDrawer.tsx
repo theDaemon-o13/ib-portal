@@ -43,7 +43,7 @@ function changes(t: TaskDetail, d: Draft): Omit<TaskPatch, 'version'> {
   return out;
 }
 
-const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра' };
+const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу' };
 
 export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: boolean; onClose: () => void }) {
   const qc = useQueryClient();
@@ -216,6 +216,16 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                 <Link to={`/registers#${t.record.registerId}/records`}>{t.record.registerName}, запись #{t.record.number}{t.record.title ? ` «${t.record.title}»` : ''}</Link>
               </div>
               {t.recipientLabel && <div className="hint">Получатели по правилу: {t.recipientLabel}</div>}
+            </div>
+          )}
+          {t?.document && (
+            <div className="mailbox">
+              <div className="eyebrow">Документ</div>
+              <div>
+                <Link to={`/documents?doc=${t.document.id}`}>Документ #{t.document.number}</Link>
+                {' · '}{t.document.reason === 'review' ? 'пересмотр' : 'доработка после возврата'}
+              </div>
+              <div className="hint">Задача закроется сама, когда {t.document.reason === 'review' ? 'новую версию утвердят' : 'документ снова отправят на согласование'}.</div>
             </div>
           )}
           {t && !t.assignee && t.recipients.length > 0 && (

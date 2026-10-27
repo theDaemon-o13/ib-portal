@@ -30,22 +30,26 @@ model User {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  passwordHistory PasswordHistory[]
-  mailRules       CatalogItem[]
-  ownedRegisters  Register[]
-  decisions       RegisterDecision[]
-  registerImports RegisterImport[]
-  scanReports     ScanReport[]
-  automations     RegisterAutomation[]
-  processedEvents AutomationEvent[]
-  assignedTasks   Task[]               @relation("TaskAssignee")
-  createdTasks    Task[]               @relation("TaskCreator")
-  taskComments    TaskComment[]
-  recipientOf     CatalogItemUser[]
-  roles           UserRole[]           @relation("UserRoles")
-  assignedRoles   UserRole[]           @relation("UserRolesAssignedBy")
-  sessions        Session[]
-  auditEntries    AuditLog[]
+  passwordHistory   PasswordHistory[]
+  mailRules         CatalogItem[]
+  ownedRegisters    Register[]
+  decisions         RegisterDecision[]
+  registerImports   RegisterImport[]
+  scanReports       ScanReport[]
+  automations       RegisterAutomation[]
+  processedEvents   AutomationEvent[]
+  assignedTasks     Task[]               @relation("TaskAssignee")
+  createdTasks      Task[]               @relation("TaskCreator")
+  taskComments      TaskComment[]
+  recipientOf       CatalogItemUser[]
+  ownedDocuments    Document[]           @relation("DocumentOwner")
+  createdDocuments  Document[]           @relation("DocumentCreator")
+  documentVersions  DocumentVersion[]
+  documentApprovals DocumentApproval[]
+  roles             UserRole[]           @relation("UserRoles")
+  assignedRoles     UserRole[]           @relation("UserRolesAssignedBy")
+  sessions          Session[]
+  auditEntries      AuditLog[]
 
   @@map("users")
 }
@@ -198,6 +202,7 @@ model CatalogItem {
   tasksByPriority Task[]            @relation("TaskPriority")
   tasksByCategory Task[]            @relation("TaskCategory")
   mailSources     TaskMailSource[]
+  documents       Document[]
 
   @@unique([catalogCode, systemKey])
   @@index([catalogCode, sortOrder])
@@ -520,9 +525,11 @@ model RegisterAutomation {
 /// Событие автоматизации. Уникально по (правило, запись, trigger_key): повторный прогон дублей не создаёт.
 model AutomationEvent {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  registerId   String    @map("register_id") @db.Uuid
-  recordId     String    @map("record_id") @db.Uuid
-  automationId String    @map("automation_id") @db.Uuid
+  /// Событие реестра: реестр, запись и правило. Событие документа (пересмотр, этап 6) — только documentId.
+  registerId   String?   @map("register_id") @db.Uuid
+  recordId     String?   @map("record_id") @db.Uuid
+  automationId String?   @map("automation_id") @db.Uuid
+  documentId   String?   @map("document_id") @db.Uuid
   /// remind | notify | escalate
   eventType    String    @map("event_type")
   /// Снимок получателей на момент события: [{ kind: user, userId, name } | { kind: label, label }]
@@ -537,9 +544,10 @@ model AutomationEvent {
   processedBy  String?   @map("processed_by") @db.Uuid
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  register   Register              @relation(fields: [registerId], references: [id], onDelete: Restrict)
-  record     RegisterRecord        @relation(fields: [recordId], references: [id], onDelete: Restrict)
-  automation RegisterAutomation    @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  register   Register?             @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  record     RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  automation RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  document   Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
   processor  User?                 @relation(fields: [processedBy], references: [id], onDelete: Restrict)
   tasks      AutomationEventTask[]
   comments   TaskComment[]
@@ -586,6 +594,10 @@ model Task {
   automationId   String?   @map("automation_id") @db.Uuid
   /// Метка получателя, по которой назначена задача («Руководитель ДИКТ», «Владелец системы»…).
   recipientLabel String?   @map("recipient_label")
+  /// Задача по документу (этап 6): пересмотр или возврат на доработку.
+  documentId     String?   @map("document_id") @db.Uuid
+  /// review | returned
+  documentReason String?   @map("document_reason")
   /// Когда задача перешла в «Готово»; NULL — открыта.
   completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
   /// NULL — создано автоматизацией.
@@ -603,6 +615,7 @@ model Task {
   creator    User?                 @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   record     RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
   automation RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  document   Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
   mail       TaskMailSource?
   comments   TaskComment[]
   events     AutomationEventTask[]
@@ -610,6 +623,7 @@ model Task {
   @@index([statusId])
   @@index([assigneeId, dueDate])
   @@index([recordId])
+  @@index([documentId])
   @@map("tasks")
 }
 
@@ -665,4 +679,96 @@ model AutomationEventTask {
   @@id([eventId, taskId])
   @@index([taskId])
   @@map("automation_event_tasks")
+}
+
+// ---------------------------------------------------------------------------
+// Этап 6: внутренние документы ИБ, маршрут согласования, пересмотр (ADR-0010).
+// ---------------------------------------------------------------------------
+
+/// Документ: «шапка» с владельцем, типом и циклом пересмотра. Содержимое — в версиях.
+/// Статус не хранится: считается из версий и даты пересмотра (modules/documents/status.ts).
+model Document {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number            Int       @unique @default(autoincrement())
+  typeId            String    @map("type_id") @db.Uuid
+  /// Только активный пользователь с ib.work: ему ставятся задачи.
+  ownerId           String    @map("owner_id") @db.Uuid
+  reviewMonths      Int       @default(12) @map("review_months")
+  /// Дата утверждения + цикл; NULL — ещё не утверждён.
+  reviewDue         DateTime? @map("review_due") @db.Date
+  /// Последняя утверждённая версия.
+  approvedVersionId String?   @unique @map("approved_version_id") @db.Uuid
+  /// Черновик или версия в маршруте; не больше одной.
+  workingVersionId  String?   @unique @map("working_version_id") @db.Uuid
+  version           Int       @default(1)
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdBy         String    @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  type            CatalogItem        @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  owner           User               @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  creator         User               @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  approvedVersion DocumentVersion?   @relation("DocumentApprovedVersion", fields: [approvedVersionId], references: [id], onDelete: Restrict)
+  workingVersion  DocumentVersion?   @relation("DocumentWorkingVersion", fields: [workingVersionId], references: [id], onDelete: Restrict)
+  versions        DocumentVersion[]  @relation("DocumentVersions")
+  approvals       DocumentApproval[]
+  events          AutomationEvent[]
+  tasks           Task[]
+
+  @@index([ownerId])
+  @@map("documents")
+}
+
+/// Версия документа. Утверждённая (approved_at задан) не меняется и не удаляется — права и триггер.
+model DocumentVersion {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String    @map("document_id") @db.Uuid
+  /// 1, 2, 3… — ставит портал.
+  no            Int
+  /// «Редакция» для отображения, например «3.1»; необязательна.
+  edition       String    @default("")
+  title         String
+  onlyofficeUrl String    @map("onlyoffice_url")
+  changeNote    String    @default("") @map("change_note")
+  /// 0 — автор, 1 — начальник ИБ, 2 — юридический отдел, 3 — правление.
+  stage         Int       @default(0) @db.SmallInt
+  /// Круг маршрута: +1 при каждом возврате на доработку.
+  round         Int       @default(1)
+  approvedAt    DateTime? @map("approved_at") @db.Timestamptz(3)
+  createdBy     String    @map("created_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  document   Document           @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Restrict)
+  author     User               @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  approvedOf Document?          @relation("DocumentApprovedVersion")
+  workingOf  Document?          @relation("DocumentWorkingVersion")
+  approvals  DocumentApproval[]
+
+  @@unique([documentId, no])
+  @@map("document_versions")
+}
+
+/// История согласования. Только пополняется (права и триггер, как register_decisions).
+model DocumentApproval {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  versionId  String   @map("version_id") @db.Uuid
+  versionNo  Int      @map("version_no")
+  round      Int
+  stage      Int      @db.SmallInt
+  /// submitted | approved | returned | revision_started
+  decision   String
+  comment    String   @default("")
+  actorId    String   @map("actor_id") @db.Uuid
+  at         DateTime @default(now()) @db.Timestamptz(3)
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  actor    User            @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([documentId, at])
+  @@index([versionId, round])
+  @@map("document_approvals")
 }

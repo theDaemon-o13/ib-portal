@@ -59,6 +59,36 @@ async function main() {
   const seq = await prisma.$queryRaw<{ ok: boolean }[]>`
     SELECT has_sequence_privilege('ibportal_app', pg_get_serial_sequence('public.tasks', 'number'), 'USAGE') AS ok`;
   check(seq[0]?.ok === true, 'ibportal_app: USAGE на последовательность номеров задач');
+
+  // Этап 6: документы. История согласования только пополняется; версии не удаляются,
+  // утверждённая версия не меняется (триггер).
+  for (const table of ['documents', 'document_versions', 'document_approvals']) {
+    const ok = await prisma.$queryRaw<{ ok: boolean }[]>`
+      SELECT bool_and(has_table_privilege('ibportal_app', ${`public.${table}`}, p)) AS ok
+      FROM unnest(ARRAY['SELECT', 'INSERT']) AS p`;
+    check(ok[0]?.ok === true, `ibportal_app: SELECT, INSERT на ${table}`);
+  }
+  const docSeq = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT has_sequence_privilege('ibportal_app', pg_get_serial_sequence('public.documents', 'number'), 'USAGE') AS ok`;
+  check(docSeq[0]?.ok === true, 'ibportal_app: USAGE на последовательность номеров документов');
+  const approvalPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public.document_approvals', p)) AS granted
+    FROM unnest(ARRAY['UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+  check(approvalPrivs[0]?.granted === false, 'ibportal_app: нет UPDATE, DELETE, TRUNCATE на document_approvals');
+  const versionPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public.document_versions', p)) AS granted
+    FROM unnest(ARRAY['DELETE', 'TRUNCATE']) AS p`;
+  check(versionPrivs[0]?.granted === false, 'ibportal_app: нет DELETE, TRUNCATE на document_versions');
+  const docTriggers = await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger
+    WHERE tgrelid IN ('public.document_approvals'::regclass, 'public.document_versions'::regclass) AND NOT tgisinternal`;
+  const docTriggerNames = docTriggers.map((t) => t.tgname);
+  check(
+    ['document_approvals_no_update_delete', 'document_approvals_no_truncate', 'document_versions_guard', 'document_versions_no_truncate']
+      .every((n) => docTriggerNames.includes(n)),
+    'триггеры неизменности истории и версий документов на месте',
+  );
+
   const sysItems = await prisma.catalogItem.findMany({ where: { isSystem: true, deletedAt: null }, select: { catalogCode: true, systemKey: true } });
   const missingItems = SYSTEM_ITEMS.filter((i) => !sysItems.some((x) => x.catalogCode === i.catalog && x.systemKey === i.key)).map((i) => i.value);
   check(missingItems.length === 0, `системные значения справочников на месте (${SYSTEM_ITEMS.length})`, `нет: ${missingItems.join(', ')} — выполните seed`);

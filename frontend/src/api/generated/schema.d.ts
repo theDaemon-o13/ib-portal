@@ -13947,7 +13947,7 @@ export interface paths {
                                 overdue: boolean;
                                 urgent: boolean;
                                 /** @enum {string} */
-                                source: "manual" | "mail" | "automation";
+                                source: "manual" | "mail" | "automation" | "document";
                                 record: {
                                     id: string;
                                     registerId: string;
@@ -13955,6 +13955,12 @@ export interface paths {
                                 } | null;
                                 automationId: string | null;
                                 recipientLabel: string | null;
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    /** @enum {string} */
+                                    reason: "review" | "returned";
+                                } | null;
                                 completedAt: string | null;
                                 createdBy: {
                                     id: string;
@@ -14127,7 +14133,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation";
+                            source: "manual" | "mail" | "automation" | "document";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14135,6 +14141,12 @@ export interface paths {
                             } | null;
                             automationId: string | null;
                             recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
                             completedAt: string | null;
                             createdBy: {
                                 id: string;
@@ -14569,7 +14581,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation";
+                            source: "manual" | "mail" | "automation" | "document";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14579,6 +14591,12 @@ export interface paths {
                             } | null;
                             automationId: string | null;
                             recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
                             completedAt: string | null;
                             createdBy: {
                                 id: string;
@@ -14765,7 +14783,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation";
+                            source: "manual" | "mail" | "automation" | "document";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14773,6 +14791,12 @@ export interface paths {
                             } | null;
                             automationId: string | null;
                             recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
                             completedAt: string | null;
                             createdBy: {
                                 id: string;
@@ -14939,7 +14963,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation";
+                            source: "manual" | "mail" | "automation" | "document";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14947,6 +14971,12 @@ export interface paths {
                             } | null;
                             automationId: string | null;
                             recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
                             completedAt: string | null;
                             createdBy: {
                                 id: string;
@@ -15117,7 +15147,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation";
+                            source: "manual" | "mail" | "automation" | "document";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -15125,6 +15155,12 @@ export interface paths {
                             } | null;
                             automationId: string | null;
                             recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
                             completedAt: string | null;
                             createdBy: {
                                 id: string;
@@ -15747,6 +15783,2381 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге */
+        get: {
+            parameters: {
+                query?: {
+                    archived?: "true" | "false";
+                    status?: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                    typeId?: string;
+                    q?: string;
+                    waiting?: "me";
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                            }[];
+                            nextCursor: string | null;
+                            total: number;
+                            archivedTotal: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Новый документ: версия 1, черновик на этапе «Автор» */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        /** Format: uuid */
+                        typeId: string;
+                        /** Format: uuid */
+                        ownerId: string;
+                        onlyofficeUrl: string;
+                        edition?: string;
+                        changeNote?: string;
+                        reviewMonths?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Счётчик в меню: ждут вас; просроченный пересмотр (только с ib.work) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            waitingForMe: number;
+                            reviewOverdue: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка: версии, маршрут и кто может согласовать этапы, история согласования */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            edition: string;
+                            versionNo: number;
+                            type: {
+                                id: string;
+                                value: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            approvedVersionNo: number | null;
+                            approvedAt: string | null;
+                            reviewMonths: number;
+                            reviewDue: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                            statusName: string;
+                            stage: number | null;
+                            stageName: string | null;
+                            waitingForMe: boolean;
+                            archived: boolean;
+                            version: number;
+                            current: {
+                                id: string;
+                                no: number;
+                                edition: string;
+                                title: string;
+                                onlyofficeUrl: string;
+                                changeNote: string;
+                                stage: number;
+                                stageName: string;
+                                round: number;
+                                approvedAt: string | null;
+                                createdAt: string;
+                            };
+                            working: {
+                                id: string;
+                                no: number;
+                                edition: string;
+                                title: string;
+                                onlyofficeUrl: string;
+                                changeNote: string;
+                                stage: number;
+                                stageName: string;
+                                round: number;
+                                approvedAt: string | null;
+                                createdAt: string;
+                            } | null;
+                            approved: {
+                                id: string;
+                                no: number;
+                                edition: string;
+                                title: string;
+                                onlyofficeUrl: string;
+                                changeNote: string;
+                                stage: number;
+                                stageName: string;
+                                round: number;
+                                approvedAt: string | null;
+                                createdAt: string;
+                            } | null;
+                            route: {
+                                stage: number;
+                                name: string;
+                                /** @enum {string} */
+                                state: "done" | "current" | "todo";
+                                approvers: string[];
+                                hint: string;
+                                actedBy: string | null;
+                                actedAt: string | null;
+                            }[];
+                            can: {
+                                edit: boolean;
+                                submit: boolean;
+                                approve: boolean;
+                                revise: boolean;
+                                manage: boolean;
+                            };
+                            blockedReason: string | null;
+                            versions: {
+                                no: number;
+                                edition: string;
+                                title: string;
+                                onlyofficeUrl: string;
+                                approvedAt: string | null;
+                                changeNote: string;
+                            }[];
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                stage: number;
+                                stageName: string;
+                                /** @enum {string} */
+                                decision: "submitted" | "approved" | "returned" | "revision_started";
+                                comment: string;
+                                versionNo: number;
+                                round: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Правка: содержимое черновика — владелец или docs.manage; тип, владелец, цикл — docs.manage. Нужна version; 409 — документ изменили */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        title?: string;
+                        edition?: string;
+                        onlyofficeUrl?: string;
+                        changeNote?: string;
+                        /** Format: uuid */
+                        typeId?: string;
+                        /** Format: uuid */
+                        ownerId?: string;
+                        reviewMonths?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Этап «Автор»: отправить на согласование (владелец или docs.manage) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Согласовать текущий этап (право этапа; не супер-администратор; не второй этап той же версии) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть на доработку с комментарием: маршрут заново, владельцу — задача */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Новая версия утверждённого документа (правка или пересмотр без изменений): владелец или docs.manage */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        title?: string;
+                        edition?: string;
+                        onlyofficeUrl?: string;
+                        changeNote?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** В архив */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть из архива */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;

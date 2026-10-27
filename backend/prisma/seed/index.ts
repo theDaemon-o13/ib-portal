@@ -59,6 +59,15 @@ async function main() {
         where: { catalogCode_systemKey: { catalogCode: item.catalog, systemKey: item.key } },
       });
       if (existing) continue;
+      // Администратор уже завёл значение с таким названием — оно становится системным (уникальность названия).
+      const sameName = await tx.catalogItem.findFirst({
+        where: { catalogCode: item.catalog, deletedAt: null, systemKey: null, value: { equals: item.value, mode: 'insensitive' } },
+      });
+      if (sameName) {
+        await tx.catalogItem.update({ where: { id: sameName.id }, data: { systemKey: item.key, isSystem: true, archivedAt: null } });
+        console.log(`Значение «${sameName.value}» стало системным`);
+        continue;
+      }
       const max = await tx.catalogItem.aggregate({ where: { catalogCode: item.catalog }, _max: { sortOrder: true } });
       await tx.catalogItem.create({
         data: {

@@ -17,7 +17,7 @@ export const COMMENT_MAX = 4000;
 export const RAW_MAX = 100_000;
 export const BOARD_LIMIT = 500;
 
-export type TaskSource = 'manual' | 'mail' | 'automation';
+export type TaskSource = 'manual' | 'mail' | 'automation' | 'document';
 
 const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
 
@@ -30,6 +30,7 @@ export const taskInclude = {
   assignee: userBrief,
   creator: userBrief,
   record: { select: { id: true, registerId: true, number: true } },
+  document: { select: { id: true, number: true } },
   _count: { select: { comments: { where: { deletedAt: null } } } },
 } as const;
 type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
@@ -54,6 +55,8 @@ export function toTaskDto(t: TaskRow, today: string) {
     record: t.record,
     automationId: t.automationId,
     recipientLabel: t.recipientLabel,
+    /** Задача по документу (этап 6): пересмотр или доработка. */
+    document: t.document ? { ...t.document, reason: t.documentReason as 'review' | 'returned' } : null,
     completedAt: t.completedAt?.toISOString() ?? null,
     createdBy: t.creator,
     createdAt: t.createdAt.toISOString(),

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { authApi, type Me } from '../api/client';
+import { docsApi, dkeys } from '../api/documents';
 import { tasksApi, tkeys } from '../api/tasks';
 import { visibleNav } from '../nav';
 import { Brand } from './Brand';
@@ -23,6 +24,10 @@ export function Sidebar({ me }: { me: Me }) {
     refetchInterval: 60_000,
   });
   const overdue = summary.data?.overdue ?? 0;
+  // «Документы» видят все: сколько документов ждёт вашего этапа; сотрудникам ИБ — ещё просроченный пересмотр.
+  const docs = useQuery({ queryKey: dkeys.summary, queryFn: docsApi.summary, refetchInterval: 60_000 });
+  const waiting = docs.data?.waitingForMe ?? 0;
+  const reviewOverdue = docs.data?.reviewOverdue ?? 0;
   const logout = useMutation({
     mutationFn: authApi.logout,
     onSettled: () => {
@@ -41,6 +46,12 @@ export function Sidebar({ me }: { me: Me }) {
             <span>{item.title}</span>
             {item.path === '/tasks' && overdue > 0 && (
               <span className="nav-n" title={`Просрочено задач: ${overdue}, из них мои: ${summary.data?.overdueMine ?? 0}`} aria-label={`просрочено задач: ${overdue}`}>{overdue}</span>
+            )}
+            {item.path === '/documents' && waiting > 0 && (
+              <span className="nav-n acc" title={`Ждут вашего согласования: ${waiting}`} aria-label={`ждут вас: ${waiting}`}>{waiting}</span>
+            )}
+            {item.path === '/documents' && reviewOverdue > 0 && (
+              <span className="nav-n" title={`Пересмотр просрочен: ${reviewOverdue}`} aria-label={`пересмотр просрочен: ${reviewOverdue}`}>{reviewOverdue}</span>
             )}
           </NavLink>
         ))}

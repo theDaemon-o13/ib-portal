@@ -31,8 +31,8 @@ async function eventsOf(tx: Tx, x: VulnFixture) {
     orderBy: { createdAt: 'asc' },
   });
   return rows.map((e) => ({
-    cve: (e.record.values as Values)[x.vf.cve.id],
-    rule: e.automation.systemKey,
+    cve: (e.record?.values as Values)[x.vf.cve.id],
+    rule: e.automation?.systemKey,
     key: e.triggerKey,
     type: e.eventType,
     recipients: e.recipients,

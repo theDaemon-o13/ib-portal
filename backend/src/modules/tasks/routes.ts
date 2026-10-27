@@ -26,11 +26,13 @@ export const Task = z.object({
   dueDate: z.string().nullable(),
   overdue: z.boolean(),
   urgent: z.boolean(),
-  source: z.enum(['manual', 'mail', 'automation']),
+  source: z.enum(['manual', 'mail', 'automation', 'document']),
   record: z.object({ id: z.string(), registerId: z.string(), number: z.number().int() }).nullable(),
   automationId: z.string().nullable(),
   /** Метки получателей задачи автоматизации («Руководитель ДИКТ», «Владелец системы»…). */
   recipientLabel: z.string().nullable(),
+  /** Задача по документу (этап 6): пересмотр (review) или доработка после возврата (returned). */
+  document: z.object({ id: z.string(), number: z.number().int(), reason: z.enum(['review', 'returned']) }).nullable(),
   completedAt: z.string().nullable(),
   createdBy: Person.nullable(),
   createdAt: z.string(),

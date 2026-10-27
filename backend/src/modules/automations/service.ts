@@ -16,7 +16,8 @@ import {
 } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, type Actor } from '../settings/common.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
-import { tasksFromEvents } from '../tasks/from-events.js';
+import { runDocumentReviews } from '../documents/review.js';
+import { registerEvent, tasksFromEvents } from '../tasks/from-events.js';
 import { EVENT_TYPE_NAMES, evaluate, type Action, type Condition, type EventType, type Recipient } from './conditions.js';
 
 export const MAX_RECIPIENTS = 6;
@@ -330,7 +331,8 @@ export async function listEvents(
   ]);
   const title = reg.fields.find((f) => f.isTitle);
   return {
-    items: rows.slice(0, q.limit).map((e) => {
+    items: rows.slice(0, q.limit).map((row) => {
+      const e = registerEvent(row);
       const rule = toRuleDto(reg, e.automation, labels);
       const values = e.record.values as Values;
       return {
@@ -361,8 +363,9 @@ export async function listEvents(
 /** Событие обработано: на этапе 5 так же закроется созданная из него задача. Пишется в историю записи. */
 export async function processEvent(db: Db, actor: Actor, id: string) {
   await withTx(db, async (tx) => {
-    const e = await tx.automationEvent.findUnique({ where: { id }, include: { automation: true, record: { select: { number: true } } } });
-    if (!e) throw notFound('Событие');
+    const row = await tx.automationEvent.findUnique({ where: { id, documentId: null }, include: { automation: true, record: { select: { number: true } } } });
+    if (!row) throw notFound('Событие');
+    const e = registerEvent(row);
     if (e.status === 'processed') return;
     const reg = await loadRegister(tx, e.registerId);
     const labels = await loadLabels(tx);
@@ -484,6 +487,11 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
         return { when: dto.when, then: dto.then };
       },
     });
-    return { ran: true, today, rules: rules.length, checked, created, tasksCreated: tasks.created, tasksCommented: tasks.commented };
+    // Пересмотр документов (этап 6) — в общем прогоне, не в прогоне одного реестра.
+    const docs = opts.registerId ? { tasksCreated: 0, tasksCommented: 0 } : await runDocumentReviews(tx, { today });
+    return {
+      ran: true, today, rules: rules.length, checked, created,
+      tasksCreated: tasks.created + docs.tasksCreated, tasksCommented: tasks.commented + docs.tasksCommented,
+    };
   });
 }

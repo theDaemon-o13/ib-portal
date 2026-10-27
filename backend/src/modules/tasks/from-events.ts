@@ -34,12 +34,25 @@ function systemFieldOf(reg: RegisterDef) {
   return reg.fields.find((f) => !f.archived && f.type === 'catalog' && f.catalogCode === SYSTEMS_CATALOG);
 }
 
+/**
+ * Событие реестра: реестр, запись и правило заданы всегда. У события документа (пересмотр, ADR-0010)
+ * их нет — такие события сюда не попадают (выборки идут по реестру или записи).
+ */
+export function registerEvent<E extends { registerId: string | null; recordId: string | null; automationId: string | null; record: unknown; automation: unknown }>(e: E) {
+  const { registerId, recordId, automationId, record, automation } = e;
+  if (registerId === null || recordId === null || automationId === null || record === null || automation === null) {
+    throw new Error(`событие ${String((e as { id?: string }).id)} не относится к реестру`);
+  }
+  return { ...e, registerId, recordId, automationId, record: record as NonNullable<E['record']>, automation: automation as NonNullable<E['automation']> };
+}
+
 export async function tasksFromEvents(
   tx: Db,
   opts: { registerId?: string; today: string; calendar: WorkCalendar; describe: (reg: RegisterDef, rule: { condition: unknown; action: unknown }) => RuleText },
 ): Promise<EventTasksResult> {
   const events = await tx.automationEvent.findMany({
-    where: { status: 'new', ...(opts.registerId ? { registerId: opts.registerId } : {}) },
+    // События документов (пересмотр) обрабатывает modules/documents/review.ts.
+    where: { status: 'new', documentId: null, ...(opts.registerId ? { registerId: opts.registerId } : {}) },
     include: { automation: true, record: { select: { id: true, number: true, values: true, archivedAt: true, deletedAt: true } } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
@@ -65,7 +78,8 @@ export async function tasksFromEvents(
   const work = (n: number) => isoDate(addWorkingDays(parseIsoDate(opts.today), n, opts.calendar));
   const now = new Date();
 
-  for (const e of events) {
+  for (const row of events) {
+    const e = registerEvent(row);
     const done = () => tx.automationEvent.updateMany({ where: { id: e.id, status: 'new' }, data: { status: 'processed', processedAt: now } });
     // Запись успели удалить или убрать в архив — задача уже не нужна.
     if (e.record.deletedAt || e.record.archivedAt) {

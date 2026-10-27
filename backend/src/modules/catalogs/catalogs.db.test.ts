@@ -29,7 +29,7 @@ describe('справочники после seed', () => {
       ]);
       const categories = await svc.listItems(tx, 'task_categories', { includeArchived: false });
       expect(categories.map((c) => [c.value, c.isSystem])).toEqual([
-        ['Почта', true], ['Реестр', true], ['Проект', false], ['Оперплан', false],
+        ['Почта', true], ['Реестр', true], ['Документы', true], ['Проект', false], ['Оперплан', false],
       ]);
       expect(categories[0]?.systemReason).toBe('задачи из писем создаются с этой категорией');
       const statuses = await svc.listItems(tx, 'task_statuses', { includeArchived: false });
