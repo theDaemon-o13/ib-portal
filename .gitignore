@@ -10,6 +10,8 @@ deploy/certs/
 node_modules/
 dist/
 coverage/
+# клиент Prisma 7 — генерируется из schema.prisma (prisma generate), ADR-0014
+backend/src/generated/
 *.tsbuildinfo
 
 # служебное

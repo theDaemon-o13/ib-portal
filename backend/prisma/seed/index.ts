@@ -1,7 +1,7 @@
 // Идемпотентный seed: коды прав и системные роли (CLAUDE.md, раздел 5).
 // Запускается сервисом migrate после prisma migrate deploy, от владельца схемы.
 // Ничего не удаляет и не перетирает состав ролей, изменённый в интерфейсе.
-import { PrismaClient } from '@prisma/client';
+import { createPrisma } from '../../src/lib/db.js';
 import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
@@ -12,7 +12,7 @@ import { seedStarter } from './starter.js';
 import { seedSystemItems } from './system-items.js';
 import { seedVulns } from './vulns.js';
 
-const prisma = new PrismaClient();
+const prisma = createPrisma();
 
 async function main() {
   await prisma.$transaction(async (tx) => {

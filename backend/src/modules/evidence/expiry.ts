@@ -1,7 +1,7 @@
 // Срок действия доказательств (этап 7): за 30 дней до окончания — задача ответственному «Обновить доказательство».
 // Через automation_events, как пересмотр документов (ADR-0008, ADR-0009, ADR-0010): событие уникально по
 // (доказательство, дата окончания), создаётся и превращается в задачу в одной транзакции под блокировкой прогона.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { daysBetween } from '../../lib/today.js';

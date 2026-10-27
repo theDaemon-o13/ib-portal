@@ -1,5 +1,5 @@
 // Правила автоматизации реестров и их события (право registers.manage на правила, records.edit — отметить событие).
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { basisOf, isBasisRule } from '../../lib/link-basis.js';

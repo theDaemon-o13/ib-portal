@@ -17,5 +17,5 @@
     "sourceMap": true,
     "types": ["node"]
   },
-  "include": ["src", "scripts", "prisma/seed", "vitest.config.ts", "vitest.db.config.ts"]
+  "include": ["src", "scripts", "prisma/seed", "prisma.config.ts", "vitest.config.ts", "vitest.db.config.ts"]
 }

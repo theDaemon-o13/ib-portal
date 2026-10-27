@@ -1,6 +1,6 @@
 // Однократно: системный «Реестр уязвимостей» и правила п. 7.4 (отметка в seed_markers).
 // Удалённое или изменённое администратором seed не восстанавливает.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import { CRIT_KEYS } from '../../src/lib/vuln-score.js';
 import { DUE_DAYS, VULN_FIELDS, VULN_REGISTER_KEY, type VulnFieldKey } from '../../src/modules/vulns/definition.js';
 import { once } from './registers.js';

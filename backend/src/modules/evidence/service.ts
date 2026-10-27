@@ -3,7 +3,7 @@
 // шаблона и значений (checks). Проверка «принять / отклонить» — право evidence.review, но не своё доказательство:
 // проверяющий не принимает то, что загрузил сам (или к чему сам приложил файл).
 // Новый файл возвращает доказательство на проверку; отвязать файл можно только у доказательства на проверке.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { SYSTEMS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';

@@ -1,6 +1,6 @@
 // Привязка файлов к объектам и отметка «удалён» (этап 7, ADR-0011). Без зависимостей от модулей-владельцев:
 // документы, доказательства и решения вызывают эти функции в своей транзакции.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { badRequest } from '../../lib/errors.js';
 import { auditSettings, type Actor } from '../settings/common.js';

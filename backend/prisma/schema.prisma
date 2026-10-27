@@ -2,14 +2,17 @@
 //   npx prisma migrate dev --create-only --name <что_меняем>
 // Применённые файлы в migrations/ не правятся.
 
+// Prisma 7 (ADR-0014): клиент генерируется в src/generated/prisma (в git не попадает), работает через
+// драйвер-адаптер pg (lib/db.ts). Адрес БД — в prisma.config.ts.
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {

@@ -1,5 +1,5 @@
 // Записи реестров (права records.edit и records.delete).
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, unprocessable, versionConflict } from '../../lib/errors.js';
 import { isBasisRule } from '../../lib/link-basis.js';

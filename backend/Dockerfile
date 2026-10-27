@@ -4,7 +4,7 @@ ARG NODE_IMAGE=node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97
 
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma/schema.prisma prisma/schema.prisma
 # Без optional: единственная optional-зависимость production — @napi-rs/canvas (pdfjs-dist), она не нужна для
 # извлечения текста и не должна попасть в образ (make-release.sh проверяет).
@@ -16,7 +16,7 @@ WORKDIR /app
 # Как в runtime: пустой том ibportal_dev_files при первом подключении наследует владельца node.
 RUN chown node:node /app && mkdir -p /data/files && chown node:node /data/files
 USER node
-COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node package.json package-lock.json prisma.config.ts ./
 COPY --chown=node:node prisma/schema.prisma prisma/schema.prisma
 # В dev optional нужны (esbuild, rollup для tsx и vitest) — кроме @napi-rs/canvas от pdfjs-dist.
 RUN npm ci && rm -rf node_modules/@napi-rs
@@ -46,6 +46,8 @@ COPY --from=build --chown=node:node /app/node_modules node_modules
 COPY --from=build --chown=node:node /app/dist dist
 COPY --from=build --chown=node:node /app/prisma prisma
 COPY --from=build --chown=node:node /app/package.json package.json
+# Prisma 7: адрес БД для migrate берётся из prisma.config.ts (DATABASE_URL из compose).
+COPY --from=build --chown=node:node /app/prisma.config.ts prisma.config.ts
 # Пустой том ibportal_files при первом подключении наследует владельца node.
 RUN mkdir -p /data/files && chown node:node /data/files
 USER node

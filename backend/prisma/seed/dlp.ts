@@ -2,7 +2,7 @@
 // (этап 8б, docs/concept.md п. 10, ADR-0013) с полями, фиксацией, статусом основания, автоматизациями и плитками,
 // метка получателей «Разрешения DLP» и правило разбора почты «Разрешения» (выше правила «Доступ»).
 // Удалённое или изменённое администратором seed не восстанавливает.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import type { BasisRule } from '../../src/lib/link-basis.js';
 import { once } from './registers.js';
 

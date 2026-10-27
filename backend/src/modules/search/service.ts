@@ -3,7 +3,7 @@
 // для имён хостов, номеров документов и имён файлов, которые словарь разбирает на части.
 // Права: с ib.work — записи, доказательства и все приложенные файлы; без него — только PDF версий документов,
 // которые пользователь видит (та же проверка, что при скачивании файла).
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { accessOf, versionVisible } from '../documents/service.js';
 

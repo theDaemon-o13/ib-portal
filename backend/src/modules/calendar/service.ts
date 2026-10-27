@@ -1,5 +1,5 @@
 // Производственный календарь РТ: выходные дни недели и отклонения (праздники, переносы).
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import {

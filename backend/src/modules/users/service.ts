@@ -1,7 +1,7 @@
 // Пользователи портала (docs/concept.md, раздел 9): создание, роли, отключение, сброс пароля.
 // Временный пароль генерируется системой, возвращается администратору один раз и нигде
 // не хранится в открытом виде: ни в БД, ни в журнале аудита, ни в логах.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { toPage } from '../../lib/pagination.js';

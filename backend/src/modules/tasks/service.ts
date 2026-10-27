@@ -1,6 +1,6 @@
 // Задачи (этап 5): доска, карточка, комментарии, архив и удаление, «Почта → задача».
 // Права: всё — ib.work, удаление — tasks.delete (проверяет маршрут). История — из журнала аудита.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';

@@ -5,7 +5,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PrismaClient } from '@prisma/client';
+import { createPrisma } from '../src/lib/db.js';
 
 const backendDir = fileURLToPath(new URL('..', import.meta.url));
 
@@ -50,7 +50,7 @@ export async function recreateTestDb(): Promise<TestDb> {
   if (!/^[a-z0-9_]+_test$/.test(cfg.name)) throw new Error(`имя тестовой базы должно оканчиваться на _test: ${cfg.name}`);
 
   // Служебное подключение — к dev-базе того же сервера (сама тестовая база будет удалена).
-  const admin = new PrismaClient({ datasourceUrl: cfg.ownerUrl.replace(/\/[^/]+$/, '/ibportal_dev') });
+  const admin = createPrisma(cfg.ownerUrl.replace(/\/[^/]+$/, '/ibportal_dev'));
   try {
     await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${cfg.name}" WITH (FORCE)`);
     await admin.$executeRawUnsafe(`CREATE DATABASE "${cfg.name}"`);
@@ -61,7 +61,7 @@ export async function recreateTestDb(): Promise<TestDb> {
   }
 
   // Права внутри базы — как в db/init/01-app-role.sh (роли общие для всего сервера).
-  const owner = new PrismaClient({ datasourceUrl: cfg.ownerUrl });
+  const owner = createPrisma(cfg.ownerUrl);
   try {
     const [row] = await owner.$queryRaw<{ current_user: string }[]>`SELECT current_user`;
     const ownerRole = row?.current_user;
@@ -81,7 +81,7 @@ export async function recreateTestDb(): Promise<TestDb> {
   const run = (cmd: string, args: string[]) =>
     execFileSync(cmd, args, {
       cwd: backendDir,
-      env: { ...process.env, DATABASE_URL: cfg.ownerUrl },
+      env: { ...process.env, DATABASE_URL: cfg.ownerUrl, SHADOW_DATABASE_URL: '' },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
   run('npx', ['prisma', 'migrate', 'deploy']);

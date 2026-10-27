@@ -1,6 +1,6 @@
 // Шаблоны форм подтверждения (docs/concept.md, раздел 8). Загруженная форма хранит снимок полей,
 // поэтому правка шаблона не меняет старые формы и поля можно удалять свободно.
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';

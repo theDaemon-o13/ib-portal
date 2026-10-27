@@ -1,6 +1,6 @@
 // Связи между записями (поле «Связь с записью»), файлы полей «Файл» и источники статуса основания
 // (этап 8б, ADR-0013). Только чтение: запись — в records.service и record-files.service.
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { isBasisRule, type SourceRecord } from '../../lib/link-basis.js';
 import type { Values } from '../../lib/register-values.js';

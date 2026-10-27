@@ -2,7 +2,7 @@
 // «Обновить доказательство» ответственному (за 30 дней до окончания срока действия).
 // Одна открытая задача на (доказательство, причина, ответственный) — индекс tasks_evidence_open_uq; повтор — комментарий.
 // Пользователям без ib.work задачи не ставятся: тогда задача без ответственного.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { systemItemId, TITLE_MAX } from '../tasks/service.js';
 

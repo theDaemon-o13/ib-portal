@@ -1,7 +1,7 @@
 // Однократно: системный «Реестр рисков ИБ» по прототипу (отметка в seed_markers), без записей.
 // Отдельно от рисков банка, связь с реестром ОУР — по номеру; решение ОУР вносится только с документом (этап 7).
 // Удалённое или изменённое администратором seed не восстанавливает.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import { RISK_FIELDS, RISK_REGISTER_KEY, type RiskFieldKey } from '../../src/modules/risks/definition.js';
 import { once } from './registers.js';
 

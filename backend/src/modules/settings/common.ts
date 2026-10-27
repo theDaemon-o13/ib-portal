@@ -1,6 +1,6 @@
 // Общее для модулей настроек: автор изменения, журнал, защита от одновременной правки.
 import type { FastifyRequest } from 'fastify';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { notFound, unauthorized, versionConflict } from '../../lib/errors.js';
 

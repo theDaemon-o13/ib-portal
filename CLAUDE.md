@@ -48,7 +48,7 @@
 
 Отступать от стека можно только после согласования с владельцем проекта.
 
-- **Backend:** Node.js 24 LTS (ADR-0004; Node 20 снят с поддержки 30.04.2026), TypeScript (strict), Fastify, Prisma, zod для валидации, `@fastify/swagger` для OpenAPI, exceljs для Excel, argon2 для паролей, pino для логов.
+- **Backend:** Node.js 24 LTS (ADR-0004; Node 20 снят с поддержки 30.04.2026), TypeScript (strict), Fastify, Prisma 7 (ADR-0014; клиент через `@prisma/adapter-pg`, адрес БД — в `prisma.config.ts`), zod для валидации, `@fastify/swagger` для OpenAPI, exceljs для Excel, argon2 для паролей, pino для логов.
 - **Frontend:** React 18, Vite, TypeScript (strict), React Router, TanStack Query. Типы API генерируются из OpenAPI (`openapi-typescript`) и вручную не правятся. pdf.js для просмотра PDF.
 - **БД:** PostgreSQL 16.
 - **Контейнеры:** Docker и Docker Compose v2.

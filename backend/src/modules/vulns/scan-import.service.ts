@@ -2,7 +2,7 @@
 // Как обычный импорт — в два шага: предпросмотр ничего не меняет, применение — одна транзакция.
 // Дубли: открытая запись с той же парой «CVE + пакет» не создаётся заново, «Обнаружений» — по максимуму.
 import { createHash } from 'node:crypto';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import { formatDateRu, isIsoDate, type Values } from '../../lib/register-values.js';

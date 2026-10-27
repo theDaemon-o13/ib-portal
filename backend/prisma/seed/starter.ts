@@ -1,6 +1,6 @@
 // Стартовые несистемные значения. Создаются только при первой установке (отметка в seed_markers):
 // повторный seed не восстанавливает то, что администратор удалил или отправил в архив.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import type { CatalogCode } from '../../src/lib/catalogs.js';
 import type { Tone } from '../../src/lib/tones.js';
 

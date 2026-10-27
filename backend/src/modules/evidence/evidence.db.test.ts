@@ -1,4 +1,4 @@
-import type { User } from '@prisma/client';
+import type { User } from '../../generated/prisma/client.js';
 import { describe, expect, it } from 'vitest';
 import { todayIso } from '../../lib/today.js';
 import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from '../../test/db.js';

@@ -1,7 +1,7 @@
 // События автоматизаций → задачи (этап 5, docs/concept.md — «Получатели»).
 // Вызывается внутри прогона автоматизаций, под его advisory-блокировкой и в той же транзакции:
 // событие становится «обработано» вместе с созданием задач, поэтому повторная обработка дублей не даёт.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG, SYSTEM_OWNER_KEY, SYSTEMS_CATALOG } from '../../lib/catalogs.js';
 import type { Db } from '../../lib/db.js';
 import { formatDateRu, isIsoDate, type Values } from '../../lib/register-values.js';

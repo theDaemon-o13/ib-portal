@@ -1,5 +1,5 @@
 // Однократные шаги seed для конструктора реестров (отметки в seed_markers).
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../../src/modules/dashboard/incidents.js';
 
 type Tx = Prisma.TransactionClient;

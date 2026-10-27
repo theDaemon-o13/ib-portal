@@ -1,7 +1,7 @@
 // Задачи по документам (этап 6): владельцу — «Пересмотреть документ» и «Доработать документ».
 // Одна открытая задача на (документ, причина, ответственный) — индекс tasks_doc_open_uq; повтор — комментарий в ней.
 // Пользователям без ib.work задачи не ставятся: владелец без доступа к ИБ — задача без ответственного.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { todayIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';

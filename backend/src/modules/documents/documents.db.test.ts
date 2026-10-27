@@ -1,4 +1,4 @@
-import type { User } from '@prisma/client';
+import type { User } from '../../generated/prisma/client.js';
 import { describe, expect, it } from 'vitest';
 import { testDbConfig } from '../../../scripts/test-db.js';
 import { createPrisma } from '../../lib/db.js';

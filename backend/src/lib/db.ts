@@ -1,7 +1,13 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Prisma, PrismaClient } from '../generated/prisma/client.js';
 
-export function createPrisma(databaseUrl?: string): PrismaClient {
-  return new PrismaClient(databaseUrl ? { datasourceUrl: databaseUrl } : undefined);
+/**
+ * Клиент Prisma 7 через драйвер-адаптер pg (ADR-0014). Адрес — аргумент или DATABASE_URL.
+ * Таймаут подключения 5 с — как было по умолчанию в Prisma 6 (у pg по умолчанию ожидание без предела).
+ */
+export function createPrisma(databaseUrl = process.env.DATABASE_URL): PrismaClient {
+  if (!databaseUrl) throw new Error('DATABASE_URL не задан');
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl, connectionTimeoutMillis: 5_000 }) });
 }
 
 /** Клиент или открытая транзакция: сервисы работают с обоими. */
@@ -14,15 +20,17 @@ let savepointSeq = 0;
  * через SAVEPOINT: при ошибке откатывается только эта часть, внешняя транзакция остаётся рабочей.
  */
 export async function withTx<T>(db: Db, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-  if ('$transaction' in db) return db.$transaction(fn, { timeout: 15_000 });
+  // У транзакции нет $connect (в Prisma 7 $transaction из её типа больше не убран, по нему не отличить).
+  if ('$connect' in db) return (db as PrismaClient).$transaction(fn, { timeout: 15_000 });
+  const tx = db as Prisma.TransactionClient;
   const sp = `sp_${++savepointSeq}`;
-  await db.$executeRawUnsafe(`SAVEPOINT ${sp}`);
+  await tx.$executeRawUnsafe(`SAVEPOINT ${sp}`);
   try {
-    const result = await fn(db);
-    await db.$executeRawUnsafe(`RELEASE SAVEPOINT ${sp}`);
+    const result = await fn(tx);
+    await tx.$executeRawUnsafe(`RELEASE SAVEPOINT ${sp}`);
     return result;
   } catch (err) {
-    await db.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${sp}`);
+    await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${sp}`);
     throw err;
   }
 }

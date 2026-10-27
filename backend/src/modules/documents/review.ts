@@ -2,7 +2,7 @@
 // Идёт через automation_events, как автоматизации реестров (ADR-0008, ADR-0009): событие уникально по
 // (документ, дата пересмотра), создаётся и превращается в задачу в одной транзакции под блокировкой прогона.
 // Повторный прогон дублей не даёт; смена цикла (новая дата) — новое событие.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { daysBetween } from '../../lib/today.js';
 import { formatDateRu } from '../../lib/register-values.js';

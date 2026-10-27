@@ -5,7 +5,7 @@
 //   f=<id поля>:<v1>,<v2>        — значение списка, справочника, сотрудника или решения ∈ {…}; empty — не заполнено;
 //                                  у статуса основания (link_basis) — ok, none, expired, closed (в памяти)
 //   date=<id поля>&from=&to=     — дата поля в интервале (включительно), ГГГГ-ММ-ДД
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { badRequest } from '../../lib/errors.js';

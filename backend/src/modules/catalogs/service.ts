@@ -1,6 +1,6 @@
 // Справочники (CLAUDE.md, разделы 6 и 7, п. 10; docs/concept.md, раздел 9).
 // Сущности ссылаются на значения по id, поэтому переименование ничего не ломает.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG, SYSTEM_OWNER_KEY, SYSTEMS_CATALOG, systemItemWhy } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';

@@ -7,7 +7,7 @@
 // Итоговый PDF (этап 7): автор прикладывает его при отправке на согласование, все этапы согласуют этот файл
 // (sha256 — в истории каждого решения); замена PDF в маршруте возвращает его к началу.
 import { randomUUID } from 'node:crypto';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { DOCUMENT_TYPES_CATALOG } from '../../lib/catalogs.js';
 import { withTx, isUniqueViolation, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';

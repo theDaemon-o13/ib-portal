@@ -1,5 +1,5 @@
 // Описание реестра и общие операции модуля: загрузка полей, «есть ли данные», поиск, сборка записи.
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import {

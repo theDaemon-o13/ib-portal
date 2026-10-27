@@ -1,5 +1,5 @@
 // Системные значения справочников (CLAUDE.md, раздел 6): на них опирается логика портала.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import { SYSTEM_ITEMS } from '../../src/lib/catalogs.js';
 
 type Tx = Prisma.TransactionClient;

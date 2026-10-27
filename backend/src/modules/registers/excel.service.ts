@@ -1,7 +1,7 @@
 // Экспорт реестра в Excel и импорт обратно с обновлением по колонке ID (CLAUDE.md, раздел 7, п. 7).
 // Импорт всегда в два шага: предпросмотр (ничего не меняет) → применение одной транзакцией.
 import { createHash } from 'node:crypto';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../generated/prisma/client.js';
 import ExcelJS from 'exceljs';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';

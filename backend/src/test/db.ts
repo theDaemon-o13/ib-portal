@@ -1,6 +1,6 @@
 // Помощники для тестов с настоящей БД. Подключение — под ролью приложения (ibportal_app),
 // как у работающего backend: тесты заодно проверяют, что прав хватает и лишних нет.
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../generated/prisma/client.js';
 import { afterAll } from 'vitest';
 import { testDbConfig } from '../../scripts/test-db.js';
 import { createPrisma } from '../lib/db.js';
