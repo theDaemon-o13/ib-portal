@@ -31,9 +31,9 @@ import { nextNumbers } from './records.service.js';
 
 export const IMPORT_MAX_ROWS = 20_000;
 export const IMPORT_TTL_MS = 30 * 60 * 1000;
-const MAP_SHEET = '_поля';
-const MAIN_SHEET = 'Реестр';
-const HELP_SHEET = 'Справка';
+export const MAP_SHEET = '_поля';
+export const MAIN_SHEET = 'Реестр';
+export const HELP_SHEET = 'Справка';
 const MAP_MARK = 'ibportal-register';
 
 const TYPE_HELP: Record<string, string> = {
@@ -249,7 +249,7 @@ function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDe
   return cols;
 }
 
-async function readWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
+export async function readWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);

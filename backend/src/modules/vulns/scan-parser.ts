@@ -5,7 +5,7 @@ import { badRequest } from '../../lib/errors.js';
 import { cellPrimitive, formatDateRu, isIsoDate, parseNumberText, TEXT_MAX } from '../../lib/register-values.js';
 
 export const SCAN_MAX_ROWS = 20_000;
-const HOSTS_SHEET = 'хосты';
+export const HOSTS_SHEET = 'хосты';
 /** Строки, среди которых ищется строка заголовков (над таблицей бывает шапка отчёта). */
 const HEADER_SEARCH_ROWS = 10;
 
@@ -61,7 +61,7 @@ export interface ParsedScan {
   reportDate: string | null;
 }
 
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+export const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 function text(cell: unknown): string | null {
   const v = cellPrimitive(cell);
@@ -78,7 +78,7 @@ export function reportDateFromFileName(fileName: string): string | null {
   return isIsoDate(iso) ? iso : null;
 }
 
-function headerMap(ws: ExcelJS.Worksheet): { row: number; cols: Map<ScanColumn, number> } | null {
+export function headerMap(ws: ExcelJS.Worksheet): { row: number; cols: Map<ScanColumn, number> } | null {
   for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, ws.rowCount); r++) {
     const cols = new Map<ScanColumn, number>();
     ws.getRow(r).eachCell((cell, col) => {

@@ -109,7 +109,6 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   const [archived, setArchived] = useState(false);
   const [withEvents, setWithEvents] = useState(false);
   const [scanPreview, setScanPreview] = useState<ScanPreview | null>(null);
-  const scanRef = useRef<HTMLInputElement>(null);
   const [pin, setPin] = useState(() => loadPin(reg.id));
   const [open, setOpen] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -175,29 +174,18 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     }
   };
 
+  // Одна кнопка «Импорт из Excel»: отчёт сканера или выгрузку реестра распознаёт backend.
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     setBusy(true);
     try {
-      setPreview(await registersApi.previewImport(reg.id, file));
+      const p = await registersApi.previewFile(reg.id, file);
+      if (p.format === 'scan') setScanPreview(p.scan);
+      else setPreview(p.records);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Не удалось прочитать файл', 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onScanFile = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setBusy(true);
-    try {
-      setScanPreview(await registersApi.previewScan(reg.id, file));
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Не удалось прочитать отчёт', 'error');
     } finally {
       setBusy(false);
     }
@@ -210,21 +198,15 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     <>
       <div className="io panel-b">
         <div className="row">
-          {canEdit && isVulns && (
-            <>
-              <button className="btn primary" type="button" onClick={() => scanRef.current?.click()} disabled={busy}>Импорт отчёта сканера</button>
-              <input ref={scanRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => void onScanFile(e)} aria-label="Файл отчёта сканера" />
-            </>
-          )}
           {canEdit && (
             <>
-              <button className="btn" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Импорт из Excel</button>
+              <button className={isVulns ? 'btn primary' : 'btn'} type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Импорт из Excel</button>
               <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => void onFile(e)} aria-label="Файл импорта" />
             </>
           )}
           <button className="btn" type="button" onClick={() => void exportFile()} disabled={busy}>Экспорт в Excel</button>
           <span className="hint">
-            {isVulns ? 'Отчёт сканера — листы «Хосты» и уязвимости, дата в имени файла. ' : ''}
+            {isVulns ? 'Отчёт сканера (листы «Хосты» и уязвимости, дата в имени файла) или выгрузка реестра — тип файла определяется сам. ' : ''}
             Выгруженный файл после заполнения в ДИКТ обновляет записи по колонке ID. Перед применением — предпросмотр.
           </span>
         </div>

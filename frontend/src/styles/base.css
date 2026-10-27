@@ -230,6 +230,7 @@ select.inp{appearance:auto}
 .reg-bar{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr) auto auto;align-items:center;gap:14px;
   height:60px;padding:0 12px 0 10px;margin-bottom:12px;position:relative;z-index:6}
 .reg-bar .tabs.reg-tabs{margin:0}
+.imp-kind{margin:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 /* Ширина вкладки — по жирному начертанию: выбор вкладки не сдвигает переключатель */
 .reg-tabs .tab-label{display:inline-flex;flex-direction:column}
 .reg-tabs .tab-label::after{content:attr(data-label);font-weight:600;height:0;overflow:hidden;visibility:hidden}

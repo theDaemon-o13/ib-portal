@@ -428,9 +428,10 @@ describe('Excel', () => {
 
     m = ui.mark();
     await ui.setFiles('input[aria-label="Файл импорта"]', [file]);
-    const prev = await ui.request(m, 'POST', `/registers/${reg.id}/imports`);
+    const prev = await ui.request(m, 'POST', `/registers/${reg.id}/file-imports`);
     assert.equal(prev.status, 201);
     await ui.waitFor(`!!document.querySelector('[role=dialog] .imp-kpis')`, 'окно предпросмотра');
+    assert.match(await ui.text(`document.querySelector('[role=dialog] .imp-kind')`), /распознан как Выгрузка реестра/);
     const kpis = await ui.evaluate(`[...document.querySelectorAll('.imp-kpis > div')].map((d) => d.textContent)`);
     assert.deepEqual(kpis, ['1добавится', '1изменится', '0без изменений', '1строк с ошибками']);
     assert.match(await ui.text(`document.querySelector('.imp-errors')`), /Записи с ID 999 нет в реестре/);

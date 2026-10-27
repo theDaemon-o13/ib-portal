@@ -41,6 +41,7 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
     <div className="backdrop" role="presentation">
       <div className="modal panel wide-modal" role="dialog" aria-modal="true" aria-labelledby="imp-title">
         <h2 id="imp-title">Импорт в «{reg.name}»</h2>
+        <p className="imp-kind">Файл распознан как <span className="chip info">Выгрузка реестра</span> — записи обновляются по колонке ID.</p>
         <p className="hint">Файл «{s.fileName}», строк: {s.rows}. Пока ничего не изменено.</p>
         <div className="imp-kpis">
           <div><b className="mono">{s.added}</b><span>добавится</span></div>

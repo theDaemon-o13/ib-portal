@@ -8,11 +8,16 @@
 // Работает с системным «Реестром уязвимостей» dev-базы. В конце отправляет в архив всё, что создал:
 // записи из отчёта, сам отчёт и тестовое правило (данные реестров не удаляются).
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser } from './browser.mjs';
+
+// exceljs — из backend: тесту нужно собрать файл неизвестного формата, во frontend зависимость не добавляется.
+const ExcelJS = createRequire(new URL('../../backend/package.json', import.meta.url))('exceljs');
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -20,6 +25,7 @@ const PASSWORD = process.env.E2E_PASSWORD;
 const SAMPLE = fileURLToPath(new URL('../../backend/test/fixtures/scan-report-sample-2026-10-15.xlsx', import.meta.url));
 
 let ui;
+let tmp;
 let regId;
 /** Последний номер записи до импорта: всё, что выше, создал этот прогон. */
 let numberBefore = 0;
@@ -64,6 +70,7 @@ async function ensureReport() {
 
 before(async () => {
   assert.ok(LOGIN && PASSWORD, 'Задайте E2E_LOGIN и E2E_PASSWORD (пользователь с ролью «Супер-администратор»)');
+  tmp = mkdtempSync(join(tmpdir(), 'ibportal-e2e-scan-'));
   ui = await launchBrowser({ baseUrl: BASE });
   await ui.goto('/login');
   await ui.type(`document.querySelector('input[name=username]')`, LOGIN);
@@ -98,25 +105,30 @@ after(async () => {
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
     ui.close();
   }
+  if (tmp) rmSync(tmp, { recursive: true, force: true });
 });
 
 describe('Реестр уязвимостей', () => {
   it('импорт отчёта сканера: предпросмотр с датой из имени файла, хосты, применение одной транзакцией', async () => {
     await openTab('records');
-    await ui.waitFor(`!!document.querySelector('input[aria-label="Файл отчёта сканера"]')`, 'кнопка импорта отчёта сканера');
+    await ui.waitFor(`!!document.querySelector('input[aria-label="Файл импорта"]')`, 'кнопка «Импорт из Excel»');
+    assert.equal(await ui.evaluate(`[...document.querySelectorAll('.io button')].filter((b) => b.textContent.startsWith('Импорт')).map((b) => b.textContent).join()`), 'Импорт из Excel', 'одна кнопка импорта');
     assert.ok(await ui.evaluate(`[...document.querySelectorAll('table.recs th')].some((th) => th.textContent.startsWith('Дней до срока'))`), 'колонка «Дней до срока»');
 
     let m = ui.mark();
-    await ui.setFiles('input[aria-label="Файл отчёта сканера"]', [SAMPLE]);
-    const prev = await ui.request(m, 'POST', `/registers/${regId}/scan-imports`);
+    await ui.setFiles('input[aria-label="Файл импорта"]', [SAMPLE]);
+    const prev = await ui.request(m, 'POST', `/registers/${regId}/file-imports`);
     assert.equal(prev.status, 201, prev.body);
-    const s = (await ui.response(prev)).summary;
+    const detected = await ui.response(prev);
+    assert.equal(detected.format, 'scan', 'файл распознан как отчёт сканера');
+    const s = detected.scan.summary;
     assert.equal(s.created + s.merged, 90, 'все 90 уязвимостей образца — новые или дубли открытых записей');
     assert.deepEqual([s.hostsCount, s.reportDate, s.errorRows], [12, '2026-10-15', 0]);
     // Предпросмотр ничего не меняет.
-    assert.deepEqual(ui.requestsSince(m).filter((r) => r.method !== 'GET' && !r.url.includes('/scan-imports')), []);
+    assert.deepEqual(ui.requestsSince(m).filter((r) => r.method !== 'GET' && !r.url.includes('/file-imports')), []);
 
     await ui.waitFor(`!!${dialog}?.querySelector('.imp-kpis')`, 'окно предпросмотра отчёта');
+    assert.match(await ui.text(`${dialog}.querySelector('.imp-kind')`), /распознан как Отчёт сканера/);
     const kpis = await ui.evaluate(`[...${dialog}.querySelectorAll('.imp-kpis > div')].map((d) => d.textContent)`);
     assert.equal(kpis[0], `${s.created}новых`);
     assert.equal(kpis[1], `${s.merged}уже в реестре`);
@@ -234,5 +246,68 @@ describe('Реестр уязвимостей', () => {
     await ui.click($.button('В архив', row));
     assert.equal((await ui.request(m, 'POST', `/register-automations/${ruleId}/archive`)).status, 200);
     await ui.waitFor(`!${row}`, 'правило ушло в архив');
+  });
+});
+
+describe('Импорт из Excel одной кнопкой', () => {
+  const impDialog = `document.querySelector('[role=dialog][aria-labelledby=imp-title]')`;
+  const upload = async (file) => {
+    await openTab('records');
+    const m = ui.mark();
+    await ui.setFiles('input[aria-label="Файл импорта"]', [file]);
+    return ui.request(m, 'POST', `/registers/${regId}/file-imports`);
+  };
+  const cancel = async (within) => {
+    const m = ui.mark();
+    await ui.click($.button('Отмена', within), '«Отмена»');
+    assert.equal((await ui.request(m, 'POST', '/cancel')).status, 204);
+    await ui.waitFor(`!${within}`, 'окно закрыто');
+  };
+
+  it('отчёт сканера без даты в имени: предпросмотр просит дату, без неё загрузить нельзя', async () => {
+    const file = join(tmp, 'отчёт сканера.xlsx');
+    copyFileSync(SAMPLE, file);
+    const prev = await upload(file);
+    assert.equal(prev.status, 201, prev.body);
+    await ui.waitFor(`!!${dialog}?.querySelector('.imp-kpis')`, 'окно предпросмотра отчёта');
+    assert.match(await ui.text(`${dialog}.querySelector('.imp-kind')`), /распознан как Отчёт сканера/);
+    assert.equal(await ui.evaluate(`${dialog}.querySelector('input[aria-label="Дата отчёта"]').value`), '');
+    assert.match(await ui.text(`${dialog}.querySelector('[role=alert]')`), /нет даты отчёта/);
+    const submit = `[...${dialog}.querySelectorAll('button.primary')].find((b) => /^(Загрузить|Сохранить отчёт)/.test(b.textContent.trim()))`;
+    assert.equal(await ui.evaluate(`${submit}.disabled`), true, 'без даты применить нельзя');
+    await ui.evaluate(`(() => { const el = ${dialog}.querySelector('input[aria-label="Дата отчёта"]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '2026-10-20');
+      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await ui.waitFor(`${submit}.disabled === false && !${dialog}.querySelector('[role=alert]')`, 'с датой — можно применить');
+    await cancel(dialog);
+  });
+
+  it('выгрузка реестра через ту же кнопку — обычный импорт по колонке ID', async () => {
+    await openTab('records');
+    const b64 = await ui.evaluate(`fetch('/api/v1/registers/${regId}/export').then((r) => r.arrayBuffer())
+      .then((b) => { let s = ''; new Uint8Array(b).forEach((x) => { s += String.fromCharCode(x); }); return btoa(s); })`);
+    const file = join(tmp, 'выгрузка реестра.xlsx');
+    writeFileSync(file, Buffer.from(b64, 'base64'));
+    const prev = await upload(file);
+    assert.equal(prev.status, 201, prev.body);
+    assert.equal((await ui.response(prev)).format, 'records');
+    await ui.waitFor(`!!${impDialog}?.querySelector('.imp-kpis')`, 'окно предпросмотра выгрузки');
+    assert.match(await ui.text(`${impDialog}.querySelector('.imp-kind')`), /распознан как Выгрузка реестра/);
+    await cancel(impDialog);
+  });
+
+  it('файл неизвестного формата — понятная ошибка: что ожидалось и что найдено', async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.addWorksheet('Лист1').addRow(['Имя', 'Дата', 'Сумма']);
+    const file = join(tmp, 'что-то.xlsx');
+    writeFileSync(file, Buffer.from(await wb.xlsx.writeBuffer()));
+    const prev = await upload(file);
+    assert.equal(prev.status, 400);
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent.includes('Не удалось распознать файл')`, 'сообщение об ошибке');
+    const msg = await ui.toast();
+    assert.match(msg, /лист «Хосты» и лист с колонками «CVE» и «Пакет»/);
+    assert.match(msg, /колонка «ID» или скрытый лист «_поля»/);
+    assert.match(msg, /«Лист1»: «Имя», «Дата», «Сумма»/);
+    assert.equal(await ui.evaluate(`!!document.querySelector('[role=dialog]')`), false, 'окно предпросмотра не открылось');
   });
 });

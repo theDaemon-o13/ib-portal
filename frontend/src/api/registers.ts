@@ -28,6 +28,8 @@ export type RecordValues = Body<'/api/v1/registers/{id}/records', 'post'>['value
 export type Widget = Res<'/api/v1/registers/{id}/analytics', 'get'>['items'][number];
 export type Deadline = NonNullable<RegisterRecord['deadline']>;
 export type ScanPreview = Res<'/api/v1/registers/{id}/scan-imports', 'post', 201>;
+/** Предпросмотр «Импорта из Excel»: как распознан файл и что в нём. */
+export type FilePreview = Res<'/api/v1/registers/{id}/file-imports', 'post', 201>;
 export type ScanResult = Res<'/api/v1/scan-imports/{id}/apply', 'post'>;
 export type ScanApply = Body<'/api/v1/scan-imports/{id}/apply', 'post'>;
 export type ScanReport = Res<'/api/v1/registers/{id}/scan-reports', 'get'>['items'][number];
@@ -126,31 +128,23 @@ export const registersApi = {
     if (!res.ok) throw await errorOf(res);
     return { blob: await res.blob(), fileName: fileNameFrom(res.headers.get('Content-Disposition'), 'реестр.xlsx') };
   },
-  /** Импорт, шаг 1: файл уходит телом запроса как есть. */
-  async previewImport(registerId: string, file: File): Promise<ImportPreview> {
-    const res = await fetch(`/api/v1/registers/${registerId}/imports`, {
+  /**
+   * Импорт из Excel, шаг 1: файл уходит телом запроса как есть, backend сам определяет,
+   * отчёт сканера это или выгрузка реестра, и возвращает соответствующий предпросмотр.
+   */
+  async previewFile(registerId: string, file: File): Promise<FilePreview> {
+    const res = await fetch(`/api/v1/registers/${registerId}/file-imports`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name) },
       body: file,
     });
     if (!res.ok) throw await errorOf(res);
-    return (await res.json()) as ImportPreview;
+    return (await res.json()) as FilePreview;
   },
   applyImport: (id: string) => request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`),
   cancelImport: (id: string) => request<undefined>('POST', `/api/v1/register-imports/${id}/cancel`),
 
-  /** Отчёт сканера, шаг 1: предпросмотр. Отменяется тем же cancelImport. */
-  async previewScan(registerId: string, file: File): Promise<ScanPreview> {
-    const res = await fetch(`/api/v1/registers/${registerId}/scan-imports`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name) },
-      body: file,
-    });
-    if (!res.ok) throw await errorOf(res);
-    return (await res.json()) as ScanPreview;
-  },
   applyScan: (id: string, body: ScanApply) => request<ScanResult>('POST', `/api/v1/scan-imports/${id}/apply`, body),
   scanReports: (registerId: string) => request<Res<'/api/v1/registers/{id}/scan-reports', 'get'>>('GET', `/api/v1/registers/${registerId}/scan-reports`),
 

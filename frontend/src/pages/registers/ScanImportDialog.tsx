@@ -57,6 +57,7 @@ export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetai
     <div className="backdrop" role="presentation">
       <div className="modal panel wide-modal" role="dialog" aria-modal="true" aria-labelledby="scan-title">
         <h2 id="scan-title">Отчёт сканера → «{reg.name}»</h2>
+        <p className="imp-kind">Файл распознан как <span className="chip info">Отчёт сканера</span> — листы «Хосты» и уязвимости.</p>
         <p className="hint">
           Файл «{s.fileName}», лист «{s.sheet}»{s.department ? `, ${s.department}` : ''}: строк {s.rows}, хостов {s.hostsCount}. Пока ничего не изменено.
         </p>
@@ -73,6 +74,7 @@ export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetai
             {s.reportDate ? `Дата отчёта взята из имени файла: ${formatDate(s.reportDate)}.` : 'В имени файла нет даты — укажите её.'} Срок устранения считается от передачи в ДИКТ.
           </span>
         </div>
+        {dateMissing && <p className="form-error" role="alert">В имени файла нет даты отчёта. Укажите её — без даты отчёт не загрузить.</p>}
         {dateOrder && <p className="form-error" role="alert">Отчёт не мог быть передан в ДИКТ раньше, чем составлен.</p>}
         <div className="imp-kpis">
           <div><b className="mono">{s.created}</b><span>новых</span></div>

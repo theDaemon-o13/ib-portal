@@ -5,8 +5,12 @@ import { badRequest } from '../../lib/errors.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { runAutomations } from '../automations/service.js';
-import { IMPORT_BODY_LIMIT } from '../registers/routes.js';
+import { loadRegister } from '../registers/definition.js';
+import * as excel from '../registers/excel.service.js';
+import { IMPORT_BODY_LIMIT, ImportPreview } from '../registers/routes.js';
 import { actorOf } from '../settings/common.js';
+import { isVulnRegister } from './definition.js';
+import { detectFormat } from './import-detect.js';
 import * as scan from './scan-import.service.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
@@ -39,7 +43,7 @@ const ScanSummary = z.object({
   errors: z.array(z.object({ row: z.number().int(), field: z.string().nullable(), message: z.string() })),
   warnings: z.array(z.string()),
 });
-const ScanPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ScanSummary });
+export const ScanPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ScanSummary });
 const ScanReport = z.object({
   id: z.string(), label: z.string(), fileName: z.string(), department: z.string(), reportDate: z.string(), notifiedDate: z.string(),
   rowsTotal: z.number().int(), createdCount: z.number().int(), mergedCount: z.number().int(), hostsCount: z.number().int(),
@@ -47,9 +51,46 @@ const ScanReport = z.object({
 });
 
 const view = requirePerm('ib.work');
+
+function fileNameOf(raw: unknown, fallback: string): string {
+  if (typeof raw !== 'string' || !raw) return fallback;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
 const edit = requirePerm('records.edit');
 
 export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+  app.post('/registers/:id/file-imports', {
+    preHandler: edit,
+    bodyLimit: IMPORT_BODY_LIMIT,
+    schema: {
+      tags: ['vulns'],
+      summary: 'Импорт из Excel одной кнопкой: тип файла определяется сам — отчёт сканера (лист «Хосты», колонки «CVE» и «Пакет») или выгрузка реестра (колонка ID, лист «_поля»). Шаг 1: предпросмотр',
+      params: IdParams, body: z.any(),
+      response: {
+        201: z.discriminatedUnion('format', [
+          z.object({ format: z.literal('scan'), scan: ScanPreview }),
+          z.object({ format: z.literal('records'), records: ImportPreview }),
+        ]),
+        ...errors,
+      },
+    },
+  }, async (request, reply) => {
+    if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
+    const fileName = fileNameOf(request.headers['x-file-name'], 'import.xlsx');
+    const format = detectFormat(await excel.readWorkbook(request.body));
+    if (format === 'scan') {
+      if (!isVulnRegister(await loadRegister(db, request.params.id))) {
+        throw badRequest('NOT_VULN_REGISTER', 'Файл распознан как отчёт сканера — его загружают в «Реестр уязвимостей»');
+      }
+      return reply.status(201).send({ format, scan: await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileName) });
+    }
+    return reply.status(201).send({ format, records: await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName) });
+  });
+
   app.post('/registers/:id/scan-imports', {
     preHandler: edit,
     bodyLimit: IMPORT_BODY_LIMIT,
@@ -60,16 +101,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     },
   }, async (request, reply) => {
     if (!Buffer.isBuffer(request.body)) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
-    const raw = request.headers['x-file-name'];
-    let fileName = 'scan.xlsx';
-    if (typeof raw === 'string' && raw) {
-      try {
-        fileName = decodeURIComponent(raw);
-      } catch {
-        fileName = raw;
-      }
-    }
-    return reply.status(201).send(await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileName));
+    return reply.status(201).send(await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileNameOf(request.headers['x-file-name'], 'scan.xlsx')));
   });
 
   app.get('/scan-imports/:id', {

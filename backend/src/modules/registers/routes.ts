@@ -127,7 +127,7 @@ const ImportSummary = z.object({
   errors: z.array(z.object({ row: z.number().int(), id: z.string().nullable(), field: z.string().nullable(), message: z.string() })),
   warnings: z.array(z.string()),
 });
-const ImportPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ImportSummary });
+export const ImportPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ImportSummary });
 const Label = z.string().trim().min(1).max(200);
 
 const view = requirePerm('ib.work');

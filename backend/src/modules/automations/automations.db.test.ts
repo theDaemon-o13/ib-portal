@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { argon2Hasher } from '../../lib/passwords.js';
@@ -5,9 +6,10 @@ import type { Values } from '../../lib/register-values.js';
 import { TEST_SECRET } from '../../test/helpers.js';
 import { expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { makeRegister } from '../../test/registers-fixture.js';
-import { SAMPLE, SAMPLE_NAME, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
+import { SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
+import * as excel from '../registers/excel.service.js';
 import * as records from '../registers/records.service.js';
 import { XLSX_TYPE } from '../registers/routes.js';
 import * as svc from './service.js';
@@ -225,6 +227,57 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       expect((await app.inject({ url: `${base}/automations`, headers: { cookie: L } })).statusCode).toBe(403);
       expect((await app.inject({ url: `${base}/automation-events`, headers: { cookie: L } })).statusCode).toBe(403);
       expect((await app.inject({ url: `${base}/scan-reports`, headers: { cookie: L } })).statusCode).toBe(403);
+    }));
+});
+
+describe('одна кнопка «Импорт из Excel»', () => {
+  it('отчёт сканера и выгрузка реестра распознаются сами; неизвестный файл — ошибка с найденными листами и колонками', () =>
+    inTx(async (tx) => {
+      const PASSWORD = 'Http-Auto-Pass-2026';
+      const x = await vulnRegister(tx);
+      const other = await makeRegister(tx);
+      const staff = await makeUser(tx, ['ib_staff'], { passwordHash: await argon2Hasher.hash(PASSWORD) });
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET });
+      const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: staff.login, password: PASSWORD } });
+      const cookie = `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;
+      const upload = (registerId: string, body: Buffer, name: string) => app.inject({
+        method: 'POST', url: `/api/v1/registers/${registerId}/file-imports`, body,
+        headers: { cookie, 'content-type': XLSX_TYPE, 'x-file-name': encodeURIComponent(name) },
+      });
+
+      // Отчёт сканера без даты в имени: предпросмотр есть, применить без даты нельзя.
+      const s = await upload(x.reg.id, SAMPLE, 'отчёт сканера.xlsx');
+      expect(s.statusCode).toBe(201);
+      const scanPrev = s.json() as { format: string; scan: { id: string; summary: { created: number; reportDate: string | null } } };
+      expect([scanPrev.format, scanPrev.scan.summary.created, scanPrev.scan.summary.reportDate]).toEqual(['scan', 90, null]);
+      const noDate = await app.inject({ method: 'POST', url: `/api/v1/scan-imports/${scanPrev.scan.id}/apply`, headers: { cookie }, payload: {} });
+      expect([noDate.statusCode, (noDate.json() as { error: { code: string } }).error.code]).toEqual([400, 'REPORT_DATE_REQUIRED']);
+
+      // Выгрузка того же реестра — обычный импорт по колонке ID.
+      const exported = await excel.exportRegister(tx, x.reg.id);
+      const r = await upload(x.reg.id, exported.buffer, exported.fileName);
+      expect(r.statusCode).toBe(201);
+      expect((r.json() as { format: string; records: { summary: unknown } }).format).toBe('records');
+
+      // Отчёт сканера в обычный реестр — понятный отказ.
+      const wrong = await upload(other.reg.id, SAMPLE, SAMPLE_NAME);
+      expect((wrong.json() as { error: { code: string } }).error.code).toBe('NOT_VULN_REGISTER');
+
+      // Без листа «Хосты» это уже не отчёт сканера и не выгрузка.
+      const book = await sampleBook();
+      book.removeWorksheet(must(book.worksheets.find((w) => w.name === 'Хосты')).id);
+      const noHosts = await upload(x.reg.id, await toBuffer(book), SAMPLE_NAME);
+      expect((noHosts.json() as { error: { code: string } }).error.code).toBe('UNKNOWN_FORMAT');
+
+      const plain = new ExcelJS.Workbook();
+      plain.addWorksheet('Лист1').addRow(['Имя', 'Дата', 'Сумма']);
+      const unknown = await upload(x.reg.id, await toBuffer(plain), 'что-то.xlsx');
+      expect(unknown.statusCode).toBe(400);
+      const err = (unknown.json() as { error: { code: string; message: string } }).error;
+      expect(err.code).toBe('UNKNOWN_FORMAT');
+      expect(err.message).toContain('лист «Хосты» и лист с колонками «CVE» и «Пакет»');
+      expect(err.message).toContain('колонка «ID» или скрытый лист «_поля»');
+      expect(err.message).toContain('«Лист1»: «Имя», «Дата», «Сумма»');
     }));
 });
 

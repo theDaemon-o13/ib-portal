@@ -11198,6 +11198,220 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registers/{id}/file-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Импорт из Excel одной кнопкой: тип файла определяется сам — отчёт сканера (лист «Хосты», колонки «CVE» и «Пакет») или выгрузка реестра (колонка ID, лист «_поля»). Шаг 1: предпросмотр */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            format: "scan";
+                            scan: {
+                                id: string;
+                                status: string;
+                                expiresAt: string;
+                                summary: {
+                                    fileName: string;
+                                    sheet: string;
+                                    department: string;
+                                    reportDate: string | null;
+                                    rows: number;
+                                    created: number;
+                                    merged: number;
+                                    mergedChanged: number;
+                                    inFileDuplicates: number;
+                                    errorRows: number;
+                                    hostsCount: number;
+                                    hosts: {
+                                        name: string;
+                                        ip: string;
+                                        os: string;
+                                    }[];
+                                    critCounts: {
+                                        /** @enum {string} */
+                                        key: "critical" | "high" | "medium" | "low";
+                                        label: string;
+                                        count: number;
+                                    }[];
+                                    newOptions: {
+                                        field: string;
+                                        values: string[];
+                                    }[];
+                                    duplicates: {
+                                        row: number;
+                                        cve: string;
+                                        pkg: string;
+                                        recordId: string;
+                                        number: number;
+                                        hitsBefore: number | null;
+                                        hitsAfter: number | null;
+                                    }[];
+                                    items: {
+                                        row: number;
+                                        cve: string;
+                                        pkg: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                    }[];
+                                    errors: {
+                                        row: number;
+                                        field: string | null;
+                                        message: string;
+                                    }[];
+                                    warnings: string[];
+                                };
+                            };
+                        } | {
+                            /** @enum {string} */
+                            format: "records";
+                            records: {
+                                id: string;
+                                status: string;
+                                expiresAt: string;
+                                summary: {
+                                    fileName: string;
+                                    rows: number;
+                                    added: number;
+                                    updated: number;
+                                    unchanged: number;
+                                    errorRows: number;
+                                    fieldChanges: {
+                                        fieldId: string;
+                                        label: string;
+                                        count: number;
+                                    }[];
+                                    errors: {
+                                        row: number;
+                                        id: string | null;
+                                        field: string | null;
+                                        message: string;
+                                    }[];
+                                    warnings: string[];
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/registers/{id}/scan-imports": {
         parameters: {
             query?: never;
