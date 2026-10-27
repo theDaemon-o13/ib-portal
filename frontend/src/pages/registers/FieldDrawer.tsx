@@ -1,9 +1,9 @@
 import { Overlay } from '../../components/Overlay';
 import { useEffect, useState } from 'react';
-import { registersApi, type DueRule, type FieldType, type RegisterDetail, type RegisterField, type TypePreview } from '../../api/registers';
+import { registersApi, type BasisRule, type DueRule, type FieldType, type RegisterDetail, type RegisterField, type TypePreview } from '../../api/registers';
 import { useAction } from '../settings/useAction';
-import { CalcRuleEditor, OptionsEditor } from './FieldEditors';
-import { ALLOWED_ROLES, describeRule, dueRuleOf, ROLE_NAMES, TYPE_NAMES, typeTargets } from './logic';
+import { BasisRuleEditor, CalcRuleEditor, OptionsEditor, SettingsEditor } from './FieldEditors';
+import { ALLOWED_ROLES, describeRule, dueRuleOf, isBasisRule, ROLE_NAMES, TYPE_NAMES, typeTargets } from './logic';
 import { rkeys } from './keys';
 
 const KIND_TEXT: Record<TypePreview['kind'], string> = {
@@ -77,6 +77,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
   const [label, setLabel] = useState(field?.label ?? '');
   const [changingType, setChangingType] = useState(false);
   const [rule, setRule] = useState<DueRule | null>(field ? dueRuleOf(field) : null);
+  const [basis, setBasis] = useState<BasisRule | null>(field && isBasisRule(field.calcRule) ? field.calcRule : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -144,7 +145,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
                   <button className="btn sm" type="button" onClick={() => setChangingType(true)}>Сменить тип</button>
                 ) : (
                   <span className="hint">
-                    {system ? 'Тип системного поля не меняется' : field.type === 'calc' || field.type === 'decision' ? 'Тип этого поля не меняется' : field.isTitle ? 'Заголовок всегда текстовый' : field.isStatus ? 'Сначала снимите признак статуса' : ''}
+                    {system ? 'Тип системного поля не меняется' : ['calc', 'decision', 'file', 'link'].includes(field.type) ? 'Тип этого поля не меняется' : field.isTitle ? 'Заголовок всегда текстовый' : field.isStatus ? 'Сначала снимите признак статуса' : ''}
                   </span>
                 )}
               </div>
@@ -172,6 +173,14 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
               <div className="hint">{describeRule(reg, field)}</div>
               {system ? (
                 <div className="hint">Правило задано процедурой управления уязвимостями (п. 7.1–7.3) и меняется только выпуском портала.</div>
+              ) : isBasisRule(field.calcRule) ? (
+                <>
+                  <BasisRuleEditor reg={reg} value={basis} onChange={setBasis} selfId={field.id} />
+                  <div className="row">
+                    <button className="btn primary sm" type="button" disabled={!basis || patch.isPending}
+                      onClick={() => patch.mutate({ body: { calcRule: basis ?? undefined }, ok: 'Правило сохранено' })}>Сохранить правило</button>
+                  </div>
+                </>
               ) : (
                 <>
                   <CalcRuleEditor reg={reg} value={rule} onChange={setRule} selfId={field.id} />
@@ -181,6 +190,21 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
                   </div>
                 </>
               )}
+            </section>
+          )}
+
+          {field.type !== 'calc' && field.type !== 'decision' && !field.isStatus && (
+            <section className="fd-section grid-gap">
+              <div className="eyebrow">Фиксация и ограничения</div>
+              <SettingsEditor reg={reg} field={field} pending={patch.isPending}
+                onSave={(settings) => patch.mutate({ body: { settings }, ok: settings ? 'Настройки поля сохранены' : 'Фиксация и ограничения сняты' })} />
+            </section>
+          )}
+
+          {field.type === 'link' && (
+            <section className="fd-section">
+              <div className="eyebrow">Связь</div>
+              <div className="hint">Реестр связи выбирается при создании поля и не меняется. В карточке связанной записи — обратный список со статусом и сроком. В Excel — заголовки записей (например, имена хостов) через «;».</div>
             </section>
           )}
 

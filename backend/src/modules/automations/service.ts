@@ -2,7 +2,8 @@
 import type { Prisma } from '@prisma/client';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
-import { isScoreRule, type Values } from '../../lib/register-values.js';
+import { basisOf, isBasisRule } from '../../lib/link-basis.js';
+import { isDueRule, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import {
@@ -20,13 +21,27 @@ import { runDocumentReviews } from '../documents/review.js';
 import { runEvidenceExpiry } from '../evidence/expiry.js';
 import { sweepOrphanFiles } from '../files/links.js';
 import { registerEvent, tasksFromEvents } from '../tasks/from-events.js';
-import { EVENT_TYPE_NAMES, evaluate, type Action, type Condition, type EventType, type Recipient } from './conditions.js';
+import { loadBasisSources, linkIdsIn, linkLabels, loadLinkRefs } from '../registers/links.js';
+import { lockErrors } from '../registers/record-rules.js';
+import { searchTextOf, userIdsIn } from '../registers/definition.js';
+import {
+  EVENT_TYPE_NAMES,
+  evaluate,
+  evaluateYearly,
+  isSetOption,
+  type Action,
+  type Condition,
+  type EventType,
+  type Recipient,
+  type SetOptionAction,
+  type TaskAction,
+} from './conditions.js';
 
 export const MAX_RECIPIENTS = 6;
 
 // ---------------------------------------------------------------- проверка и описание
 
-const isDateField = (f: FieldMeta) => f.type === 'date' || (f.type === 'calc' && !!f.calcRule && !isScoreRule(f.calcRule));
+const isDateField = (f: FieldMeta) => f.type === 'date' || (f.type === 'calc' && !!isDueRule(f.calcRule));
 
 function liveField(reg: RegisterDef, id: string | null | undefined): FieldMeta | undefined {
   return id ? reg.fields.find((f) => f.id === id && !f.archived) : undefined;
@@ -57,16 +72,48 @@ export async function recipientChoices(db: Db): Promise<RecipientChoices> {
   return { labels: labels.map((l) => ({ id: l.id, value: l.value, archived: l.archivedAt !== null })), users: new Map(users.map((u) => [u.id, u.fullName])) };
 }
 
+/** Ежегодное условие: настоящая дата (29.02 — нет: не каждый год). */
+function validDayMonth(month: number, day: number): boolean {
+  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1) return false;
+  return day <= ([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0);
+}
+
+/** «Установить значение»: поле-список записи, новое значение и значения, из которых оно ставится. */
+function validateSetOption(reg: RegisterDef, a: SetOptionAction): SetOptionAction {
+  const f = liveField(reg, a.fieldId);
+  if (!f || f.type !== 'select') throw badRequest('BAD_RULE', 'Значение ставится только полю-списку');
+  const to = f.options.find((o) => o.id === a.optionId && !o.archived);
+  if (!to) throw badRequest('BAD_RULE', 'Выберите значение, которое поставить');
+  const from = [...new Set(a.fromOptionIds)];
+  if (!from.length || from.some((id) => id === to.id || !f.options.some((o) => o.id === id))) {
+    throw badRequest('BAD_RULE', 'Выберите, из каких значений его ставить (кроме самого значения)');
+  }
+  return { eventType: 'set_option', fieldId: f.id, optionId: to.id, fromOptionIds: from, recipients: [] };
+}
+
 export function validateRule(
   reg: RegisterDef, condition: Condition, action: Action, choices: RecipientChoices, before?: Action,
 ): { condition: Condition; action: Action } {
   let cond: Condition;
-  const field = liveField(reg, condition.fieldId);
+  const field = 'fieldId' in condition ? liveField(reg, condition.fieldId) : undefined;
   switch (condition.kind) {
     case 'before': {
       if (!field || !isDateField(field)) throw badRequest('BAD_RULE', 'Выберите поле-дату или вычисляемый срок');
       if (!Number.isInteger(condition.days) || condition.days < 0 || condition.days > 365) throw badRequest('BAD_RULE', 'За сколько дней — целое число от 0 до 365');
-      cond = { kind: 'before', fieldId: field.id, days: condition.days };
+      cond = { kind: 'before', fieldId: field.id, days: condition.days, ...(condition.skipYearEnd ? { skipYearEnd: true } : {}) };
+      break;
+    }
+    case 'yearly': {
+      if (!validDayMonth(condition.month, condition.day)) throw badRequest('BAD_RULE', 'Укажите день и месяц (29 февраля — нельзя)');
+      const status = reg.fields.find((f) => f.isStatus);
+      const ids = [...new Set(condition.statusOptionIds ?? [])];
+      if (ids.some((id) => !status?.options.some((o) => o.id === id))) throw badRequest('BAD_RULE', 'Статусы — значения поля статуса');
+      cond = { kind: 'yearly', month: condition.month, day: condition.day, ...(ids.length ? { statusOptionIds: ids } : {}) };
+      break;
+    }
+    case 'basis_missing': {
+      if (!field || field.type !== 'calc' || !isBasisRule(field.calcRule)) throw badRequest('BAD_RULE', 'Выберите вычисляемое поле «статус основания»');
+      cond = { kind: 'basis_missing', fieldId: field.id };
       break;
     }
     case 'overdue': {
@@ -95,6 +142,10 @@ export function validateRule(
     default:
       throw badRequest('BAD_RULE', 'Неизвестное условие');
   }
+  if (isSetOption(action)) {
+    if (cond.kind === 'yearly') throw badRequest('BAD_RULE', 'Ежегодное условие создаёт сводную задачу — значение по нему не ставится');
+    return { condition: cond, action: validateSetOption(reg, action) };
+  }
   if (!action.recipients.length) throw badRequest('BAD_RULE', 'Укажите, кому адресовано событие');
   if (action.recipients.length > MAX_RECIPIENTS) throw badRequest('BAD_RULE', `Не больше ${MAX_RECIPIENTS} получателей`);
   const recipients: Recipient[] = action.recipients.map((r) => {
@@ -118,7 +169,8 @@ export function validateRule(
     if (item.archived && !kept) throw badRequest('BAD_RULE', `Метка «${item.value}» в архиве — выберите другую`);
     return { kind: 'label', itemId: item.id, label: item.value };
   });
-  return { condition: cond, action: { eventType: action.eventType, recipients } };
+  const title = action.title?.trim().replace(/\s+/g, ' ');
+  return { condition: cond, action: { eventType: action.eventType, recipients, ...(title ? { title: title.slice(0, 200) } : {}) } };
 }
 
 const fieldName = (reg: RegisterDef, id: string | null | undefined) => reg.fields.find((f) => f.id === id)?.label ?? '(поле удалено)';
@@ -135,6 +187,13 @@ export function describeCondition(reg: RegisterDef, c: Condition): string {
       const f = reg.fields.find((x) => x.id === c.fieldId);
       return `«${f?.label ?? '(поле удалено)'}» = «${f?.options.find((o) => o.id === c.optionId)?.label ?? '?'}»`;
     }
+    case 'yearly': {
+      const status = reg.fields.find((f) => f.isStatus);
+      const which = c.statusOptionIds?.length ? ` (статус ${c.statusOptionIds.map((id) => `«${status?.options.find((o) => o.id === id)?.label ?? '?'}»`).join(', ')})` : '';
+      return `Ежегодно ${String(c.day).padStart(2, '0')}.${String(c.month).padStart(2, '0')} — сводка открытых записей${which}`;
+    }
+    case 'basis_missing':
+      return `«${fieldName(reg, c.fieldId)}»: канал открыт без действующего основания`;
   }
 }
 
@@ -147,13 +206,18 @@ export function resolveLabel(r: { itemId?: string | null; label?: string }, labe
 }
 
 export function describeAction(reg: RegisterDef, a: Action, labels: LabelNames): string {
+  if (isSetOption(a)) {
+    const f = reg.fields.find((x) => x.id === a.fieldId);
+    const name = (id: string) => `«${f?.options.find((o) => o.id === id)?.label ?? '?'}»`;
+    return `Установить «${f?.label ?? '(поле удалено)'}» = ${name(a.optionId)} (если ${a.fromOptionIds.map(name).join(' или ')})`;
+  }
   const who = a.recipients.map((r) => {
     if (r.kind === 'field') return fieldName(reg, r.fieldId);
     if (r.kind === 'user') return r.name ?? 'сотрудник';
     const l = resolveLabel(r, labels);
     return l.missing ? `${l.label || 'метка'} (получатель не найден)` : l.label;
   }).join(', ');
-  return `${EVENT_TYPE_NAMES[a.eventType]}: ${who}`;
+  return `${EVENT_TYPE_NAMES[a.eventType]}: ${who}${a.title ? ` — «${a.title}»` : ''}`;
 }
 
 // ---------------------------------------------------------------- правила
@@ -345,7 +409,7 @@ export async function listEvents(
         automationId: e.automationId,
         when: rule.when,
         then: rule.then,
-        eventType: e.eventType as EventType,
+        eventType: e.eventType as EventType | 'set_option',
         recipients: e.recipients as unknown as EventRecipient[],
         triggerKey: e.triggerKey,
         fireAt: e.fireAt.toISOString().slice(0, 10),
@@ -366,7 +430,8 @@ export async function listEvents(
 export async function processEvent(db: Db, actor: Actor, id: string) {
   await withTx(db, async (tx) => {
     const row = await tx.automationEvent.findUnique({ where: { id, documentId: null, evidenceId: null }, include: { automation: true, record: { select: { number: true } } } });
-    if (!row) throw notFound('Событие');
+    // Сводное событие по реестру (без записи) обрабатывается вместе с задачей — вручную его не отмечают.
+    if (!row || row.recordId === null) throw notFound('Событие');
     const e = registerEvent(row);
     if (e.status === 'processed') return;
     const reg = await loadRegister(tx, e.registerId);
@@ -386,6 +451,61 @@ export async function processEvent(db: Db, actor: Actor, id: string) {
 }
 
 // ---------------------------------------------------------------- прогон
+
+/**
+ * Действие «установить значение» (этап 8б: 1 января — «Истекло»). Событие (уникальное по правилу, записи и ключу)
+ * сразу обработано, значение меняется в той же транзакции; история записи и журнал — от имени системы.
+ * Изменение, которое запрещает фиксация статусом (выход из фиксирующих статусов), пропускается с записью в журнал.
+ */
+async function applySetOptions(
+  tx: Db, reg: RegisterDef,
+  sets: { rule: { id: string; condition: Prisma.JsonValue; action: Prisma.JsonValue }; action: SetOptionAction; record: { id: string; number: number; values: Prisma.JsonValue; version: number }; triggerKey: string }[],
+  today: string, labels: LabelNames,
+): Promise<number> {
+  let created = 0;
+  for (const s of sets) {
+    const exists = await tx.automationEvent.findFirst({ where: { automationId: s.rule.id, recordId: s.record.id, triggerKey: s.triggerKey }, select: { id: true } });
+    if (exists) continue;
+    const before = s.record.values as Values;
+    const after: Values = { ...before, [s.action.fieldId]: s.action.optionId };
+    const field = reg.fields.find((f) => f.id === s.action.fieldId) as FieldMeta;
+    const label = (id: unknown) => field.options.find((o) => o.id === id)?.label ?? '';
+    const rule = toRuleDto(reg, { ...(s.rule as RuleRow), registerId: reg.id, systemKey: null, enabled: true, version: 1, archivedAt: null, createdAt: new Date() }, labels);
+    const event = await tx.automationEvent.create({
+      data: {
+        registerId: reg.id, recordId: s.record.id, automationId: s.rule.id, eventType: 'set_option', recipients: [],
+        triggerKey: s.triggerKey, fireAt: new Date(`${today}T00:00:00Z`), status: 'processed', processedAt: new Date(),
+      },
+    });
+    created++;
+    const blocked = lockErrors(reg, before, after, [s.action.fieldId], null);
+    if (blocked.length) {
+      await tx.auditLog.create({
+        data: {
+          userId: null, action: 'automation.skipped', entity: 'register_record', entityId: s.record.id,
+          diff: { summary: `«${reg.name}», запись #${s.record.number}: правило «${rule.when} → ${rule.then}» не применено — ${blocked[0]?.message}`, after: { eventId: event.id, via: 'automation' } } as Prisma.InputJsonValue,
+        },
+      });
+      continue;
+    }
+    const users = await loadUsers(tx, userIdsIn(reg, [after]));
+    const links = linkLabels(await loadLinkRefs(tx, linkIdsIn(reg, [after])));
+    await tx.registerRecord.update({
+      where: { id: s.record.id },
+      data: { values: after as Prisma.InputJsonValue, searchText: searchTextOf(reg, s.record.number, after, users, links), version: { increment: 1 } },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: null, action: 'register_record.updated', entity: 'register_record', entityId: s.record.id,
+        diff: {
+          summary: `«${reg.name}», запись #${s.record.number}: «${field.label}» → «${label(s.action.optionId)}» по правилу «${rule.when}»`,
+          after: { changes: [{ fieldId: field.id, label: field.label, from: label(before[field.id]), to: label(s.action.optionId) }], via: 'automation', eventId: event.id },
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
+  return created;
+}
 
 export interface RunResult {
   /** false — другой прогон уже идёт, этот пропущен. */
@@ -430,7 +550,7 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
       const reg = await loadRegister(tx, registerId);
       const records = (await tx.registerRecord.findMany({
         where: { registerId, deletedAt: null, archivedAt: null },
-        select: { id: true, values: true },
+        select: { id: true, number: true, values: true, version: true },
       })).filter((r) => !isClosed(reg, r.values as Values));
       checked += records.length;
       const users = await loadUsers(tx, records.flatMap((r) => {
@@ -438,9 +558,35 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
         return reg.fields.filter((f) => f.type === 'user' && typeof v[f.id] === 'string').map((f) => v[f.id] as string);
       }));
       const data: Prisma.AutomationEventCreateManyInput[] = [];
+      const sets: { rule: (typeof regRules)[number]; action: SetOptionAction; record: (typeof records)[number]; triggerKey: string }[] = [];
+      const snapshot = (action: TaskAction, values: Values): EventRecipient[] => action.recipients.map((x) => {
+        if (x.kind === 'label') {
+          // Снимок: актуальное название и id метки; метки нет — задача будет без ответственного.
+          const l = resolveLabel(x, labels);
+          return l.missing ? { kind: 'label', label: `«${l.label || 'метка'}»: получатель не найден`, itemId: null } : { kind: 'label', label: l.label, itemId: l.itemId };
+        }
+        if (x.kind === 'user') return { kind: 'user', userId: x.userId, name: x.name ?? 'сотрудник' };
+        const uid = values[x.fieldId];
+        const u = typeof uid === 'string' ? users.get(uid) : undefined;
+        return u ? { kind: 'user', userId: u.id, name: u.fullName } : { kind: 'label', label: `«${fieldName(reg, x.fieldId)}» не назначен` };
+      });
+      // Статус основания (этап 8б): разрешения из реестра-источника — один раз на реестр.
+      const needsBasis = regRules.some((r) => (r.condition as unknown as Condition).kind === 'basis_missing');
+      const basisSources = needsBasis ? await loadBasisSources(tx, reg, null) : new Map();
       for (const rule of regRules) {
         const condition = rule.condition as unknown as Condition;
         const action = rule.action as unknown as Action;
+        if (condition.kind === 'yearly') {
+          // Сводное событие по реестру: одно на правило и день; список записей — в задаче.
+          const t = evaluateYearly(condition, today);
+          if (t && !isSetOption(action)) {
+            data.push({
+              registerId, recordId: null, automationId: rule.id, eventType: action.eventType,
+              recipients: snapshot(action, {}) as unknown as Prisma.InputJsonValue, triggerKey: t.triggerKey, fireAt: new Date(`${today}T00:00:00Z`),
+            });
+          }
+          continue;
+        }
         for (const r of records) {
           const values = r.values as Values;
           const view = {
@@ -449,27 +595,27 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
               const f = reg.fields.find((x) => x.id === fieldId);
               return f ? dateOf(reg, f, values, calendar) : null;
             },
+            basisOf: (fieldId: string) => {
+              const rule = reg.fields.find((x) => x.id === fieldId)?.calcRule;
+              if (!isBasisRule(rule)) return null;
+              const b = basisOf(rule, r.id, values, basisSources.get(rule.sourceRegisterId) ?? [], today);
+              return { state: b.state, permissionId: b.permission?.id ?? null, channel: String(values[rule.channelFieldId] ?? '') };
+            },
           };
           const t = evaluate(condition, view, today, calendar);
           if (!t) continue;
-          const recipients: EventRecipient[] = action.recipients.map((x) => {
-            if (x.kind === 'label') {
-              // Снимок: актуальное название и id метки; метки нет — задача будет без ответственного.
-              const l = resolveLabel(x, labels);
-              return l.missing ? { kind: 'label', label: `«${l.label || 'метка'}»: получатель не найден`, itemId: null } : { kind: 'label', label: l.label, itemId: l.itemId };
-            }
-            if (x.kind === 'user') return { kind: 'user', userId: x.userId, name: x.name ?? 'сотрудник' };
-            const uid = values[x.fieldId];
-            const u = typeof uid === 'string' ? users.get(uid) : undefined;
-            return u ? { kind: 'user', userId: u.id, name: u.fullName } : { kind: 'label', label: `«${fieldName(reg, x.fieldId)}» не назначен` };
-          });
+          if (isSetOption(action)) {
+            if (action.fromOptionIds.includes(String(values[action.fieldId] ?? ''))) sets.push({ rule, action, record: r, triggerKey: t.triggerKey });
+            continue;
+          }
           data.push({
             registerId, recordId: r.id, automationId: rule.id, eventType: action.eventType,
-            recipients: recipients as unknown as Prisma.InputJsonValue,
+            recipients: snapshot(action, values) as unknown as Prisma.InputJsonValue,
             triggerKey: t.triggerKey, fireAt: new Date(`${today}T00:00:00Z`),
           });
         }
       }
+      created += await applySetOptions(tx, reg, sets, today, labels);
       if (!data.length) continue;
       const res = await tx.automationEvent.createMany({ data, skipDuplicates: true });
       created += res.count;

@@ -13,9 +13,16 @@ export type RegisterField = RegisterDetail['fields'][number];
 export type FieldOption = RegisterField['options'][number];
 export type FieldType = RegisterField['type'];
 export type CalcRule = NonNullable<RegisterField['calcRule']>;
-/** Правило срока — единственное, которое задаётся в конструкторе. Оценка уязвимости — только у системного поля. */
-export type DueRule = Exclude<CalcRule, { kind: 'vuln_score' }>;
+/** Правило срока. Оценка уязвимости — только у системного поля. */
+export type DueRule = Exclude<CalcRule, { kind: 'vuln_score' } | { kind: 'link_basis' }>;
 export type ScoreRule = Extract<CalcRule, { kind: 'vuln_score' }>;
+/** Статус основания (сверка с DLP, этап 8б): канал записи и разрешения другого реестра. */
+export type BasisRule = Extract<CalcRule, { kind: 'link_basis' }>;
+export type FieldSettings = RegisterField['settings'];
+export type FileLink = RegisterRecord['files'][string][number];
+export type LinkRef = RegisterRecord['links'][string][number];
+export type Basis = RegisterRecord['basis'][string];
+export type BacklinkGroup = Res<'/api/v1/register-records/{id}/backlinks', 'get'>['items'][number];
 export type RecordPage = Res<'/api/v1/registers/{id}/records', 'get'>;
 export type RegisterRecord = RecordPage['items'][number];
 export type HistoryEntry = Res<'/api/v1/register-records/{id}/history', 'get'>['items'][number];
@@ -124,7 +131,14 @@ export const registersApi = {
   record: (id: string) => request<RegisterRecord>('GET', `/api/v1/register-records/${id}`),
   history: (id: string) => request<Res<'/api/v1/register-records/{id}/history', 'get'>>('GET', `/api/v1/register-records/${id}/history`),
   createRecord: (registerId: string, values: RecordValues) => request<RegisterRecord>('POST', `/api/v1/registers/${registerId}/records`, { values }),
-  updateRecord: (id: string, version: number, values: RecordValues) => request<RegisterRecord>('PATCH', `/api/v1/register-records/${id}`, { version, values }),
+  /** reason — причина изменения поля «с причиной» при фиксирующем статусе (этап 8б). */
+  updateRecord: (id: string, version: number, values: RecordValues, reason?: string) =>
+    request<RegisterRecord>('PATCH', `/api/v1/register-records/${id}`, { version, values, ...(reason ? { reason } : {}) }),
+  /** Приложить загруженные файлы к полю «Файл». */
+  attachFiles: (id: string, version: number, fieldId: string, fileIds: string[]) =>
+    request<RegisterRecord>('POST', `/api/v1/register-records/${id}/files`, { version, fieldId, fileIds }),
+  removeFile: (id: string, linkId: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/files/${linkId}/remove`, { version }),
+  backlinks: (id: string) => request<Res<'/api/v1/register-records/{id}/backlinks', 'get'>>('GET', `/api/v1/register-records/${id}/backlinks`),
   archiveRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/archive`, { version }),
   restoreRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/restore`, { version }),
   deleteRecord: (id: string, version: number) => request<undefined>('POST', `/api/v1/register-records/${id}/delete`, { version }),
@@ -141,6 +155,12 @@ export const registersApi = {
     const res = await fetch(`/api/v1/registers/${registerId}/export`, { credentials: 'same-origin' });
     if (!res.ok) throw await errorOf(res);
     return { blob: await res.blob(), fileName: fileNameFrom(res.headers.get('Content-Disposition'), 'реестр.xlsx') };
+  },
+  /** Выгрузка для проверки: Excel за период по полю-дате и файлы полей «Файл» одним zip. */
+  async exportZip(registerId: string, q: { dateFieldId: string; from?: string; to?: string; nameFieldId?: string; linkFieldId?: string }): Promise<{ blob: Blob; fileName: string }> {
+    const res = await fetch(`/api/v1/registers/${registerId}/export.zip${qs(q)}`, { credentials: 'same-origin' });
+    if (!res.ok) throw await errorOf(res);
+    return { blob: await res.blob(), fileName: fileNameFrom(res.headers.get('Content-Disposition'), 'выгрузка.zip') };
   },
   /**
    * Импорт из Excel, шаг 1: файл уходит телом запроса как есть, backend сам определяет,

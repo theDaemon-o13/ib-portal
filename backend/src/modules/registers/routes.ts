@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
+import type { FileStore } from '../../lib/file-store.js';
 import { badRequest } from '../../lib/errors.js';
 import { PageQuery } from '../../lib/pagination.js';
 import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
@@ -9,13 +10,15 @@ import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import { registerAnalytics } from './analytics.service.js';
 import * as decisions from './decisions.service.js';
+import * as recordFiles from './record-files.service.js';
 import * as excel from './excel.service.js';
+import { exportZip } from './export-zip.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
 import { loadRegister } from './definition.js';
 import { parseRecordFilter, RecordFilterQuery } from './filter.js';
 
-const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
+const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 422: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
 const Version = z.object({ version: z.number().int().positive() });
 const Direction = z.object({ direction: z.enum(['up', 'down']) });
@@ -33,11 +36,32 @@ const CalcRule = z.object({
   overrideWhenFilledFieldId: z.string().uuid().nullable().optional(),
   shiftToWorkday: z.boolean().optional(),
 });
-/** Правило в ответе: срок или оценка уязвимости (только у системного поля). */
+/** Статус основания (сверка с DLP, этап 8б): канал записи и разрешения другого реестра, которые на неё ссылаются. */
+const BasisRule = z.object({
+  kind: z.literal('link_basis'),
+  channelFieldId: z.string().uuid(),
+  closedOptionIds: z.array(z.string().uuid()).max(50),
+  sourceRegisterId: z.string().uuid(),
+  linkFieldId: z.string().uuid(),
+  kindFieldId: z.string().uuid().nullable(),
+  kindOptionIds: z.array(z.string().uuid()).max(50),
+  statusFieldId: z.string().uuid(),
+  activeOptionIds: z.array(z.string().uuid()).min(1).max(50),
+  untilFieldId: z.string().uuid().nullable(),
+  numberFieldId: z.string().uuid().nullable(),
+});
+const CalcRuleIn = z.union([BasisRule, CalcRule.extend({ kind: z.literal('due_date').optional() })]);
+/** Правило в ответе: срок, оценка уязвимости (только у системного поля) или статус основания. */
 const CalcRuleOut = z.union([
   z.object({ kind: z.literal('vuln_score'), cvssFieldId: z.string(), exploitFieldId: z.string(), fixFieldId: z.string() }),
+  BasisRule,
   CalcRule.extend({ kind: z.literal('due_date').optional() }),
 ]);
+/** Настройки поля (этап 8б): фиксация при статусах записи и ограничения даты. */
+const FieldSettings = z.object({
+  lock: z.object({ statusOptionIds: z.array(z.string().uuid()).max(50), mode: z.enum(['locked', 'reason']) }).optional(),
+  date: z.object({ notAfterYearEndOfFieldId: z.string().uuid().nullable().optional(), defaultEndOfYear: z.boolean().optional() }).optional(),
+});
 const Option = z.object({
   id: z.string(), label: z.string(), isClosed: z.boolean(), archived: z.boolean(), sortOrder: z.number().int(), version: z.number().int(),
   systemKey: z.string().nullable(),
@@ -59,6 +83,9 @@ const Field = z.object({
   systemKey: z.string().nullable(),
   /** Поле «Значение справочника»: код справочника; options — его значения (правятся в настройках). */
   catalogCode: z.string().nullable(),
+  /** Поле «Связь с записью»: реестр, на записи которого оно ссылается. */
+  linkRegisterId: z.string().nullable(),
+  settings: FieldSettings,
   options: z.array(Option),
 });
 export const RegisterDetail = z.object({
@@ -86,10 +113,16 @@ const Decision = z.object({
   optionId: z.string(), label: z.string(), documentTitle: z.string(), documentNumber: z.string(), documentDate: z.string(),
   hasFile: z.boolean(), fileId: z.string(), reviewDue: z.string().nullable(), decidedAt: z.string(), decidedBy: z.string(),
 });
+const FileOut = z.object({
+  id: z.string(), name: z.string(), mime: z.string(), size: z.number().int(), sha256: z.string(), uploadedAt: z.string(),
+  uploadedBy: z.object({ id: z.string(), fullName: z.string() }), deleted: z.boolean(),
+});
+const LinkRef = z.object({ id: z.string(), registerId: z.string(), number: z.number().int(), title: z.string(), deleted: z.boolean() });
 export const RegisterRecord = z.object({
   id: z.string(),
   number: z.number().int(),
-  values: z.record(z.string(), z.union([z.string(), z.number()])),
+  /** Связь с записью — массив id записей. */
+  values: z.record(z.string(), z.union([z.string(), z.number(), z.array(z.string())])),
   display: z.record(z.string(), z.string()),
   calc: z.record(z.string(), z.union([z.string(), z.number()]).nullable()),
   decisions: z.record(z.string(), Decision.nullable()),
@@ -104,6 +137,20 @@ export const RegisterRecord = z.object({
   openEvents: z.number().int(),
   /** Открытые задачи по записи из событий автоматизаций. */
   openTasks: z.number().int(),
+  /** Поле «Файл»: действующие файлы (sha256, дата загрузки). */
+  files: z.record(z.string(), z.array(z.object({
+    linkId: z.string(), file: FileOut, addedAt: z.string(), addedBy: z.object({ id: z.string(), fullName: z.string() }),
+  }))),
+  /** Поле «Связь с записью»: связанные записи. */
+  links: z.record(z.string(), z.array(LinkRef)),
+  /** Статус основания по каналу: ok, none, expired, closed; разрешение и текст. */
+  basis: z.record(z.string(), z.object({
+    state: z.enum(['ok', 'none', 'expired', 'closed']),
+    permission: z.object({ id: z.string(), number: z.number().int(), docNumber: z.string(), until: z.string().nullable() }).nullable(),
+    text: z.string(),
+  })),
+  /** Поля, которые фиксирует текущий статус: locked — не меняются, reason — только с причиной. */
+  locked: z.record(z.string(), z.enum(['locked', 'reason'])),
   version: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -116,6 +163,8 @@ const HistoryEntry = z.object({
   summary: z.string(),
   via: z.string().nullable(),
   changes: z.array(z.object({ fieldId: z.string(), label: z.string(), from: z.string(), to: z.string() })),
+  /** Причина изменения поля «с причиной» при фиксирующем статусе. */
+  reason: z.string().nullable(),
 });
 const TypePreview = z.object({
   kind: z.enum(['empty', 'to_text', 'from_text']),
@@ -145,6 +194,7 @@ const ImportSummary = z.object({
 });
 export const ImportPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ImportSummary });
 const Label = z.string().trim().min(1).max(200);
+const DateIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const view = requirePerm('ib.work');
 const manage = requirePerm('registers.manage');
@@ -155,7 +205,7 @@ type Rec = z.infer<typeof RegisterRecord>;
 const asDetail = (r: unknown) => r as Detail;
 const asRecord = (r: unknown) => r as Rec;
 
-export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
   // ------------------------------------------------------------ реестры
   app.get('/registers', {
     preHandler: view,
@@ -224,9 +274,12 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         type: FieldType,
         options: z.array(z.string().max(200)).max(200).optional(),
         analyticsRole: Role.nullable().optional(),
-        calcRule: CalcRule.optional(),
+        calcRule: CalcRuleIn.optional(),
         /** Только для типа «Значение справочника» (catalog): код справочника, например systems. */
         catalogCode: z.string().max(64).optional(),
+        /** Только для типа «Связь с записью» (link): реестр, на записи которого ссылается поле. */
+        linkRegisterId: z.string().uuid().optional(),
+        settings: FieldSettings.optional(),
       }),
       response: { 200: RegisterDetail, ...errors },
     },
@@ -242,7 +295,9 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         isTitle: z.boolean().optional(),
         isStatus: z.boolean().optional(),
         isImportKey: z.boolean().optional(),
-        calcRule: CalcRule.optional(),
+        calcRule: CalcRuleIn.optional(),
+        /** Фиксация при статусах и ограничения даты; null — снять. */
+        settings: FieldSettings.nullable().optional(),
       }),
       response: { 200: RegisterDetail, ...errors },
     },
@@ -348,7 +403,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
     schema: { tags: ['register-records'], summary: 'История изменений записи', params: IdParams, response: { 200: z.object({ items: z.array(HistoryEntry) }), ...errors } },
   }, async (request) => ({ items: await records.recordHistory(db, request.params.id) }));
 
-  const Values = z.record(z.string().uuid(), z.union([z.string().max(4000), z.number(), z.null()]));
+  const Values = z.record(z.string().uuid(), z.union([z.string().max(4000), z.number(), z.array(z.string().uuid()).max(200), z.null()]));
 
   app.post('/registers/:id/records', {
     preHandler: edit,
@@ -358,10 +413,50 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
   app.patch('/register-records/:id', {
     preHandler: edit,
     schema: {
-      tags: ['register-records'], summary: 'Изменить запись (только переданные поля; null — очистить)', params: IdParams,
-      body: Version.extend({ values: Values }), response: { 200: RegisterRecord, ...errors },
+      tags: ['register-records'],
+      summary: 'Изменить запись (только переданные поля; null — очистить). Зафиксированное статусом поле — 422; поле «с причиной» — с reason',
+      params: IdParams,
+      body: Version.extend({ values: Values, reason: z.string().max(records.REASON_MAX).nullable().optional() }), response: { 200: RegisterRecord, ...errors },
     },
   }, async (request) => asRecord(await records.updateRecord(db, actorOf(request), request.params.id, request.body)));
+
+  app.post('/register-records/:id/files', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'],
+      summary: 'Приложить файлы к полю «Файл» (сначала POST /files). Зафиксированное поле с файлом — 422',
+      params: IdParams,
+      body: Version.extend({ fieldId: z.string().uuid(), fileIds: z.array(z.string().uuid()).min(1).max(recordFiles.FILES_PER_FIELD_MAX) }),
+      response: { 200: RegisterRecord, ...errors },
+    },
+  }, async (request) => asRecord(await recordFiles.attachFiles(db, actorOf(request), request.params.id, request.body)));
+
+  app.post('/register-records/:id/files/:linkId/remove', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'], summary: 'Отвязать файл (мягко, с записью в историю). Зафиксированное поле — 422',
+      params: IdParams.extend({ linkId: z.string().uuid() }), body: Version, response: { 200: RegisterRecord, ...errors },
+    },
+  }, async (request) => asRecord(await recordFiles.detachFile(db, actorOf(request), request.params.id, request.params.linkId, request.body.version)));
+
+  app.get('/register-records/:id/backlinks', {
+    preHandler: view,
+    schema: {
+      tags: ['register-records'], summary: 'Обратные связи: записи других реестров, которые ссылаются на эту', params: IdParams,
+      response: {
+        200: z.object({
+          items: z.array(z.object({
+            registerId: z.string(), registerName: z.string(), fieldId: z.string(), fieldLabel: z.string(),
+            items: z.array(z.object({
+              id: z.string(), number: z.number().int(), title: z.string(), status: z.string(), closed: z.boolean(), archived: z.boolean(),
+              deadline: z.object({ date: z.string().nullable(), daysLeft: z.number().int().nullable(), state: z.enum(['overdue', 'soon', 'ok', 'closed', 'none']) }).nullable(),
+            })),
+          })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => ({ items: await records.recordBacklinks(db, request.params.id) }));
 
   app.post('/register-records/:id/auto/:fieldId', {
     preHandler: edit,
@@ -378,7 +473,6 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
     }, async (request) => asRecord(await records.setRecordArchived(db, actorOf(request), request.params.id, request.body.version, archived)));
   }
 
-  const DateIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
   app.post('/register-records/:id/decisions', {
     preHandler: edit,
     schema: {
@@ -439,6 +533,29 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       .header('Content-Disposition', `attachment; filename="register.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
       .header('Cache-Control', 'no-store')
       .send(buffer);
+  });
+
+  app.get('/registers/:id/export.zip', {
+    preHandler: view,
+    schema: {
+      tags: ['register-excel'],
+      summary: 'Выгрузка для проверки: записи за период по полю-дате (с архивными) в Excel и файлы полей «Файл» одним zip',
+      params: IdParams,
+      querystring: z.object({
+        dateFieldId: z.string().uuid(),
+        from: DateIso.optional(),
+        to: DateIso.optional(),
+        nameFieldId: z.string().uuid().optional(),
+        linkFieldId: z.string().uuid().optional(),
+      }),
+    },
+  }, async (request, reply) => {
+    const { fileName, archive } = await exportZip(db, store, actorOf(request), request.params.id, request.query);
+    return reply
+      .header('Content-Type', 'application/zip')
+      .header('Content-Disposition', `attachment; filename="export.zip"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+      .header('Cache-Control', 'no-store')
+      .send(archive);
   });
 
   app.post('/registers/:id/imports', {

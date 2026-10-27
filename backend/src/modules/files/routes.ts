@@ -64,7 +64,11 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
     schema: {
       tags, summary: 'Метаданные файла и к чему он привязан (только если файл вам виден)', params: IdParams,
       response: {
-        200: FileOut.extend({ refs: z.array(z.object({ kind: z.enum(['evidence', 'decision', 'document_pdf']), id: z.string(), label: z.string() })) }),
+        200: FileOut.extend({
+          refs: z.array(z.object({ kind: z.enum(['evidence', 'decision', 'document_pdf', 'record']), id: z.string(), label: z.string() })),
+          /** Текст PDF для поиска (этап 8б); null — не PDF. */
+          text: z.object({ status: z.enum(['pending', 'text', 'no_text', 'failed']), pages: z.number().int().nullable() }).nullable(),
+        }),
         ...errors,
       },
     },

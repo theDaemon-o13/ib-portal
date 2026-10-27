@@ -99,7 +99,18 @@ function Deadline({ w }: { w: WidgetData }) {
   );
 }
 
-const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3' };
+/** «Доступ без основания» (сверка с DLP): главная цифра — устройства с открытым каналом без действующего разрешения. */
+function Basis({ w }: { w: WidgetData }) {
+  const big = <div className={`mono big-n${w.total ? ' tone-crit' : ''}`}>{num(w.total)}</div>;
+  return (
+    <div className="grid-gap">
+      {w.link ? <Link className="stat stat-link" to={w.link} aria-label={`Доступ без основания: ${w.total ?? 0}. Открыть`}>{big}</Link> : big}
+      <Stats w={w} />
+    </div>
+  );
+}
+
+const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3', basis: 'w6' };
 
 /** Виджет: свой запрос к серверу (кэш там же, 1 минута), обновление раз в минуту. */
 export function WidgetPanel({ w }: { w: WidgetRef }) {
@@ -118,6 +129,7 @@ export function WidgetPanel({ w }: { w: WidgetRef }) {
         {d && d.kind === 'metric' && <Stats w={d} />}
         {d && d.kind === 'timeline' && <Timeline rows={d.rows} />}
         {d && d.kind === 'deadline' && <Deadline w={d} />}
+        {d && d.kind === 'basis' && <Basis w={d} />}
       </div>
     </section>
   );

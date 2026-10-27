@@ -13,7 +13,11 @@ const IdParams = z.object({ id: z.string().uuid() });
 const Version = z.object({ version: z.number().int().positive() });
 
 const ConditionSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('before'), fieldId: z.string().uuid(), days: z.number().int().min(0).max(365) }),
+  z.object({ kind: z.literal('before'), fieldId: z.string().uuid(), days: z.number().int().min(0).max(365), skipYearEnd: z.boolean().optional() }),
+  /** Ежегодно ДД.ММ — сводная задача по реестру (этап 8б). */
+  z.object({ kind: z.literal('yearly'), month: z.number().int().min(1).max(12), day: z.number().int().min(1).max(31), statusOptionIds: z.array(z.string().uuid()).max(50).optional() }),
+  /** Канал открыт без действующего основания (поле link_basis). */
+  z.object({ kind: z.literal('basis_missing'), fieldId: z.string().uuid() }),
   z.object({
     kind: z.literal('overdue'),
     fieldId: z.string().uuid(),
@@ -29,19 +33,36 @@ const RecipientSchema = z.discriminatedUnion('kind', [
     .refine((r) => r.itemId || r.label, 'Укажите метку получателя'),
   z.object({ kind: z.literal('user'), userId: z.string().uuid(), name: z.string().optional() }),
 ]);
-const ActionSchema = z.object({
-  eventType: z.enum(EVENT_TYPES),
-  recipients: z.array(RecipientSchema).min(1).max(svc.MAX_RECIPIENTS),
+/** «Установить значение» (этап 8б): поле-список получает значение, если сейчас у него одно из fromOptionIds. */
+const SetOptionSchema = z.object({
+  eventType: z.literal('set_option'),
+  fieldId: z.string().uuid(),
+  optionId: z.string().uuid(),
+  fromOptionIds: z.array(z.string().uuid()).min(1).max(50),
+  recipients: z.array(z.never()).max(0),
 });
-const ActionOut = z.object({
-  eventType: z.enum(EVENT_TYPES),
-  recipients: z.array(z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('field'), fieldId: z.string() }),
-    /** missing — метки нет в справочнике: «получатель не найден», задачи по ней без ответственного. */
-    z.object({ kind: z.literal('label'), itemId: z.string().nullable(), label: z.string(), missing: z.boolean() }),
-    z.object({ kind: z.literal('user'), userId: z.string(), name: z.string().optional() }),
-  ])),
-});
+const ActionSchema = z.union([
+  z.object({
+    eventType: z.enum(EVENT_TYPES),
+    recipients: z.array(RecipientSchema).min(1).max(svc.MAX_RECIPIENTS),
+    /** Свой заголовок задачи; {год} — следующий год. */
+    title: z.string().trim().max(200).optional(),
+  }),
+  SetOptionSchema,
+]);
+const ActionOut = z.union([
+  z.object({
+    eventType: z.enum(EVENT_TYPES),
+    recipients: z.array(z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('field'), fieldId: z.string() }),
+      /** missing — метки нет в справочнике: «получатель не найден», задачи по ней без ответственного. */
+      z.object({ kind: z.literal('label'), itemId: z.string().nullable(), label: z.string(), missing: z.boolean() }),
+      z.object({ kind: z.literal('user'), userId: z.string(), name: z.string().optional() }),
+    ])),
+    title: z.string().optional(),
+  }),
+  SetOptionSchema,
+]);
 const Rule = z.object({
   id: z.string(),
   registerId: z.string(),
@@ -69,7 +90,8 @@ const Event = z.object({
   automationId: z.string(),
   when: z.string(),
   then: z.string(),
-  eventType: z.enum(EVENT_TYPES),
+  /** set_option — значение поставлено автоматически (этап 8б), задачи нет. */
+  eventType: z.enum([...EVENT_TYPES, 'set_option']),
   recipients: z.array(EventRecipient),
   triggerKey: z.string(),
   fireAt: z.string(),

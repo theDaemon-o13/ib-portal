@@ -21,7 +21,9 @@ import {
   type FieldMeta,
   type RegisterDef,
 } from '../registers/definition.js';
-import { baseSql, countRecords, EMPTY_VALUE, fieldValueSql, registerLink, type RecordFilter } from '../registers/filter.js';
+import { baseSql, closedSql, countRecords, EMPTY_VALUE, fieldValueSql, registerLink, type RecordFilter } from '../registers/filter.js';
+import { loadBasisSources } from '../registers/links.js';
+import { basisOf, isBasisRule } from '../../lib/link-basis.js';
 import { RISK_REGISTER_KEY } from '../risks/definition.js';
 import { overdueTaskWhere } from '../tasks/service.js';
 import { VULN_REGISTER_KEY } from '../vulns/definition.js';
@@ -107,7 +109,7 @@ export const DASHBOARD_KPIS: readonly KpiKey[] = KPI_KEYS.filter((k) => k !== 'v
 
 // ---------------------------------------------------------------- виджеты
 
-export type WidgetKind = 'distribution' | 'metric' | 'timeline' | 'deadline' | 'tile' | 'bars';
+export type WidgetKind = 'distribution' | 'metric' | 'timeline' | 'deadline' | 'tile' | 'bars' | 'basis';
 
 export interface WidgetRef {
   key: string;
@@ -176,7 +178,52 @@ export async function listWidgets(db: Db): Promise<WidgetRef[]> {
       source: f.register.name,
       registerId: f.registerId,
     }));
-  return [...fromFields, ...FIXED];
+  // Сверка с DLP (этап 8б): реестр с полями «статус основания» — виджет «Доступ без основания».
+  const basisRegs = await db.$queryRaw<{ id: string; name: string }[]>`
+    SELECT DISTINCT g.id::text, g.name, g.created_at FROM register_fields f JOIN registers g ON g.id = f.register_id
+    WHERE f.deleted_at IS NULL AND f.archived_at IS NULL AND g.archived_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis'
+    ORDER BY g.created_at`;
+  const basis = basisRegs.map((r) => ({ key: `basis:${r.id}`, title: 'Доступ без основания', kind: 'basis' as const, source: r.name, registerId: r.id }));
+  return [...basis, ...fromFields, ...FIXED];
+}
+
+/** Нет действующего основания: канал открыт, а разрешения нет или оно истекло. */
+const NO_BASIS = ['none', 'expired'];
+
+/**
+ * «Доступ без основания» (этап 8б): главная цифра — открытые записи, у которых хоть один канал без основания;
+ * по каналам — тот же фильтр, что в ссылке; «Истекают в этом месяце» — действующие разрешения со сроком до конца месяца.
+ */
+async function basisWidget(db: Db, registerId: string): Promise<WidgetData> {
+  const reg = await loadRegister(db, registerId);
+  const fields = reg.fields.filter((f) => !f.archived && isBasisRule(f.calcRule));
+  if (reg.archived || !fields.length) throw notFound('Виджет');
+  const today = todayIso();
+  const sources = await loadBasisSources(db, reg, null);
+  const rows = await db.$queryRaw<{ id: string; values: Values }[]>`
+    SELECT r.id::text, r."values" FROM register_records r WHERE ${baseSql(reg.id)} AND NOT ${closedSql(reg)}`;
+  const state = (f: FieldMeta, r: { id: string; values: Values }) => {
+    const rule = f.calcRule;
+    return isBasisRule(rule) ? basisOf(rule, r.id, r.values, sources.get(rule.sourceRegisterId) ?? [], today).state : 'closed';
+  };
+  const total = rows.filter((r) => fields.some((f) => NO_BASIS.includes(state(f, r)))).length;
+  const filterOf = (f: FieldMeta, values: string[]): RecordFilter => ({ state: 'open', field: { fieldId: f.id, values } });
+  const stats: WidgetStat[] = fields.map((f) => ({
+    label: f.label, value: rows.filter((r) => NO_BASIS.includes(state(f, r))).length, tone: 'crit', link: registerLink(reg.id, filterOf(f, NO_BASIS)),
+  }));
+  const rule = fields[0]?.calcRule;
+  if (isBasisRule(rule) && rule.untilFieldId) {
+    const src = await loadRegister(db, rule.sourceRegisterId);
+    const [y, m] = today.split('-').map(Number) as [number, number];
+    const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    const filter: RecordFilter = { state: 'open', date: { fieldId: rule.untilFieldId, from: today, to: monthEnd } };
+    stats.push({ label: `«${src.name}»: истекают в этом месяце`, value: await countRecords(db, src, filter), tone: 'high', link: registerLink(src.id, filter) });
+  }
+  const first = fields[0] as FieldMeta;
+  return {
+    key: `basis:${reg.id}`, title: 'Доступ без основания', kind: 'basis', source: reg.name, registerId: reg.id,
+    link: registerLink(reg.id, filterOf(first, NO_BASIS)), total, rows: [], stats, items: [],
+  };
 }
 
 /** Тон строки по системному значению критичности уязвимости (как цвета в прототипе). */
@@ -320,6 +367,8 @@ async function evidenceByState(db: Db): Promise<WidgetRow[]> {
 export async function widgetData(db: Db, key: string): Promise<WidgetData> {
   const fieldId = /^field:([0-9a-f-]{36})$/i.exec(key)?.[1];
   if (fieldId) return fieldWidget(db, fieldId);
+  const basisReg = /^basis:([0-9a-f-]{36})$/i.exec(key)?.[1];
+  if (basisReg) return basisWidget(db, basisReg);
   const fixed = FIXED.find((w) => w.key === key);
   if (!fixed) throw notFound('Виджет');
   const rows = key === 'tasks.categories' ? await tasksByCategory(db) : key === 'documents.status' ? await documentsByStatus(db) : await evidenceByState(db);

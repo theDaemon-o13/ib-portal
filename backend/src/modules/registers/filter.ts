@@ -2,13 +2,15 @@
 // поэтому число на дашборде совпадает с total списка по его ссылке.
 //   state=open|closed            — открытые / закрытые (по значению статуса с признаком «закрывает запись»)
 //   deadline=overdue,soon,…      — контроль сроков (в памяти: срок может быть вычисляемым, календарь РТ)
-//   f=<id поля>:<v1>,<v2>        — значение списка, справочника, сотрудника или решения ∈ {…}; empty — не заполнено
+//   f=<id поля>:<v1>,<v2>        — значение списка, справочника, сотрудника или решения ∈ {…}; empty — не заполнено;
+//                                  у статуса основания (link_basis) — ok, none, expired, closed (в памяти)
 //   date=<id поля>&from=&to=     — дата поля в интервале (включительно), ГГГГ-ММ-ДД
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { badRequest } from '../../lib/errors.js';
-import { isScoreRule, type Values } from '../../lib/register-values.js';
+import { basisOf, BASIS_STATES, isBasisRule } from '../../lib/link-basis.js';
+import { isDueRule, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import {
   calendarFor,
@@ -20,6 +22,7 @@ import {
   type FieldMeta,
   type RegisterDef,
 } from './definition.js';
+import { loadBasisSources } from './links.js';
 
 export const DEADLINE_STATES = ['overdue', 'soon', 'ok', 'closed', 'none'] as const satisfies readonly DeadlineState[];
 /** Значение фильтра «поле не заполнено» (для решения — «решения нет»). */
@@ -71,16 +74,18 @@ export function parseRecordFilter(reg: RegisterDef, q: RecordFilterParams): Reco
       throw badRequest('BAD_FILTER', 'Фильтр по полю: f=<id поля>:<значение>,<значение>');
     }
     const f = fieldOf(reg, fieldId, 'значение');
-    if (!FILTER_TYPES.has(f.type)) throw badRequest('BAD_FILTER', `По полю «${f.label}» фильтр по значению недоступен`);
+    const basis = isBasisRule(f.calcRule);
+    if (!FILTER_TYPES.has(f.type) && !basis) throw badRequest('BAD_FILTER', `По полю «${f.label}» фильтр по значению недоступен`);
     for (const v of values) {
-      if (v !== EMPTY_VALUE && !z.string().uuid().safeParse(v).success) throw badRequest('BAD_FILTER', `Фильтр по полю «${f.label}»: неизвестное значение`);
+      const known = basis ? (BASIS_STATES as readonly string[]).includes(v) : v === EMPTY_VALUE || z.string().uuid().safeParse(v).success;
+      if (!known) throw badRequest('BAD_FILTER', `Фильтр по полю «${f.label}»: неизвестное значение`);
     }
     out.field = { fieldId, values: [...new Set(values)] };
   }
   if (q.date || q.from || q.to) {
     if (!q.date) throw badRequest('BAD_FILTER', 'Фильтр по дате: укажите поле (date=<id поля>)');
     const f = fieldOf(reg, q.date, 'дата');
-    if (f.type !== 'date' && !(f.type === 'calc' && f.calcRule && !isScoreRule(f.calcRule))) {
+    if (f.type !== 'date' && !(f.type === 'calc' && isDueRule(f.calcRule))) {
       throw badRequest('BAD_FILTER', `«${f.label}» — не дата`);
     }
     if (q.from && q.to && q.from > q.to) throw badRequest('BAD_FILTER', 'Фильтр по дате: «с» позже «по»');
@@ -134,10 +139,11 @@ export function filterSql(reg: RegisterDef, filter: RecordFilter): Prisma.Sql {
   const parts: Prisma.Sql[] = [];
   if (filter.state === 'open') parts.push(Prisma.sql`NOT ${closedSql(reg)}`);
   if (filter.state === 'closed') parts.push(closedSql(reg));
-  if (filter.field) {
-    const f = reg.fields.find((x) => x.id === filter.field?.fieldId) as FieldMeta;
-    const ids = filter.field.values.filter((v) => v !== EMPTY_VALUE);
-    const wantsEmpty = filter.field.values.includes(EMPTY_VALUE);
+  const fieldFilter = filter.field && !isBasisRule(reg.fields.find((x) => x.id === filter.field?.fieldId)?.calcRule) ? filter.field : null;
+  if (fieldFilter) {
+    const f = reg.fields.find((x) => x.id === fieldFilter.fieldId) as FieldMeta;
+    const ids = fieldFilter.values.filter((v) => v !== EMPTY_VALUE);
+    const wantsEmpty = fieldFilter.values.includes(EMPTY_VALUE);
     const value = fieldValueSql(f);
     const conds: Prisma.Sql[] = [];
     if (ids.length) conds.push(Prisma.sql`${value} = ANY(${ids}::text[])`);
@@ -157,18 +163,23 @@ export function filterSql(reg: RegisterDef, filter: RecordFilter): Prisma.Sql {
 }
 
 /**
- * Условия, которые считаются в памяти: контроль сроков и вычисляемая дата (календарь РТ).
- * null — фильтровать в памяти нечего.
+ * Условия, которые считаются в памяти: контроль сроков, вычисляемая дата (календарь РТ) и статус основания
+ * (записи другого реестра). null — фильтровать в памяти нечего.
  */
-export async function filterInMemory(db: Db, reg: RegisterDef, filter: RecordFilter): Promise<((values: Values) => boolean) | null> {
+export async function filterInMemory(db: Db, reg: RegisterDef, filter: RecordFilter): Promise<((values: Values, id: string) => boolean) | null> {
   const dateField = filter.date ? (reg.fields.find((x) => x.id === filter.date?.fieldId) as FieldMeta) : null;
   const calcDate = dateField && dateField.type === 'calc' ? dateField : null;
-  if (!filter.deadline?.length && !calcDate) return null;
+  const basisField = filter.field ? reg.fields.find((x) => x.id === filter.field?.fieldId && isBasisRule(x.calcRule)) : undefined;
+  if (!filter.deadline?.length && !calcDate && !basisField) return null;
   const calendar = await calendarFor(db, reg);
   const today = todayIso();
   const dl = deadlineField(reg);
   const wanted = new Set(filter.deadline ?? []);
-  return (values) => {
+  const basisRule = basisField && isBasisRule(basisField.calcRule) ? basisField.calcRule : null;
+  const sources = basisRule ? (await loadBasisSources(db, reg, null)).get(basisRule.sourceRegisterId) ?? [] : [];
+  const basisWanted = new Set(filter.field?.values ?? []);
+  return (values, id) => {
+    if (basisRule && !basisWanted.has(basisOf(basisRule, id, values, sources, today).state)) return false;
     if (wanted.size && dl) {
       const state = deadlineState(dateOf(reg, dl, values, calendar), isClosed(reg, values), today).state;
       if (!wanted.has(state)) return false;
@@ -197,6 +208,6 @@ export async function countRecords(db: Db, reg: RegisterDef, filter: RecordFilte
     const [row] = await db.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM register_records r WHERE ${where}`;
     return Number(row?.n ?? 0);
   }
-  const rows = await db.$queryRaw<{ values: Values }[]>`SELECT r."values" FROM register_records r WHERE ${where}`;
-  return rows.filter((r) => post(r.values)).length;
+  const rows = await db.$queryRaw<{ id: string; values: Values }[]>`SELECT r.id::text, r."values" FROM register_records r WHERE ${where}`;
+  return rows.filter((r) => post(r.values, r.id)).length;
 }

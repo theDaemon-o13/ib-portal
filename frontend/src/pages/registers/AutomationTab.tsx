@@ -5,22 +5,31 @@ import { registersApi, type AutomationRule, type RegisterDetail, type RuleAction
 import { settingsApi } from '../../api/settings';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
-import { EVENT_TYPE_NAMES, formatDate, isScoreRule } from './logic';
+import { EVENT_TYPE_NAMES, formatDate, isBasisRule, isScoreRule } from './logic';
 
 type CondKind = RuleCondition['kind'];
-type Recipient = RuleAction['recipients'][number];
+type Recipient = Extract<RuleAction, { eventType: 'remind' | 'notify' | 'escalate' }>['recipients'][number];
 
 const RECIPIENTS = 'notify_recipients';
 
-const EVENT_TONE: Record<string, string> = { remind: 'info', notify: 'high', escalate: 'crit' };
+const EVENT_TONE: Record<string, string> = { remind: 'info', notify: 'high', escalate: 'crit', set_option: 'acc' };
 
-/** Новое правило: условие (за N дней до даты / дата просрочена / поле = значение) → событие получателям. */
+type TaskAction = Extract<RuleAction, { recipients: { kind: string }[] }> & { eventType: 'remind' | 'notify' | 'escalate' };
+
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+/**
+ * Новое правило: условие (за N дней до даты / дата просрочена / поле = значение / ежегодно / канал без основания)
+ * → задачи получателям или «установить значение».
+ */
 function RuleForm({ reg }: { reg: RegisterDetail }) {
   const live = reg.fields.filter((f) => !f.archived);
-  const dates = live.filter((f) => f.type === 'date' || (f.type === 'calc' && !isScoreRule(f.calcRule)));
+  const dates = live.filter((f) => f.type === 'date' || (f.type === 'calc' && !isScoreRule(f.calcRule) && !isBasisRule(f.calcRule)));
   const selects = live.filter((f) => f.type === 'select');
+  const basisFields = live.filter((f) => f.type === 'calc' && isBasisRule(f.calcRule));
+  const status = live.find((f) => f.isStatus);
   const users = live.filter((f) => f.type === 'user');
-  const fillable = live.filter((f) => f.type !== 'calc' && f.type !== 'decision');
+  const fillable = live.filter((f) => f.type !== 'calc' && f.type !== 'decision' && f.type !== 'file');
   const people = useQuery({ queryKey: rkeys.userOptions, queryFn: settingsApi.userOptions });
   // Метки — из справочника «Получатели уведомлений»: за меткой стоят пользователи и e-mail.
   const labels = useQuery({ queryKey: ['settings', 'items', RECIPIENTS, 'active'], queryFn: () => settingsApi.items(RECIPIENTS, false) });
@@ -29,18 +38,30 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   const [fieldId, setFieldId] = useState('');
   const [optionId, setOptionId] = useState('');
   const [days, setDays] = useState('3');
+  const [skipYearEnd, setSkipYearEnd] = useState(false);
   const [workdays, setWorkdays] = useState('');
   const [unless, setUnless] = useState('');
-  const [eventType, setEventType] = useState<RuleAction['eventType']>('remind');
+  const [month, setMonth] = useState('12');
+  const [day, setDay] = useState('1');
+  const [statusIds, setStatusIds] = useState<string[]>([]);
+  const [eventType, setEventType] = useState<TaskAction['eventType'] | 'set_option'>('remind');
+  const [title, setTitle] = useState('');
+  const [setField, setSetField] = useState('');
+  const [setTo, setSetTo] = useState('');
+  const [setFrom, setSetFrom] = useState<string[]>([]);
   const [recipients, setRecipients] = useState<Recipient[]>(users[0] ? [{ kind: 'field', fieldId: users[0].id }] : []);
 
-  const pool = kind === 'equals' ? selects : dates;
+  const pool = kind === 'equals' ? selects : kind === 'basis_missing' ? basisFields : dates;
   const field = pool.find((f) => f.id === fieldId) ?? pool[0];
   const option = field?.options.filter((o) => !o.archived).find((o) => o.id === optionId) ?? field?.options.find((o) => !o.archived);
+  const target = selects.find((f) => f.id === setField) ?? status ?? selects[0];
+  const setOption = eventType === 'set_option';
 
   const condition = (): RuleCondition | null => {
+    if (kind === 'yearly') return { kind, month: Number(month), day: Number(day), ...(statusIds.length ? { statusOptionIds: statusIds } : {}) };
     if (!field) return null;
-    if (kind === 'before') return { kind, fieldId: field.id, days: Math.max(0, Math.trunc(Number(days) || 0)) };
+    if (kind === 'basis_missing') return { kind, fieldId: field.id };
+    if (kind === 'before') return { kind, fieldId: field.id, days: Math.max(0, Math.trunc(Number(days) || 0)), ...(skipYearEnd ? { skipYearEnd } : {}) };
     if (kind === 'overdue') {
       return {
         kind, fieldId: field.id,
@@ -50,10 +71,13 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
     }
     return option ? { kind, fieldId: field.id, optionId: option.id } : null;
   };
+  const action = (): RuleAction => (setOption
+    ? { eventType: 'set_option', fieldId: target?.id ?? '', optionId: setTo || (target?.options.find((o) => !o.archived)?.id ?? ''), fromOptionIds: setFrom, recipients: [] }
+    : { eventType, recipients, ...(title.trim() ? { title: title.trim() } : {}) });
   const create = useAction(() => {
     const c = condition();
     if (!c) throw new Error('Выберите поле условия');
-    return registersApi.createRule(reg.id, { condition: c, action: { eventType, recipients } });
+    return registersApi.createRule(reg.id, { condition: c, action: action() });
   }, {
     invalidate: [rkeys.rules(reg.id)],
     success: (r) => `Правило добавлено: ${r.when} → ${r.then}`,
@@ -66,29 +90,49 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   };
   const recipientName = (r: Recipient) => (r.kind === 'field' ? `${reg.fields.find((f) => f.id === r.fieldId)?.label ?? '?'} (из записи)`
     : r.kind === 'user' ? (r.name ?? 'сотрудник') : (r.label ?? ''));
+  const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(undefined); };
 
-  if (!dates.length && !selects.length) {
-    return <div className="hint pad">Для правил нужно поле-дата, вычисляемый срок или список.</div>;
+  if (!dates.length && !selects.length && !basisFields.length) {
+    return <div className="hint pad">Для правил нужно поле-дата, вычисляемый срок, список или статус основания.</div>;
   }
   return (
     <form className="rule-form" onSubmit={submit} aria-label="Новое правило">
       <label>Условие
-        <select className="inp" value={kind} onChange={(e) => { setKind(e.target.value as CondKind); setFieldId(''); }} aria-label="Условие">
+        <select className="inp" value={kind} onChange={(e) => { const k = e.target.value as CondKind; setKind(k); setFieldId(''); if (k === 'yearly' && setOption) setEventType('notify'); }} aria-label="Условие">
           {dates.length > 0 && <option value="before">За N дней до даты</option>}
           {dates.length > 0 && <option value="overdue">Дата просрочена</option>}
           {selects.length > 0 && <option value="equals">Поле = значение</option>}
+          <option value="yearly">Ежегодно — сводная задача</option>
+          {basisFields.length > 0 && <option value="basis_missing">Канал открыт без основания</option>}
         </select>
       </label>
-      <label>Поле
-        <select className="inp" value={field?.id ?? ''} onChange={(e) => { setFieldId(e.target.value); setOptionId(''); }} aria-label="Поле условия">
-          {pool.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
-      </label>
-      {kind === 'before' && (
-        <label>За дней
-          <input className="inp" type="number" min={0} max={365} value={days} onChange={(e) => setDays(e.target.value)} aria-label="За сколько дней" />
+      {kind === 'yearly' ? (
+        <label>День
+          <span className="row nowrap">
+            <input className="inp" type="number" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} aria-label="День месяца" />
+            <select className="inp" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Месяц">
+              {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+          </span>
         </label>
+      ) : (
+        <label>Поле
+          <select className="inp" value={field?.id ?? ''} onChange={(e) => { setFieldId(e.target.value); setOptionId(''); }} aria-label="Поле условия">
+            {pool.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+        </label>
+      )}
+      {kind === 'before' && (
+        <>
+          <label>За дней
+            <input className="inp" type="number" min={0} max={365} value={days} onChange={(e) => setDays(e.target.value)} aria-label="За сколько дней" />
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={skipYearEnd} onChange={(e) => setSkipYearEnd(e.target.checked)} />
+            кроме дат 31.12
+          </label>
+        </>
       )}
       {kind === 'overdue' && (
         <>
@@ -110,39 +154,71 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
           </select>
         </label>
       )}
+      {kind === 'yearly' && status && (
+        <div className="span-all row">
+          <span className="hint">В списке — открытые записи{statusIds.length ? ' со статусом:' : '. Только со статусом:'}</span>
+          {status.options.filter((o) => !o.archived).map((o) => (
+            <label key={o.id} className="check"><input type="checkbox" checked={statusIds.includes(o.id)} onChange={() => setStatusIds(toggle(statusIds, o.id))} />{o.label}</label>
+          ))}
+        </div>
+      )}
       <label>Действие
-        <select className="inp" value={eventType} onChange={(e) => setEventType(e.target.value as RuleAction['eventType'])} aria-label="Действие">
-          {Object.entries(EVENT_TYPE_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        <select className="inp" value={eventType} onChange={(e) => setEventType(e.target.value as typeof eventType)} aria-label="Действие">
+          {Object.entries(EVENT_TYPE_NAMES).filter(([k]) => k !== 'set_option' || (kind !== 'yearly' && selects.length > 0)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </label>
-      <div className="span-all grid-gap">
-        <div className="eyebrow">Кому</div>
-        <div className="cover">
-          {recipients.map((r, i) => (
-            <span key={i} className="chip acc">
-              {recipientName(r)}
-              <button type="button" className="chip-x" aria-label={`Убрать ${recipientName(r)}`} onClick={() => setRecipients(recipients.filter((_, j) => j !== i))}>×</button>
-            </span>
+      {setOption ? (
+        <div className="span-all row">
+          <label>Поле
+            <select className="inp" value={target?.id ?? ''} onChange={(e) => { setSetField(e.target.value); setSetTo(''); setSetFrom([]); }} aria-label="Какое поле изменить">
+              {selects.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          </label>
+          <label>Поставить
+            <select className="inp" value={setTo} onChange={(e) => setSetTo(e.target.value)} aria-label="Новое значение">
+              {target?.options.filter((o) => !o.archived).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </label>
+          <span className="hint">если сейчас:</span>
+          {target?.options.filter((o) => !o.archived).map((o) => (
+            <label key={o.id} className="check"><input type="checkbox" checked={setFrom.includes(o.id)} onChange={() => setSetFrom(toggle(setFrom, o.id))} />{o.label}</label>
           ))}
-          {recipients.length === 0 && <span className="hint">Добавьте хотя бы одного получателя</span>}
         </div>
-        <div className="row">
-          {users.map((f) => <button key={f.id} type="button" className="btn sm" onClick={() => addRecipient({ kind: 'field', fieldId: f.id })}>+ {f.label}</button>)}
-          {labels.data?.items.map((l) => (
-            <button key={l.id} type="button" className="btn sm" title={l.members.length || l.emails.length ? [...l.members.map((m) => m.fullName), ...l.emails].join(', ') : 'У метки пока нет участников — задача будет без ответственного'}
-              onClick={() => addRecipient({ kind: 'label', itemId: l.id, label: l.value })}>+ {l.value}</button>
-          ))}
-          <select className="inp" value="" aria-label="Сотрудник-получатель"
-            onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'user', userId: u.id, name: u.fullName }); }}>
-            <option value="">+ сотрудник…</option>
-            {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-          </select>
-        </div>
-        <div className="hint">Кто стоит за меткой — в «Настройки → Справочники → Получатели уведомлений». «Владелец системы» — из справочника «Системы» по полю «Система» записи.</div>
-      </div>
+      ) : (
+        <>
+          <label>Заголовок задачи
+            <input className="inp" placeholder={kind === 'yearly' ? 'Продление разрешений на {год}' : 'по умолчанию — из условия'} value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Заголовок задачи" />
+          </label>
+          <div className="span-all grid-gap">
+            <div className="eyebrow">Кому</div>
+            <div className="cover">
+              {recipients.map((r, i) => (
+                <span key={i} className="chip acc">
+                  {recipientName(r)}
+                  <button type="button" className="chip-x" aria-label={`Убрать ${recipientName(r)}`} onClick={() => setRecipients(recipients.filter((_, j) => j !== i))}>×</button>
+                </span>
+              ))}
+              {recipients.length === 0 && <span className="hint">Добавьте хотя бы одного получателя</span>}
+            </div>
+            <div className="row">
+              {kind !== 'yearly' && users.map((f) => <button key={f.id} type="button" className="btn sm" onClick={() => addRecipient({ kind: 'field', fieldId: f.id })}>+ {f.label}</button>)}
+              {labels.data?.items.map((l) => (
+                <button key={l.id} type="button" className="btn sm" title={l.members.length || l.emails.length ? [...l.members.map((m) => m.fullName), ...l.emails].join(', ') : 'У метки пока нет участников — задача будет без ответственного'}
+                  onClick={() => addRecipient({ kind: 'label', itemId: l.id, label: l.value })}>+ {l.value}</button>
+              ))}
+              <select className="inp" value="" aria-label="Сотрудник-получатель"
+                onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'user', userId: u.id, name: u.fullName }); }}>
+                <option value="">+ сотрудник…</option>
+                {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+              </select>
+            </div>
+            <div className="hint">Кто стоит за меткой — в «Настройки → Справочники → Получатели уведомлений». «Владелец системы» — из справочника «Системы» по полю «Система» записи. {'{год}'} в заголовке — следующий год.</div>
+          </div>
+        </>
+      )}
       <div className="span-all row">
-        <button className="btn primary" type="submit" disabled={create.isPending || recipients.length === 0 || !field}>Добавить правило</button>
-        <span className="hint">Сработавшее правило создаёт задачи получателям; если по той же записи задача ещё открыта — добавляет в неё комментарий.</span>
+        <button className="btn primary" type="submit" disabled={create.isPending || (!setOption && recipients.length === 0) || (setOption && !setFrom.length) || (kind !== 'yearly' && !field)}>Добавить правило</button>
+        <span className="hint">{setOption ? 'Значение ставится автоматически, в истории записи — от имени системы.' : 'Сработавшее правило создаёт задачи получателям; если по той же записи задача ещё открыта — добавляет в неё комментарий.'}</span>
       </div>
     </form>
   );

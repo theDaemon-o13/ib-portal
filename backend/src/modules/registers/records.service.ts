@@ -1,7 +1,8 @@
 // Записи реестров (права records.edit и records.delete).
 import { Prisma } from '@prisma/client';
 import { withTx, type Db } from '../../lib/db.js';
-import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { badRequest, conflict, notFound, unprocessable, versionConflict } from '../../lib/errors.js';
+import { isBasisRule } from '../../lib/link-basis.js';
 import {
   calcValue,
   displayValue,
@@ -31,11 +32,14 @@ import {
   searchTextOf,
   toRecordDtos,
   userIdsIn,
+  recordLocks,
   type FieldMeta,
   type RecordDto,
   type RegisterDef,
 } from './definition.js';
 import { baseSql, filterInMemory, filterSql, type RecordFilter } from './filter.js';
+import { linkFieldsTo, linkIdsIn, linkLabels, loadBasisSources, loadLinkRefs, recordsLinkingTo } from './links.js';
+import { applyDateDefaults, dateErrors, linkErrors, lockErrors, type RuleError } from './record-rules.js';
 
 const recordSelect = {
   id: true, number: true, values: true, version: true, archivedAt: true, createdAt: true, updatedAt: true, manualFieldIds: true,
@@ -70,11 +74,11 @@ const STATE_RANK = { overdue: 0, soon: 1, ok: 2, closed: 3, none: 4 } as const;
  * внутри группы — по дате срока. Реестр читается целиком (только id и значения): тысячи строк — это быстро.
  */
 async function idsSortedInMemory(
-  db: Db, reg: RegisterDef, where: Prisma.Sql, sort: string, dir: 'asc' | 'desc', keep: ((values: Values) => boolean) | null,
+  db: Db, reg: RegisterDef, where: Prisma.Sql, sort: string, dir: 'asc' | 'desc', keep: ((values: Values, id: string) => boolean) | null,
 ): Promise<string[]> {
   const all = await db.$queryRaw<{ id: string; number: number; values: Values }[]>`
     SELECT r.id, r.number, r."values" FROM register_records r WHERE ${where}`;
-  const rows = keep ? all.filter((r) => keep(r.values)) : all;
+  const rows = keep ? all.filter((r) => keep(r.values, r.id)) : all;
   const calendar = await calendarFor(db, reg);
   const sign = dir === 'asc' ? 1 : -1;
   let keyed: { id: string; number: number; a: number; b: string | number | null }[];
@@ -89,9 +93,12 @@ async function idsSortedInMemory(
     keyed.sort((x, y) => x.a - y.a || cmp(x.b, y.b) * sign || y.number - x.number);
   } else {
     const field = reg.fields.find((f) => f.id === sort) as FieldMeta;
+    const basisSources = isBasisRule(field.calcRule) ? await loadBasisSources(db, reg, null) : undefined;
+    const today = todayIso();
     keyed = rows.map((r) => {
-      const v = field.calcRule ? calcValue(field.calcRule, r.values, { fields: reg.fields, calendar }) : null;
-      return { id: r.id, number: r.number, a: v === null ? 1 : 0, b: v };
+      const v = field.calcRule ? calcValue(field.calcRule, r.values, { fields: reg.fields, calendar, recordId: r.id, basisSources, today }) : null;
+      const b = Array.isArray(v) ? null : v;
+      return { id: r.id, number: r.number, a: b === null ? 1 : 0, b };
     });
     keyed.sort((x, y) => x.a - y.a || cmp(x.b, y.b) * sign || y.number - x.number);
   }
@@ -144,7 +151,7 @@ export async function listRecords(db: Db, registerId: string, q: ListQuery) {
       ? await idsSortedInMemory(db, reg, where, q.sort, q.dir ?? 'asc', keep)
       : (await db.$queryRaw<{ id: string; values: Values }[]>`
           SELECT r.id, r."values" FROM register_records r WHERE ${where}
-          ORDER BY ${orderExpr(reg, q.sort)} ${dir} NULLS LAST, r.number DESC`).filter((r) => keep?.(r.values) ?? true).map((r) => r.id);
+          ORDER BY ${orderExpr(reg, q.sort)} ${dir} NULLS LAST, r.number DESC`).filter((r) => keep?.(r.values, r.id) ?? true).map((r) => r.id);
     total = all.length;
     ids = all.slice(offset, offset + q.limit + 1).map((id) => ({ id }));
   } else {
@@ -233,13 +240,45 @@ function applyInput(
   return { values, changed };
 }
 
-function describeChanges(reg: RegisterDef, before: Values, after: Values, fields: FieldMeta[], users: ReadonlyMap<string, UserRef>): Change[] {
+function describeChanges(
+  reg: RegisterDef, before: Values, after: Values, fields: FieldMeta[], users: ReadonlyMap<string, UserRef>, links?: ReadonlyMap<string, string>,
+): Change[] {
   return fields.map((f) => ({
     fieldId: f.id,
     label: f.label,
-    from: displayValue(f, before[f.id], { users }),
-    to: displayValue(f, after[f.id], { users }),
+    from: displayValue(f, before[f.id], { users, links }),
+    to: displayValue(f, after[f.id], { users, links }),
   }));
+}
+
+/** Нарушения правил записи → ошибка: фиксация — 422, неверные значения — 400. */
+function throwRuleErrors(errors: RuleError[]): void {
+  if (!errors.length) return;
+  const message = errors.map((e) => e.message).join('. ');
+  const first = errors.find((e) => e.code !== 'INVALID_VALUES');
+  if (first) throw unprocessable(first.code, message, { fieldIds: errors.map((e) => e.fieldId).filter(Boolean) });
+  throw badRequest('INVALID_VALUES', message);
+}
+
+/** Подписи связанных записей (до и после) — для истории и текста поиска. */
+async function linkLabelsFor(tx: Db, reg: RegisterDef, values: Values[]) {
+  return linkLabels(await loadLinkRefs(tx, linkIdsIn(reg, values)));
+}
+
+/** Сменился заголовок записи — пересчитать текст поиска у записей, которые на неё ссылаются. */
+async function recomputeBacklinkSearch(tx: Db, reg: RegisterDef, recordId: string): Promise<void> {
+  for (const f of await linkFieldsTo(tx, reg.id)) {
+    const ids = (await recordsLinkingTo(tx, f.id, recordId)).map((r) => r.id);
+    if (!ids.length) continue;
+    const src = await loadRegister(tx, f.registerId);
+    const rows = await tx.registerRecord.findMany({ where: { id: { in: ids } }, select: { id: true, number: true, values: true } });
+    const values = rows.map((r) => r.values as Values);
+    const users = await loadUsers(tx, userIdsIn(src, values));
+    const links = await linkLabelsFor(tx, src, values);
+    for (const r of rows) {
+      await tx.registerRecord.update({ where: { id: r.id }, data: { searchText: searchTextOf(src, r.number, r.values as Values, users, links) } });
+    }
+  }
 }
 
 /** Ключ импорта уникален среди неудалённых записей (индекс в БД); здесь — понятная ошибка до записи. */
@@ -272,14 +311,18 @@ export async function createRecord(db: Db, actor: Actor, registerId: string, inp
     const status = reg.fields.find((f) => f.isStatus && !f.archived);
     const firstStatus = status?.options.find((o) => !o.archived);
     if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
+    const defaults = applyDateDefaults(reg, values, todayIso());
+    const set = [...input0.changed.map((f) => f.id), ...defaults];
+    throwRuleErrors([...dateErrors(reg, values, set), ...(await linkErrors(tx, reg, values, set))]);
     await assertImportKeyFree(tx, reg, values, null);
     const number = await nextNumbers(tx, registerId, 1);
     const users = await loadUsers(tx, userIdsIn(reg, [values]));
+    const links = await linkLabelsFor(tx, reg, [values]);
     const row = await tx.registerRecord.create({
-      data: { registerId, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users) },
+      data: { registerId, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users, links) },
       select: recordSelect,
     });
-    const changes = describeChanges(reg, {}, values, reg.fields.filter((f) => values[f.id] !== undefined), users);
+    const changes = describeChanges(reg, {}, values, reg.fields.filter((f) => values[f.id] !== undefined), users, links);
     await auditSettings(tx, actor, {
       action: 'register_record.created', entity: 'register_record', entityId: row.id,
       summary: `«${reg.name}»: создана запись #${number}`,
@@ -290,7 +333,13 @@ export async function createRecord(db: Db, actor: Actor, registerId: string, inp
   });
 }
 
-export async function updateRecord(db: Db, actor: Actor, id: string, input: { version: number; values: Record<string, unknown> }) {
+export const REASON_MAX = 1000;
+
+/**
+ * Изменить запись. reason — причина изменения поля, которое при текущем статусе меняется только с причиной
+ * (этап 8б: «Устройства» действующего разрешения); пишется в историю записи и журнал.
+ */
+export async function updateRecord(db: Db, actor: Actor, id: string, input: { version: number; values: Record<string, unknown>; reason?: string | null }) {
   return withTx(db, async (tx) => {
     const row = await getRecordRow(tx, id);
     const reg = await loadRegister(tx, row.registerId);
@@ -309,22 +358,36 @@ export async function updateRecord(db: Db, actor: Actor, id: string, input: { ve
     });
     const changed = [...edited.changed, ...reg.fields.filter((f) => derived.includes(f.id) && !edited.changed.includes(f))]
       .filter((f) => !sameValue(current[f.id], values[f.id]));
+    const changedIds = changed.map((f) => f.id);
+    const reason = input.reason?.trim().slice(0, REASON_MAX) || null;
+    throwRuleErrors([
+      ...lockErrors(reg, current, values, changedIds, reason),
+      ...dateErrors(reg, values, changedIds),
+      ...(await linkErrors(tx, reg, values, changedIds)),
+    ]);
+    // Причина пишется, только если она требовалась (поле «с причиной» при фиксирующем статусе).
+    const locks = recordLocks(reg, current);
+    const needsReason = changedIds.some((fid) => locks.get(fid) === 'reason');
     await assertImportKeyFree(tx, reg, values, id);
     const users = await loadUsers(tx, userIdsIn(reg, [current, values]));
+    const links = await linkLabelsFor(tx, reg, [current, values]);
     const res = await tx.registerRecord.updateMany({
       where: { id, version: input.version, deletedAt: null },
       data: {
-        values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, row.number, values, users), version: { increment: 1 },
+        values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, row.number, values, users, links), version: { increment: 1 },
       },
     });
     await ensureVersioned(res.count, () => tx.registerRecord.findFirst({ where: { id, deletedAt: null } }), 'Запись');
-    const changes = describeChanges(reg, current, values, changed, users);
+    const changes = describeChanges(reg, current, values, changed, users, links);
     const manualNote = manualFieldIds.length !== row.manualFieldIds.length ? '; критичность — ' + (manualFieldIds.length > row.manualFieldIds.length ? 'вручную' : 'автоматически') : '';
+    const reasonNote = needsReason && reason ? `; причина: ${reason}` : '';
     await auditSettings(tx, actor, {
       action: 'register_record.updated', entity: 'register_record', entityId: id,
-      summary: `«${reg.name}», запись #${row.number}: ${changes.map((c) => `«${c.label}»`).join(', ') || 'без изменений значений'}${manualNote}`,
-      after: { changes, ...(derived.length ? { derived } : {}) },
+      summary: `«${reg.name}», запись #${row.number}: ${changes.map((c) => `«${c.label}»`).join(', ') || 'без изменений значений'}${manualNote}${reasonNote}`,
+      after: { changes, ...(derived.length ? { derived } : {}), ...(needsReason && reason ? { reason } : {}) },
     });
+    const title = reg.fields.find((f) => f.isTitle);
+    if (title && changedIds.includes(title.id)) await recomputeBacklinkSearch(tx, reg, id);
     return getRecord(tx, id);
   });
 }
@@ -387,6 +450,9 @@ export async function deleteRecord(db: Db, actor: Actor, id: string, version: nu
     const reg = await loadRegister(tx, row.registerId);
     assertNotArchived(reg);
     if (row.version !== version) throw versionConflict();
+    if (recordLocks(reg, (row.values ?? {}) as Values).size) {
+      throw unprocessable('RECORD_LOCKED', 'Запись с зафиксированными полями не удаляется: она хранится навсегда. Её можно отправить в архив');
+    }
     const decisions = await tx.registerDecision.count({ where: { recordId: id } });
     if (decisions > 0) throw conflict('HAS_DECISIONS', 'По записи есть решения другого отдела — её можно только отправить в архив');
     const evidence = await tx.evidence.count({ where: { recordId: id, deletedAt: null } });
@@ -413,7 +479,7 @@ export async function recordHistory(db: Db, id: string) {
     take: 200,
   });
   return rows.map((r) => {
-    const diff = (r.diff ?? {}) as { summary?: string; after?: { changes?: Change[]; via?: string } };
+    const diff = (r.diff ?? {}) as { summary?: string; after?: { changes?: Change[]; via?: string; reason?: string } };
     return {
       id: r.id.toString(),
       at: r.at.toISOString(),
@@ -422,8 +488,43 @@ export async function recordHistory(db: Db, id: string) {
       summary: diff.summary ?? r.action,
       via: diff.after?.via ?? null,
       changes: diff.after?.changes ?? [],
+      reason: diff.after?.reason ?? null,
     };
   });
 }
 
 export type { StoredValue };
+
+/**
+ * Обратные связи записи (этап 8б): записи других реестров, которые ссылаются на неё полем «Связь с записью»,
+ * со статусом и сроком — например, разрешения в карточке устройства.
+ */
+export async function recordBacklinks(db: Db, id: string) {
+  const row = await getRecordRow(db, id);
+  const groups = [];
+  for (const f of await linkFieldsTo(db, row.registerId)) {
+    const ids = (await recordsLinkingTo(db, f.id, id)).map((r) => r.id);
+    if (!ids.length) continue;
+    const src = await loadRegister(db, f.registerId);
+    const rows = await db.registerRecord.findMany({ where: { id: { in: ids } }, select: recordSelect, orderBy: { number: 'desc' } });
+    const dtos = await toRecordDtos(db, src, rows);
+    const title = src.fields.find((x) => x.isTitle);
+    const status = src.fields.find((x) => x.isStatus);
+    groups.push({
+      registerId: src.id,
+      registerName: src.name,
+      fieldId: f.id,
+      fieldLabel: f.label,
+      items: dtos.map((d) => ({
+        id: d.id,
+        number: d.number,
+        title: title ? d.display[title.id] ?? '' : '',
+        status: status ? d.display[status.id] ?? '' : '',
+        closed: d.closed,
+        archived: d.archived,
+        deadline: d.deadline,
+      })),
+    });
+  }
+  return groups;
+}

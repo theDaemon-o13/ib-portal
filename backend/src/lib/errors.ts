@@ -29,3 +29,6 @@ export const versionConflict = () =>
 export const conflict = (code: string, message: string) => new AppError(409, code, message);
 
 export const badRequest = (code: string, message: string) => new AppError(400, code, message);
+
+/** Запрос понятен, но правило не даёт его выполнить: зафиксированное поле, нужна причина (этап 8б). */
+export const unprocessable = (code: string, message: string, details?: Record<string, unknown>) => new AppError(422, code, message, details);

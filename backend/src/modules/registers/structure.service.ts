@@ -1,5 +1,5 @@
 // Структура реестров (право registers.manage): реестры, поля, варианты списков, смена типа поля.
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
@@ -8,6 +8,7 @@ import {
   displayValue,
   fromText,
   toText,
+  isDueRule,
   isScoreRule,
   typeChangeKind,
   type AnalyticsRole,
@@ -17,6 +18,8 @@ import {
   type StoredValue,
   type Values,
 } from '../../lib/register-values.js';
+import { compactSettings, LOCK_MODES, type FieldSettings } from '../../lib/field-settings.js';
+import { isBasisRule, type BasisRule } from '../../lib/link-basis.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import {
   assertNotArchived,
@@ -34,7 +37,7 @@ import {
 
 const TYPE_NAMES: Record<FieldType, string> = {
   text: 'Текст', select: 'Список', number: 'Число', date: 'Дата', user: 'Сотрудник', calc: 'Вычисляемое', decision: 'Решение другого отдела',
-  catalog: 'Значение справочника',
+  catalog: 'Значение справочника', file: 'Файл', link: 'Связь с записью',
 };
 
 /** Справочники для поля «Значение справочника»: обычные списки значений (не статусы, правила почты и метки). */
@@ -226,9 +229,59 @@ function validateCalcRule(reg: RegisterDef, rule: DueDateRule, selfId?: string):
   return out;
 }
 
+/**
+ * Статус основания (сверка с DLP): канал этой записи и разрешения из другого реестра, которые ссылаются на неё
+ * полем «Связь с записью». Все поля источника — живые поля нужных типов.
+ */
+async function validateBasisRule(db: Db, reg: RegisterDef, rule: BasisRule, selfId?: string): Promise<BasisRule> {
+  const bad = (m: string) => badRequest('BAD_CALC_RULE', m);
+  const channel = reg.fields.find((f) => f.id === rule.channelFieldId && !f.archived && f.id !== selfId);
+  if (!channel || channel.type !== 'select') throw bad('Выберите поле-список канала доступа');
+  const closed = [...new Set(rule.closedOptionIds)];
+  if (closed.some((id) => !channel.options.some((o) => o.id === id))) throw bad('«Закрыто» — значения поля канала');
+  if (rule.sourceRegisterId === reg.id) throw bad('Разрешения берутся из другого реестра');
+  const src = await loadRegister(db, rule.sourceRegisterId).catch(() => null);
+  if (!src || src.archived) throw bad('Реестр разрешений не найден или в архиве');
+  const live = (id: string | null, types: readonly string[]) => (id ? src.fields.find((f) => f.id === id && !f.archived && types.includes(f.type)) : undefined);
+  const link = live(rule.linkFieldId, ['link']);
+  if (!link || link.linkRegisterId !== reg.id) throw bad(`В реестре «${src.name}» выберите поле «Связь с записью», которое ссылается на этот реестр`);
+  const kind = live(rule.kindFieldId, ['select']);
+  if (rule.kindFieldId && !kind) throw bad('Поле вида разрешения — список реестра разрешений');
+  const kindOptionIds = kind ? [...new Set(rule.kindOptionIds)] : [];
+  if (kind && (!kindOptionIds.length || kindOptionIds.some((id) => !kind.options.some((o) => o.id === id)))) throw bad('Выберите виды разрешений для канала');
+  const status = src.fields.find((f) => f.isStatus && !f.archived);
+  if (!status || status.id !== rule.statusFieldId) throw bad('Статус разрешения — поле статуса реестра разрешений');
+  const active = [...new Set(rule.activeOptionIds)];
+  if (!active.length || active.some((id) => !status.options.some((o) => o.id === id))) throw bad('Выберите «действующие» значения статуса');
+  const until = live(rule.untilFieldId, ['date']);
+  if (rule.untilFieldId && !until) throw bad('«Действует до» — поле-дата реестра разрешений');
+  const num = live(rule.numberFieldId, ['text']);
+  if (rule.numberFieldId && !num) throw bad('Номер документа — текстовое поле реестра разрешений');
+  return {
+    kind: 'link_basis', channelFieldId: channel.id, closedOptionIds: closed, sourceRegisterId: src.id, linkFieldId: link.id,
+    kindFieldId: kind?.id ?? null, kindOptionIds, statusFieldId: status.id, activeOptionIds: active,
+    untilFieldId: until?.id ?? null, numberFieldId: num?.id ?? null,
+  };
+}
+
+/** Правило из запроса: срок (без kind или due_date) или статус основания (link_basis). */
+export type CalcRuleInput = DueDateRule | BasisRule;
+
+async function validateAnyRule(db: Db, reg: RegisterDef, rule: CalcRuleInput, selfId?: string): Promise<DueDateRule | BasisRule> {
+  return isBasisRule(rule) ? validateBasisRule(db, reg, rule, selfId) : validateCalcRule(reg, rule, selfId);
+}
+
+/** Правила статуса основания в других реестрах, которые ссылаются на поле (поле нельзя удалить или убрать в архив). */
+async function basisDependents(db: Db, fieldId: string) {
+  return db.$queryRaw<{ label: string; register: string }[]>`
+    SELECT f.label, r.name AS register FROM register_fields f JOIN registers r ON r.id = f.register_id
+    WHERE f.deleted_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis' AND strpos(f.calc_rule::text, ${fieldId}) > 0`;
+}
+
 function describeRule(reg: RegisterDef, rule: CalcRule): string {
   const name = (id: string | null | undefined) => reg.fields.find((f) => f.id === id)?.label ?? '?';
   if (isScoreRule(rule)) return `«${name(rule.cvssFieldId)}» × Кэ по «${name(rule.exploitFieldId)}» × Ки по «${name(rule.fixFieldId)}»`;
+  if (isBasisRule(rule)) return `статус основания по каналу «${name(rule.channelFieldId)}»`;
   const by = reg.fields.find((f) => f.id === rule.byFieldId);
   const days = Object.entries(rule.days).map(([o, n]) => `${by?.options.find((x) => x.id === o)?.label ?? '?'} ${n} дн.`).join(', ');
   const override = rule.overrideFieldId
@@ -237,14 +290,74 @@ function describeRule(reg: RegisterDef, rule: CalcRule): string {
   return `«${name(rule.fromFieldId)}» + срок по «${name(rule.byFieldId)}» (${days})${override}${rule.shiftToWorkday ? '; нерабочий день — перенос на рабочий' : ''}`;
 }
 
+const STATUS_NAME = (reg: RegisterDef, id: string) => reg.fields.find((f) => f.isStatus)?.options.find((o) => o.id === id)?.label ?? '?';
+
+/**
+ * Настройки поля (lib/field-settings.ts): фиксация — значения поля статуса; режим «с причиной»; ограничение даты —
+ * другое поле-дата этого реестра. Снять фиксацию со статуса, который уже есть у записей, нельзя:
+ * зафиксированное меняется только новой записью.
+ */
+async function validateSettings(db: Db, reg: RegisterDef, field: { id: string | null; type: FieldType; isStatus?: boolean; settings?: FieldSettings }, input: FieldSettings) {
+  const out: FieldSettings = {};
+  if (input.lock && input.lock.statusOptionIds.length) {
+    if (field.type === 'calc' || field.type === 'decision') throw badRequest('BAD_SETTINGS', 'Вычисляемое поле и решение не фиксируются: они не вводятся');
+    if (field.isStatus) throw badRequest('BAD_SETTINGS', 'Поле статуса не фиксируется — смену статуса ограничивают фиксирующие значения');
+    const status = reg.fields.find((f) => f.isStatus && !f.archived);
+    if (!status) throw badRequest('BAD_SETTINGS', 'В реестре нет поля статуса — фиксировать не по чему');
+    for (const id of input.lock.statusOptionIds) {
+      if (!status.options.some((o) => o.id === id)) throw badRequest('BAD_SETTINGS', 'Фиксация — по значениям поля статуса. Обновите страницу');
+    }
+    if (!(LOCK_MODES as readonly string[]).includes(input.lock.mode)) throw badRequest('BAD_SETTINGS', 'Неизвестный режим фиксации');
+    out.lock = { statusOptionIds: [...new Set(input.lock.statusOptionIds)], mode: input.lock.mode };
+  }
+  if (input.date && (input.date.notAfterYearEndOfFieldId || input.date.defaultEndOfYear)) {
+    if (field.type !== 'date') throw badRequest('BAD_SETTINGS', 'Ограничение даты — только у поля-даты');
+    const anchorId = input.date.notAfterYearEndOfFieldId;
+    if (anchorId) {
+      const anchor = reg.fields.find((f) => f.id === anchorId && !f.archived);
+      if (!anchor || anchor.type !== 'date' || anchor.id === field.id) throw badRequest('BAD_SETTINGS', '«Не позже 31.12 года поля» — другое поле-дата этого реестра');
+    }
+    out.date = { notAfterYearEndOfFieldId: anchorId ?? null, defaultEndOfYear: !!input.date.defaultEndOfYear };
+  }
+  // Ослабление фиксации: статусы, которые больше не фиксируют (или фиксируют только «с причиной»).
+  const before = field.settings?.lock;
+  if (before && field.id) {
+    const still = (id: string) => out.lock?.statusOptionIds.includes(id) && (before.mode === 'reason' || out.lock.mode === 'locked');
+    const loosened = before.statusOptionIds.filter((id) => !still(id));
+    const status = reg.fields.find((f) => f.isStatus);
+    if (loosened.length && status) {
+      const rows = await db.$queryRaw<{ n: bigint }[]>`
+        SELECT count(*) AS n FROM register_records
+        WHERE register_id = ${reg.id}::uuid AND deleted_at IS NULL AND "values" ->> ${status.id} = ANY(${loosened}::text[])`;
+      const n = Number(rows[0]?.n ?? 0);
+      if (n > 0) {
+        throw conflict('LOCK_IN_USE', `Записей со статусом ${loosened.map((id) => `«${STATUS_NAME(reg, id)}»`).join(', ')}: ${n}. Их зафиксированные значения меняются только новой записью — фиксацию не ослабить`);
+      }
+    }
+  }
+  return compactSettings(out);
+}
+
+function describeSettings(reg: RegisterDef, s: FieldSettings | null): string {
+  if (!s) return 'без фиксации и ограничений';
+  const parts: string[] = [];
+  if (s.lock) parts.push(`${s.lock.mode === 'reason' ? 'изменение с причиной' : 'фиксируется'} при статусах ${s.lock.statusOptionIds.map((id) => `«${STATUS_NAME(reg, id)}»`).join(', ')}`);
+  if (s.date?.notAfterYearEndOfFieldId) parts.push(`не позже 31.12 года «${reg.fields.find((f) => f.id === s.date?.notAfterYearEndOfFieldId)?.label ?? '?'}»`);
+  if (s.date?.defaultEndOfYear) parts.push('по умолчанию 31.12 текущего года');
+  return parts.join('; ');
+}
+
 export interface NewFieldInput {
   label: string;
   type: FieldType;
   options?: string[];
   analyticsRole?: AnalyticsRole | null;
-  calcRule?: DueDateRule;
+  calcRule?: CalcRuleInput;
   /** Только для «Значения справочника». */
   catalogCode?: string;
+  /** Только для «Связи с записью»: реестр, на записи которого ссылается поле. */
+  linkRegisterId?: string;
+  settings?: FieldSettings;
 }
 
 export async function addField(db: Db, actor: Actor, registerId: string, input: NewFieldInput) {
@@ -255,15 +368,25 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
     if (!label) throw badRequest('EMPTY_LABEL', 'Укажите название поля');
     await assertLabelFree(tx, registerId, label);
     assertRole(input.type, input.analyticsRole);
-    let calcRule: DueDateRule | null = null;
+    let calcRule: DueDateRule | BasisRule | null = null;
     if (input.type === 'calc') {
       if (!input.calcRule) throw badRequest('BAD_CALC_RULE', 'Для вычисляемого поля задайте правило');
-      calcRule = validateCalcRule(reg, input.calcRule);
+      calcRule = await validateAnyRule(tx, reg, input.calcRule);
+      if (isBasisRule(calcRule) && input.analyticsRole) throw badRequest('BAD_ANALYTICS_ROLE', 'Статус основания не бывает датой или сроком');
     } else if (input.calcRule) {
       throw badRequest('BAD_CALC_RULE', 'Правило вычисления бывает только у вычисляемого поля');
     }
     const catalog = input.type === 'catalog' ? await assertFieldCatalog(tx, input.catalogCode) : null;
     if (!catalog && input.catalogCode) throw badRequest('NO_CATALOG', 'Справочник выбирается только у поля «Значение справочника»');
+    let linkRegister: { id: string; name: string } | null = null;
+    if (input.type === 'link') {
+      if (!input.linkRegisterId) throw badRequest('NO_LINK_REGISTER', 'Выберите реестр, на записи которого ссылается поле');
+      linkRegister = await tx.register.findFirst({ where: { id: input.linkRegisterId, archivedAt: null }, select: { id: true, name: true } });
+      if (!linkRegister) throw badRequest('NO_LINK_REGISTER', 'Реестр для связи не найден или в архиве');
+    } else if (input.linkRegisterId) {
+      throw badRequest('NO_LINK_REGISTER', 'Реестр выбирается только у поля «Связь с записью»');
+    }
+    const settings = input.settings ? await validateSettings(tx, reg, { id: null, type: input.type }, input.settings) : null;
     const options = [...new Set((input.options ?? []).map(trimmed).filter(Boolean))];
     if (options.length && input.type !== 'select' && input.type !== 'decision') {
       throw badRequest('NO_OPTIONS', 'Значения списка бывают только у списка и решения другого отдела');
@@ -280,14 +403,16 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
         analyticsRole: input.analyticsRole ?? null,
         calcRule: (calcRule ?? undefined) as Prisma.InputJsonValue | undefined,
         catalogCode: catalog?.code ?? null,
+        linkRegisterId: linkRegister?.id ?? null,
+        settings: (settings ?? undefined) as Prisma.InputJsonValue | undefined,
         sortOrder: (max._max.sortOrder ?? 0) + 1,
         options: options.length ? { create: options.map((l, i) => ({ label: l, sortOrder: i + 1 })) } : undefined,
       },
     });
     await auditSettings(tx, actor, {
       action: 'register.field.created', entity: 'register_field', entityId: f.id,
-      summary: `Реестр «${reg.name}»: добавлено поле «${label}» (${TYPE_NAMES[input.type]}${catalog ? ` «${catalog.name}»` : ''})${calcRule ? `, ${describeRule(await loadRegister(tx, registerId), calcRule)}` : ''}`,
-      after: { label, type: input.type, options, analyticsRole: input.analyticsRole ?? null, catalogCode: catalog?.code ?? null },
+      summary: `Реестр «${reg.name}»: добавлено поле «${label}» (${TYPE_NAMES[input.type]}${catalog ? ` «${catalog.name}»` : ''}${linkRegister ? ` → «${linkRegister.name}»` : ''})${calcRule ? `, ${describeRule(await loadRegister(tx, registerId), calcRule)}` : ''}${settings ? `; ${describeSettings(reg, settings)}` : ''}`,
+      after: { label, type: input.type, options, analyticsRole: input.analyticsRole ?? null, catalogCode: catalog?.code ?? null, linkRegisterId: linkRegister?.id ?? null, settings },
     });
     return loadRegister(tx, registerId);
   });
@@ -300,7 +425,9 @@ export interface FieldUpdate {
   isTitle?: boolean;
   isStatus?: boolean;
   isImportKey?: boolean;
-  calcRule?: DueDateRule;
+  calcRule?: CalcRuleInput;
+  /** Фиксация при статусах, ограничения даты; null — снять всё. */
+  settings?: FieldSettings | null;
 }
 
 export async function updateField(db: Db, actor: Actor, fieldId: string, input: FieldUpdate) {
@@ -336,6 +463,9 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
       if (systemStatus) throw conflict('SYSTEM_FIELD', `Статус записи — системное поле «${systemStatus.label}», он не меняется`);
       if (input.isStatus && field.type !== 'select') throw badRequest('STATUS_SELECT', 'Статусом может быть только поле-список');
       if (input.isStatus && field.archived) throw badRequest('ARCHIVED_FIELD', 'Архивное поле не может быть статусом');
+      // Фиксация полей считается по значениям статуса: сменить поле статуса — снять её у всех записей.
+      const locking = reg.fields.filter((f) => f.settings.lock);
+      if (locking.length) throw conflict('LOCK_DEPENDENCY', `Фиксация полей ${locking.map((f) => `«${f.label}»`).join(', ')} задана по статусу — сначала снимите её`);
       if (input.isStatus) await tx.registerField.updateMany({ where: { registerId: reg.id, isStatus: true }, data: { isStatus: false, version: { increment: 1 } } });
       data.isStatus = input.isStatus;
       changes.push(input.isStatus ? 'назначено полем статуса' : 'больше не поле статуса');
@@ -362,9 +492,19 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
       if (field.type !== 'calc') throw badRequest('BAD_CALC_RULE', 'Правило вычисления бывает только у вычисляемого поля');
       // Сроки и оценка системного реестра заданы процедурой (п. 7.1–7.3) и меняются только выпуском портала.
       assertNotSystemField(field, 'менять правило вычисления');
-      const rule = validateCalcRule(reg, input.calcRule, fieldId);
+      if (isBasisRule(field.calcRule) !== isBasisRule(input.calcRule)) throw badRequest('BAD_CALC_RULE', 'Вид правила не меняется — добавьте новое вычисляемое поле');
+      const rule = await validateAnyRule(tx, reg, input.calcRule, fieldId);
       data.calcRule = rule as unknown as Prisma.InputJsonValue;
       changes.push(`правило: ${describeRule(reg, rule)}`);
+    }
+    let settingsChanged = false;
+    if (input.settings !== undefined) {
+      const next = await validateSettings(tx, reg, field, input.settings ?? {});
+      if (JSON.stringify(next) !== JSON.stringify(compactSettings(field.settings))) {
+        data.settings = (next ?? Prisma.DbNull) as Prisma.InputJsonValue;
+        changes.push(describeSettings(reg, next));
+        settingsChanged = true;
+      }
     }
     if (!changes.length) return reg;
     const res = await tx.registerField.updateMany({ where: { id: fieldId, version: input.version }, data: { ...data, version: { increment: 1 } } });
@@ -374,8 +514,11 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
     await auditSettings(tx, actor, {
       action: 'register.field.updated', entity: 'register_field', entityId: fieldId,
       summary: `Реестр «${reg.name}», поле «${field.label}»: ${changes.join(', ')}`,
-      before: { label: field.label, analyticsRole: field.analyticsRole, isTitle: field.isTitle, isStatus: field.isStatus, isImportKey: field.isImportKey, calcRule: field.calcRule },
-      after: { ...data },
+      before: {
+        label: field.label, analyticsRole: field.analyticsRole, isTitle: field.isTitle, isStatus: field.isStatus, isImportKey: field.isImportKey, calcRule: field.calcRule,
+        ...(settingsChanged ? { settings: compactSettings(field.settings) } : {}),
+      },
+      after: { ...data, ...(settingsChanged ? { settings: data.settings === Prisma.DbNull ? null : data.settings } : {}) },
     });
     return loadRegister(tx, reg.id);
   });
@@ -402,20 +545,24 @@ export async function moveField(db: Db, actor: Actor, fieldId: string, direction
 }
 
 /** Ограничения на архив и удаление: заголовок, статус, ссылки из правил вычисления. */
-function assertDetachable(reg: RegisterDef, field: FieldMeta, what: string) {
+async function assertDetachable(db: Db, reg: RegisterDef, field: FieldMeta, what: string) {
   assertNotSystemField(field, what);
   if (field.isTitle) throw conflict('TITLE_FIELD', `Поле-заголовок нельзя ${what}: сначала назначьте заголовком другое текстовое поле`);
   if (field.isStatus) throw conflict('STATUS_FIELD', `Поле статуса нельзя ${what}: сначала снимите признак статуса`);
   if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', `Ключ импорта нельзя ${what}: сначала снимите признак ключа`);
   const deps = calcDependents(reg, field.id).filter((d) => d.id !== field.id);
   if (deps.length) throw conflict('CALC_DEPENDENCY', `Поле используется в правиле вычисления «${deps.map((d) => d.label).join('», «')}» — сначала измените правило`);
+  const anchors = reg.fields.filter((f) => f.settings.date?.notAfterYearEndOfFieldId === field.id);
+  if (anchors.length) throw conflict('DATE_DEPENDENCY', `По полю проверяется дата «${anchors.map((d) => d.label).join('», «')}» — сначала снимите ограничение`);
+  const basis = (await basisDependents(db, field.id)).filter((b) => b.label !== field.label || b.register !== reg.name);
+  if (basis.length) throw conflict('CALC_DEPENDENCY', `Поле используется в статусе основания «${basis.map((b) => `${b.register}: ${b.label}`).join('», «')}» — сначала измените правило`);
 }
 
 export async function setFieldArchived(db: Db, actor: Actor, fieldId: string, version: number, archived: boolean) {
   return withTx(db, async (tx) => {
     const { reg, field } = await getField(tx, fieldId);
     assertNotArchived(reg);
-    if (archived) assertDetachable(reg, field, 'отправить в архив');
+    if (archived) await assertDetachable(tx, reg, field, 'отправить в архив');
     if (field.archived === archived) {
       if (field.version !== version) throw versionConflict();
       return reg;
@@ -436,7 +583,7 @@ export async function deleteField(db: Db, actor: Actor, fieldId: string, version
   return withTx(db, async (tx) => {
     const { reg, field } = await getField(tx, fieldId);
     assertNotArchived(reg);
-    assertDetachable(reg, field, 'удалить');
+    await assertDetachable(tx, reg, field, 'удалить');
     const n = await fieldHasData(tx, field);
     if (n > 0) throw conflict('HAS_DATA', `В поле «${field.label}» есть данные (${n}). Отправьте его в архив: значения сохранятся`);
     const res = await tx.registerField.updateMany({ where: { id: fieldId, version }, data: { deletedAt: new Date(), isTitle: false, isStatus: false, version: { increment: 1 } } });
@@ -470,6 +617,9 @@ async function planTypeChange(tx: Db, reg: RegisterDef, field: FieldMeta, to: Fi
   if (field.isTitle) throw conflict('TITLE_FIELD', 'Тип поля-заголовка не меняется: заголовок всегда текстовый');
   if (field.isStatus) throw conflict('STATUS_FIELD', 'Тип поля статуса не меняется: сначала снимите признак статуса');
   if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', 'Тип ключа импорта не меняется: сначала снимите признак ключа');
+  if (field.settings.lock || field.settings.date) throw conflict('FIELD_SETTINGS', 'У поля задана фиксация или ограничение даты — сначала снимите их');
+  if (reg.fields.some((f) => f.settings.date?.notAfterYearEndOfFieldId === field.id)) throw conflict('DATE_DEPENDENCY', 'По полю проверяется другая дата — сначала снимите ограничение');
+  if ((await basisDependents(tx, field.id)).length) throw conflict('CALC_DEPENDENCY', 'Поле используется в статусе основания — сначала измените правило');
   if (calcDependents(reg, field.id).some((d) => d.id !== field.id)) {
     throw conflict('CALC_DEPENDENCY', 'Поле используется в правиле вычисляемого поля — сначала измените правило');
   }
@@ -690,7 +840,7 @@ export async function deleteOption(db: Db, actor: Actor, optionId: string, versi
     assertNotSystemOption(option, 'удалить');
     const used = await optionUsage(tx, field.id, optionId);
     if (used > 0) throw conflict('IN_USE', `«${option.label}» используется (${used}). Отправьте значение в архив`);
-    if (reg.fields.some((f) => f.calcRule && !isScoreRule(f.calcRule) && f.calcRule.byFieldId === field.id && optionId in f.calcRule.days)) {
+    if (reg.fields.some((f) => isDueRule(f.calcRule) && f.calcRule.byFieldId === field.id && optionId in f.calcRule.days)) {
       throw conflict('CALC_DEPENDENCY', `Для «${option.label}» задан срок в правиле вычисляемого поля — сначала измените правило`);
     }
     if (field.options.filter((o) => !o.archived && o.id !== optionId).length === 0) {

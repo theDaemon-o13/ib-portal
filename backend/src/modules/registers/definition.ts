@@ -6,7 +6,7 @@ import {
   calcRuleFieldIds,
   calcValue,
   displayValue,
-  isScoreRule,
+  isDueRule,
   isWritable,
   type CalcRule,
   type FieldDef,
@@ -15,9 +15,20 @@ import {
   type UserRef,
   type Values,
 } from '../../lib/register-values.js';
+import { lockedFields, readSettings, type FieldSettings, type LockMode } from '../../lib/field-settings.js';
+import { basisOf, basisText, isBasisRule, type BasisResult } from '../../lib/link-basis.js';
 import { daysBetween, todayIso } from '../../lib/today.js';
 import type { WorkCalendar } from '../../lib/working-days.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
+import {
+  linkIdsIn,
+  linkLabels,
+  loadBasisSources,
+  loadLinkRefs,
+  loadRecordFiles,
+  type FileLinkDto,
+  type LinkRef,
+} from './links.js';
 
 export interface FieldMeta extends FieldDef {
   sortOrder: number;
@@ -30,6 +41,10 @@ export interface FieldMeta extends FieldDef {
   systemKey: string | null;
   /** Поле «Значение справочника»: код справочника; варианты — его значения. */
   catalogCode: string | null;
+  /** Поле «Связь с записью»: реестр, на записи которого ссылается поле (этап 8б). */
+  linkRegisterId: string | null;
+  /** Фиксация при статусах, ограничения даты (lib/field-settings.ts). */
+  settings: FieldSettings;
   options: (FieldDef['options'][number] & { sortOrder: number; version: number; systemKey: string | null })[];
 }
 
@@ -83,6 +98,8 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
       version: f.version,
       systemKey: f.systemKey,
       catalogCode: f.catalogCode,
+      linkRegisterId: f.linkRegisterId,
+      settings: readSettings(f.settings),
       // У поля «Значение справочника» варианты — значения справочника (правятся в настройках).
       options: f.catalog
         ? f.catalog.items.map((i) => ({
@@ -104,6 +121,8 @@ export function assertNotArchived(reg: RegisterDef): void {
 export async function fieldHasData(db: Db, field: { id: string; type: string }): Promise<number> {
   if (field.type === 'calc') return 0;
   if (field.type === 'decision') return db.registerDecision.count({ where: { fieldId: field.id } });
+  // Файлы — и отвязанные: история ссылок хранится, поле с ними не удаляется.
+  if (field.type === 'file') return db.registerRecordFile.count({ where: { fieldId: field.id } });
   const rows = await db.$queryRaw<{ n: bigint }[]>`
     SELECT count(*) AS n FROM register_records
     WHERE deleted_at IS NULL AND "values" ? ${field.id}`;
@@ -167,12 +186,12 @@ export async function importKeyOwner(db: Db, reg: RegisterDef, values: Values, e
 
 /** Поле срока для контроля сроков: первое неархивное с ролью «срок». */
 export function deadlineField(reg: RegisterDef): FieldMeta | undefined {
-  return reg.fields.find((f) => !f.archived && f.analyticsRole === 'deadline' && (f.type === 'date' || (f.type === 'calc' && f.calcRule && !isScoreRule(f.calcRule))));
+  return reg.fields.find((f) => !f.archived && f.analyticsRole === 'deadline' && (f.type === 'date' || (f.type === 'calc' && isDueRule(f.calcRule))));
 }
 
 /** Календарь нужен, если хоть одно правило срока переносит его на рабочий день. */
 export async function calendarFor(db: Db, reg: RegisterDef): Promise<WorkCalendar | null> {
-  const needs = reg.fields.some((f) => f.calcRule && !isScoreRule(f.calcRule) && f.calcRule.shiftToWorkday);
+  const needs = reg.fields.some((f) => isDueRule(f.calcRule) && f.calcRule.shiftToWorkday);
   return needs ? loadFullWorkCalendar(db) : null;
 }
 
@@ -230,12 +249,20 @@ export function userIdsIn(reg: RegisterDef, values: Values[]): string[] {
   return [...ids];
 }
 
-/** Текст для поиска: отображаемые значения неархивных полей и номер записи. */
-export function searchTextOf(reg: RegisterDef, number: number, values: Values, users: ReadonlyMap<string, UserRef>): string {
+/** Поля, которые фиксирует текущий статус записи: { id поля → режим }. */
+export function recordLocks(reg: RegisterDef, values: Values): Map<string, LockMode> {
+  const status = reg.fields.find((f) => f.isStatus);
+  return lockedFields(reg.fields, status ? values[status.id] : undefined);
+}
+
+/** Текст для поиска: отображаемые значения неархивных полей и номер записи; связи — заголовками записей. */
+export function searchTextOf(
+  reg: RegisterDef, number: number, values: Values, users: ReadonlyMap<string, UserRef>, links?: ReadonlyMap<string, string>,
+): string {
   const parts = [`#${number}`];
   for (const f of reg.fields) {
     if (f.archived || !isWritable(f.type)) continue;
-    const d = displayValue(f, values[f.id], { users });
+    const d = displayValue(f, values[f.id], { users, links });
     if (d) parts.push(d);
   }
   return parts.join(' ').toLowerCase();
@@ -275,6 +302,14 @@ export interface RecordDto {
   openEvents: number;
   /** Открытые задачи по записи (из событий автоматизаций, этап 5). */
   openTasks: number;
+  /** Поле «Файл»: действующие файлы (этап 8б). */
+  files: Record<string, FileLinkDto[]>;
+  /** Поле «Связь с записью»: связанные записи по порядку значения. */
+  links: Record<string, LinkRef[]>;
+  /** Статус основания (вычисляемое поле link_basis): состояние, разрешение, текст. */
+  basis: Record<string, BasisResult & { text: string }>;
+  /** Поля, которые фиксирует текущий статус: locked — не меняются, reason — только с причиной. */
+  locked: Record<string, LockMode>;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -319,6 +354,11 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
   const calendar = await calendarFor(db, reg);
   const deadline = deadlineField(reg);
   const today = todayIso();
+  const ids = rows.map((r) => r.id);
+  const refs = await loadLinkRefs(db, linkIdsIn(reg, valuesList));
+  const labels = linkLabels(refs);
+  const files = reg.fields.some((f) => f.type === 'file') ? await loadRecordFiles(db, ids) : new Map<string, Map<string, FileLinkDto[]>>();
+  const basisSources = reg.fields.some((f) => isBasisRule(f.calcRule)) ? await loadBasisSources(db, reg, ids) : new Map();
   const events = await db.automationEvent.groupBy({
     by: ['recordId'], where: { recordId: { in: rows.map((r) => r.id) }, status: 'new' }, _count: { _all: true },
   });
@@ -334,10 +374,27 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
     const display: Record<string, string> = {};
     const calc: Record<string, StoredValue | null> = {};
     const decisions: Record<string, DecisionDto | null> = {};
+    const fileMap: Record<string, FileLinkDto[]> = {};
+    const linkMap: Record<string, LinkRef[]> = {};
+    const basis: Record<string, BasisResult & { text: string }> = {};
     for (const f of reg.fields) {
-      if (f.type === 'calc' && f.calcRule) {
+      if (f.type === 'calc' && isBasisRule(f.calcRule)) {
+        const b = basisOf(f.calcRule, r.id, values, basisSources.get(f.calcRule.sourceRegisterId) ?? [], today);
+        const text = basisText(b);
+        basis[f.id] = { ...b, text };
+        calc[f.id] = b.state;
+        display[f.id] = text;
+      } else if (f.type === 'calc' && f.calcRule) {
         calc[f.id] = calcValue(f.calcRule, values, { fields: reg.fields, calendar });
         display[f.id] = displayValue(f, calc[f.id], { users });
+      } else if (f.type === 'file') {
+        const list = files.get(r.id)?.get(f.id) ?? [];
+        fileMap[f.id] = list;
+        display[f.id] = list.map((x) => x.file.name).join('; ');
+      } else if (f.type === 'link') {
+        const v = values[f.id];
+        linkMap[f.id] = Array.isArray(v) ? v.map((id) => refs.get(id)).filter((x): x is LinkRef => !!x) : [];
+        display[f.id] = displayValue(f, v, { users, links: labels });
       } else if (f.type === 'decision') {
         const d = latest.get(`${r.id}:${f.id}`) ?? null;
         decisions[f.id] = d;
@@ -361,6 +418,10 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
       deadline: deadline ? deadlineState(dateOf(reg, deadline, values, calendar), closed, today) : null,
       openEvents: openEvents.get(r.id) ?? 0,
       openTasks: openTasks.get(r.id) ?? 0,
+      files: fileMap,
+      links: linkMap,
+      basis,
+      locked: Object.fromEntries(recordLocks(reg, values)),
       version: r.version,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
@@ -376,10 +437,11 @@ export async function recomputeSearch(db: Db, reg: RegisterDef, where: Prisma.Re
   });
   if (!rows.length) return;
   const users = await loadUsers(db, userIdsIn(reg, rows.map((r) => r.values as Values)));
+  const links = linkLabels(await loadLinkRefs(db, linkIdsIn(reg, rows.map((r) => r.values as Values))));
   for (const r of rows) {
     await db.registerRecord.update({
       where: { id: r.id },
-      data: { searchText: searchTextOf(reg, r.number, r.values as Values, users) },
+      data: { searchText: searchTextOf(reg, r.number, r.values as Values, users, links) },
     });
   }
 }

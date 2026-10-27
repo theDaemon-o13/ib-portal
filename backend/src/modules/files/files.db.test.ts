@@ -1,9 +1,9 @@
 // Файлы целиком по HTTP: загрузка с проверкой типа по содержимому, лимит, права на выдачу, заголовки,
 // ссылки и мягкое удаление. Хранилище — временный каталог; БД — транзакция с откатом.
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { diskFileStore } from '../../lib/file-store.js';
 import { MAX_FILE_BYTES } from '../../lib/file-type.js';
@@ -19,8 +19,12 @@ import { sweepOrphanFiles } from './links.js';
 
 const PASSWORD = 'Files-Test-Pass-2026';
 
+const roots: string[] = [];
+afterAll(() => { for (const r of roots) rmSync(r, { recursive: true, force: true }); });
+
 async function setup(tx: Tx) {
   const root = mkdtempSync(join(tmpdir(), 'ibportal-files-'));
+  roots.push(root);
   const app = await buildApp({
     db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher,
     sessionSecret: TEST_SECRET, files: diskFileStore(root),

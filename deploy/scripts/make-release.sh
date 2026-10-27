@@ -69,6 +69,10 @@ build() {
 build ibportal-db db
 build ibportal-backend backend
 build ibportal-frontend frontend
+# @napi-rs/canvas (optional-зависимость pdfjs-dist) не нужен для извлечения текста PDF и не должен попасть в образ.
+if docker run --rm --network none --entrypoint sh "ibportal-backend:$VERSION" -c 'test -e node_modules/@napi-rs'; then
+  die "в образе ibportal-backend:$VERSION есть node_modules/@napi-rs — сборка должна идти с --omit=optional"
+fi
 
 mkdir -p "$OUT/scripts"
 info "сохранение образов"

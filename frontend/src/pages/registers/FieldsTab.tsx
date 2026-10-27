@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type MouseEvent } from 'react';
 import { settingsApi } from '../../api/settings';
-import { registersApi, type DueRule, type FieldType, type RegisterDetail, type RegisterField } from '../../api/registers';
+import { registersApi, type BasisRule, type DueRule, type FieldType, type RegisterDetail, type RegisterField } from '../../api/registers';
 import { LockIcon } from '../../components/LockIcon';
 import { useAction } from '../settings/useAction';
 import { FieldDrawer } from './FieldDrawer';
-import { CalcRuleEditor } from './FieldEditors';
+import { BasisRuleEditor, CalcRuleEditor } from './FieldEditors';
 import { ALLOWED_ROLES, describeRule, ROLE_NAMES, TYPE_NAMES } from './logic';
 import { rkeys } from './keys';
 
@@ -16,8 +16,10 @@ const stop = (e: MouseEvent) => e.stopPropagation();
 
 export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string }>(
-    { label: '', type: 'text', options: '', role: '', rule: null, catalogCode: '' });
+  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string; linkRegisterId: string; basis: BasisRule | null; calcKind: 'due' | 'basis' }>(
+    { label: '', type: 'text', options: '', role: '', rule: null, catalogCode: '', linkRegisterId: '', basis: null, calcKind: 'due' });
+  const regs = useQuery({ queryKey: rkeys.listWith(false), queryFn: () => registersApi.list(false) });
+  const regName = (id: string | null) => regs.data?.items.find((r) => r.id === id)?.name ?? 'реестр';
   // Для «Значения справочника» — обычные справочники значений (не статусы, правила почты и метки получателей).
   const catalogs = useQuery({ queryKey: ['settings', 'catalogs'], queryFn: settingsApi.catalogs });
   const fieldCatalogs = (catalogs.data?.items ?? []).filter((c) => c.kind === 'values' && c.code !== 'notify_recipients');
@@ -34,16 +36,19 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
     type: add.type,
     options: add.type === 'select' || add.type === 'decision' ? add.options.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
     analyticsRole: (add.role || null) as 'dimension' | 'metric' | 'date' | 'deadline' | null,
-    calcRule: add.type === 'calc' ? (add.rule ?? undefined) : undefined,
+    calcRule: add.type === 'calc' ? ((add.calcKind === 'basis' ? add.basis : add.rule) ?? undefined) : undefined,
     catalogCode: add.type === 'catalog' ? add.catalogCode : undefined,
+    linkRegisterId: add.type === 'link' ? add.linkRegisterId : undefined,
   }), {
     invalidate, success: () => `Поле «${add.label}» добавлено — оно уже есть в карточке записи`,
-    onDone: () => setAdd({ label: '', type: add.type, options: '', role: '', rule: null, catalogCode: add.catalogCode }),
+    onDone: () => setAdd({ ...add, label: '', options: '', role: '', rule: null, basis: null }),
   });
 
   const fields = reg.fields;
   const summary = (f: RegisterField) => {
     if (f.type === 'calc') return describeRule(reg, f);
+    if (f.type === 'file') return 'Файлы по правилам хранения портала · sha256 и дата загрузки в карточке';
+    if (f.type === 'link') return `Записи реестра «${regName(f.linkRegisterId)}»`;
     if (f.type === 'user') return 'Справочник сотрудников';
     if (f.type === 'catalog') return `Справочник «${catalogName(f.catalogCode)}» · значения правятся в настройках`;
     if (f.type === 'select' || f.type === 'decision') {
@@ -83,6 +88,7 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
                   <td>
                     <span className="type">{TYPE_NAMES[f.type]}</span>
                     {(f.type === 'calc' || f.type === 'decision') && <span className="lock" title="Только для чтения в форме и при импорте"> <LockIcon /></span>}
+                    {f.settings.lock && <span className="chip" title={f.settings.lock.mode === 'reason' ? 'При фиксирующих статусах меняется только с причиной' : 'При фиксирующих статусах не меняется'}>{f.settings.lock.mode === 'reason' ? 'с причиной' : 'фиксируется'}</span>}
                   </td>
                   <td className="hint values-cell">{summary(f)}</td>
                   <td onClick={stop}>
@@ -118,7 +124,21 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
               {ALL_TYPES.map((t) => <option key={t} value={t}>{TYPE_NAMES[t]}</option>)}
             </select>
           </label>
-          {add.type === 'catalog' ? (
+          {add.type === 'link' ? (
+            <label>Ссылается на реестр
+              <select className="inp" required value={add.linkRegisterId} onChange={(e) => setAdd({ ...add, linkRegisterId: e.target.value })}>
+                <option value="">— выберите</option>
+                {regs.data?.items.filter((r) => r.id !== reg.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </label>
+          ) : add.type === 'calc' ? (
+            <label>Что считать
+              <select className="inp" value={add.calcKind} onChange={(e) => setAdd({ ...add, calcKind: e.target.value as 'due' | 'basis', role: '' })}>
+                <option value="due">Срок (дата + дни)</option>
+                <option value="basis">Статус основания (сверка с разрешениями)</option>
+              </select>
+            </label>
+          ) : add.type === 'catalog' ? (
             <label>Справочник
               <select className="inp" required value={add.catalogCode} onChange={(e) => setAdd({ ...add, catalogCode: e.target.value })}>
                 <option value="">— выберите</option>
@@ -133,12 +153,13 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
           </label>
           )}
           <label>Для аналитики
-            <select className="inp" value={add.role} disabled={ALLOWED_ROLES[add.type].length === 0} onChange={(e) => setAdd({ ...add, role: e.target.value })}>
+            <select className="inp" value={add.role} disabled={ALLOWED_ROLES[add.type].length === 0 || (add.type === 'calc' && add.calcKind === 'basis')} onChange={(e) => setAdd({ ...add, role: e.target.value })}>
               {['', ...ALLOWED_ROLES[add.type]].map((r) => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}
             </select>
           </label>
           <button className="btn primary" type="submit" disabled={create.isPending}>Добавить поле</button>
-          {add.type === 'calc' && <div className="span-all"><CalcRuleEditor reg={reg} value={add.rule} onChange={(rule) => setAdd({ ...add, rule })} /></div>}
+          {add.type === 'calc' && add.calcKind === 'due' && <div className="span-all"><CalcRuleEditor reg={reg} value={add.rule} onChange={(rule) => setAdd({ ...add, rule })} /></div>}
+          {add.type === 'calc' && add.calcKind === 'basis' && <div className="span-all"><BasisRuleEditor reg={reg} value={add.basis} onChange={(basis) => setAdd({ ...add, basis })} /></div>}
         </form>
       )}
       {canManage && (

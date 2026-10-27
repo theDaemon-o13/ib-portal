@@ -78,6 +78,8 @@ describe('правила п. 7.4 по расписанию', () => {
 
       // Повторный прогон в тот же день (через час, после перезапуска) — ничего нового.
       expect((await svc.runAutomations(tx, { now: DEC_1, registerId: x.reg.id })).created).toBe(0);
+      // Общий прогон 1 декабря запускает и стартовое «Продление разрешений» (seed этапа 8б) — здесь оно не нужно.
+      await tx.registerAutomation.updateMany({ where: { condition: { path: ['kind'], equals: 'yearly' } }, data: { enabled: false } });
       expect((await svc.runAutomations(tx, { now: DEC_1 })).created).toBe(0);
       // На следующий день: у G наступил 10-й рабочий день — только его эскалация.
       expect((await svc.runAutomations(tx, { now: DEC_2, registerId: x.reg.id })).created).toBe(1);

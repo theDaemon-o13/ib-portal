@@ -9,6 +9,7 @@ import {
   parseCell,
   parseDateText,
   parseNumberText,
+  sameValue,
   typeChangeKind,
   type FieldDef,
   type UserRef,
@@ -231,5 +232,36 @@ describe('поле «Значение справочника» (этап 5)', ()
     expect(typeChangeKind('catalog', 'select', false).ok).toBe(false);
     expect(typeChangeKind('text', 'catalog', false).ok).toBe(false);
     expect(typeChangeKind('select', 'catalog', true).ok).toBe(false);
+  });
+});
+
+describe('поле «Связь с записью» (этап 8б)', () => {
+  const link = { id: 'l', label: 'Устройства', type: 'link' as const, options: [], calcRule: null, archived: false };
+  const A = '11111111-1111-4111-8111-111111111111';
+  const B = '22222222-2222-4222-8222-222222222222';
+
+  it('ввод: массив id, без повторов; пустой — очистить', () => {
+    expect(normalizeInput(link, [A, A, B], { assignableUsers: new Map() })).toEqual({ ok: true, value: [A, B] });
+    expect(normalizeInput(link, [], { assignableUsers: new Map() })).toEqual({ ok: true, value: null });
+    expect(normalizeInput(link, ['x'], { assignableUsers: new Map() }).ok).toBe(false);
+  });
+
+  it('сравнение без учёта порядка; отображение — подписи записей', () => {
+    expect(sameValue([A, B], [B, A])).toBe(true);
+    expect(sameValue([A], [A, B])).toBe(false);
+    expect(sameValue([], null)).toBe(true);
+    expect(displayValue(link, [A, B], { users: new Map(), links: new Map([[A, '#1 WS-1']]) })).toBe('#1 WS-1; (запись удалена)');
+  });
+
+  it('ячейка Excel: по ключу, «#номер», неоднозначно и не найдено', () => {
+    const targets = new Map([['l', new Map([['ws-1', [A]], ['#2', [B]], ['двойник', [A, B]]])]]);
+    expect(parseCell(link, 'WS-1; #2', { users: [], linkTargets: targets })).toEqual({ ok: true, value: [A, B] });
+    expect(parseCell(link, 'двойник', { users: [], linkTargets: targets }).ok).toBe(false);
+    expect(parseCell(link, 'нет', { users: [], linkTargets: targets })).toEqual({ ok: false, error: '«нет» — не найдено в связанном реестре' });
+  });
+
+  it('файл и связь не меняют тип', () => {
+    expect(typeChangeKind('file', 'text', false).ok).toBe(false);
+    expect(typeChangeKind('text', 'link', false).ok).toBe(false);
   });
 });

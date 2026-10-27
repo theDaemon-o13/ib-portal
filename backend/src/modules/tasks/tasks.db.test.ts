@@ -119,6 +119,8 @@ describe('события автоматизаций → задачи', () => {
       expect(count).toBe(4); // уведомление: ДИКТ ×2 + владелец системы (не назначен); эскалация (не назначен)
       // Повторный прогон и повторная обработка — ничего нового.
       expect(await automations.runAutomations(tx, { now: DEC_1, registerId: x.reg.id })).toMatchObject({ created: 0, tasksCreated: 0, tasksCommented: 0 });
+      // Общий прогон 1 декабря запускает и стартовое «Продление разрешений» (seed этапа 8б) — здесь оно не нужно.
+      await tx.registerAutomation.updateMany({ where: { condition: { path: ['kind'], equals: 'yearly' } }, data: { enabled: false } });
       expect(await automations.runAutomations(tx, { now: DEC_1 })).toMatchObject({ tasksCreated: 0 });
       expect(await tx.task.count({ where: { recordId: a.id } })).toBe(4);
 

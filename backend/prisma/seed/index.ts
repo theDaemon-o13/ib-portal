@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
+import { seedDlp } from './dlp.js';
 import { seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
@@ -67,6 +68,7 @@ async function main() {
     await seedRegisters(tx);
     await seedVulns(tx);
     await seedRisks(tx);
+    await seedDlp(tx);
     // Правила, созданные до справочника меток (первая установка: миграция шла раньше seed), — привязать по названию.
     const [linked] = await tx.$queryRaw<{ n: number }[]>`SELECT link_recipient_labels() AS n`;
     if (linked?.n) console.log(`Привязаны метки получателей в правилах: ${linked.n}`);

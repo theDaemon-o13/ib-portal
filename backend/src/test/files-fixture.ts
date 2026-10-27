@@ -95,3 +95,53 @@ export const macroDocx = (): Buffer => makeZip({
   'word/document.xml': '<w:document/>',
   'word/vbaProject.bin': 'VBA',
 });
+
+function pdfFromObjects(objs: string[]): Buffer {
+  let out = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objs.forEach((o, i) => {
+    offsets.push(Buffer.byteLength(out));
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(out);
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, 'utf8');
+}
+
+/**
+ * PDF с текстовым слоем на любом языке: однобайтовые коды и карта ToUnicode (как у PDF из Word).
+ * Строки — отдельными строками страницы.
+ */
+export function textPdf(lines: string[]): Buffer {
+  const chars = [...new Set([...lines.join('')])];
+  if (chars.length > 200) throw new Error('textPdf: не больше 200 разных символов');
+  const code = new Map(chars.map((c, i) => [c, i + 33]));
+  const hex = (s: string) => [...s].map((c) => (code.get(c) as number).toString(16).padStart(2, '0')).join('');
+  const bf = chars.map((c) => `<${(code.get(c) as number).toString(16).padStart(2, '0')}> <${(c.codePointAt(0) as number).toString(16).padStart(4, '0')}>`).join('\n');
+  const cmap = `/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /ibportal-test def
+1 begincodespacerange <00> <FF> endcodespacerange
+${chars.length} beginbfchar
+${bf}
+endbfchar endcmap CMapName currentdict /CMap defineresource pop end end`;
+  const content = `BT /F1 12 Tf 50 750 Td 16 TL ${lines.map((l) => `<${hex(l)}> Tj T*`).join(' ')} ET`;
+  return pdfFromObjects([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 6 0 R >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    `<< /Length ${Buffer.byteLength(cmap)} >>\nstream\n${cmap}\nendstream`,
+  ]);
+}
+
+/** «Скан»: страница только с графикой, без текстового слоя. */
+export function scanPdf(): Buffer {
+  const content = '0.5 g 50 50 500 700 re f 0 g 100 600 200 100 re S';
+  return pdfFromObjects([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>',
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+  ]);
+}

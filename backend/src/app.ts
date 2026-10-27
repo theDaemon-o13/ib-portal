@@ -29,6 +29,7 @@ import { formTemplateRoutes } from './modules/form-templates/routes.js';
 import { healthRoutes } from './modules/health/routes.js';
 import { IMPORT_BODY_LIMIT, registerRoutes, XLSX_TYPE } from './modules/registers/routes.js';
 import { roleRoutes } from './modules/roles/routes.js';
+import { searchRoutes } from './modules/search/routes.js';
 import { journalRoutes } from './modules/settings/journal.js';
 import { userRoutes } from './modules/users/routes.js';
 import { vulnRoutes } from './modules/vulns/routes.js';
@@ -93,19 +94,20 @@ export async function buildApp(deps: AppDeps) {
   await app.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });
   await app.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(journalRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(taskRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(fileRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(searchRoutes, { prefix: '/api/v1', db: deps.db });
   // Дашборд и мониторинг делят кэш: KPI считаются раз в минуту для обоих.
   const cache = createCache(CACHE_TTL_MS, deps.now);
   await app.register(dashboardRoutes, { prefix: '/api/v1', db: deps.db, cache });
   await app.register(monitorRoutes, { prefix: '/api/v1', db: deps.db, cache });
 
-  if (deps.automationIntervalMin) installJobs(base, { db: deps.db, intervalMs: deps.automationIntervalMin * 60_000, now: deps.now });
+  if (deps.automationIntervalMin) installJobs(base, { db: deps.db, intervalMs: deps.automationIntervalMin * 60_000, now: deps.now, store: deps.files });
 
   app.get('/api/v1/openapi.json', { config: { public: true }, schema: { hide: true } }, async () => app.swagger());
 

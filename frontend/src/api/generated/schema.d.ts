@@ -5738,6 +5738,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -5777,7 +5794,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -5789,6 +5806,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -5807,6 +5841,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -5890,6 +5936,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5950,7 +6013,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -5962,6 +6025,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -5980,6 +6060,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -6063,6 +6155,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6124,7 +6233,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6136,6 +6245,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -6154,6 +6280,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -6237,6 +6375,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6385,6 +6540,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -6440,7 +6612,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6452,6 +6624,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -6470,6 +6659,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -6553,6 +6754,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6621,7 +6839,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6633,6 +6851,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -6651,6 +6886,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -6734,6 +6981,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6781,10 +7045,27 @@ export interface paths {
                     "application/json": {
                         label: string;
                         /** @enum {string} */
-                        type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                        type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                         options?: string[];
                         analyticsRole?: ("dimension" | "metric" | "date" | "deadline") | null;
                         calcRule?: {
+                            /** @enum {string} */
+                            kind: "link_basis";
+                            /** Format: uuid */
+                            channelFieldId: string;
+                            closedOptionIds: string[];
+                            /** Format: uuid */
+                            sourceRegisterId: string;
+                            /** Format: uuid */
+                            linkFieldId: string;
+                            kindFieldId: string | null;
+                            kindOptionIds: string[];
+                            /** Format: uuid */
+                            statusFieldId: string;
+                            activeOptionIds: string[];
+                            untilFieldId: string | null;
+                            numberFieldId: string | null;
+                        } | {
                             /** Format: uuid */
                             fromFieldId: string;
                             /** Format: uuid */
@@ -6795,8 +7076,23 @@ export interface paths {
                             overrideFieldId: string | null;
                             overrideWhenFilledFieldId?: string | null;
                             shiftToWorkday?: boolean;
+                            /** @enum {string} */
+                            kind?: "due_date";
                         };
                         catalogCode?: string;
+                        /** Format: uuid */
+                        linkRegisterId?: string;
+                        settings?: {
+                            lock?: {
+                                statusOptionIds: string[];
+                                /** @enum {string} */
+                                mode: "locked" | "reason";
+                            };
+                            date?: {
+                                notAfterYearEndOfFieldId?: string | null;
+                                defaultEndOfYear?: boolean;
+                            };
+                        };
                     };
                 };
             };
@@ -6819,7 +7115,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6831,6 +7127,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -6849,6 +7162,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -6932,6 +7257,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6988,6 +7330,23 @@ export interface paths {
                         isStatus?: boolean;
                         isImportKey?: boolean;
                         calcRule?: {
+                            /** @enum {string} */
+                            kind: "link_basis";
+                            /** Format: uuid */
+                            channelFieldId: string;
+                            closedOptionIds: string[];
+                            /** Format: uuid */
+                            sourceRegisterId: string;
+                            /** Format: uuid */
+                            linkFieldId: string;
+                            kindFieldId: string | null;
+                            kindOptionIds: string[];
+                            /** Format: uuid */
+                            statusFieldId: string;
+                            activeOptionIds: string[];
+                            untilFieldId: string | null;
+                            numberFieldId: string | null;
+                        } | {
                             /** Format: uuid */
                             fromFieldId: string;
                             /** Format: uuid */
@@ -6998,7 +7357,20 @@ export interface paths {
                             overrideFieldId: string | null;
                             overrideWhenFilledFieldId?: string | null;
                             shiftToWorkday?: boolean;
+                            /** @enum {string} */
+                            kind?: "due_date";
                         };
+                        settings?: {
+                            lock?: {
+                                statusOptionIds: string[];
+                                /** @enum {string} */
+                                mode: "locked" | "reason";
+                            };
+                            date?: {
+                                notAfterYearEndOfFieldId?: string | null;
+                                defaultEndOfYear?: boolean;
+                            };
+                        } | null;
                     };
                 };
             };
@@ -7021,7 +7393,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7033,6 +7405,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -7051,6 +7440,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -7134,6 +7535,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7199,7 +7617,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7211,6 +7629,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -7229,6 +7664,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -7312,6 +7759,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7380,7 +7844,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7392,6 +7856,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -7410,6 +7891,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -7493,6 +7986,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7561,7 +8071,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7573,6 +8083,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -7591,6 +8118,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -7674,6 +8213,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7742,7 +8298,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7754,6 +8310,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -7772,6 +8345,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -7870,6 +8455,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -7901,7 +8503,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                     };
                 };
             };
@@ -8014,6 +8616,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -8046,7 +8665,7 @@ export interface paths {
                     "application/json": {
                         version: number;
                         /** @enum {string} */
-                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                     };
                 };
             };
@@ -8069,7 +8688,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8081,6 +8700,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -8099,6 +8735,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -8182,6 +8830,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8250,7 +8915,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8262,6 +8927,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -8280,6 +8962,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -8363,6 +9057,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8437,7 +9148,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8449,6 +9160,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -8467,6 +9195,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -8550,6 +9290,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8615,7 +9372,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8627,6 +9384,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -8645,6 +9419,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -8728,6 +9514,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8796,7 +9599,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8808,6 +9611,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -8826,6 +9646,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -8909,6 +9741,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -8977,7 +9826,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8989,6 +9838,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -9007,6 +9873,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -9090,6 +9968,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9158,7 +10053,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog" | "file" | "link";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -9170,6 +10065,23 @@ export interface paths {
                                     cvssFieldId: string;
                                     exploitFieldId: string;
                                     fixFieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "link_basis";
+                                    /** Format: uuid */
+                                    channelFieldId: string;
+                                    closedOptionIds: string[];
+                                    /** Format: uuid */
+                                    sourceRegisterId: string;
+                                    /** Format: uuid */
+                                    linkFieldId: string;
+                                    kindFieldId: string | null;
+                                    kindOptionIds: string[];
+                                    /** Format: uuid */
+                                    statusFieldId: string;
+                                    activeOptionIds: string[];
+                                    untilFieldId: string | null;
+                                    numberFieldId: string | null;
                                 } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
@@ -9188,6 +10100,18 @@ export interface paths {
                                 version: number;
                                 systemKey: string | null;
                                 catalogCode: string | null;
+                                linkRegisterId: string | null;
+                                settings: {
+                                    lock?: {
+                                        statusOptionIds: string[];
+                                        /** @enum {string} */
+                                        mode: "locked" | "reason";
+                                    };
+                                    date?: {
+                                        notAfterYearEndOfFieldId?: string | null;
+                                        defaultEndOfYear?: boolean;
+                                    };
+                                };
                                 options: {
                                     id: string;
                                     label: string;
@@ -9286,6 +10210,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -9339,7 +10280,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 values: {
-                                    [key: string]: string | number;
+                                    [key: string]: string | number | string[];
                                 };
                                 display: {
                                     [key: string]: string;
@@ -9372,6 +10313,54 @@ export interface paths {
                                 } | null;
                                 openEvents: number;
                                 openTasks: number;
+                                files: {
+                                    [key: string]: {
+                                        linkId: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            mime: string;
+                                            size: number;
+                                            sha256: string;
+                                            uploadedAt: string;
+                                            uploadedBy: {
+                                                id: string;
+                                                fullName: string;
+                                            };
+                                            deleted: boolean;
+                                        };
+                                        addedAt: string;
+                                        addedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                    }[];
+                                };
+                                links: {
+                                    [key: string]: {
+                                        id: string;
+                                        registerId: string;
+                                        number: number;
+                                        title: string;
+                                        deleted: boolean;
+                                    }[];
+                                };
+                                basis: {
+                                    [key: string]: {
+                                        /** @enum {string} */
+                                        state: "ok" | "none" | "expired" | "closed";
+                                        permission: {
+                                            id: string;
+                                            number: number;
+                                            docNumber: string;
+                                            until: string | null;
+                                        } | null;
+                                        text: string;
+                                    };
+                                };
+                                locked: {
+                                    [key: string]: "locked" | "reason";
+                                };
                                 version: number;
                                 createdAt: string;
                                 updatedAt: string;
@@ -9466,6 +10455,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -9483,7 +10489,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         values: {
-                            [key: string]: string | number | null;
+                            [key: string]: string | number | string[] | null;
                         };
                     };
                 };
@@ -9499,7 +10505,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -9532,6 +10538,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9608,6 +10662,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9660,7 +10731,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -9693,6 +10764,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9769,6 +10888,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9791,7 +10927,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Изменить запись (только переданные поля; null — очистить) */
+        /** Изменить запись (только переданные поля; null — очистить). Зафиксированное статусом поле — 422; поле «с причиной» — с reason */
         patch: {
             parameters: {
                 query?: never;
@@ -9806,8 +10942,9 @@ export interface paths {
                     "application/json": {
                         version: number;
                         values: {
-                            [key: string]: string | number | null;
+                            [key: string]: string | number | string[] | null;
                         };
+                        reason?: string | null;
                     };
                 };
             };
@@ -9822,7 +10959,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -9855,6 +10992,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9931,6 +11116,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9991,6 +11193,640 @@ export interface paths {
                                     label: string;
                                     from: string;
                                     to: string;
+                                }[];
+                                reason: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-records/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Приложить файлы к полю «Файл» (сначала POST /files). Зафиксированное поле с файлом — 422 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        /** Format: uuid */
+                        fieldId: string;
+                        fileIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            values: {
+                                [key: string]: string | number | string[];
+                            };
+                            display: {
+                                [key: string]: string;
+                            };
+                            calc: {
+                                [key: string]: string | number | null;
+                            };
+                            decisions: {
+                                [key: string]: {
+                                    optionId: string;
+                                    label: string;
+                                    documentTitle: string;
+                                    documentNumber: string;
+                                    documentDate: string;
+                                    hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
+                                    decidedAt: string;
+                                    decidedBy: string;
+                                } | null;
+                            };
+                            closed: boolean;
+                            archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
+                            openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
+                            version: number;
+                            createdAt: string;
+                            updatedAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-records/{id}/files/{linkId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отвязать файл (мягко, с записью в историю). Зафиксированное поле — 422 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    linkId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            values: {
+                                [key: string]: string | number | string[];
+                            };
+                            display: {
+                                [key: string]: string;
+                            };
+                            calc: {
+                                [key: string]: string | number | null;
+                            };
+                            decisions: {
+                                [key: string]: {
+                                    optionId: string;
+                                    label: string;
+                                    documentTitle: string;
+                                    documentNumber: string;
+                                    documentDate: string;
+                                    hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
+                                    decidedAt: string;
+                                    decidedBy: string;
+                                } | null;
+                            };
+                            closed: boolean;
+                            archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
+                            openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
+                            version: number;
+                            createdAt: string;
+                            updatedAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-records/{id}/backlinks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Обратные связи: записи других реестров, которые ссылаются на эту */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                registerId: string;
+                                registerName: string;
+                                fieldId: string;
+                                fieldLabel: string;
+                                items: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                    status: string;
+                                    closed: boolean;
+                                    archived: boolean;
+                                    deadline: {
+                                        date: string | null;
+                                        daysLeft: number | null;
+                                        /** @enum {string} */
+                                        state: "overdue" | "soon" | "ok" | "closed" | "none";
+                                    } | null;
                                 }[];
                             }[];
                         };
@@ -10081,6 +11917,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -10129,7 +11982,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -10162,6 +12015,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10238,6 +12139,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -10298,7 +12216,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -10331,6 +12249,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10407,6 +12373,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -10467,7 +12450,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -10500,6 +12483,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10576,6 +12607,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -10738,6 +12786,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -10780,7 +12845,7 @@ export interface paths {
                             id: string;
                             number: number;
                             values: {
-                                [key: string]: string | number;
+                                [key: string]: string | number | string[];
                             };
                             display: {
                                 [key: string]: string;
@@ -10813,6 +12878,54 @@ export interface paths {
                             } | null;
                             openEvents: number;
                             openTasks: number;
+                            files: {
+                                [key: string]: {
+                                    linkId: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        mime: string;
+                                        size: number;
+                                        sha256: string;
+                                        uploadedAt: string;
+                                        uploadedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                        deleted: boolean;
+                                    };
+                                    addedAt: string;
+                                    addedBy: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                }[];
+                            };
+                            links: {
+                                [key: string]: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                    title: string;
+                                    deleted: boolean;
+                                }[];
+                            };
+                            basis: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    state: "ok" | "none" | "expired" | "closed";
+                                    permission: {
+                                        id: string;
+                                        number: number;
+                                        docNumber: string;
+                                        until: string | null;
+                                    } | null;
+                                    text: string;
+                                };
+                            };
+                            locked: {
+                                [key: string]: "locked" | "reason";
+                            };
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10889,6 +13002,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -11031,6 +13161,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -11050,6 +13197,48 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/export.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Выгрузка для проверки: записи за период по полю-дате (с архивными) в Excel и файлы полей «Файл» одним zip */
+        get: {
+            parameters: {
+                query: {
+                    dateFieldId: string;
+                    from?: string;
+                    to?: string;
+                    nameFieldId?: string;
+                    linkFieldId?: string;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -11238,6 +13427,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -11404,6 +13610,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -11533,6 +13756,23 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -11639,6 +13879,23 @@ export interface paths {
                 };
                 /** @description Default Response */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -12821,6 +15078,18 @@ export interface paths {
                                     /** Format: uuid */
                                     fieldId: string;
                                     days: number;
+                                    skipYearEnd?: boolean;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "yearly";
+                                    month: number;
+                                    day: number;
+                                    statusOptionIds?: string[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "basis_missing";
+                                    /** Format: uuid */
+                                    fieldId: string;
                                 } | {
                                     /** @enum {string} */
                                     kind: "overdue";
@@ -12855,6 +15124,16 @@ export interface paths {
                                         userId: string;
                                         name?: string;
                                     })[];
+                                    title?: string;
+                                } | {
+                                    /** @enum {string} */
+                                    eventType: "set_option";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                    /** Format: uuid */
+                                    optionId: string;
+                                    fromOptionIds: string[];
+                                    recipients: unknown[];
                                 };
                                 recipientMissing: boolean;
                                 enabled: boolean;
@@ -12974,6 +15253,18 @@ export interface paths {
                             /** Format: uuid */
                             fieldId: string;
                             days: number;
+                            skipYearEnd?: boolean;
+                        } | {
+                            /** @enum {string} */
+                            kind: "yearly";
+                            month: number;
+                            day: number;
+                            statusOptionIds?: string[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "basis_missing";
+                            /** Format: uuid */
+                            fieldId: string;
                         } | {
                             /** @enum {string} */
                             kind: "overdue";
@@ -13010,6 +15301,16 @@ export interface paths {
                                 userId: string;
                                 name?: string;
                             })[];
+                            title?: string;
+                        } | {
+                            /** @enum {string} */
+                            eventType: "set_option";
+                            /** Format: uuid */
+                            fieldId: string;
+                            /** Format: uuid */
+                            optionId: string;
+                            fromOptionIds: string[];
+                            recipients: unknown[];
                         };
                     };
                 };
@@ -13031,6 +15332,18 @@ export interface paths {
                                 /** Format: uuid */
                                 fieldId: string;
                                 days: number;
+                                skipYearEnd?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "yearly";
+                                month: number;
+                                day: number;
+                                statusOptionIds?: string[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "basis_missing";
+                                /** Format: uuid */
+                                fieldId: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "overdue";
@@ -13065,6 +15378,16 @@ export interface paths {
                                     userId: string;
                                     name?: string;
                                 })[];
+                                title?: string;
+                            } | {
+                                /** @enum {string} */
+                                eventType: "set_option";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                                fromOptionIds: string[];
+                                recipients: unknown[];
                             };
                             recipientMissing: boolean;
                             enabled: boolean;
@@ -13202,6 +15525,18 @@ export interface paths {
                             /** Format: uuid */
                             fieldId: string;
                             days: number;
+                            skipYearEnd?: boolean;
+                        } | {
+                            /** @enum {string} */
+                            kind: "yearly";
+                            month: number;
+                            day: number;
+                            statusOptionIds?: string[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "basis_missing";
+                            /** Format: uuid */
+                            fieldId: string;
                         } | {
                             /** @enum {string} */
                             kind: "overdue";
@@ -13238,6 +15573,16 @@ export interface paths {
                                 userId: string;
                                 name?: string;
                             })[];
+                            title?: string;
+                        } | {
+                            /** @enum {string} */
+                            eventType: "set_option";
+                            /** Format: uuid */
+                            fieldId: string;
+                            /** Format: uuid */
+                            optionId: string;
+                            fromOptionIds: string[];
+                            recipients: unknown[];
                         };
                         enabled?: boolean;
                     };
@@ -13260,6 +15605,18 @@ export interface paths {
                                 /** Format: uuid */
                                 fieldId: string;
                                 days: number;
+                                skipYearEnd?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "yearly";
+                                month: number;
+                                day: number;
+                                statusOptionIds?: string[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "basis_missing";
+                                /** Format: uuid */
+                                fieldId: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "overdue";
@@ -13294,6 +15651,16 @@ export interface paths {
                                     userId: string;
                                     name?: string;
                                 })[];
+                                title?: string;
+                            } | {
+                                /** @enum {string} */
+                                eventType: "set_option";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                                fromOptionIds: string[];
+                                recipients: unknown[];
                             };
                             recipientMissing: boolean;
                             enabled: boolean;
@@ -13437,6 +15804,18 @@ export interface paths {
                                 /** Format: uuid */
                                 fieldId: string;
                                 days: number;
+                                skipYearEnd?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "yearly";
+                                month: number;
+                                day: number;
+                                statusOptionIds?: string[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "basis_missing";
+                                /** Format: uuid */
+                                fieldId: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "overdue";
@@ -13471,6 +15850,16 @@ export interface paths {
                                     userId: string;
                                     name?: string;
                                 })[];
+                                title?: string;
+                            } | {
+                                /** @enum {string} */
+                                eventType: "set_option";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                                fromOptionIds: string[];
+                                recipients: unknown[];
                             };
                             recipientMissing: boolean;
                             enabled: boolean;
@@ -13618,6 +16007,18 @@ export interface paths {
                                 /** Format: uuid */
                                 fieldId: string;
                                 days: number;
+                                skipYearEnd?: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "yearly";
+                                month: number;
+                                day: number;
+                                statusOptionIds?: string[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "basis_missing";
+                                /** Format: uuid */
+                                fieldId: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "overdue";
@@ -13652,6 +16053,16 @@ export interface paths {
                                     userId: string;
                                     name?: string;
                                 })[];
+                                title?: string;
+                            } | {
+                                /** @enum {string} */
+                                eventType: "set_option";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                                fromOptionIds: string[];
+                                recipients: unknown[];
                             };
                             recipientMissing: boolean;
                             enabled: boolean;
@@ -14054,7 +16465,7 @@ export interface paths {
                                 when: string;
                                 then: string;
                                 /** @enum {string} */
-                                eventType: "remind" | "notify" | "escalate";
+                                eventType: "remind" | "notify" | "escalate" | "set_option";
                                 recipients: ({
                                     /** @enum {string} */
                                     kind: "user";
@@ -19361,10 +21772,15 @@ export interface paths {
                             deleted: boolean;
                             refs: {
                                 /** @enum {string} */
-                                kind: "evidence" | "decision" | "document_pdf";
+                                kind: "evidence" | "decision" | "document_pdf" | "record";
                                 id: string;
                                 label: string;
                             }[];
+                            text: {
+                                /** @enum {string} */
+                                status: "pending" | "text" | "no_text" | "failed";
+                                pages: number | null;
+                            } | null;
                         };
                     };
                 };
@@ -21776,6 +24192,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF). Без kind — первая страница каждого раздела */
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                    kind?: "records" | "files" | "evidence";
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            q: string;
+                            records: {
+                                items: {
+                                    /** @enum {string} */
+                                    kind: "records" | "files" | "evidence";
+                                    id: string;
+                                    title: string;
+                                    context: string;
+                                    snippet: string;
+                                    link: string;
+                                    archived: boolean;
+                                }[];
+                                total: number;
+                                nextCursor: string | null;
+                            };
+                            files: {
+                                items: {
+                                    /** @enum {string} */
+                                    kind: "records" | "files" | "evidence";
+                                    id: string;
+                                    title: string;
+                                    context: string;
+                                    snippet: string;
+                                    link: string;
+                                    archived: boolean;
+                                }[];
+                                total: number;
+                                nextCursor: string | null;
+                            };
+                            evidence: {
+                                items: {
+                                    /** @enum {string} */
+                                    kind: "records" | "files" | "evidence";
+                                    id: string;
+                                    title: string;
+                                    context: string;
+                                    snippet: string;
+                                    link: string;
+                                    archived: boolean;
+                                }[];
+                                total: number;
+                                nextCursor: string | null;
+                            };
+                            noTextFiles: number;
+                            pendingFiles: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/kpis": {
         parameters: {
             query?: never;
@@ -21936,7 +24490,7 @@ export interface paths {
                                 key: string;
                                 title: string;
                                 /** @enum {string} */
-                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars";
+                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
                                 source: string;
                                 registerId: string | null;
                             }[];
@@ -21944,7 +24498,7 @@ export interface paths {
                                 key: string;
                                 title: string;
                                 /** @enum {string} */
-                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars";
+                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
                                 source: string;
                                 registerId: string | null;
                             }[];
@@ -22075,7 +24629,7 @@ export interface paths {
                             key: string;
                             title: string;
                             /** @enum {string} */
-                            kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars";
+                            kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
                             source: string;
                             registerId: string | null;
                             link: string | null;

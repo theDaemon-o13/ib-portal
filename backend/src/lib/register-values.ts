@@ -3,13 +3,16 @@
 //
 // Хранение (register_records.values, ключ — id поля):
 //   text → строка; number → число; date → 'YYYY-MM-DD'; select → id варианта; user → id пользователя;
-//   catalog → id значения справочника (варианты поля — значения справочника, переименование ничего не ломает).
-//   Вычисляемое поле (calc) и решение другого отдела (decision) в values не хранятся никогда.
+//   catalog → id значения справочника (варианты поля — значения справочника, переименование ничего не ломает);
+//   link → массив id записей реестра link_register_id (этап 8б).
+//   Вычисляемое поле (calc), решение другого отдела (decision) и файлы (file — таблица register_record_files)
+//   в values не хранятся никогда.
 
+import { basisOf, isBasisRule, BASIS_STATE_NAMES, type BasisRule, type SourceRecord } from './link-basis.js';
 import { vulnScore } from './vuln-score.js';
 import { onOrNextWorkingDay, parseIsoDate, isoDate, type WorkCalendar } from './working-days.js';
 
-export const FIELD_TYPES = ['text', 'select', 'number', 'date', 'user', 'calc', 'decision', 'catalog'] as const;
+export const FIELD_TYPES = ['text', 'select', 'number', 'date', 'user', 'calc', 'decision', 'catalog', 'file', 'link'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export const ANALYTICS_ROLES = ['dimension', 'metric', 'date', 'deadline'] as const;
@@ -25,11 +28,13 @@ export const ALLOWED_ROLES: Record<FieldType, readonly AnalyticsRole[]> = {
   number: ['metric'],
   date: ['date', 'deadline'],
   calc: ['deadline', 'date'],
+  file: [],
+  link: [],
 };
 
 export const TEXT_MAX = 4000;
 
-export type StoredValue = string | number;
+export type StoredValue = string | number | string[];
 export type Values = Record<string, StoredValue>;
 
 export interface OptionDef {
@@ -65,15 +70,26 @@ export interface ScoreRule {
   fixFieldId: string;
 }
 
-export type CalcRule = DueDateRule | ScoreRule;
+export type CalcRule = DueDateRule | ScoreRule | BasisRule;
+
+export type { BasisRule };
 
 export function isScoreRule(rule: CalcRule): rule is ScoreRule {
   return rule.kind === 'vuln_score';
 }
 
-/** Поля, на которые ссылается правило вычисления. */
+/** Правило срока (дата): этап 3 — без kind. */
+export function isDueRule(rule: CalcRule | null | undefined): rule is DueDateRule {
+  return !!rule && (rule.kind === undefined || rule.kind === 'due_date');
+}
+
+/** Максимум связанных записей в одном поле «Связь с записью». */
+export const LINKS_MAX = 200;
+
+/** Поля, на которые ссылается правило вычисления (в своём реестре). */
 export function calcRuleFieldIds(rule: CalcRule): string[] {
   if (isScoreRule(rule)) return [rule.cvssFieldId, rule.exploitFieldId, rule.fixFieldId];
+  if (isBasisRule(rule)) return [rule.channelFieldId];
   return [rule.fromFieldId, rule.byFieldId, rule.overrideFieldId, rule.overrideWhenFilledFieldId ?? null].filter((x): x is string => !!x);
 }
 
@@ -95,10 +111,12 @@ export interface UserRef {
   isActive: boolean;
 }
 
-/** Поле принимает значения от формы и импорта. */
+/** Поле принимает значения от формы и импорта. Файлы прикладываются отдельно (POST …/files). */
 export function isWritable(type: FieldType): boolean {
-  return type !== 'calc' && type !== 'decision';
+  return type !== 'calc' && type !== 'decision' && type !== 'file';
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
@@ -187,6 +205,13 @@ export function normalizeInput(field: FieldDef, raw: unknown, ctx: InputContext)
       if (ctx.assignableUsers.has(raw) || ctx.current === raw) return ok(raw);
       return fail('Сотрудник не найден или отключён');
     }
+    case 'link': {
+      // Существование записей проверяет сервис (нужна БД); здесь — форма значения.
+      if (!Array.isArray(raw) || raw.some((x) => typeof x !== 'string' || !UUID.test(x))) return fail('Выберите записи из списка');
+      const ids = [...new Set(raw as string[])];
+      if (ids.length > LINKS_MAX) return fail(`Не больше ${LINKS_MAX} связанных записей`);
+      return ok(ids.length ? ids : null);
+    }
     default:
       return fail('Поле только для чтения');
   }
@@ -196,6 +221,8 @@ export function normalizeInput(field: FieldDef, raw: unknown, ctx: InputContext)
 
 export interface DisplayContext {
   users: ReadonlyMap<string, UserRef>;
+  /** Заголовки связанных записей (поле «Связь с записью»): id записи → «#12 WS-BUH-014». */
+  links?: ReadonlyMap<string, string>;
   /** Сотрудник в Excel: «ФИО (логин)»; на экране и в истории — «ФИО». */
   userWithLogin?: boolean;
 }
@@ -207,7 +234,13 @@ export function displayValue(field: FieldDef, v: StoredValue | undefined | null,
       return typeof v === 'number' ? formatNumberRu(v) : String(v);
     case 'calc':
       if (typeof v === 'number') return formatNumberRu(v);
+      if (Array.isArray(v)) return '';
+      if (isBasisRule(field.calcRule)) return BASIS_STATE_NAMES[v as keyof typeof BASIS_STATE_NAMES] ?? v;
       return isIsoDate(v) ? formatDateRu(v) : v;
+    case 'link':
+      return Array.isArray(v) ? v.map((id) => ctx.links?.get(id) ?? '(запись удалена)').join('; ') : '';
+    case 'file':
+      return '';
     case 'date':
       return typeof v === 'string' && isIsoDate(v) ? formatDateRu(v) : String(v);
     case 'select':
@@ -231,6 +264,10 @@ export interface CalcContext {
   fields?: readonly FieldDef[];
   /** Производственный календарь: нужен правилу срока с переносом на рабочий день. */
   calendar?: WorkCalendar | null;
+  /** Статус основания (link_basis): id записи, записи реестров-источников по id реестра и «сегодня». */
+  recordId?: string;
+  basisSources?: ReadonlyMap<string, readonly SourceRecord[]>;
+  today?: string;
 }
 
 const filled = (v: StoredValue | undefined) => v !== undefined && v !== null && String(v).trim() !== '';
@@ -240,6 +277,11 @@ const filled = (v: StoredValue | undefined) => v !== undefined && v !== null && 
  *  срок — дата 'YYYY-MM-DD' или null; оценка — число или null.
  */
 export function calcValue(rule: CalcRule, values: Values, ctx: CalcContext = {}): StoredValue | null {
+  if (isBasisRule(rule)) {
+    const sources = ctx.basisSources?.get(rule.sourceRegisterId);
+    if (!ctx.recordId || !sources || !ctx.today) return null;
+    return basisOf(rule, ctx.recordId, values, sources, ctx.today).state;
+  }
   if (isScoreRule(rule)) {
     const cvss = values[rule.cvssFieldId];
     const keyOf = (fieldId: string) => {
@@ -276,6 +318,9 @@ export function typeChangeKind(from: FieldType, to: FieldType, hasData: boolean)
   if (from === to) return fail('Тип поля не меняется');
   if (from === 'calc' || to === 'calc' || from === 'decision' || to === 'decision') {
     return fail('Вычисляемое поле и решение другого отдела нельзя превратить в другой тип и наоборот');
+  }
+  if (from === 'file' || to === 'file' || from === 'link' || to === 'link') {
+    return fail('Поля «Файл» и «Связь с записью» не меняют тип — добавьте новое поле');
   }
   // Справочник выбирается при создании поля: превратить в «Значение справочника» другое поле нельзя.
   if (to === 'catalog') return fail('Поле «Значение справочника» нельзя получить сменой типа — добавьте новое поле');
@@ -320,6 +365,21 @@ export function cellPrimitive(cell: unknown): string | number | Date | null {
 export interface ImportContext {
   /** Все пользователи (для поиска по логину и ФИО). Назначить можно только активного. */
   users: readonly UserRef[];
+  /**
+   * Поле «Связь с записью»: записи целевого реестра по нормализованному ключу (ключ импорта, заголовок
+   * или «#номер») → id записей. Несколько id — значение неоднозначно.
+   */
+  linkTargets?: ReadonlyMap<string, ReadonlyMap<string, readonly string[]>>;
+}
+
+/** Ключ поиска связанной записи: без регистра и лишних пробелов. */
+export function linkKey(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** Ячейка «Связи с записью»: значения через «;», запятую или перенос строки. */
+export function splitLinkCell(s: string): string[] {
+  return s.split(/[;,\n]/).map((x) => x.trim()).filter(Boolean);
 }
 
 /**
@@ -374,6 +434,19 @@ export function parseCell(field: FieldDef, cell: unknown, ctx: ImportContext): R
       if (!r.ok) return r;
       return r.value.isActive ? ok(r.value.id) : fail(`Сотрудник ${r.value.fullName} (${r.value.login}) отключён`);
     }
+    case 'link': {
+      const targets = ctx.linkTargets?.get(field.id);
+      if (!targets) return fail('Связанный реестр недоступен');
+      const ids: string[] = [];
+      for (const name of splitLinkCell(String(v))) {
+        const found = targets.get(linkKey(name)) ?? [];
+        if (found.length === 0) return fail(`«${name}» — не найдено в связанном реестре`);
+        if (found.length > 1) return fail(`«${name}» — найдено несколько записей, укажите «#номер»`);
+        if (!ids.includes(found[0] as string)) ids.push(found[0] as string);
+      }
+      if (ids.length > LINKS_MAX) return fail(`Не больше ${LINKS_MAX} связанных записей`);
+      return ids.length ? ok(ids) : ok(null);
+    }
     default:
       return fail('Поле только для чтения');
   }
@@ -381,7 +454,13 @@ export function parseCell(field: FieldDef, cell: unknown, ctx: ImportContext): R
 
 /** Значения равны (для подсчёта изменений). */
 export function sameValue(a: StoredValue | undefined | null, b: StoredValue | undefined | null): boolean {
-  const na = a === undefined || a === null || a === '' ? null : a;
-  const nb = b === undefined || b === null || b === '' ? null : b;
-  return na === nb;
+  const empty = (x: StoredValue | undefined | null) => x === undefined || x === null || x === '' || (Array.isArray(x) && x.length === 0);
+  if (empty(a) || empty(b)) return empty(a) && empty(b);
+  // Связи: порядок не важен.
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    const sb = new Set(b);
+    return a.every((x) => sb.has(x));
+  }
+  return a === b;
 }

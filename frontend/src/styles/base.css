@@ -638,3 +638,15 @@ body.mon-idle .mon{cursor:none}
   .mon-foot{white-space:normal;flex-direction:column}
   .mk,.mp{border-radius:18px}
 }
+
+/* Этап 8б: файлы записи, связи, поиск */
+.rail-search{padding:0 8px 8px}
+.rail-search .inp{width:100%}
+.file-card{display:grid;gap:4px;padding:8px 10px;border-radius:9px;background:var(--fill-2)}
+.file-card .fn{min-width:0}
+.file-card .sha{font-size:11px;word-break:break-all}
+.link-results{display:flex;flex-wrap:wrap;gap:4px}
+.search-hit{display:grid;gap:2px;text-decoration:none;color:inherit}
+.search-hit:hover{background:var(--fill-2)}
+.snippet mark{background:var(--accent-soft,rgba(0,122,255,.18));color:inherit;border-radius:3px;padding:0 1px}
+.grow{flex:1;min-width:0}

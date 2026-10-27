@@ -25,7 +25,7 @@ export const Kpi = z.object({
   source: z.string(),
   link: z.string().nullable(),
 });
-const WidgetKind = z.enum(['distribution', 'metric', 'timeline', 'deadline', 'tile', 'bars']);
+const WidgetKind = z.enum(['distribution', 'metric', 'timeline', 'deadline', 'tile', 'bars', 'basis']);
 const WidgetRef = z.object({ key: z.string(), title: z.string(), kind: WidgetKind, source: z.string(), registerId: z.string().nullable() });
 const WidgetData = WidgetRef.extend({
   link: z.string().nullable(),
@@ -78,7 +78,7 @@ export const dashboardRoutes: FastifyPluginAsyncZod<{ db: Db; cache: DashboardCa
     preHandler: view,
     schema: {
       tags, summary: 'Данные одного виджета или плитки (кэш 1 минута): field:<id>, tile:<id>, tasks.categories, documents.status, evidence.state',
-      params: z.object({ key: z.string().max(64).regex(/^(field:|tile:)?[0-9a-z.-]+$/i) }),
+      params: z.object({ key: z.string().max(64).regex(/^(field:|tile:|basis:)?[0-9a-z.-]+$/i) }),
       response: { 200: WidgetData, ...errors },
     },
   }, async (request) => {

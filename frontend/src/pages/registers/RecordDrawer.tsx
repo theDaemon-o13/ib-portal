@@ -6,7 +6,8 @@ import { registersApi, VULN_REGISTER_KEY, type RegisterDetail, type RegisterFiel
 import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
-import { changedValues, deadlineChip, describeRule, draftOf, EVENT_TYPE_NAMES, formatCalc, formatDate, type Draft } from './logic';
+import { changedValues, deadlineChip, describeRule, draftOf, EVENT_TYPE_NAMES, formatCalc, formatDate, isBasisRule, reasonFields, type Draft } from './logic';
+import { Backlinks, BasisField, FileField, LinkField } from './RecordLinks';
 import { EventTasks } from './AutomationTab';
 import { DecisionBlock } from './DecisionBlock';
 import { rkeys } from './keys';
@@ -15,6 +16,7 @@ const LONG = /описан|коммент|мер|примечан/i;
 
 const VIA: Record<string, string> = {
   import: ' · импорт Excel', type_change: ' · смена типа поля', scan_import: ' · отчёт сканера', auto: ' · пересчёт', automation: ' · автоматизация',
+  files: ' · файлы',
 };
 
 /** Критичность уязвимости: считается по Оценке, пока её не исправили вручную. */
@@ -31,9 +33,22 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
   const v = draft[f.id] ?? '';
   const set = (value: string) => setDraft({ ...draft, [f.id]: value });
   const id = `rf-${f.id}`;
+  // Фиксация статусом (этап 8б): заполненное зафиксированное поле — только чтение.
+  const lockedNow = rec?.locked[f.id] === 'locked' && (rec.values[f.id] ?? '') !== '';
+  disabled = disabled || lockedNow;
   let control: ReactNode;
   switch (f.type) {
+    case 'file':
+      control = <FileField f={f} rec={rec} canEdit={canDecide} onChanged={onDecided} />;
+      break;
+    case 'link':
+      control = <LinkField f={f} rec={rec} value={v} onChange={set} disabled={disabled} />;
+      break;
     case 'calc':
+      if (isBasisRule(f.calcRule)) {
+        control = <BasisField f={f} rec={rec} />;
+        break;
+      }
       control = (
         <div className="ro">
           <b className="mono">{formatCalc(rec?.calc[f.id]) || '—'}</b>
@@ -114,13 +129,17 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
         ? <textarea id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)} />
         : <input id={id} className="inp" value={v} disabled={disabled} required={f.isTitle} onChange={(e) => set(e.target.value)} />;
   }
-  const wide = f.isTitle || f.type === 'decision' || f.type === 'calc' || (f.type === 'text' && LONG.test(f.label));
-  // Решение — с кнопками и своей формой: не <label>, иначе щелчок по подписи нажимал бы кнопку.
-  if (f.type === 'decision') {
+  const wide = f.isTitle || f.type === 'decision' || f.type === 'calc' || f.type === 'file' || f.type === 'link' || (f.type === 'text' && LONG.test(f.label));
+  const lockNote = lockedNow
+    ? <small className="row nowrap"><span className="chip">зафиксировано</span> Статус «{rec ? rec.display[reg.fields.find((x) => x.isStatus)?.id ?? ''] : ''}» — изменить можно только новой записью</small>
+    : rec?.locked[f.id] === 'reason' && f.type !== 'file' ? <small>При этом статусе меняется только с причиной — её спросят при сохранении.</small> : null;
+  // Решение, файлы и связь — с кнопками: не <label>, иначе щелчок по подписи нажимал бы кнопку.
+  if (f.type === 'decision' || f.type === 'file' || f.type === 'link') {
     return (
       <div className="wide field-block" role="group" aria-label={f.label}>
         <span className="field-label">{f.label}</span>
         {control}
+        {f.type === 'link' && lockNote}
       </div>
     );
   }
@@ -128,6 +147,7 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
     <label className={wide ? 'wide' : undefined} htmlFor={f.type === 'calc' ? undefined : id}>
       {f.label}
       {control}
+      {lockNote}
     </label>
   );
 }
@@ -152,6 +172,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reason, setReason] = useState('');
 
   // Черновик заполняется из записи при открытии и после «Перечитать».
   useEffect(() => {
@@ -190,7 +211,8 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
       const values = changedValues(reg, original, draft);
       if (isNew) return registersApi.createRecord(reg.id, values);
       if (Object.keys(values).length === 0 || !record) return null;
-      return registersApi.updateRecord(record.id, record.version, values);
+      if (reasonFields(reg, record, values).length && !reason.trim()) throw new Error('Укажите причину изменения');
+      return registersApi.updateRecord(record.id, record.version, values, reason.trim() || undefined);
     },
     onSuccess: async (r) => {
       if (!r) {
@@ -202,6 +224,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
       setDraft(d);
       setOriginal(d);
       setLoadedVersion(r.version);
+      setReason('');
       await refresh();
       toast(isNew ? `Запись #${r.number} создана` : `Запись #${r.number} сохранена`);
       if (isNew) onCreated(r.id);
@@ -267,6 +290,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
     save.mutate();
   };
   const readOnly = !canEdit || !!record?.archived;
+  const needReason = reasonFields(reg, record, changedValues(reg, original, draft));
   const fields = reg.fields.filter((f) => !f.archived);
   const titleField = reg.fields.find((f) => f.isTitle);
   const title = isNew ? 'Новая запись' : (record?.display[titleField?.id ?? ''] || 'Без названия');
@@ -304,6 +328,13 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
                   onResetAuto={(id) => resetAuto.mutate(id)} resetting={resetAuto.isPending}
                   canDecide={canEdit} onDecided={onDecided} />
               ))}
+              {needReason.length > 0 && (
+                <label className="wide">
+                  Причина изменения ({needReason.map((f) => `«${f.label}»`).join(', ')})
+                  <textarea className="inp" required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Например: замена ноутбука, заявка №…" />
+                  <small>Причина попадёт в историю записи и журнал.</small>
+                </label>
+              )}
               <div className="wide row">
                 {!readOnly && <button className="btn primary" type="submit" disabled={save.isPending || conflict}>{isNew ? 'Создать запись' : 'Сохранить'}</button>}
                 <button className="btn" type="button" onClick={onClose}>{readOnly ? 'Закрыть' : 'Отмена'}</button>
@@ -350,6 +381,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
               <div className="hint">Каждое событие становится задачами получателям; повтор по открытой задаче — комментарий в ней.</div>
             </div>
           )}
+          {!isNew && recordId && <Backlinks recordId={recordId} />}
           {!isNew && (
             <div>
               <div className="eyebrow">История изменений</div>
@@ -361,6 +393,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
                     {h.changes.length > 0 ? (
                       <ul>{h.changes.map((c, i) => <li key={i}>«{c.label}»: {c.from || '—'} → {c.to || '—'}</li>)}</ul>
                     ) : <div className="m">{h.summary}</div>}
+                    {h.reason && <div className="m">Причина: {h.reason}</div>}
                   </div>
                 ))}
               </div>

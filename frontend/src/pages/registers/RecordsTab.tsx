@@ -7,7 +7,8 @@ import {
 } from '../../api/registers';
 import { useToast } from '../../components/Toast';
 import { ImportDialog } from './ImportDialog';
-import { deadlineChip, deadlineFieldOf, describeFilter, filterFromParams, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
+import { BASIS_TONES, deadlineChip, deadlineFieldOf, describeFilter, filterFromParams, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
+import { ExportZipDialog } from './ExportZipDialog';
 import { rkeys } from './keys';
 import { RecordDrawer } from './RecordDrawer';
 import { ScanImportDialog } from './ScanImportDialog';
@@ -59,6 +60,13 @@ function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
     return <span className={`chip ${chip.cls}`} title={rec.deadline?.date ? `Срок: ${formatDate(rec.deadline.date)}` : undefined}>{chip.text}</span>;
   }
   const f = col.field as RegisterField;
+  // Поле «Файл» — значок с числом файлов; статус основания — метка состояния (этап 8б).
+  if (f.type === 'file') {
+    const n = rec.files[f.id]?.length ?? 0;
+    return n ? <span className="chip" title={rec.display[f.id]} aria-label={`файлов: ${n}`}>📎 {n}</span> : <span className="faint">—</span>;
+  }
+  const basis = rec.basis[f.id];
+  if (basis) return <span className={`chip ${BASIS_TONES[basis.state] ?? ''}`} title={basis.text}>{basis.text}</span>;
   const text = rec.display[f.id] ?? '';
   if (!text) return <span className="faint">—</span>;
   if (f.type === 'number' || f.type === 'date' || f.type === 'calc') return <span className="mono">{text}</span>;
@@ -128,6 +136,11 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     navigate({ pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }, { replace: true });
   };
   const [open, setOpenState] = useState<string | null>(() => params.get('record'));
+  // Переход по ссылке на запись этого же реестра (связь, обратная связь, поиск) — открыть её карточку.
+  const linked = params.get('record');
+  useEffect(() => {
+    if (linked) setOpenState(linked);
+  }, [linked]);
   const setOpen = (id: string | null) => {
     setOpenState(id);
     const url = new URL(window.location.href);
@@ -137,6 +150,8 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     }
   };
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [zipOpen, setZipOpen] = useState(false);
+  const hasFiles = reg.fields.some((f) => f.type === 'file' && !f.archived);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const headRefs = useRef<(HTMLTableCellElement | null)[]>([]);
@@ -230,6 +245,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
             </>
           )}
           <button className="btn" type="button" onClick={() => void exportFile()} disabled={busy}>Экспорт в Excel</button>
+          {hasFiles && <button className="btn" type="button" onClick={() => setZipOpen(true)}>Выгрузка для проверки</button>}
           <span className="hint">
             {isVulns ? 'Отчёт сканера (листы «Хосты» и уязвимости, дата в имени файла) или выгрузка реестра — тип файла определяется сам. ' : ''}
             Выгруженный файл после заполнения в ДИКТ обновляет записи по колонке ID. Перед применением — предпросмотр.
@@ -296,6 +312,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
       {preview && <ImportDialog reg={reg} preview={preview} onClose={() => setPreview(null)} />}
       {scanPreview && <ScanImportDialog reg={reg} preview={scanPreview} onClose={() => setScanPreview(null)} />}
+      {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
     </>
   );
 }

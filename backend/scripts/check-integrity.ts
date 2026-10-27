@@ -180,6 +180,27 @@ async function main() {
     ) x`;
   check(Number(kioskMixed[0]?.n ?? 0) === 0, 'право «Настенный монитор» ни с чем не сочетается (роли и пользователи)');
 
+  // Этап 8б: файлы записей, текст PDF, фиксация полей статусом.
+  for (const table of ['register_record_files', 'file_texts']) {
+    const rights = await prisma.$queryRaw<{ p: string; granted: boolean }[]>`
+      SELECT p, has_table_privilege('ibportal_app', ${`public.${table}`}, p) AS granted
+      FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+    const g = (p: string) => rights.find((x) => x.p === p)?.granted === true;
+    check(g('SELECT') && g('INSERT') && g('UPDATE') && !g('DELETE') && !g('TRUNCATE'), `ibportal_app: ${table} — SELECT, INSERT, UPDATE, без DELETE и TRUNCATE`);
+  }
+  const lockTriggers = (await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger
+    WHERE tgrelid IN ('public.register_records'::regclass, 'public.register_record_files'::regclass) AND NOT tgisinternal`).map((t) => t.tgname);
+  check(['register_records_lock_guard', 'register_record_files_guard'].every((n) => lockTriggers.includes(n)), 'триггеры фиксации полей статусом на месте');
+  const pdfWithoutText = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM files f WHERE f.mime = 'application/pdf' AND f.deleted_at IS NULL
+      AND NOT EXISTS (SELECT 1 FROM file_texts t WHERE t.file_id = f.id)`;
+  check(Number(pdfWithoutText[0]?.n ?? 0) === 0, 'у каждого PDF есть строка file_texts (текст для поиска)', `нет у ${pdfWithoutText[0]?.n}`);
+  const badLinks = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM register_record_files x JOIN register_fields f ON f.id = x.field_id
+    JOIN register_records r ON r.id = x.record_id WHERE f.type <> 'file' OR f.register_id <> r.register_id`;
+  check(Number(badLinks[0]?.n ?? 0) === 0, 'файлы записей привязаны к полям «Файл» своего реестра');
+
   await checkFileStore(process.argv.includes('--sha'));
 
   const appCanCreate = await prisma.$queryRaw<{ ok: boolean }[]>`

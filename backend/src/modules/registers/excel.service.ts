@@ -10,11 +10,13 @@ import {
   displayValue,
   formatNumberRu,
   isWritable,
+  linkKey,
   parseCell,
   sameValue,
   type StoredValue,
   type Values,
 } from '../../lib/register-values.js';
+import { todayIso } from '../../lib/today.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { applyDerived } from '../vulns/derive.js';
 import {
@@ -29,7 +31,9 @@ import {
   type FieldMeta,
   type RegisterDef,
 } from './definition.js';
-import { baseSql, closedSql } from './filter.js';
+import { baseSql, closedSql, filterSql, type RecordFilter } from './filter.js';
+import { linkIdsIn, linkLabels, loadLinkRefs } from './links.js';
+import { applyDateDefaults, dateErrors, lockErrors } from './record-rules.js';
 import { nextNumbers } from './records.service.js';
 
 export const IMPORT_MAX_ROWS = 20_000;
@@ -48,11 +52,47 @@ const TYPE_HELP: Record<string, string> = {
   user: 'Сотрудник в виде «ФИО (логин)» — ищется по логину в скобках. Можно указать только ФИО, если такое имя у единственного сотрудника.',
   calc: 'Только для чтения: считается порталом, при импорте не меняется.',
   decision: 'Только для чтения: решение вносится на портале с документом-основанием.',
+  file: 'Только для чтения: имена файлов. Файлы прикладываются в карточке записи на портале.',
+  link: 'Записи связанного реестра через «;»: по ключу импорта или заголовку (например, имя хоста) либо «#номер».',
 };
 const TYPE_NAME: Record<string, string> = {
   text: 'Текст', number: 'Число', date: 'Дата', select: 'Список', user: 'Сотрудник', calc: 'Вычисляемое', decision: 'Решение другого отдела',
-  catalog: 'Значение справочника',
+  catalog: 'Значение справочника', file: 'Файл', link: 'Связь с записью',
 };
+
+/**
+ * Записи реестров, на которые ссылаются поля «Связь с записью»: ключ → id. Ключи — «#номер», заголовок
+ * и значение ключа импорта (без регистра и лишних пробелов). Повтор ключа — несколько id (неоднозначно).
+ */
+async function linkTargetsOf(db: Db, reg: RegisterDef): Promise<Map<string, Map<string, string[]>>> {
+  const out = new Map<string, Map<string, string[]>>();
+  const cache = new Map<string, Map<string, string[]>>();
+  for (const f of reg.fields.filter((x) => x.type === 'link' && x.linkRegisterId)) {
+    const targetId = f.linkRegisterId as string;
+    let map = cache.get(targetId);
+    if (!map) {
+      const target = await loadRegister(db, targetId);
+      const title = target.fields.find((x) => x.isTitle);
+      const rows = await db.registerRecord.findMany({ where: { registerId: targetId, deletedAt: null }, select: { id: true, number: true, values: true, importKey: true } });
+      map = new Map<string, string[]>();
+      const add = (k: string | null | undefined, id: string) => {
+        if (!k) return;
+        const key = linkKey(k);
+        const list = map?.get(key) ?? [];
+        if (!list.includes(id)) map?.set(key, [...list, id]);
+      };
+      for (const r of rows) {
+        add(`#${r.number}`, r.id);
+        add(r.importKey, r.id);
+        const t = title ? (r.values as Values)[title.id] : undefined;
+        if (typeof t === 'string') add(t, r.id);
+      }
+      cache.set(targetId, map);
+    }
+    out.set(f.id, map);
+  }
+  return out;
+}
 
 /** derived — колонка портала без поля («Дней до срока»): при импорте пропускается молча. */
 type ColKind = 'id' | 'value' | 'readonly' | 'doc' | 'derived';
@@ -60,16 +100,36 @@ const DAYS_LEFT_HEADER = 'Дней до срока';
 
 // ---------------------------------------------------------------- экспорт
 
-export async function exportRegister(db: Db, registerId: string): Promise<{ fileName: string; buffer: Buffer }> {
+export interface ExportOptions {
+  /** Отбор записей (SQL-часть фильтра): выгрузка для проверки — период по дате документа. */
+  filter?: RecordFilter;
+  /** С записями в архиве (истёкшие разрешения хранятся навсегда). */
+  includeArchived?: boolean;
+  /** Дополнительный лист книги (опись файлов архива). */
+  extra?: (wb: ExcelJS.Workbook) => void;
+}
+
+const exportSelect = { id: true, number: true, values: true, version: true, archivedAt: true, createdAt: true, updatedAt: true } as const;
+
+/** Записи выгрузки по номеру: все действующие или по фильтру. */
+export async function exportRows(db: Db, reg: RegisterDef, opts: ExportOptions = {}) {
+  if (!opts.filter && !opts.includeArchived) {
+    return db.registerRecord.findMany({ where: { registerId: reg.id, deletedAt: null, archivedAt: null }, select: exportSelect, orderBy: { number: 'asc' } });
+  }
+  const ids = await db.$queryRaw<{ id: string }[]>`
+    SELECT r.id::text FROM register_records r WHERE ${baseSql(reg.id, opts.includeArchived)} ${filterSql(reg, opts.filter ?? {})}`;
+  return db.registerRecord.findMany({ where: { id: { in: ids.map((r) => r.id) } }, select: exportSelect, orderBy: { number: 'asc' } });
+}
+
+export async function exportRegister(db: Db, registerId: string, opts: ExportOptions = {}): Promise<{ fileName: string; buffer: Buffer }> {
   const reg = await loadRegister(db, registerId);
   const fields = reg.fields.filter((f) => !f.archived);
-  const rows = await db.registerRecord.findMany({
-    where: { registerId, deletedAt: null, archivedAt: null },
-    select: { id: true, number: true, values: true, version: true, archivedAt: true, createdAt: true, updatedAt: true },
-    orderBy: { number: 'asc' },
-  });
+  const rows = await exportRows(db, reg, opts);
   const dtos = await toRecordDtos(db, reg, rows);
   const users = await loadUsers(db, userIdsIn(reg, rows.map((r) => r.values as Values)));
+  // Связь — заголовками связанных записей («WS-BUH-014»): по ним импорт найдёт записи обратно.
+  const refs = await loadLinkRefs(db, linkIdsIn(reg, rows.map((r) => r.values as Values)));
+  const linkTitles = new Map([...refs.values()].map((r) => [r.id, r.title || `#${r.number}`]));
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Портал ИБ';
@@ -81,7 +141,7 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
 
   const cols: { header: string; kind: ColKind; field?: FieldMeta }[] = [{ header: 'ID', kind: 'id' }];
   for (const f of fields) {
-    if (f.type === 'calc') cols.push({ header: f.label, kind: 'readonly', field: f });
+    if (f.type === 'calc' || f.type === 'file') cols.push({ header: f.label, kind: 'readonly', field: f });
     else if (f.type === 'decision') {
       cols.push({ header: f.label, kind: 'readonly', field: f });
       cols.push({ header: `${f.label}: документ`, kind: 'doc', field: f });
@@ -111,19 +171,20 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
         const d = rec.decisions[f.id];
         return d ? `${d.documentTitle} № ${d.documentNumber} от ${d.documentDate.split('-').reverse().join('.')}` : '';
       }
+      if (f.type === 'calc' && rec.basis[f.id]) return rec.display[f.id] ?? '';
       if (f.type === 'calc') {
         const v = rec.calc[f.id];
         // Оценка уязвимости — число, срок — дата.
         if (typeof v === 'number') return v;
-        return v ? new Date(`${v}T00:00:00Z`) : null;
+        return typeof v === 'string' ? new Date(`${v}T00:00:00Z`) : null;
       }
-      if (f.type === 'decision') return rec.display[f.id] ?? '';
+      if (f.type === 'decision' || f.type === 'file') return rec.display[f.id] ?? '';
       const v = values[f.id];
       if (v === undefined) return null;
       if (f.type === 'number') return typeof v === 'number' ? v : Number(v);
       if (f.type === 'date') return new Date(`${String(v)}T00:00:00Z`);
       // Сотрудник — «ФИО (логин)»: по логину импорт найдёт его однозначно.
-      return displayValue(f, v, { users, userWithLogin: true });
+      return displayValue(f, v, { users, userWithLogin: true, links: linkTitles });
     }));
     cols.forEach((c, j) => {
       const cell = row.getCell(j + 1);
@@ -157,13 +218,14 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
     'Как работает импорт:',
     '1. Строки обновляют записи по колонке ID; пустой ID — новая запись.',
     '2. Пустая ячейка не меняет значение. Очистить поле можно в карточке записи на портале.',
-    '3. Серые колонки — только для чтения: вычисляемые сроки и решения другого отдела при импорте не меняются.',
+    '3. Серые колонки — только для чтения: вычисляемые сроки, решения другого отдела и файлы при импорте не меняются.',
     '4. Сотрудник: «ФИО (логин)». Только ФИО — если такое имя у единственного сотрудника, иначе ошибка.',
     '5. Перед применением портал показывает предпросмотр: что добавится, что изменится, строки с ошибками.',
   ]) help.addRow([line]);
   const key = importKeyField(reg);
   if (key) help.addRow([`6. Без колонки ID строки сопоставляются по «${key.label}» (ключ импорта): найдена запись — обновление, нет — новая запись. Регистр и лишние пробелы не важны.`]);
   help.getColumn(3).alignment = { wrapText: true, vertical: 'top' };
+  opts.extra?.(wb);
 
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
   const date = new Date().toISOString().slice(0, 10);
@@ -321,6 +383,8 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   const keyCol = keyField ? [...cols.entries()].find(([, c]) => c.kind === 'value' && c.field?.id === keyField.id)?.[0] : undefined;
   const matchCol = (matchBy === 'id' ? idCol : keyCol) as number;
   const allUsers = await db.user.findMany({ select: { id: true, login: true, fullName: true, isActive: true } });
+  const linkTargets = await linkTargetsOf(db, reg);
+  const today = todayIso();
 
   // Первый проход: что в файле в колонке сопоставления.
   const dataRows: { rowNumber: number; row: ExcelJS.Row }[] = [];
@@ -423,7 +487,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     for (const [col, c] of cols) {
       if (c.kind !== 'value' || !c.field) continue; // ID и «только для чтения» не импортируются
       const f = c.field;
-      const r = parseCell(f, row.getCell(col).value, { users: allUsers });
+      const r = parseCell(f, row.getCell(col).value, { users: allUsers, linkTargets });
       if (!r.ok) {
         rowErrors.push({ row: rowNumber, id: matchRaw || null, field: f.label, message: r.error });
         continue;
@@ -446,6 +510,18 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     }
     if (!rec && rowErrors.length === 0 && titleField && changes[titleField.id] === undefined) {
       rowErrors.push({ row: rowNumber, id: null, field: titleField.label, message: `Для новой записи заполните «${titleField.label}»` });
+    }
+    // Фиксация статусом (этап 8б): зафиксированное и «с причиной» импорт не меняет — только карточка записи.
+    // Ограничение «не позже 31.12 года поля N» — по значениям после строки (с датами по умолчанию у новой записи).
+    if (rowErrors.length === 0) {
+      const merged: Values = { ...current, ...changes };
+      const changedIds = Object.keys(changes);
+      if (!rec) changedIds.push(...applyDateDefaults(reg, merged, today));
+      const label = (fid: string | null) => reg.fields.find((f) => f.id === fid)?.label ?? null;
+      for (const e of [...(rec ? lockErrors(reg, current, merged, changedIds, null) : []), ...dateErrors(reg, merged, changedIds)]) {
+        const msg = e.code === 'REASON_REQUIRED' ? `${e.message} — измените его в карточке записи` : e.message;
+        rowErrors.push({ row: rowNumber, id: matchRaw || null, field: label(e.fieldId), message: msg });
+      }
     }
     // Ключ импорта уникален: новое значение не должно принадлежать другой записи или другой строке файла.
     if (keyField && rowErrors.length === 0 && typeof changes[keyField.id] === 'string') {
@@ -629,6 +705,9 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
       }
     }
     const users = await loadUsers(tx, [...usersNeeded, ...userIdsIn(reg, current.map((r) => r.values))]);
+    const allValues = [...current.map((r) => ({ ...r.values, ...(payload.updates.find((u) => u.recordId === r.id)?.changes ?? {}) })), ...payload.creates.map((c) => c.values)];
+    const links = linkLabels(await loadLinkRefs(tx, linkIdsIn(reg, allValues)));
+    const today = todayIso();
 
     for (const u of payload.updates) {
       const r = byId.get(u.recordId);
@@ -639,11 +718,11 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
       });
       await tx.registerRecord.update({
         where: { id: r.id },
-        data: { values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, r.number, values, users), version: { increment: 1 } },
+        data: { values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, r.number, values, users, links), version: { increment: 1 } },
       });
       const changes = [...new Set([...Object.keys(u.changes), ...derived])].filter((fid) => !sameValue(r.values[fid], values[fid])).map((fid) => {
         const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
-        return { fieldId: fid, label: f.label, from: displayValue(f, r.values[fid], { users }), to: displayValue(f, values[fid], { users }) };
+        return { fieldId: fid, label: f.label, from: displayValue(f, r.values[fid], { users, links }), to: displayValue(f, values[fid], { users, links }) };
       });
       await auditSettings(tx, actor, {
         action: 'register_record.updated', entity: 'register_record', entityId: r.id,
@@ -659,12 +738,13 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
     for (const c of payload.creates) {
       const { values, manualFieldIds } = applyDerived(reg, { before: {}, after: { ...c.values }, manual: [], edited: Object.keys(c.values), isNew: true });
       if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
+      applyDateDefaults(reg, values, today);
       const rec = await tx.registerRecord.create({
-        data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users) },
+        data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users, links) },
       });
       const changes = Object.keys(values).map((fid) => {
         const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
-        return { fieldId: fid, label: f.label, from: '', to: displayValue(f, values[fid], { users }) };
+        return { fieldId: fid, label: f.label, from: '', to: displayValue(f, values[fid], { users, links }) };
       });
       await auditSettings(tx, actor, {
         action: 'register_record.created', entity: 'register_record', entityId: rec.id,

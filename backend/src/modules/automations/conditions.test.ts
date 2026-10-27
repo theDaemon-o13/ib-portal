@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Values } from '../../lib/register-values.js';
 import type { WorkCalendar } from '../../lib/working-days.js';
-import { evaluate, type Condition } from './conditions.js';
+import { digestTitle, evaluate, evaluateYearly, type Condition } from './conditions.js';
 
 // 06.11.2026 (пятница) — праздник.
 const calendar: WorkCalendar = { weekendDays: [6, 7], days: new Map([['2026-11-06', 'holiday']]) };
@@ -67,5 +67,31 @@ describe('условие «поле = значение»', () => {
   it('срабатывает по id значения', () => {
     expect(evaluate(c, rec({ status: 'work' }, null), '2026-11-01', calendar)).toEqual({ triggerKey: 'work' });
     expect(evaluate(c, rec({ status: 'open' }, null), '2026-11-01', calendar)).toBeNull();
+  });
+});
+
+describe('условия этапа 8б', () => {
+  it('за N дней — кроме дат 31.12, если skipYearEnd', () => {
+    const c: Condition = { kind: 'before', fieldId: 'due', days: 14, skipYearEnd: true };
+    expect(evaluate(c, rec({}, '2026-12-31'), '2026-12-20', calendar)).toBeNull();
+    expect(evaluate(c, rec({}, '2026-06-30'), '2026-06-20', calendar)).toEqual({ triggerKey: '2026-06-30' });
+  });
+
+  it('ежегодно 1 декабря: в день и догоняя неделю, ключ — дата этого года', () => {
+    const c = { kind: 'yearly' as const, month: 12, day: 1 };
+    expect(evaluateYearly(c, '2026-11-30')).toBeNull();
+    expect(evaluateYearly(c, '2026-12-01')).toEqual({ triggerKey: '2026-12-01' });
+    expect(evaluateYearly(c, '2026-12-07')).toEqual({ triggerKey: '2026-12-01' });
+    expect(evaluateYearly(c, '2026-12-08')).toBeNull();
+    expect(digestTitle('Продление разрешений на {год}', '2026-12-01')).toBe('Продление разрешений на 2027');
+  });
+
+  it('канал без основания: none и expired, ключ — канал и разрешение', () => {
+    const c: Condition = { kind: 'basis_missing', fieldId: 'b' };
+    const view = (state: string, permissionId: string | null) => ({ ...rec({}, null), basisOf: () => ({ state, permissionId, channel: 'tg' }) });
+    expect(evaluate(c, view('ok', 'p'), '2026-06-01', calendar)).toBeNull();
+    expect(evaluate(c, view('closed', null), '2026-06-01', calendar)).toBeNull();
+    expect(evaluate(c, view('none', null), '2026-06-01', calendar)).toEqual({ triggerKey: 'tg:none:-' });
+    expect(evaluate(c, view('expired', 'p'), '2026-06-01', calendar)).toEqual({ triggerKey: 'tg:expired:p' });
   });
 });

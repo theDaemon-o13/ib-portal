@@ -53,6 +53,8 @@ model User {
   reviewedEvidence     Evidence[]           @relation("EvidenceReviewer")
   evidenceFilesAdded   EvidenceFile[]       @relation("EvidenceFileAdder")
   evidenceFilesRemoved EvidenceFile[]       @relation("EvidenceFileRemover")
+  recordFilesAdded     RegisterRecordFile[] @relation("RecordFileAdder")
+  recordFilesRemoved   RegisterRecordFile[] @relation("RecordFileRemover")
   dashboardTiles       DashboardTile[]
   roles                UserRole[]           @relation("UserRoles")
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
@@ -309,7 +311,9 @@ model Register {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   owner       User?                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
-  fields      RegisterField[]
+  fields      RegisterField[]      @relation("RegisterFields")
+  /// Поля «Связь с записью» других реестров, которые ссылаются на этот (этап 8б).
+  linkedBy    RegisterField[]      @relation("FieldLinkRegister")
   records     RegisterRecord[]
   imports     RegisterImport[]
   scanReports ScanReport[]
@@ -321,38 +325,45 @@ model Register {
 }
 
 model RegisterField {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  registerId    String    @map("register_id") @db.Uuid
-  label         String
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId     String    @map("register_id") @db.Uuid
+  label          String
   /// text | select | number | date | user | calc | decision | catalog
-  type          String
+  type           String
   /// Только у поля «Значение справочника»: из какого справочника значения (CHECK в SQL миграции).
-  catalogCode   String?   @map("catalog_code")
-  sortOrder     Int       @default(0) @map("sort_order")
+  catalogCode    String?   @map("catalog_code")
+  sortOrder      Int       @default(0) @map("sort_order")
   /// dimension | metric | date | deadline — совместимость с типом проверяет CHECK
-  analyticsRole String?   @map("analytics_role")
+  analyticsRole  String?   @map("analytics_role")
   /// Заголовок записи (одно текстовое поле в реестре).
-  isTitle       Boolean   @default(false) @map("is_title")
+  isTitle        Boolean   @default(false) @map("is_title")
   /// Поле статуса (один список в реестре); закрытые варианты — is_closed.
-  isStatus      Boolean   @default(false) @map("is_status")
+  isStatus       Boolean   @default(false) @map("is_status")
   /// Ключ импорта Excel без колонки ID (одно текстовое поле в реестре; частичный уникальный индекс в SQL).
-  isImportKey   Boolean   @default(false) @map("is_import_key")
+  isImportKey    Boolean   @default(false) @map("is_import_key")
   /// Только у вычисляемого поля. kind: due_date (по умолчанию) | vuln_score — см. lib/register-values.ts
-  calcRule      Json?     @map("calc_rule")
+  calcRule       Json?     @map("calc_rule")
+  /// Только у поля «Связь с записью»: реестр, на записи которого ссылается поле (этап 8б, ADR-0013).
+  linkRegisterId String?   @map("link_register_id") @db.Uuid
+  /// Настройки поля (этап 8б): lock — фиксация при статусах; date — «не позже 31.12 года поля N», значение по умолчанию.
+  /// Формат — lib/field-settings.ts.
+  settings       Json?
   /// Системное поле: переименовать можно, удалить, архивировать и сменить тип — нет.
   /// Уникален в пределах реестра (частичный индекс в SQL миграции).
-  systemKey     String?   @map("system_key")
-  version       Int       @default(1)
-  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
-  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  systemKey      String?   @map("system_key")
+  version        Int       @default(1)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  register  Register              @relation(fields: [registerId], references: [id], onDelete: Restrict)
-  catalog   Catalog?              @relation(fields: [catalogCode], references: [code], onDelete: Restrict)
-  options   RegisterFieldOption[]
-  decisions RegisterDecision[]
-  tiles     DashboardTile[]
+  register     Register              @relation("RegisterFields", fields: [registerId], references: [id], onDelete: Restrict)
+  linkRegister Register?             @relation("FieldLinkRegister", fields: [linkRegisterId], references: [id], onDelete: Restrict)
+  catalog      Catalog?              @relation(fields: [catalogCode], references: [code], onDelete: Restrict)
+  options      RegisterFieldOption[]
+  files        RegisterRecordFile[]
+  decisions    RegisterDecision[]
+  tiles        DashboardTile[]
 
   @@index([registerId, sortOrder])
   @@map("register_fields")
@@ -381,31 +392,37 @@ model RegisterFieldOption {
 }
 
 model RegisterRecord {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  registerId     String    @map("register_id") @db.Uuid
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId     String                   @map("register_id") @db.Uuid
   /// Номер записи в реестре — колонка ID при экспорте и импорте.
   number         Int
   /// { fieldId: значение }. Вычисляемые поля и решения здесь не хранятся.
-  values         Json      @default("{}")
+  values         Json                     @default("{}")
   /// Отображаемые значения для поиска; пересчитываются при записи.
-  searchText     String    @default("") @map("search_text")
+  searchText     String                   @default("") @map("search_text")
   /// Поля, исправленные вручную: автоматический пересчёт их не перетирает (критичность уязвимости).
-  manualFieldIds String[]  @default([]) @map("manual_field_ids") @db.Uuid
+  manualFieldIds String[]                 @default([]) @map("manual_field_ids") @db.Uuid
   /// Нормализованное значение поля-ключа импорта; заполняет триггер, уникально среди неудалённых записей реестра.
-  importKey      String?   @map("import_key")
-  version        Int       @default(1)
-  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  importKey      String?                  @map("import_key")
+  /// Полнотекстовый индекс search_text (русская морфология) — вычисляемая колонка, пишет только БД.
+  searchTsv      Unsupported("tsvector")? @default(dbgenerated("to_tsvector('russian'::regconfig, search_text)")) @map("search_tsv")
+  version        Int                      @default(1)
+  archivedAt     DateTime?                @map("archived_at") @db.Timestamptz(3)
+  deletedAt      DateTime?                @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  register  Register           @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  register  Register             @relation(fields: [registerId], references: [id], onDelete: Restrict)
   decisions RegisterDecision[]
   events    AutomationEvent[]
   tasks     Task[]
   evidence  Evidence[]
+  files     RegisterRecordFile[]
 
   @@unique([registerId, number])
+  @@index([searchTsv], type: Gin)
+  /// Обратные связи поля «Связь с записью»: "values" @> {"<поле>": ["<id записи>"]}.
+  @@index([values(ops: JsonbPathOps)], type: Gin)
   @@map("register_records")
 }
 
@@ -826,11 +843,13 @@ model File {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedBy    String?   @map("deleted_by") @db.Uuid
 
-  uploader      User               @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
-  deleter       User?              @relation("FileDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
+  uploader      User                 @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  deleter       User?                @relation("FileDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
   decisions     RegisterDecision[]
   versions      DocumentVersion[]
   evidenceLinks EvidenceFile[]
+  recordLinks   RegisterRecordFile[]
+  text          FileText?
 
   @@index([uploadedBy, uploadedAt])
   @@map("files")
@@ -921,14 +940,60 @@ model DashboardTile {
   optionIds  String[]  @map("option_ids") @db.Uuid
   sortOrder  Int       @default(0) @map("sort_order")
   version    Int       @default(1)
-  createdBy  String    @map("created_by") @db.Uuid
+  /// NULL — стартовая плитка seed (этап 8б): при первой установке пользователей ещё нет.
+  createdBy  String?   @map("created_by") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   register Register      @relation(fields: [registerId], references: [id], onDelete: Restrict)
   field    RegisterField @relation(fields: [fieldId], references: [id], onDelete: Restrict)
-  author   User          @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  author   User?         @relation(fields: [createdBy], references: [id], onDelete: Restrict)
 
   @@map("dashboard_tiles")
+}
+
+/// Файлы поля «Файл» записи реестра (этап 8б, ADR-0013). Отвязка мягкая (removed_at); строки не удаляются.
+/// Пока статус записи фиксирует поле, ссылку нельзя снять и нельзя добавить вторую (триггер в БД).
+model RegisterRecordFile {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordId  String    @map("record_id") @db.Uuid
+  fieldId   String    @map("field_id") @db.Uuid
+  fileId    String    @map("file_id") @db.Uuid
+  addedBy   String    @map("added_by") @db.Uuid
+  addedAt   DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy String?   @map("removed_by") @db.Uuid
+
+  record  RegisterRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  field   RegisterField  @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  file    File           @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  adder   User           @relation("RecordFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
+  remover User?          @relation("RecordFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
+
+  @@index([recordId, fieldId])
+  @@index([fileId])
+  @@map("register_record_files")
+}
+
+/// Текст PDF для полнотекстового поиска (этап 8б). Извлекает фоновый прогон (lib/pdf-text.ts).
+/// status: pending — ждёт разбора; text — текст есть; no_text — текстового слоя нет (скан); failed — файл не разобран.
+model FileText {
+  fileId      String                   @id @map("file_id") @db.Uuid
+  status      String                   @default("pending")
+  content     String?
+  pages       Int?
+  /// Причина failed — для журнала, без содержимого файла.
+  error       String?
+  attempts    Int                      @default(0)
+  extractedAt DateTime?                @map("extracted_at") @db.Timestamptz(3)
+  createdAt   DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// to_tsvector('russian', content) — вычисляемая колонка, пишет только БД.
+  tsv         Unsupported("tsvector")? @default(dbgenerated("to_tsvector('russian'::regconfig, COALESCE(content, ''::text))"))
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([tsv], type: Gin)
+  @@map("file_texts")
 }

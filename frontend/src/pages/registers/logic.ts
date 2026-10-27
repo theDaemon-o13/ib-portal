@@ -1,5 +1,5 @@
 // Чистые функции конструктора реестров: без React, покрыты тестами.
-import { FILTER_PARAMS, type CalcRule, type Deadline, type DueRule, type FieldOption, type FieldType, type RecordFilterParams, type RegisterDetail, type RegisterField, type RegisterRecord, type ScoreRule } from '../../api/registers';
+import { FILTER_PARAMS, type BasisRule, type CalcRule, type Deadline, type DueRule, type FieldOption, type FieldType, type RecordFilterParams, type RegisterDetail, type RegisterField, type RegisterRecord, type ScoreRule } from '../../api/registers';
 
 export const TYPE_NAMES: Record<FieldType, string> = {
   text: 'Текст',
@@ -10,6 +10,8 @@ export const TYPE_NAMES: Record<FieldType, string> = {
   calc: 'Вычисляемое',
   decision: 'Решение другого отдела',
   catalog: 'Значение справочника',
+  file: 'Файл',
+  link: 'Связь с записью',
 };
 
 export const ROLE_NAMES: Record<string, string> = {
@@ -30,11 +32,13 @@ export const ALLOWED_ROLES: Record<FieldType, string[]> = {
   number: ['metric'],
   date: ['date', 'deadline'],
   calc: ['deadline', 'date'],
+  file: [],
+  link: [],
 };
 
 /** Безопасные смены типа: куда можно перевести поле (окончательно решает сервер с предпросмотром). */
 export function typeTargets(type: FieldType): FieldType[] {
-  if (type === 'calc' || type === 'decision') return [];
+  if (type === 'calc' || type === 'decision' || type === 'file' || type === 'link') return [];
   // «Значение справочника» — только в текст; в него ничего не превращается.
   if (type === 'catalog') return ['text'];
   if (type === 'text') return ['number', 'date', 'select', 'user'];
@@ -49,10 +53,18 @@ export function isScoreRule(r: CalcRule | null | undefined): r is ScoreRule {
   return !!r && 'kind' in r && r.kind === 'vuln_score';
 }
 
+export function isBasisRule(r: CalcRule | null | undefined): r is BasisRule {
+  return !!r && 'kind' in r && r.kind === 'link_basis';
+}
+
 export function dueRuleOf(field: RegisterField): DueRule | null {
   const r = field.calcRule;
-  return r && !isScoreRule(r) ? r : null;
+  return r && !isScoreRule(r) && !isBasisRule(r) ? r : null;
 }
+
+/** Статус основания: подписи и цвет метки. */
+export const BASIS_NAMES: Record<string, string> = { ok: 'есть основание', none: 'нет основания', expired: 'истекло', closed: 'канал закрыт' };
+export const BASIS_TONES: Record<string, string> = { ok: 'low', none: 'crit', expired: 'high', closed: '' };
 
 /**
  * «Выявлено» + срок по «Уровень» (Высокий 14 дн., Средний 30 дн.); если задано «Новый срок» — оно.
@@ -61,6 +73,9 @@ export function dueRuleOf(field: RegisterField): DueRule | null {
 export function describeRule(reg: RegisterDetail, field: RegisterField): string {
   const r = field.calcRule;
   if (!r) return '';
+  if (isBasisRule(r)) {
+    return `статус основания по каналу «${fieldName(reg, r.channelFieldId)}»: действующие разрешения, которые ссылаются на запись (сверка по связи, не по ФИО)`;
+  }
   if (isScoreRule(r)) {
     return `«${fieldName(reg, r.cvssFieldId)}» × Кэ по «${fieldName(reg, r.exploitFieldId)}» (1,00 / 0,94 / 0,91) × Ки по «${fieldName(reg, r.fixFieldId)}» (0,95 / 1,00), округление вверх до 0,1`;
   }
@@ -83,7 +98,7 @@ export function formatCalc(v: string | number | null | undefined): string {
 
 /** Поле контроля сроков: дата или вычисляемый срок с ролью «срок». */
 export function deadlineFieldOf(reg: RegisterDetail): RegisterField | undefined {
-  return reg.fields.find((f) => !f.archived && f.analyticsRole === 'deadline' && (f.type === 'date' || (f.type === 'calc' && !isScoreRule(f.calcRule))));
+  return reg.fields.find((f) => !f.archived && f.analyticsRole === 'deadline' && (f.type === 'date' || (f.type === 'calc' && !!dueRuleOf(f))));
 }
 
 /** Метка «Дней до срока» — как в прототипе: просрочено / ≤ 7 дней / в срок / закрыто. */
@@ -108,11 +123,12 @@ export function optionTone(o: FieldOption | undefined): string | null {
   return o?.systemKey ? (CRIT_TONES[o.systemKey] ?? null) : null;
 }
 
-export const EVENT_TYPE_NAMES: Record<string, string> = { remind: 'Напоминание', notify: 'Уведомление', escalate: 'Эскалация' };
+export const EVENT_TYPE_NAMES: Record<string, string> = { remind: 'Напоминание', notify: 'Уведомление', escalate: 'Эскалация', set_option: 'Установить значение' };
 
-export const isWritable = (t: FieldType) => t !== 'calc' && t !== 'decision';
+/** Поле вводится в форме. Файлы прикладываются отдельно, сразу (не через «Сохранить»). */
+export const isWritable = (t: FieldType) => t !== 'calc' && t !== 'decision' && t !== 'file';
 
-/** Черновик формы: все значения — строки, как в полях ввода. */
+/** Черновик формы: все значения — строки, как в полях ввода; связь — id записей через запятую. */
 export type Draft = Record<string, string>;
 
 export function draftOf(reg: RegisterDetail, rec: RegisterRecord | null): Draft {
@@ -120,15 +136,16 @@ export function draftOf(reg: RegisterDetail, rec: RegisterRecord | null): Draft 
   for (const f of reg.fields) {
     if (!isWritable(f.type)) continue;
     const v = rec?.values[f.id];
-    d[f.id] = v === undefined ? '' : String(v);
+    d[f.id] = v === undefined ? '' : Array.isArray(v) ? v.join(',') : String(v);
   }
   return d;
 }
 
-/** Значение из поля ввода → для API: число для числовых полей, null — очистить. */
-export function toApiValue(type: FieldType, s: string): string | number | null {
+/** Значение из поля ввода → для API: число для числовых полей, массив id для связи, null — очистить. */
+export function toApiValue(type: FieldType, s: string): string | number | string[] | null {
   const t = s.trim();
   if (t === '') return null;
+  if (type === 'link') return t.split(',').filter(Boolean);
   if (type === 'number') {
     const n = Number(t.replace(',', '.'));
     return Number.isFinite(n) ? n : t;
@@ -137,15 +154,22 @@ export function toApiValue(type: FieldType, s: string): string | number | null {
 }
 
 /** Только изменённые поля: PATCH не трогает остальное (и не мешает чужим правкам других полей). */
-export function changedValues(reg: RegisterDetail, original: Draft, draft: Draft): Record<string, string | number | null> {
-  const out: Record<string, string | number | null> = {};
+export function changedValues(reg: RegisterDetail, original: Draft, draft: Draft): Record<string, string | number | string[] | null> {
+  const out: Record<string, string | number | string[] | null> = {};
+  const key = (v: ReturnType<typeof toApiValue>) => (Array.isArray(v) ? [...v].sort().join(',') : v);
   for (const f of reg.fields) {
     if (!isWritable(f.type) || f.archived) continue;
     const before = toApiValue(f.type, original[f.id] ?? '');
     const after = toApiValue(f.type, draft[f.id] ?? '');
-    if (before !== after) out[f.id] = after;
+    if (key(before) !== key(after)) out[f.id] = after;
   }
   return out;
+}
+
+/** Изменённые поля, которые при текущем статусе меняются только с причиной. */
+export function reasonFields(reg: RegisterDetail, rec: RegisterRecord | null, changed: Record<string, unknown>): RegisterField[] {
+  if (!rec) return [];
+  return reg.fields.filter((f) => f.id in changed && rec.locked[f.id] === 'reason' && (rec.values[f.id] ?? '') !== '');
 }
 
 /** Отступы слева для первых n закреплённых столбцов по их ширинам. */
@@ -193,7 +217,9 @@ export function describeFilter(reg: RegisterDetail, f: RecordFilterParams): stri
   if (f.f) {
     const [fieldId, values = ''] = f.f.split(':');
     const field = reg.fields.find((x) => x.id === fieldId);
-    const labels = values.split(',').filter(Boolean).map((v) => (v === 'empty' ? 'не заполнено' : field?.options.find((o) => o.id === v)?.label ?? 'выбранное значение'));
+    const labels = values.split(',').filter(Boolean).map((v) => (v === 'empty' ? 'не заполнено'
+      : isBasisRule(field?.calcRule) ? BASIS_NAMES[v] ?? v
+      : field?.options.find((o) => o.id === v)?.label ?? 'выбранное значение'));
     parts.push(`${field?.label ?? 'Поле'}: ${labels.join(', ')}`);
   }
   if (f.date) {

@@ -4,7 +4,8 @@ import { authApi, type Me } from '../api/client';
 import { docsApi, dkeys } from '../api/documents';
 import { evidenceApi, ekeys } from '../api/evidence';
 import { tasksApi, tkeys } from '../api/tasks';
-import { visibleNav } from '../nav';
+import { SEARCH_PERMS } from '../api/search';
+import { isKiosk, visibleNav } from '../nav';
 import { Brand } from './Brand';
 import { Icon } from './Icons';
 import { ThemeSwitch } from './ThemeSwitch';
@@ -43,6 +44,15 @@ export function Sidebar({ me }: { me: Me }) {
   return (
     <aside className="rail">
       <Brand />
+      {!isKiosk(me.permissions) && me.permissions.some((p) => SEARCH_PERMS.includes(p)) && (
+        <form className="rail-search" role="search" onSubmit={(e) => {
+          e.preventDefault();
+          const q = new FormData(e.currentTarget).get('q')?.toString().trim() ?? '';
+          if (q.length >= 2) navigate(`/search?q=${encodeURIComponent(q)}`);
+        }}>
+          <input className="inp" name="q" type="search" minLength={2} placeholder="Поиск по порталу" aria-label="Поиск по порталу" />
+        </form>
+      )}
       <nav className="nav" aria-label="Разделы">
         {visibleNav(me.permissions).map((item) => (
           <NavLink key={item.path} to={item.path}>

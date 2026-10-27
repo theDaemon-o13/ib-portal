@@ -1,5 +1,5 @@
 // Настоящие маленькие файлы для сквозных тестов и загрузка их тем же путём, что и браузер.
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sleep } from './browser.mjs';
@@ -28,6 +28,7 @@ export function tinyPdf(text = 'IB portal e2e PDF') {
 export const tinyPng = () => Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==', 'base64');
 
 const dir = mkdtempSync(join(tmpdir(), 'ibportal-e2e-files-'));
+process.once('exit', () => rmSync(dir, { recursive: true, force: true }));
 /** Записать файл во временный каталог (для выбора в <input type=file>); возвращает путь. */
 export function tempFile(name, data) {
   const p = join(dir, name);

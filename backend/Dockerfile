@@ -6,7 +6,9 @@ FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma/schema.prisma prisma/schema.prisma
-RUN npm ci
+# Без optional: единственная optional-зависимость production — @napi-rs/canvas (pdfjs-dist), она не нужна для
+# извлечения текста и не должна попасть в образ (make-release.sh проверяет).
+RUN npm ci --omit=optional
 
 # Dev-образ для docker-compose.dev.yml: зависимости внутри образа, исходники монтируются с хоста.
 FROM ${NODE_IMAGE} AS dev
@@ -16,7 +18,8 @@ RUN chown node:node /app && mkdir -p /data/files && chown node:node /data/files
 USER node
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node prisma/schema.prisma prisma/schema.prisma
-RUN npm ci
+# В dev optional нужны (esbuild, rollup для tsx и vitest) — кроме @napi-rs/canvas от pdfjs-dist.
+RUN npm ci && rm -rf node_modules/@napi-rs
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
@@ -25,7 +28,7 @@ COPY tsconfig.json tsconfig.build.json ./
 COPY prisma prisma
 COPY src src
 COPY scripts scripts
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev --omit=optional
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production

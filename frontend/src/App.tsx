@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { SearchPage } from './pages/search/SearchPage';
 import { HomeRedirect, MonitorRoute, ProtectedShell, RequireUser, Section } from './components/guards';
 import { NAV } from './nav';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
@@ -37,6 +38,7 @@ export function App() {
             <Route key={item.path} path={item.path} element={<Section item={item}><StubPage item={item} /></Section>} />
           ),
         )}
+        <Route path="/search" element={<SearchPage />} />
         <Route path="*" element={<HomeRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

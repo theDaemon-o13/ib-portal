@@ -1,6 +1,7 @@
 // Файлы (этап 7, CLAUDE.md 3.7, ADR-0011). Содержимое — в томе (lib/file-store.ts), метаданные — в files.
-// Кто видит файл, решают ссылки на него: решение другого отдела и доказательство — ib.work; PDF версии
-// документа — тот, кто видит эту версию (ADR-0010); файл без ссылок — только загрузивший.
+// Кто видит файл, решают ссылки на него: решение другого отдела, доказательство и поле «Файл» записи реестра —
+// ib.work; PDF версии документа — тот, кто видит эту версию (ADR-0010); файл без ссылок — только загрузивший.
+// Текст PDF для поиска извлекается фоновым прогоном (text.ts): при загрузке PDF получает строку file_texts 'pending'.
 // Файл физически не удаляется; отметка «удалён» — только когда ссылок нет (сервис и триггер files_guard).
 import { createHash } from 'node:crypto';
 import { withTx, type Db } from '../../lib/db.js';
@@ -26,6 +27,7 @@ export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName
       data: { storageKey, originalName: check.name, mime: check.mime, size: BigInt(data.length), sha256, uploadedBy: actor.id },
       include: withUploader,
     });
+    if (check.mime === 'application/pdf') await tx.fileText.create({ data: { fileId: row.id } });
     await auditSettings(tx, actor, {
       action: 'file.uploaded', entity: 'file', entityId: row.id,
       summary: `Загружен файл «${check.name}» (${check.mime}, ${data.length} Б)`,
@@ -38,19 +40,24 @@ export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName
 // ---------------------------------------------------------------- ссылки и доступ
 
 export interface FileRef {
-  kind: 'evidence' | 'decision' | 'document_pdf';
+  kind: 'evidence' | 'decision' | 'document_pdf' | 'record';
   id: string;
   label: string;
 }
 
 /** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
 export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
-  const [links, decisions, versions] = await Promise.all([
+  const [links, decisions, versions, records] = await Promise.all([
     db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
     db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
     db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
+    db.registerRecordFile.findMany({
+      where: { fileId, removedAt: null },
+      select: { field: { select: { label: true } }, record: { select: { id: true, number: true, register: { select: { name: true } } } } },
+    }),
   ]);
   return [
+    ...records.map((r) => ({ kind: 'record' as const, id: r.record.id, label: `«${r.record.register.name}», запись #${r.record.number}: ${r.field.label}` })),
     ...links.map((l) => ({ kind: 'evidence' as const, id: l.evidence.id, label: `Доказательство #${l.evidence.number} «${l.evidence.title}»` })),
     ...decisions.map((d) => ({ kind: 'decision' as const, id: d.id, label: `Решение: ${d.documentTitle} № ${d.documentNumber}` })),
     ...versions.map((v) => ({ kind: 'document_pdf' as const, id: v.documentId, versionId: v.id, label: `PDF версии ${v.no} «${v.title}»` })),
@@ -77,7 +84,13 @@ async function readable(db: Db, userId: string, id: string) {
 
 export async function getFileMeta(db: Db, actor: Actor, id: string) {
   const { f, refs } = await readable(db, actor.id, id);
-  return { ...fileDto(f), refs: refs.map(({ kind, id: rid, label }) => ({ kind, id: rid, label })) };
+  const text = await db.fileText.findUnique({ where: { fileId: id }, select: { status: true, pages: true } });
+  return {
+    ...fileDto(f),
+    refs: refs.map(({ kind, id: rid, label }) => ({ kind, id: rid, label })),
+    /** Текст PDF для поиска: pending — ещё не разобран; no_text — текстового слоя нет (поиск только по полям). */
+    text: text ? { status: text.status as 'pending' | 'text' | 'no_text' | 'failed', pages: text.pages } : null,
+  };
 }
 
 /** Открыть содержимое на чтение (с проверкой прав); выдача пишется в журнал. */

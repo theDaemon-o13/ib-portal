@@ -224,6 +224,7 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
         ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 },
         Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
         Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
+        Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
       };
       const k = keys[key];
       if (!k) throw new Error(`нет клавиши ${key}`);
@@ -261,8 +262,14 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
 
     close() {
       try { ws.close(); } catch { /* уже закрыт */ }
+      // Профиль удаляется, когда Chrome завершился: дочерний процесс держит цикл событий, поэтому удаление
+      // успевает до выхода node (таймер с unref() не срабатывал — профили по 30–40 МБ копились в $TMPDIR).
+      // Вспомогательные процессы Chrome (GPU, crashpad) дописывают профиль и после выхода главного — ENOTEMPTY:
+      // повторяем, а неудачу не превращаем в падение теста (это лишь временный каталог).
+      proc.once('exit', () => {
+        try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* останется в $TMPDIR */ }
+      });
       proc.kill('SIGKILL');
-      setTimeout(() => rmSync(profile, { recursive: true, force: true }), 500).unref();
     },
   };
   return ui;

@@ -21,6 +21,8 @@ let vulns;
 let field;
 const created = [];
 let tileId = null;
+// Когда заведена последняя запись прогона: KPI, посчитанные раньше, их не учитывают.
+let seededAt = 0;
 
 async function api(method, path, body) {
   const res = await ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify(body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
@@ -63,6 +65,7 @@ before(async () => {
     });
     created.push(rec);
   }
+  seededAt = Date.now();
 });
 
 after(async () => {
@@ -83,11 +86,12 @@ after(async () => {
 
 describe('дашборд: переход по фильтру', () => {
   it('KPI «Уязвимости с просроченным сроком» открывает реестр с фильтром и тем же числом', async () => {
-    // KPI кэшируются на сервере на минуту: ждём расчёт после того, как завели записи прогона.
+    // KPI кэшируются на сервере на минуту: ждём расчёт, начатый после последней записи прогона. Дашборд
+    // открывается сразу после входа и запрашивает KPI, пока before ещё заводит записи, — такой кэш не годится.
     const since = Date.now();
     for (;;) {
       const k = await api('GET', '/api/v1/dashboard/kpis');
-      if (Date.parse(k.computedAt) >= since - 1000) break;
+      if (Date.parse(k.computedAt) > seededAt) break;
       assert.ok(Date.now() - since < 70_000, 'KPI не пересчитались за минуту');
       await sleep(3000);
     }

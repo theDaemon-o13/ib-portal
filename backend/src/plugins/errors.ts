@@ -23,6 +23,11 @@ export function installErrorHandler(app: FastifyInstance): void {
         error: { code: 'VALIDATION_ERROR', message: 'Проверьте заполнение полей' },
       });
     }
+    // Триггер фиксации полей (этап 8б) сработал раньше проверки сервиса — гонка двух запросов.
+    const locked = /(register_records|register_record_files): ([^"\n]*(зафиксирован|не удаляется|фиксирующ)[^"\n]*)/.exec(err.message ?? '');
+    if (locked) {
+      return reply.status(422).send({ error: { code: 'FIELD_LOCKED', message: `${locked[2]}. Обновите запись` } });
+    }
     const status = err.statusCode && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
     if (status === 500) {
       request.log.error({ err }, 'необработанная ошибка');
