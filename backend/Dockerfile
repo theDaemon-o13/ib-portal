@@ -11,7 +11,8 @@ RUN npm ci
 # Dev-образ для docker-compose.dev.yml: зависимости внутри образа, исходники монтируются с хоста.
 FROM ${NODE_IMAGE} AS dev
 WORKDIR /app
-RUN chown node:node /app
+# Как в runtime: пустой том ibportal_dev_files при первом подключении наследует владельца node.
+RUN chown node:node /app && mkdir -p /data/files && chown node:node /data/files
 USER node
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node prisma/schema.prisma prisma/schema.prisma

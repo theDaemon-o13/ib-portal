@@ -30,6 +30,10 @@ export function installErrorHandler(app: FastifyInstance): void {
         error: { code: 'INTERNAL', message: 'Внутренняя ошибка сервера. Попробуйте ещё раз' },
       });
     }
+    // Тело больше лимита маршрута: загрузка файла или импорт Excel (25 МБ).
+    if (status === 413) {
+      return reply.status(413).send({ error: { code: 'FILE_TOO_LARGE', message: 'Файл больше 25 МБ' } });
+    }
     return reply.status(status).send({
       error: { code: err.code ?? 'BAD_REQUEST', message: 'Некорректный запрос' },
     });

@@ -9327,6 +9327,8 @@ export interface paths {
                                         documentNumber: string;
                                         documentDate: string;
                                         hasFile: boolean;
+                                        fileId: string;
+                                        reviewDue: string | null;
                                         decidedAt: string;
                                         decidedBy: string;
                                     } | null;
@@ -9485,6 +9487,8 @@ export interface paths {
                                     documentNumber: string;
                                     documentDate: string;
                                     hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
                                     decidedAt: string;
                                     decidedBy: string;
                                 } | null;
@@ -9644,6 +9648,8 @@ export interface paths {
                                     documentNumber: string;
                                     documentDate: string;
                                     hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
                                     decidedAt: string;
                                     decidedBy: string;
                                 } | null;
@@ -9804,6 +9810,8 @@ export interface paths {
                                     documentNumber: string;
                                     documentDate: string;
                                     hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
                                     decidedAt: string;
                                     decidedBy: string;
                                 } | null;
@@ -10109,6 +10117,8 @@ export interface paths {
                                     documentNumber: string;
                                     documentDate: string;
                                     hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
                                     decidedAt: string;
                                     decidedBy: string;
                                 } | null;
@@ -10276,6 +10286,8 @@ export interface paths {
                                     documentNumber: string;
                                     documentDate: string;
                                     hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
                                     decidedAt: string;
                                     decidedBy: string;
                                 } | null;
@@ -10443,6 +10455,321 @@ export interface paths {
                                     documentNumber: string;
                                     documentDate: string;
                                     hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
+                                    decidedAt: string;
+                                    decidedBy: string;
+                                } | null;
+                            };
+                            closed: boolean;
+                            archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
+                            openTasks: number;
+                            version: number;
+                            createdAt: string;
+                            updatedAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-records/{id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История решений другого отдела по записи (только пополняется) */
+        get: {
+            parameters: {
+                query?: {
+                    fieldId?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                fieldId: string;
+                                optionId: string;
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                                decidedAt: string;
+                                decidedBy: string;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    mime: string;
+                                    sha256: string;
+                                    size: number;
+                                };
+                                evidence: {
+                                    id: string;
+                                    number: number;
+                                } | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Внести решение другого отдела: только с файлом документа-основания (POST /files), номером и датой документа */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        recordVersion: number;
+                        /** Format: uuid */
+                        fieldId: string;
+                        /** Format: uuid */
+                        optionId: string;
+                        documentTitle: string;
+                        documentNumber: string;
+                        documentDate: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        reviewDue?: string | null;
+                        externalRef?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            values: {
+                                [key: string]: string | number;
+                            };
+                            display: {
+                                [key: string]: string;
+                            };
+                            calc: {
+                                [key: string]: string | number | null;
+                            };
+                            decisions: {
+                                [key: string]: {
+                                    optionId: string;
+                                    label: string;
+                                    documentTitle: string;
+                                    documentNumber: string;
+                                    documentDate: string;
+                                    hasFile: boolean;
+                                    fileId: string;
+                                    reviewDue: string | null;
                                     decidedAt: string;
                                     decidedBy: string;
                                 } | null;
@@ -13947,7 +14274,7 @@ export interface paths {
                                 overdue: boolean;
                                 urgent: boolean;
                                 /** @enum {string} */
-                                source: "manual" | "mail" | "automation" | "document";
+                                source: "manual" | "mail" | "automation" | "document" | "evidence";
                                 record: {
                                     id: string;
                                     registerId: string;
@@ -13960,6 +14287,12 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     reason: "review" | "returned";
+                                } | null;
+                                evidence: {
+                                    id: string;
+                                    number: number;
+                                    /** @enum {string} */
+                                    reason: "rejected" | "expiring";
                                 } | null;
                                 completedAt: string | null;
                                 createdBy: {
@@ -14133,7 +14466,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation" | "document";
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14146,6 +14479,12 @@ export interface paths {
                                 number: number;
                                 /** @enum {string} */
                                 reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
                             createdBy: {
@@ -14581,7 +14920,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation" | "document";
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14596,6 +14935,12 @@ export interface paths {
                                 number: number;
                                 /** @enum {string} */
                                 reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
                             createdBy: {
@@ -14783,7 +15128,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation" | "document";
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14796,6 +15141,12 @@ export interface paths {
                                 number: number;
                                 /** @enum {string} */
                                 reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
                             createdBy: {
@@ -14963,7 +15314,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation" | "document";
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -14976,6 +15327,12 @@ export interface paths {
                                 number: number;
                                 /** @enum {string} */
                                 reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
                             createdBy: {
@@ -15147,7 +15504,7 @@ export interface paths {
                             overdue: boolean;
                             urgent: boolean;
                             /** @enum {string} */
-                            source: "manual" | "mail" | "automation" | "document";
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
                             record: {
                                 id: string;
                                 registerId: string;
@@ -15160,6 +15517,12 @@ export interface paths {
                                 number: number;
                                 /** @enum {string} */
                                 reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
                             createdBy: {
@@ -16011,6 +16374,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -16024,6 +16394,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -16037,6 +16414,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -16054,6 +16438,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -16064,6 +16449,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -16076,6 +16468,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -16361,6 +16754,13 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                pdf: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                textFrozen: boolean;
                             };
                             working: {
                                 id: string;
@@ -16374,6 +16774,13 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                pdf: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                textFrozen: boolean;
                             } | null;
                             approved: {
                                 id: string;
@@ -16387,6 +16794,13 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                pdf: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                textFrozen: boolean;
                             } | null;
                             route: {
                                 stage: number;
@@ -16404,6 +16818,7 @@ export interface paths {
                                 submit: boolean;
                                 approve: boolean;
                                 revise: boolean;
+                                attachPdf: boolean;
                                 manage: boolean;
                             };
                             blockedReason: string | null;
@@ -16414,6 +16829,13 @@ export interface paths {
                                 onlyofficeUrl: string;
                                 approvedAt: string | null;
                                 changeNote: string;
+                                pdf: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                textFrozen: boolean;
                             }[];
                             history: {
                                 id: string;
@@ -16426,6 +16848,7 @@ export interface paths {
                                 comment: string;
                                 versionNo: number;
                                 round: number;
+                                pdfSha256: string | null;
                             }[];
                         };
                     };
@@ -16594,6 +17017,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -16607,6 +17037,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -16620,6 +17057,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -16637,6 +17081,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -16647,6 +17092,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -16659,6 +17111,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -16762,7 +17215,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап «Автор»: отправить на согласование (владелец или docs.manage) */
+        /** Этап «Автор»: отправить на согласование (владелец или docs.manage). Без итогового PDF — 400 PDF_REQUIRED */
         post: {
             parameters: {
                 query?: never;
@@ -16778,6 +17231,8 @@ export interface paths {
                         version: number;
                         stage: number;
                         comment?: string;
+                        /** Format: uuid */
+                        pdfFileId?: string;
                     };
                 };
             };
@@ -16827,6 +17282,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -16840,6 +17302,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -16853,6 +17322,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -16870,6 +17346,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -16880,6 +17357,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -16892,6 +17376,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -17015,6 +17500,8 @@ export interface paths {
                         version: number;
                         stage: number;
                         comment?: string;
+                        /** Format: uuid */
+                        pdfFileId?: string;
                     };
                 };
             };
@@ -17064,6 +17551,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -17077,6 +17571,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -17090,6 +17591,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -17107,6 +17615,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -17117,6 +17626,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -17129,6 +17645,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -17252,6 +17769,8 @@ export interface paths {
                         version: number;
                         stage: number;
                         comment?: string;
+                        /** Format: uuid */
+                        pdfFileId?: string;
                     };
                 };
             };
@@ -17301,6 +17820,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -17314,6 +17840,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -17327,6 +17860,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -17344,6 +17884,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -17354,6 +17895,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -17366,6 +17914,275 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Приложить или заменить итоговый PDF рабочей версии (владелец или docs.manage). Замена на этапах 1–3 возвращает маршрут к началу */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        /** Format: uuid */
+                        fileId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    submit: boolean;
+                                    approve: boolean;
+                                    revise: boolean;
+                                    attachPdf: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -17540,6 +18357,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -17553,6 +18377,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -17566,6 +18397,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -17583,6 +18421,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -17593,6 +18432,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -17605,6 +18451,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -17775,6 +18622,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -17788,6 +18642,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -17801,6 +18662,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -17818,6 +18686,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -17828,6 +18697,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -17840,6 +18716,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
                         };
@@ -18010,6 +18887,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 };
                                 working: {
                                     id: string;
@@ -18023,6 +18907,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 approved: {
                                     id: string;
@@ -18036,6 +18927,13 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 } | null;
                                 route: {
                                     stage: number;
@@ -18053,6 +18951,7 @@ export interface paths {
                                     submit: boolean;
                                     approve: boolean;
                                     revise: boolean;
+                                    attachPdf: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -18063,6 +18962,13 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
                                 }[];
                                 history: {
                                     id: string;
@@ -18075,8 +18981,2615 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    pdfSha256: string | null;
                                 }[];
                             } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Загрузить файл: тело — содержимое (application/octet-stream), имя — заголовок X-File-Name (percent-encoded). До 25 МБ; pdf, png, jpg, txt, csv, xlsx, docx — тип проверяется по содержимому. Непривязанный файл через сутки помечается удалённым */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    "x-file-name": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            mime: string;
+                            size: number;
+                            sha256: string;
+                            uploadedAt: string;
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            deleted: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Метаданные файла и к чему он привязан (только если файл вам виден) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            mime: string;
+                            size: number;
+                            sha256: string;
+                            uploadedAt: string;
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            deleted: boolean;
+                            refs: {
+                                /** @enum {string} */
+                                kind: "evidence" | "decision" | "document_pdf";
+                                id: string;
+                                label: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Содержимое файла: всегда attachment, nosniff, sandbox. Предпросмотр frontend строит из blob */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Реестр доказательств: сначала на проверке, истекло, истекает */
+        get: {
+            parameters: {
+                query?: {
+                    archived?: "true" | "false";
+                    state?: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                    kind?: "form" | "decision" | "file";
+                    templateId?: string;
+                    objectType?: "record" | "document" | "system";
+                    objectId?: string;
+                    q?: string;
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                kind: "form" | "decision" | "file";
+                                kindName: string;
+                                title: string;
+                                object: {
+                                    /** @enum {string} */
+                                    type: "record" | "document" | "system";
+                                    id: string;
+                                    label: string;
+                                    registerId: string | null;
+                                };
+                                template: {
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                result: {
+                                    passed: number;
+                                    total: number;
+                                    fails: string[];
+                                } | null;
+                                files: {
+                                    id: string;
+                                    name: string;
+                                    mime: string;
+                                }[];
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                confirmedBy: string;
+                                createdAt: string;
+                                validUntil: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                status: "pending" | "accepted" | "rejected";
+                                /** @enum {string} */
+                                state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                                stateName: string;
+                                archived: boolean;
+                                version: number;
+                            }[];
+                            nextCursor: string | null;
+                            total: number;
+                            counts: {
+                                [key: string]: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Загрузить доказательство: форма по шаблону (снимок полей и значений) или файл; файлы — из POST /files */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "form" | "file";
+                        object: {
+                            /** @enum {string} */
+                            type: "record" | "document" | "system";
+                            /** Format: uuid */
+                            id: string;
+                        };
+                        /** Format: uuid */
+                        templateId?: string;
+                        values?: {
+                            [key: string]: string | number | boolean;
+                        };
+                        title?: string;
+                        confirmedBy?: string;
+                        validUntil?: string | null;
+                        /** Format: uuid */
+                        ownerId?: string;
+                        fileIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Счётчики: на проверке, истекает, истекло */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            pending: number;
+                            expiring: number;
+                            expired: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Покрытие систем формами шаблона: последняя неотклонённая форма по каждой системе */
+        get: {
+            parameters: {
+                query: {
+                    templateId: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            template: {
+                                id: string;
+                                name: string;
+                                basis: string;
+                            };
+                            items: {
+                                system: {
+                                    id: string;
+                                    value: string;
+                                };
+                                evidenceId: string | null;
+                                number: number | null;
+                                state: ("pending" | "accepted" | "expiring" | "expired" | "rejected") | null;
+                                stateName: string;
+                                validUntil: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка доказательства: данные, поля формы со сверкой, файлы, история */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Название и ответственный за продление */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        title?: string;
+                        /** Format: uuid */
+                        ownerId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/evidence/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Добавить файлы: принятое или отклонённое доказательство снова уходит на проверку */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        fileIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/{id}/files/{fileId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Убрать файл (только у доказательства на проверке; загрузивший или проверяющий). Файл без других ссылок помечается удалённым */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    fileId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Принять или отклонить (с комментарием; загрузившему — задача). Своё доказательство не проверяют */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        /** @enum {string} */
+                        decision: "accept" | "reject";
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** В архив */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evidence/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть из архива */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            kind: "form" | "decision" | "file";
+                            kindName: string;
+                            title: string;
+                            object: {
+                                /** @enum {string} */
+                                type: "record" | "document" | "system";
+                                id: string;
+                                label: string;
+                                registerId: string | null;
+                            };
+                            template: {
+                                id: string;
+                                name: string;
+                            } | null;
+                            result: {
+                                passed: number;
+                                total: number;
+                                fails: string[];
+                            } | null;
+                            files: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                            }[];
+                            uploadedBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            };
+                            confirmedBy: string;
+                            createdAt: string;
+                            validUntil: string | null;
+                            daysLeft: number | null;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                            /** @enum {string} */
+                            state: "pending" | "accepted" | "expiring" | "expired" | "rejected";
+                            stateName: string;
+                            archived: boolean;
+                            version: number;
+                            basis: string;
+                            checks: {
+                                fieldId: string;
+                                label: string;
+                                /** @enum {string} */
+                                checkKind: "min" | "max" | "yes" | "text";
+                                threshold: number | null;
+                                requirement: string;
+                                value: string;
+                                ok: boolean;
+                            }[] | null;
+                            fileList: {
+                                id: string;
+                                name: string;
+                                mime: string;
+                                size: number;
+                                sha256: string;
+                                uploadedAt: string;
+                                uploadedBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                deleted: boolean;
+                                addedAt: string;
+                                addedBy: string;
+                            }[];
+                            decision: {
+                                label: string;
+                                documentTitle: string;
+                                documentNumber: string;
+                                documentDate: string;
+                                reviewDue: string | null;
+                            } | null;
+                            reviewedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewedAt: string | null;
+                            reviewComment: string;
+                            can: {
+                                review: boolean;
+                                addFiles: boolean;
+                                removeFiles: boolean;
+                                archive: boolean;
+                            };
+                            reviewBlocked: string | null;
+                            history: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                summary: string;
+                            }[];
                         };
                     };
                 };

@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { changedValues, deadlineChip, describeRule, draftOf, EVENT_TYPE_NAMES, formatCalc, formatDate, type Draft } from './logic';
 import { EventTasks } from './AutomationTab';
+import { DecisionBlock } from './DecisionBlock';
 import { rkeys } from './keys';
 
 const LONG = /описан|коммент|мер|примечан/i;
@@ -19,9 +20,12 @@ const VIA: Record<string, string> = {
 /** Критичность уязвимости: считается по Оценке, пока её не исправили вручную. */
 const isDerived = (reg: RegisterDetail, f: RegisterField) => reg.systemKey === VULN_REGISTER_KEY && f.systemKey === 'crit';
 
-function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, resetting }: {
+function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, resetting, canDecide, onDecided }: {
   reg: RegisterDetail; f: RegisterField; rec: RegisterRecord | null; draft: Draft; setDraft: (d: Draft) => void; disabled: boolean;
   onResetAuto: (fieldId: string) => void; resetting: boolean;
+  /** Внести решение другого отдела (records.edit). */
+  canDecide: boolean;
+  onDecided: (r: RegisterRecord) => Promise<void>;
 }) {
   const users = useQuery({ queryKey: rkeys.userOptions, queryFn: settingsApi.userOptions, enabled: f.type === 'user' });
   const v = draft[f.id] ?? '';
@@ -37,17 +41,16 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
         </div>
       );
       break;
-    case 'decision': {
-      const d = rec?.decisions[f.id];
-      control = (
-        <div className="ro">
-          <span className="chip info">{rec?.display[f.id] ?? f.options.find((o) => !o.archived)?.label ?? '—'}</span>
-          {d && <small>{d.documentTitle} № {d.documentNumber} от {formatDate(d.documentDate)} · {d.decidedBy}</small>}
-          <small>Решение вносится только с документом-основанием — будет доступно, когда в портале появятся файлы.</small>
-        </div>
-      );
+    case 'decision':
+      control = rec
+        ? <DecisionBlock reg={reg} f={f} rec={rec} canEdit={canDecide} onSaved={onDecided} />
+        : (
+          <div className="ro">
+            <span className="chip info">{f.options.find((o) => !o.archived)?.label ?? '—'}</span>
+            <small>Решение вносится после сохранения записи, с документом-основанием</small>
+          </div>
+        );
       break;
-    }
     case 'catalog': {
       // Значения — из справочника (правятся в настройках).
       const opts = f.options.filter((o) => !o.archived || o.id === v);
@@ -112,8 +115,17 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
         : <input id={id} className="inp" value={v} disabled={disabled} required={f.isTitle} onChange={(e) => set(e.target.value)} />;
   }
   const wide = f.isTitle || f.type === 'decision' || f.type === 'calc' || (f.type === 'text' && LONG.test(f.label));
+  // Решение — с кнопками и своей формой: не <label>, иначе щелчок по подписи нажимал бы кнопку.
+  if (f.type === 'decision') {
+    return (
+      <div className="wide field-block" role="group" aria-label={f.label}>
+        <span className="field-label">{f.label}</span>
+        {control}
+      </div>
+    );
+  }
   return (
-    <label className={wide ? 'wide' : undefined} htmlFor={f.type === 'calc' || f.type === 'decision' ? undefined : id}>
+    <label className={wide ? 'wide' : undefined} htmlFor={f.type === 'calc' ? undefined : id}>
       {f.label}
       {control}
     </label>
@@ -232,6 +244,16 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
     onError,
   });
 
+  /** Решение внесено: запись стала новее (версия, «№ ОУР», «Пересмотр до») — черновик обновляется. */
+  const onDecided = async (r: RegisterRecord) => {
+    qc.setQueryData(rkeys.record(r.id), r);
+    const d = draftOf(reg, r);
+    setDraft(d);
+    setOriginal(d);
+    setLoadedVersion(r.version);
+    await refresh();
+  };
+
   /** Перечитать запись после конфликта: свежие данные, черновик заменяется. */
   const reload = async () => {
     setConflict(false);
@@ -279,7 +301,8 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
             <form className="recform" onSubmit={submit}>
               {fields.map((f) => (
                 <FieldControl key={f.id} reg={reg} f={f} rec={record} draft={draft} setDraft={setDraft} disabled={readOnly}
-                  onResetAuto={(id) => resetAuto.mutate(id)} resetting={resetAuto.isPending} />
+                  onResetAuto={(id) => resetAuto.mutate(id)} resetting={resetAuto.isPending}
+                  canDecide={canEdit} onDecided={onDecided} />
               ))}
               <div className="wide row">
                 {!readOnly && <button className="btn primary" type="submit" disabled={save.isPending || conflict}>{isNew ? 'Создать запись' : 'Сохранить'}</button>}

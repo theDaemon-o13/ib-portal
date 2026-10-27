@@ -30,26 +30,33 @@ model User {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  passwordHistory   PasswordHistory[]
-  mailRules         CatalogItem[]
-  ownedRegisters    Register[]
-  decisions         RegisterDecision[]
-  registerImports   RegisterImport[]
-  scanReports       ScanReport[]
-  automations       RegisterAutomation[]
-  processedEvents   AutomationEvent[]
-  assignedTasks     Task[]               @relation("TaskAssignee")
-  createdTasks      Task[]               @relation("TaskCreator")
-  taskComments      TaskComment[]
-  recipientOf       CatalogItemUser[]
-  ownedDocuments    Document[]           @relation("DocumentOwner")
-  createdDocuments  Document[]           @relation("DocumentCreator")
-  documentVersions  DocumentVersion[]
-  documentApprovals DocumentApproval[]
-  roles             UserRole[]           @relation("UserRoles")
-  assignedRoles     UserRole[]           @relation("UserRolesAssignedBy")
-  sessions          Session[]
-  auditEntries      AuditLog[]
+  passwordHistory      PasswordHistory[]
+  mailRules            CatalogItem[]
+  ownedRegisters       Register[]
+  decisions            RegisterDecision[]
+  registerImports      RegisterImport[]
+  scanReports          ScanReport[]
+  automations          RegisterAutomation[]
+  processedEvents      AutomationEvent[]
+  assignedTasks        Task[]               @relation("TaskAssignee")
+  createdTasks         Task[]               @relation("TaskCreator")
+  taskComments         TaskComment[]
+  recipientOf          CatalogItemUser[]
+  ownedDocuments       Document[]           @relation("DocumentOwner")
+  createdDocuments     Document[]           @relation("DocumentCreator")
+  documentVersions     DocumentVersion[]
+  documentApprovals    DocumentApproval[]
+  uploadedFiles        File[]               @relation("FileUploader")
+  deletedFiles         File[]               @relation("FileDeleter")
+  ownedEvidence        Evidence[]           @relation("EvidenceOwner")
+  uploadedEvidence     Evidence[]           @relation("EvidenceUploader")
+  reviewedEvidence     Evidence[]           @relation("EvidenceReviewer")
+  evidenceFilesAdded   EvidenceFile[]       @relation("EvidenceFileAdder")
+  evidenceFilesRemoved EvidenceFile[]       @relation("EvidenceFileRemover")
+  roles                UserRole[]           @relation("UserRoles")
+  assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
+  sessions             Session[]
+  auditEntries         AuditLog[]
 
   @@map("users")
 }
@@ -203,6 +210,7 @@ model CatalogItem {
   tasksByCategory Task[]            @relation("TaskCategory")
   mailSources     TaskMailSource[]
   documents       Document[]
+  evidence        Evidence[]
 
   @@unique([catalogCode, systemKey])
   @@index([catalogCode, sortOrder])
@@ -255,7 +263,8 @@ model FormTemplate {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  fields FormTemplateField[]
+  fields   FormTemplateField[]
+  evidence Evidence[]
 
   @@map("form_templates")
 }
@@ -387,6 +396,7 @@ model RegisterRecord {
   decisions RegisterDecision[]
   events    AutomationEvent[]
   tasks     Task[]
+  evidence  Evidence[]
 
   @@unique([registerId, number])
   @@map("register_records")
@@ -394,22 +404,26 @@ model RegisterRecord {
 
 /// Решения другого отдела. Только пополняется; вносится с документом-основанием (файл — этап 7).
 model RegisterDecision {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  recordId       String   @map("record_id") @db.Uuid
-  fieldId        String   @map("field_id") @db.Uuid
-  optionId       String   @map("option_id") @db.Uuid
-  documentTitle  String   @map("document_title")
-  documentNumber String   @map("document_number")
-  documentDate   DateTime @map("document_date") @db.Date
-  /// На этапе 7: внешний ключ на files и NOT NULL.
-  fileId         String?  @map("file_id") @db.Uuid
-  decidedBy      String   @map("decided_by") @db.Uuid
-  decidedAt      DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordId       String    @map("record_id") @db.Uuid
+  fieldId        String    @map("field_id") @db.Uuid
+  optionId       String    @map("option_id") @db.Uuid
+  documentTitle  String    @map("document_title")
+  documentNumber String    @map("document_number")
+  documentDate   DateTime  @map("document_date") @db.Date
+  /// Файл документа-основания (этап 7): без него решение не вносится.
+  fileId         String    @map("file_id") @db.Uuid
+  /// «Пересмотр до» по документу другого отдела; необязательно.
+  reviewDue      DateTime? @map("review_due") @db.Date
+  decidedBy      String    @map("decided_by") @db.Uuid
+  decidedAt      DateTime  @default(now()) @map("decided_at") @db.Timestamptz(3)
 
-  record RegisterRecord      @relation(fields: [recordId], references: [id], onDelete: Restrict)
-  field  RegisterField       @relation(fields: [fieldId], references: [id], onDelete: Restrict)
-  option RegisterFieldOption @relation(fields: [optionId], references: [id], onDelete: Restrict)
-  author User                @relation(fields: [decidedBy], references: [id], onDelete: Restrict)
+  record   RegisterRecord      @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  field    RegisterField       @relation(fields: [fieldId], references: [id], onDelete: Restrict)
+  option   RegisterFieldOption @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  author   User                @relation(fields: [decidedBy], references: [id], onDelete: Restrict)
+  file     File                @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  evidence Evidence?
 
   @@index([recordId, fieldId, decidedAt(sort: Desc)])
   @@map("register_decisions")
@@ -530,6 +544,8 @@ model AutomationEvent {
   recordId     String?   @map("record_id") @db.Uuid
   automationId String?   @map("automation_id") @db.Uuid
   documentId   String?   @map("document_id") @db.Uuid
+  /// Событие доказательства (этап 7): срок действия истекает.
+  evidenceId   String?   @map("evidence_id") @db.Uuid
   /// remind | notify | escalate
   eventType    String    @map("event_type")
   /// Снимок получателей на момент события: [{ kind: user, userId, name } | { kind: label, label }]
@@ -548,6 +564,7 @@ model AutomationEvent {
   record     RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
   automation RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
   document   Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  evidence   Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
   processor  User?                 @relation(fields: [processedBy], references: [id], onDelete: Restrict)
   tasks      AutomationEventTask[]
   comments   TaskComment[]
@@ -598,6 +615,10 @@ model Task {
   documentId     String?   @map("document_id") @db.Uuid
   /// review | returned
   documentReason String?   @map("document_reason")
+  /// Задача по доказательству (этап 7): отклонено или истекает срок действия.
+  evidenceId     String?   @map("evidence_id") @db.Uuid
+  /// rejected | expiring
+  evidenceReason String?   @map("evidence_reason")
   /// Когда задача перешла в «Готово»; NULL — открыта.
   completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
   /// NULL — создано автоматизацией.
@@ -616,6 +637,7 @@ model Task {
   record     RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
   automation RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
   document   Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  evidence   Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
   mail       TaskMailSource?
   comments   TaskComment[]
   events     AutomationEventTask[]
@@ -624,6 +646,7 @@ model Task {
   @@index([assigneeId, dueDate])
   @@index([recordId])
   @@index([documentId])
+  @@index([evidenceId])
   @@map("tasks")
 }
 
@@ -715,6 +738,7 @@ model Document {
   approvals       DocumentApproval[]
   events          AutomationEvent[]
   tasks           Task[]
+  evidence        Evidence[]
 
   @@index([ownerId])
   @@map("documents")
@@ -736,10 +760,14 @@ model DocumentVersion {
   /// Круг маршрута: +1 при каждом возврате на доработку.
   round         Int       @default(1)
   approvedAt    DateTime? @map("approved_at") @db.Timestamptz(3)
+  /// Итоговый PDF (этап 7): прикладывает автор при отправке на согласование, все этапы согласуют этот файл.
+  /// Утверждённая версия без PDF (утверждена до этапа 7) — «текст не зафиксирован».
+  pdfFileId     String?   @map("pdf_file_id") @db.Uuid
   createdBy     String    @map("created_by") @db.Uuid
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  pdf        File?              @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
   document   Document           @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Restrict)
   author     User               @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   approvedOf Document?          @relation("DocumentApprovedVersion")
@@ -761,6 +789,8 @@ model DocumentApproval {
   /// submitted | approved | returned | revision_started
   decision   String
   comment    String   @default("")
+  /// sha256 PDF версии на момент решения (этап 7): какой именно текст согласован.
+  pdfSha256  String?  @map("pdf_sha256") @db.Char(64)
   actorId    String   @map("actor_id") @db.Uuid
   at         DateTime @default(now()) @db.Timestamptz(3)
 
@@ -771,4 +801,101 @@ model DocumentApproval {
   @@index([documentId, at])
   @@index([versionId, round])
   @@map("document_approvals")
+}
+
+/// Файлы (этап 7, CLAUDE.md 3.7): содержимое — /data/files/<yyyy>/<mm>/<uuid>, здесь — метаданные.
+/// Физически не удаляется; deleted_at — только когда на файл нет ссылок (права и триггер).
+model File {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Путь внутри FILES_DIR: «2026/10/<uuid>», исходное имя в пути не используется.
+  storageKey   String    @unique @map("storage_key")
+  originalName String    @map("original_name")
+  /// Тип по содержимому (сигнатуре), а не по присланному браузером.
+  mime         String
+  size         BigInt
+  sha256       String    @db.Char(64)
+  uploadedBy   String    @map("uploaded_by") @db.Uuid
+  uploadedAt   DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedBy    String?   @map("deleted_by") @db.Uuid
+
+  uploader      User               @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  deleter       User?              @relation("FileDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
+  decisions     RegisterDecision[]
+  versions      DocumentVersion[]
+  evidenceLinks EvidenceFile[]
+
+  @@index([uploadedBy, uploadedAt])
+  @@map("files")
+}
+
+/// Доказательство (этап 7): привязано ровно к одному объекту — записи реестра, документу или системе.
+model Evidence {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number        Int       @unique @default(autoincrement())
+  /// form — форма подтверждения по шаблону; decision — решение другого отдела; file — протокол, скриншот…
+  kind          String
+  title         String
+  recordId      String?   @map("record_id") @db.Uuid
+  documentId    String?   @map("document_id") @db.Uuid
+  /// Значение справочника «Системы».
+  systemItemId  String?   @map("system_item_id") @db.Uuid
+  templateId    String?   @map("template_id") @db.Uuid
+  /// Снимок полей шаблона и значений формы: правка шаблона старые формы не меняет (триггер).
+  checks        Json?
+  decisionId    String?   @unique @map("decision_id") @db.Uuid
+  /// Кто подтвердил со стороны ДИКТ (ФИО и должность).
+  confirmedBy   String    @default("") @map("confirmed_by")
+  /// Ответственный за продление: ему задача за 30 дней до окончания срока действия.
+  ownerId       String    @map("owner_id") @db.Uuid
+  /// pending | accepted | rejected
+  status        String    @default("pending")
+  /// NULL — бессрочно.
+  validUntil    DateTime? @map("valid_until") @db.Date
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  reviewComment String    @default("") @map("review_comment")
+  uploadedBy    String    @map("uploaded_by") @db.Uuid
+  version       Int       @default(1)
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  record   RegisterRecord?   @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  document Document?         @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  system   CatalogItem?      @relation(fields: [systemItemId], references: [id], onDelete: Restrict)
+  template FormTemplate?     @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  decision RegisterDecision? @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  owner    User              @relation("EvidenceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  uploader User              @relation("EvidenceUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  reviewer User?             @relation("EvidenceReviewer", fields: [reviewedBy], references: [id], onDelete: Restrict)
+  files    EvidenceFile[]
+  events   AutomationEvent[]
+  tasks    Task[]
+
+  @@index([recordId])
+  @@index([documentId])
+  @@index([systemItemId, templateId])
+  @@index([status, validUntil])
+  @@map("evidence")
+}
+
+/// Файлы доказательства. Отвязка — removed_at (строки не удаляются: права).
+model EvidenceFile {
+  evidenceId String    @map("evidence_id") @db.Uuid
+  fileId     String    @map("file_id") @db.Uuid
+  addedBy    String    @map("added_by") @db.Uuid
+  addedAt    DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt  DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy  String?   @map("removed_by") @db.Uuid
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  file     File     @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  adder    User     @relation("EvidenceFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
+  remover  User?    @relation("EvidenceFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
+
+  @@id([evidenceId, fileId])
+  @@index([fileId])
+  @@map("evidence_files")
 }

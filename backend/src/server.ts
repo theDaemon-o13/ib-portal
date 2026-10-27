@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPrisma } from './lib/db.js';
+import { diskFileStore } from './lib/file-store.js';
 import { argon2Hasher } from './lib/passwords.js';
 import { prismaAuditWriter } from './modules/audit/audit.js';
 import { prismaAuthRepository } from './modules/auth/repository.prisma.js';
@@ -16,6 +17,7 @@ const app = await buildApp({
   audit: prismaAuditWriter(prisma),
   hasher: argon2Hasher,
   sessionSecret: config.SESSION_SECRET,
+  files: diskFileStore(config.FILES_DIR),
   trustProxy: config.TRUST_PROXY,
   automationIntervalMin: config.AUTOMATION_INTERVAL_MIN,
   logger: {

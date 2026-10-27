@@ -359,6 +359,8 @@ export async function deleteRecord(db: Db, actor: Actor, id: string, version: nu
     if (row.version !== version) throw versionConflict();
     const decisions = await tx.registerDecision.count({ where: { recordId: id } });
     if (decisions > 0) throw conflict('HAS_DECISIONS', 'По записи есть решения другого отдела — её можно только отправить в архив');
+    const evidence = await tx.evidence.count({ where: { recordId: id, deletedAt: null } });
+    if (evidence > 0) throw conflict('HAS_EVIDENCE', 'К записи привязаны доказательства — её можно только отправить в архив');
     const res = await tx.registerRecord.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerRecord.findFirst({ where: { id, deletedAt: null } }), 'Запись');
     const values = (row.values ?? {}) as Values;

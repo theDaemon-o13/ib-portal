@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { testDbConfig } from '../../../scripts/test-db.js';
 import { createPrisma } from '../../lib/db.js';
 import { todayIso } from '../../lib/today.js';
-import { actorFor, expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
+import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from '../../test/db.js';
 import type { Actor } from '../settings/common.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
@@ -32,7 +32,9 @@ async function cur(tx: Tx, id: string) {
 }
 
 async function act(tx: Tx, fn: typeof svc.approveDocument, u: User, id: string, comment?: string) {
-  return fn(tx, await actorFor(tx, u.id), id, { ...(await cur(tx, id)), comment });
+  // Отправка на согласование — с итоговым PDF (этап 7): файл загружает тот, кто отправляет.
+  const pdfFileId = fn === svc.submitDocument ? (await makeFileRow(tx, u.id)).id : undefined;
+  return fn(tx, await actorFor(tx, u.id), id, { ...(await cur(tx, id)), comment, pdfFileId });
 }
 
 const view = async (tx: Tx, u: User, id: string) => svc.getDocument(tx, await svc.accessOf(tx, u.id), id);
@@ -483,5 +485,88 @@ describe('документы: пользователи без ib.work', () => {
     inTx(async (tx) => {
       const x = await fixture(tx);
       await expectCode(svc.createDocument(tx, await x.as(x.admin), { title: 'X', typeId: x.type.id, ownerId: x.owner.id, onlyofficeUrl: 'javascript:alert(1)' }), 'BAD_URL');
+    }));
+});
+
+describe('документы: итоговый PDF (этап 7)', () => {
+  it('без PDF на согласование не отправить; все этапы согласуют один файл — sha256 в истории каждого решения', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await expectCode(svc.submitDocument(tx, await x.as(x.owner), id, await cur(tx, id)), 'PDF_REQUIRED');
+      // Чужой файл и не PDF не прикладываются.
+      const foreign = await makeFileRow(tx, x.head.id);
+      await expectCode(svc.submitDocument(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), pdfFileId: foreign.id }), 'FILE_NOT_YOURS');
+      const png = await makeFileRow(tx, x.owner.id, { name: 'скан.png', mime: 'image/png' });
+      await expectCode(svc.submitDocument(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), pdfFileId: png.id }), 'BAD_FILE_TYPE');
+
+      const pdf = await makeFileRow(tx, x.owner.id);
+      await svc.submitDocument(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), pdfFileId: pdf.id });
+      await act(tx, svc.approveDocument, x.head, id);
+      await act(tx, svc.approveDocument, x.legal, id);
+      await act(tx, svc.approveDocument, x.board, id);
+      const card = await view(tx, x.owner, id);
+      expect(card.status).toBe('approved');
+      expect(card.current.pdf?.sha256).toBe(pdf.sha256);
+      expect(card.current.textFrozen).toBe(true);
+      const acts = card.history.filter((h) => h.decision === 'submitted' || h.decision === 'approved');
+      expect(acts).toHaveLength(4);
+      expect(acts.every((h) => h.pdfSha256 === pdf.sha256)).toBe(true);
+      // Юрист видит утверждённую версию — и её PDF.
+      expect(await svc.versionVisible(tx, await svc.accessOf(tx, x.legal.id), card.current.id)).toBe(true);
+    }));
+
+  it('утверждение версии без PDF (ушла на согласование до этапа 7) отклоняется; утверждённая без PDF — «текст не зафиксирован»', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      const d = await tx.document.findUniqueOrThrow({ where: { id } });
+      // Как версия, отправленная прежним backend: этап 1 без PDF.
+      await tx.documentVersion.update({ where: { id: must(d.workingVersionId) }, data: { stage: 1 } });
+      await expectCode(act(tx, svc.approveDocument, x.head, id), 'PDF_REQUIRED');
+      expect((await tx.documentApproval.count({ where: { documentId: id, decision: 'approved' } }))).toBe(0);
+
+      // Утверждённая до этапа 7 версия без PDF: признак в карточке и списке версий.
+      const old = await x.create('Старая политика');
+      const od = await tx.document.findUniqueOrThrow({ where: { id: old } });
+      const vid = must(od.workingVersionId);
+      await tx.documentVersion.update({ where: { id: vid }, data: { stage: 3, approvedAt: new Date() } });
+      await tx.document.update({ where: { id: old }, data: { approvedVersionId: vid, workingVersionId: null, reviewDue: new Date('2027-10-27T00:00:00Z') } });
+      const card = await view(tx, x.owner, old);
+      expect(card.current.textFrozen).toBe(false);
+      expect(card.versions[0]?.textFrozen).toBe(false);
+      // Задним числом PDF не прикладывается: утверждённая версия не меняется.
+      await expectCode(svc.attachPdf(tx, await x.as(x.owner), old, { version: card.version, stage: 3, fileId: (await makeFileRow(tx, x.owner.id)).id }), 'DOC_APPROVED');
+    }));
+
+  it('замена PDF во время согласования возвращает маршрут к началу; прежний PDF без ссылок помечается удалённым', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await act(tx, svc.submitDocument, x.owner, id);
+      await act(tx, svc.approveDocument, x.head, id);
+      const before = await tx.documentVersion.findFirstOrThrow({ where: { documentId: id } });
+      expect(before.stage).toBe(2);
+      const oldPdf = must(before.pdfFileId);
+
+      // Согласующий PDF не меняет — только владелец или docs.manage.
+      const legalPdf = await makeFileRow(tx, x.legal.id);
+      await expectCode(svc.attachPdf(tx, await x.as(x.legal), id, { ...(await cur(tx, id)), fileId: legalPdf.id }), 'FORBIDDEN');
+
+      const next = await makeFileRow(tx, x.owner.id, { name: 'Итог v2.pdf' });
+      await svc.attachPdf(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), fileId: next.id });
+      const after = await tx.documentVersion.findFirstOrThrow({ where: { documentId: id } });
+      expect(after.stage).toBe(0);
+      expect(after.round).toBe(before.round + 1);
+      expect(after.pdfFileId).toBe(next.id);
+      expect((await tx.file.findUniqueOrThrow({ where: { id: oldPdf } })).deletedAt).not.toBeNull();
+      const card = await view(tx, x.owner, id);
+      expect(card.history[0]?.decision).toBe('returned');
+      expect(card.history[0]?.comment).toMatch(/Заменён итоговый PDF/);
+      // Новый круг: начальник ИБ согласует заново, уже новый файл.
+      await svc.submitDocument(tx, await x.as(x.owner), id, await cur(tx, id));
+      await act(tx, svc.approveDocument, x.head, id);
+      const last = (await view(tx, x.owner, id)).history.find((h) => h.decision === 'approved');
+      expect(last?.pdfSha256).toBe(next.sha256);
     }));
 });

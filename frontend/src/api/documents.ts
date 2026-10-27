@@ -33,7 +33,7 @@ function qs(q: DocQuery): string {
 }
 
 const route = (action: 'submit' | 'approve' | 'return') =>
-  (id: string, body: { version: number; stage: number; comment?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/${action}`, body);
+  (id: string, body: { version: number; stage: number; comment?: string; pdfFileId?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/${action}`, body);
 
 export const docsApi = {
   list: (q: DocQuery) => request<DocPage>('GET', `/api/v1/documents?${qs(q)}`),
@@ -44,6 +44,8 @@ export const docsApi = {
   submit: route('submit'),
   approve: route('approve'),
   return: route('return'),
+  /** Приложить или заменить итоговый PDF; замена на этапах 1–3 возвращает маршрут к началу. */
+  attachPdf: (id: string, body: { version: number; stage: number; fileId: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/pdf`, body),
   revise: (id: string, body: DocRevise) => request<DocResult>('POST', `/api/v1/documents/${id}/revise`, body),
   archive: (id: string, version: number) => request<DocResult>('POST', `/api/v1/documents/${id}/archive`, { version }),
   restore: (id: string, version: number) => request<DocResult>('POST', `/api/v1/documents/${id}/restore`, { version }),

@@ -86,3 +86,19 @@ export function must<T>(v: T | null | undefined, what = 'значение'): T {
   if (v === null || v === undefined) throw new Error(`нет: ${what}`);
   return v;
 }
+
+/** Строка files без содержимого на диске: для тестов сервисов, которым нужен только id файла. */
+export async function makeFileRow(tx: Tx, uploadedBy: string, opts: { name?: string; mime?: string; uploadedAt?: Date } = {}) {
+  const { randomBytes, randomUUID } = await import('node:crypto');
+  return tx.file.create({
+    data: {
+      storageKey: `2026/10/${randomUUID()}`,
+      originalName: opts.name ?? 'Итог.pdf',
+      mime: opts.mime ?? 'application/pdf',
+      size: 1024n,
+      sha256: randomBytes(32).toString('hex'),
+      uploadedBy,
+      ...(opts.uploadedAt ? { uploadedAt: opts.uploadedAt } : {}),
+    },
+  });
+}

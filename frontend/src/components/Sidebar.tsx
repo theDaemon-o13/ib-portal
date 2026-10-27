@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { authApi, type Me } from '../api/client';
 import { docsApi, dkeys } from '../api/documents';
+import { evidenceApi, ekeys } from '../api/evidence';
 import { tasksApi, tkeys } from '../api/tasks';
 import { visibleNav } from '../nav';
 import { Brand } from './Brand';
@@ -28,6 +29,9 @@ export function Sidebar({ me }: { me: Me }) {
   const docs = useQuery({ queryKey: dkeys.summary, queryFn: docsApi.summary, refetchInterval: 60_000 });
   const waiting = docs.data?.waitingForMe ?? 0;
   const reviewOverdue = docs.data?.reviewOverdue ?? 0;
+  // Доказательства на проверке — тем, кто их проверяет.
+  const ev = useQuery({ queryKey: ekeys.summary, queryFn: evidenceApi.summary, enabled: me.permissions.includes('evidence.review'), refetchInterval: 60_000 });
+  const pendingEvidence = ev.data?.pending ?? 0;
   const logout = useMutation({
     mutationFn: authApi.logout,
     onSettled: () => {
@@ -49,6 +53,9 @@ export function Sidebar({ me }: { me: Me }) {
             )}
             {item.path === '/documents' && waiting > 0 && (
               <span className="nav-n acc" title={`Ждут вашего согласования: ${waiting}`} aria-label={`ждут вас: ${waiting}`}>{waiting}</span>
+            )}
+            {item.path === '/evidence' && pendingEvidence > 0 && (
+              <span className="nav-n acc" title={`На проверке: ${pendingEvidence}`} aria-label={`доказательств на проверке: ${pendingEvidence}`}>{pendingEvidence}</span>
             )}
             {item.path === '/documents' && reviewOverdue > 0 && (
               <span className="nav-n" title={`Пересмотр просрочен: ${reviewOverdue}`} aria-label={`пересмотр просрочен: ${reviewOverdue}`}>{reviewOverdue}</span>

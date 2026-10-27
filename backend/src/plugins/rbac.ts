@@ -39,6 +39,14 @@ export function requirePerm(code: PermissionCode): Guard {
   });
 }
 
+/** Пользователь хотя бы с одним из прав (загрузка файлов: ib.work или любое право документов). */
+export function requireAnyPerm(codes: readonly PermissionCode[]): Guard {
+  return markGuard(async (request) => {
+    const user = authenticated(request, false);
+    if (!codes.some((c) => user.permissions.has(c))) throw forbidden();
+  });
+}
+
 /**
  * Маршрут /api/v1 без requirePerm / requireAuth и без явного config.public
  * не регистрируется: приложение не стартует.

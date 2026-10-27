@@ -204,6 +204,9 @@ export interface DecisionDto {
   documentNumber: string;
   documentDate: string;
   hasFile: boolean;
+  /** Файл документа-основания (этап 7). */
+  fileId: string;
+  reviewDue: string | null;
   decidedAt: string;
   decidedBy: string;
 }
@@ -261,7 +264,9 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
         documentTitle: d.documentTitle,
         documentNumber: d.documentNumber,
         documentDate: d.documentDate.toISOString().slice(0, 10),
-        hasFile: d.fileId !== null,
+        hasFile: true,
+        fileId: d.fileId,
+        reviewDue: d.reviewDue?.toISOString().slice(0, 10) ?? null,
         decidedAt: d.decidedAt.toISOString(),
         decidedBy: d.author.fullName,
       });

@@ -3,6 +3,7 @@ import { HomeRedirect, ProtectedShell, RequireUser, Section } from './components
 import { NAV } from './nav';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { DocumentsPage } from './pages/documents/DocumentsPage';
+import { EvidencePage } from './pages/evidence/EvidencePage';
 import { LoginPage } from './pages/login/LoginPage';
 import { RegistersPage } from './pages/registers/RegistersPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
@@ -23,6 +24,8 @@ export function App() {
             <Route key={item.path} path="/tasks" element={<Section item={item}><TasksPage /></Section>} />
           ) : item.path === '/documents' ? (
             <Route key={item.path} path="/documents" element={<Section item={item}><DocumentsPage /></Section>} />
+          ) : item.path === '/evidence' ? (
+            <Route key={item.path} path="/evidence" element={<Section item={item}><EvidencePage /></Section>} />
           ) : item.path === '/registers' ? (
             <Route key={item.path} path="/registers/:registerId?/:tab?" element={<Section item={item}><RegistersPage /></Section>} />
           ) : (

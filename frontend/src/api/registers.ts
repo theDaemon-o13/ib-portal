@@ -41,6 +41,10 @@ export type RulePatch = Body<'/api/v1/register-automations/{id}', 'patch'>;
 export type EventPage = Res<'/api/v1/registers/{id}/automation-events', 'get'>;
 export type AutomationEvent = EventPage['items'][number];
 export type RunResult = Res<'/api/v1/registers/{id}/automations/run', 'post'>;
+export type NewDecision = Body<'/api/v1/register-records/{id}/decisions', 'post'>;
+export type DecisionEntry = Res<'/api/v1/register-records/{id}/decisions', 'get'>['items'][number];
+/** Системный «Реестр рисков ИБ»: решение ОУР заполняет «№ в реестре ОУР» и «Пересмотр до». */
+export const RISK_REGISTER_KEY = 'risks';
 
 /** Системный реестр уязвимостей: импорт отчёта сканера и формулы п. 7.1–7.4. */
 export const VULN_REGISTER_KEY = 'vulns';
@@ -118,6 +122,10 @@ export const registersApi = {
   archiveRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/archive`, { version }),
   restoreRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/restore`, { version }),
   deleteRecord: (id: string, version: number) => request<undefined>('POST', `/api/v1/register-records/${id}/delete`, { version }),
+  /** Решение другого отдела: только с файлом документа-основания (загружен через filesApi.upload). */
+  addDecision: (id: string, body: NewDecision) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/decisions`, body),
+  decisions: (id: string, fieldId?: string) =>
+    request<Res<'/api/v1/register-records/{id}/decisions', 'get'>>('GET', `/api/v1/register-records/${id}/decisions${qs({ fieldId })}`),
   /** «Считать автоматически»: снять ручную правку (критичность уязвимости). */
   resetToAuto: (id: string, fieldId: string, version: number) =>
     request<RegisterRecord>('POST', `/api/v1/register-records/${id}/auto/${fieldId}`, { version }),

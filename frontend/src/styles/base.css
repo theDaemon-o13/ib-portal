@@ -478,3 +478,34 @@ textarea.mail-raw{min-height:150px}
 .nav-n + .nav-n{margin-left:4px}
 @media (max-width:1180px){.w4,.w8{grid-column:span 12}}
 @media (max-width:560px){.docs-search{max-width:none}}
+
+/* ---------- этап 7: файлы, доказательства, решения ---------- */
+.mb6{margin-bottom:6px}.mb12{margin-bottom:12px}.row.sb{justify-content:space-between}
+tr.click{cursor:pointer}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px 16px;font-size:13px}
+.evform{display:grid;gap:10px}
+.evform label,.decide label,.upload > label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+.upload{display:grid;gap:6px}
+.req{display:grid;grid-template-columns:minmax(0,1fr) 92px 20px;gap:8px;align-items:center;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line)}
+.req small{display:block;color:var(--muted);font-size:11.5px}
+.mark{font-weight:700;text-align:center}
+.mark.ok{color:var(--low)}
+.mark.no{color:var(--crit)}
+table.checks th,table.checks td{padding:7px 10px}
+.file-list{display:flex;flex-wrap:wrap;gap:6px}
+.file{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);background:var(--fill-2);border-radius:12px;padding:4px 6px 4px 11px;font-size:12.5px;max-width:100%;color:var(--fg)}
+.file.on{border-color:var(--accent);background:var(--accent-soft)}
+.file .fn,.file-b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.file-b{border:0;background:none;color:inherit;font:inherit;padding:0;cursor:pointer}
+.clip{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.ev-prev{margin-top:10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--fill-2);padding:12px;max-height:62vh;overflow:auto;display:grid;gap:10px;align-content:start}
+.ev-prev img,.ev-prev canvas{width:100%;height:auto;border-radius:6px;display:block;background:#FFFFFF;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.pdf-pages{display:grid;gap:10px}
+.ev-prev pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:var(--f-mono);font-size:12px;line-height:1.5}
+table.csv-tbl{font-size:12px}
+table.csv-tbl th,table.csv-tbl td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.decide{border:1px solid var(--accent-soft);border-radius:var(--r-md);background:var(--accent-soft);padding:14px 16px;display:grid;gap:12px}
+.field-block{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+.field-block .decision{color:var(--fg);font-weight:400;display:grid;gap:6px}
+.pdf-box{display:grid;gap:6px}
+@media (max-width:560px){.req{grid-template-columns:minmax(0,1fr) 72px 18px}}

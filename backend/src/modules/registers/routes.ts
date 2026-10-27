@@ -8,6 +8,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import { registerAnalytics } from './analytics.service.js';
+import * as decisions from './decisions.service.js';
 import * as excel from './excel.service.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
@@ -80,7 +81,7 @@ const RegisterListItem = z.object({
 });
 const Decision = z.object({
   optionId: z.string(), label: z.string(), documentTitle: z.string(), documentNumber: z.string(), documentDate: z.string(),
-  hasFile: z.boolean(), decidedAt: z.string(), decidedBy: z.string(),
+  hasFile: z.boolean(), fileId: z.string(), reviewDue: z.string().nullable(), decidedAt: z.string(), decidedBy: z.string(),
 });
 export const RegisterRecord = z.object({
   id: z.string(),
@@ -361,6 +362,48 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       schema: { tags: ['register-records'], summary, params: IdParams, body: Version, response: { 200: RegisterRecord, ...errors } },
     }, async (request) => asRecord(await records.setRecordArchived(db, actorOf(request), request.params.id, request.body.version, archived)));
   }
+
+  const DateIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+  app.post('/register-records/:id/decisions', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'],
+      summary: 'Внести решение другого отдела: только с файлом документа-основания (POST /files), номером и датой документа',
+      params: IdParams,
+      body: z.object({
+        recordVersion: z.number().int().positive(),
+        fieldId: z.string().uuid(),
+        optionId: z.string().uuid(),
+        documentTitle: z.string().max(decisions.DOC_TITLE_MAX),
+        documentNumber: z.string().max(decisions.DOC_NUMBER_MAX),
+        documentDate: DateIso,
+        fileId: z.string().uuid(),
+        reviewDue: DateIso.nullable().optional(),
+        externalRef: z.string().max(decisions.REF_MAX).nullable().optional(),
+      }),
+      response: { 200: RegisterRecord, ...errors },
+    },
+  }, async (request) => asRecord(await decisions.addDecision(db, actorOf(request), request.params.id, request.body)));
+
+  app.get('/register-records/:id/decisions', {
+    preHandler: view,
+    schema: {
+      tags: ['register-records'], summary: 'История решений другого отдела по записи (только пополняется)',
+      params: IdParams, querystring: z.object({ fieldId: z.string().uuid().optional() }),
+      response: {
+        200: z.object({
+          items: z.array(z.object({
+            id: z.string(), fieldId: z.string(), optionId: z.string(), label: z.string(),
+            documentTitle: z.string(), documentNumber: z.string(), documentDate: z.string(), reviewDue: z.string().nullable(),
+            decidedAt: z.string(), decidedBy: z.string(),
+            file: z.object({ id: z.string(), name: z.string(), mime: z.string(), sha256: z.string(), size: z.number().int() }),
+            evidence: z.object({ id: z.string(), number: z.number().int() }).nullable(),
+          })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => ({ items: await decisions.listDecisions(db, request.params.id, request.query.fieldId) }));
 
   app.post('/register-records/:id/delete', {
     preHandler: requirePerm('records.delete'),

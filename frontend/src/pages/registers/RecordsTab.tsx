@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   registersApi, VULN_REGISTER_KEY, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, type ScanPreview,
 } from '../../api/registers';
@@ -111,7 +112,18 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   const [withTasks, setWithTasks] = useState(false);
   const [scanPreview, setScanPreview] = useState<ScanPreview | null>(null);
   const [pin, setPin] = useState(() => loadPin(reg.id));
-  const [open, setOpen] = useState<string | null>(null);
+  // ?record=<id> — открыть карточку записи по ссылке (из доказательства, задачи).
+  // Адрес реестра — в хеше (#id/records): убираем только ?record, не трогая хеш.
+  const [params] = useSearchParams();
+  const [open, setOpenState] = useState<string | null>(() => params.get('record'));
+  const setOpen = (id: string | null) => {
+    setOpenState(id);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('record')) {
+      url.searchParams.delete('record');
+      window.history.replaceState(window.history.state, '', url);
+    }
+  };
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);

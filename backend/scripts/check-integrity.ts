@@ -1,10 +1,18 @@
 // Проверка целостности после миграций (CLAUDE.md, раздел 9, п. 4):
 //   npm run check:integrity
 // Ничего не меняет, только читает. Код выхода 1, если что-то не так.
+// Файлы (этап 7): каждый неудалённый файл есть в FILES_DIR и совпадает по размеру; --sha — ещё и по sha256
+// (читает все файлы целиком). Файлы на диске без строки в БД — предупреждение (ничего не удаляется).
+import { createHash } from 'node:crypto';
+import { createReadStream, existsSync } from 'node:fs';
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createPrisma } from '../src/lib/db.js';
+import { diskFileStore } from '../src/lib/file-store.js';
 import { SYSTEM_ITEMS } from '../src/lib/catalogs.js';
 import { APPROVAL_PERMISSIONS, PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../src/lib/permissions.js';
 import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.js';
+import { RISK_FIELDS, RISK_REGISTER_KEY } from '../src/modules/risks/definition.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -107,6 +115,44 @@ async function main() {
     check(rules === 3, 'системные правила п. 7.4 на месте (3)', `найдено ${rules}`);
   }
 
+  // Этап 7: файлы и доказательства. Строки не удаляются (права и триггеры), содержимое файла не меняется.
+  for (const table of ['files', 'evidence', 'evidence_files']) {
+    const rights = await prisma.$queryRaw<{ p: string; granted: boolean }[]>`
+      SELECT p, has_table_privilege('ibportal_app', ${`public.${table}`}, p) AS granted
+      FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+    const g = (p: string) => rights.find((x) => x.p === p)?.granted === true;
+    check(g('SELECT') && g('INSERT') && g('UPDATE'), `ibportal_app: SELECT, INSERT, UPDATE на ${table}`);
+    check(!g('DELETE') && !g('TRUNCATE'), `ibportal_app: нет DELETE, TRUNCATE на ${table}`);
+  }
+  const evSeq = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT has_sequence_privilege('ibportal_app', pg_get_serial_sequence('public.evidence', 'number'), 'USAGE') AS ok`;
+  check(evSeq[0]?.ok === true, 'ibportal_app: USAGE на последовательность номеров доказательств');
+  const fileTriggers = (await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger
+    WHERE tgrelid IN ('public.files'::regclass, 'public.evidence'::regclass, 'public.evidence_files'::regclass,
+                      'public.register_decisions'::regclass, 'public.document_versions'::regclass) AND NOT tgisinternal`).map((t) => t.tgname);
+  check(
+    ['files_guard', 'files_no_truncate', 'evidence_guard', 'evidence_no_truncate', 'evidence_files_guard', 'evidence_files_no_truncate',
+      'register_decisions_file_alive', 'evidence_files_file_alive', 'document_versions_pdf_alive'].every((n) => fileTriggers.includes(n)),
+    'триггеры неизменности файлов и доказательств на месте',
+  );
+  const deletedWithRefs = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM files WHERE deleted_at IS NOT NULL AND file_active_refs(id) > 0`;
+  check(Number(deletedWithRefs[0]?.n ?? 0) === 0, 'нет файлов «удалён», на которые есть ссылки');
+
+  const risks = await prisma.register.findUnique({
+    where: { systemKey: RISK_REGISTER_KEY },
+    include: { fields: { where: { deletedAt: null, archivedAt: null, systemKey: { not: null } }, select: { systemKey: true } } },
+  });
+  check(risks !== null, 'есть системный «Реестр рисков ИБ»', 'выполните seed');
+  if (risks) {
+    const keys = new Set(risks.fields.map((f) => f.systemKey));
+    const missing = RISK_FIELDS.filter((f) => f.system && !keys.has(f.key)).map((f) => f.label);
+    check(missing.length === 0, 'у реестра рисков ИБ все системные поля', `нет: ${missing.join(', ')}`);
+  }
+
+  await checkFileStore(process.argv.includes('--sha'));
+
   const appCanCreate = await prisma.$queryRaw<{ ok: boolean }[]>`
     SELECT has_schema_privilege('ibportal_app', 'public', 'CREATE') AS ok`;
   check(appCanCreate[0]?.ok === false, 'ibportal_app не может создавать объекты в схеме public');
@@ -136,6 +182,43 @@ async function main() {
     },
   });
   check(admins > 0, 'есть активный пользователь с users.manage', 'создайте администратора: create-admin');
+}
+
+async function sha256Of(path: string): Promise<string> {
+  const h = createHash('sha256');
+  for await (const chunk of createReadStream(path)) h.update(chunk as Buffer);
+  return h.digest('hex');
+}
+
+/** Содержимое в FILES_DIR против метаданных в files. Без доступа к тому — пропуск (dev: сервис migrate без тома). */
+async function checkFileStore(withSha: boolean) {
+  const root = process.env.FILES_DIR ?? '/data/files';
+  if (!existsSync(root)) {
+    console.log(`– файлы: каталог ${root} недоступен — проверка содержимого пропущена (запустите в контейнере backend)`);
+    return;
+  }
+  const store = diskFileStore(root);
+  const rows = await prisma.file.findMany({ select: { id: true, storageKey: true, size: true, sha256: true, deletedAt: true } });
+  const problems: string[] = [];
+  for (const f of rows) {
+    const size = await store.size(f.storageKey);
+    if (size === null) {
+      problems.push(`${f.id}: нет файла ${f.storageKey}${f.deletedAt ? ' (помечен удалённым)' : ''}`);
+      continue;
+    }
+    if (size !== Number(f.size)) problems.push(`${f.id}: размер ${size} вместо ${f.size}`);
+    else if (withSha && (await sha256Of(join(root, ...f.storageKey.split('/')))) !== f.sha256) problems.push(`${f.id}: sha256 не совпадает`);
+  }
+  check(problems.length === 0, `файлы на месте: ${rows.length}${withSha ? ', sha256 сверены' : ' (размер; sha256 — с флагом --sha)'}`, problems.slice(0, 20).join('; '));
+  // Файлы на диске без строки в БД: запись на диск прошла, вставка в БД — нет. Только предупреждение.
+  const known = new Set(rows.map((r) => r.storageKey));
+  let orphans = 0;
+  for (const yyyy of (await readdir(root)).filter((d) => /^\d{4}$/.test(d))) {
+    for (const mm of (await readdir(join(root, yyyy))).filter((d) => /^\d{2}$/.test(d))) {
+      for (const name of await readdir(join(root, yyyy, mm))) if (!known.has(`${yyyy}/${mm}/${name}`)) orphans++;
+    }
+  }
+  console.log(orphans ? `! файлов на диске без строки в БД: ${orphans} (не удаляются; разобрать вручную)` : '✓ на диске нет файлов без строки в БД');
 }
 
 main()

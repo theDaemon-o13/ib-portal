@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser } from './browser.mjs';
+import { pickFiles, tempFile, tinyPdf, uploadViaApi } from './files.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -72,7 +73,17 @@ async function apiAs(u, method, path, body) {
 
 async function routeStep(u, id, action, comment) {
   const d = await apiAs(u, 'GET', `/api/v1/documents/${id}`);
-  return apiAs(u, 'POST', `/api/v1/documents/${id}/${action}`, { version: d.version, stage: d.working.stage, comment });
+  // Отправка на согласование — с итоговым PDF (этап 7), если его ещё нет: файл загружает отправитель.
+  const pdfFileId = action === 'submit' && !d.working.pdf ? (await uploadViaApi(ui, `Итог ${id.slice(0, 8)}.pdf`, tinyPdf())).id : undefined;
+  return apiAs(u, 'POST', `/api/v1/documents/${id}/${action}`, { version: d.version, stage: d.working.stage, comment, pdfFileId });
+}
+
+/** Приложить итоговый PDF в форме отправки на согласование (как пользователь: выбор файла). */
+async function attachPdfInForm(name = 'Итоговый.pdf') {
+  const input = `.dash .panel.w4 form[aria-label="Отправка на согласование"] input[type=file]`;
+  await ui.waitFor(`!!document.querySelector(${JSON.stringify(input)})`, 'поле итогового PDF');
+  const [up] = await pickFiles(ui, input, [tempFile(name, tinyPdf(name))]);
+  assert.equal(up.status, 201, up.body);
 }
 
 /** Документ прогона через API от имени администратора (docs.manage). */
@@ -183,8 +194,12 @@ describe('Документы: маршрут согласования', () => {
     await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent.startsWith('Ждут вас'))`);
     await ui.waitFor(`!!${row(title)}`, 'документ в «Ждут вас» у автора');
     await ui.click(row(title));
+    // Без итогового PDF отправить нельзя: кнопка неактивна, пока файл не приложен.
+    assert.equal(await ui.evaluate(`!!${$.button('Отправить на согласование', panel)}`), false, 'без PDF кнопка неактивна');
+    await attachPdfInForm();
     let req = await act('Отправить на согласование', 'POST', `/api/v1/documents/${id}/submit`);
     assert.equal(req.json.stage, 0);
+    assert.ok(req.json.pdfFileId, 'отправка несёт итоговый PDF');
     await ui.waitFor(`${stepState('Начальник ИБ')}?.includes('cur')`, 'текущий этап — начальник ИБ');
     // Автор за следующий этап не согласует: кнопки нет, есть пояснение.
     assert.equal(await ui.evaluate(`!!${$.button('Согласовать этап', panel)}`), false);
@@ -295,6 +310,7 @@ describe('Документы: новая версия', () => {
     await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'На пересмотре'`, 'статус «На пересмотре»');
     const versions = () => ui.evaluate(`[...${panel}.querySelectorAll('.hist-item a')].map((a) => a.textContent)`);
     assert.deepEqual(await versions(), ['Версия 2 · ред. 2.0', 'Версия 1 · ред. 1.0']);
+    await attachPdfInForm('Инструкция v2.pdf');
     await act('Отправить на согласование', 'POST', `/api/v1/documents/${doc.id}/submit`);
 
     // Пока версия 2 у начальника ИБ, юрист видит действующую версию 1.

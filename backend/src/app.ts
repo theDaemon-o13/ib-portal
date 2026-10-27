@@ -8,6 +8,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import type { Db } from './lib/db.js';
+import type { FileStore } from './lib/file-store.js';
 import type { PasswordHasher } from './lib/passwords.js';
 import type { AuditWriter } from './modules/audit/audit.js';
 import type { AuthRepository } from './modules/auth/repository.js';
@@ -15,6 +16,8 @@ import { authRoutes } from './modules/auth/routes.js';
 import { automationRoutes } from './modules/automations/routes.js';
 import { taskRoutes } from './modules/tasks/routes.js';
 import { documentRoutes } from './modules/documents/routes.js';
+import { evidenceRoutes } from './modules/evidence/routes.js';
+import { fileRoutes } from './modules/files/routes.js';
 import { createAuthService } from './modules/auth/service.js';
 import { calendarRoutes } from './modules/calendar/routes.js';
 import { catalogRoutes } from './modules/catalogs/routes.js';
@@ -41,6 +44,8 @@ export interface AppDeps {
   now?: () => Date;
   logger?: FastifyServerOptions['logger'];
   trustProxy?: FastifyServerOptions['trustProxy'];
+  /** Хранилище содержимого файлов (FILES_DIR); без него загрузка и выдача файлов отвечают 500. */
+  files?: FileStore;
   /** Фоновая проверка автоматизаций, интервал в минутах; не задано или 0 — выключена (тесты). */
   automationIntervalMin?: number;
 }
@@ -87,6 +92,8 @@ export async function buildApp(deps: AppDeps) {
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(taskRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(fileRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
+  await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
 
   if (deps.automationIntervalMin) installJobs(base, { db: deps.db, intervalMs: deps.automationIntervalMin * 60_000, now: deps.now });
 
@@ -94,5 +101,14 @@ export async function buildApp(deps: AppDeps) {
 
   return app;
 }
+
+const missingStore: FileStore = {
+  root: '',
+  put: () => Promise.reject(new Error('хранилище файлов не настроено (FILES_DIR)')),
+  open: () => {
+    throw new Error('хранилище файлов не настроено (FILES_DIR)');
+  },
+  size: () => Promise.reject(new Error('хранилище файлов не настроено (FILES_DIR)')),
+};
 
 export type App = Awaited<ReturnType<typeof buildApp>>;

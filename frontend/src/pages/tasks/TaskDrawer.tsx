@@ -43,7 +43,7 @@ function changes(t: TaskDetail, d: Draft): Omit<TaskPatch, 'version'> {
   return out;
 }
 
-const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу' };
+const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу', evidence: 'по доказательству' };
 
 export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: boolean; onClose: () => void }) {
   const qc = useQueryClient();
@@ -226,6 +226,16 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                 {' · '}{t.document.reason === 'review' ? 'пересмотр' : 'доработка после возврата'}
               </div>
               <div className="hint">Задача закроется сама, когда {t.document.reason === 'review' ? 'новую версию утвердят' : 'документ снова отправят на согласование'}.</div>
+            </div>
+          )}
+          {t?.evidence && (
+            <div className="mailbox">
+              <div className="eyebrow">Доказательство</div>
+              <div>
+                <Link to={`/evidence?ev=${t.evidence.id}`}>Доказательство #{t.evidence.number}</Link>
+                {' · '}{t.evidence.reason === 'rejected' ? 'отклонено при проверке' : 'истекает срок действия'}
+              </div>
+              <div className="hint">Задача закроется сама, когда {t.evidence.reason === 'rejected' ? 'к доказательству приложат исправленный файл или загрузят новую форму' : 'примут новую форму по тому же объекту'}.</div>
             </div>
           )}
           {t && !t.assignee && t.recipients.length > 0 && (

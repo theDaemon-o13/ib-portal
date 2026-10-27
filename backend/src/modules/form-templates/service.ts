@@ -5,6 +5,7 @@ import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { formTemplateUsage } from '../settings/usage.js';
+import '../settings/usage-counters.js';
 
 export type CheckKind = 'min' | 'max' | 'yes' | 'text';
 const KIND_TEXT: Record<CheckKind, string> = { min: 'не менее', max: 'не более', yes: 'да / нет', text: 'текст' };

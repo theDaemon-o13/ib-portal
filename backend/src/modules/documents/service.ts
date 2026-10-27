@@ -4,6 +4,8 @@
 // не супер-администратор (ни через какую роль) и не тот, кто уже согласовал другой этап этой версии
 // (разделение полномочий). Этап, который некому согласовать, кроме владельца, пропускается с записью в истории.
 // Без ib.work видны только утверждённые документы, «ждёт вас» и согласованные вами в текущем круге.
+// Итоговый PDF (этап 7): автор прикладывает его при отправке на согласование, все этапы согласуют этот файл
+// (sha256 — в истории каждого решения); замена PDF в маршруте возвращает его к началу.
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { DOCUMENT_TYPES_CATALOG } from '../../lib/catalogs.js';
@@ -11,6 +13,7 @@ import { withTx, isUniqueViolation, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { PERMISSIONS } from '../../lib/permissions.js';
 import { formatDateRu } from '../../lib/register-values.js';
+import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
@@ -59,7 +62,8 @@ const permName = (code: string) => PERMISSIONS.find((p) => p.code === code)?.nam
 
 const versionSelect = {
   id: true, no: true, edition: true, title: true, onlyofficeUrl: true, changeNote: true, stage: true, round: true,
-  approvedAt: true, createdAt: true,
+  approvedAt: true, createdAt: true, pdfFileId: true,
+  pdf: { select: { id: true, originalName: true, sha256: true, size: true } },
 } as const;
 const docInclude = {
   type: { select: { id: true, value: true } },
@@ -138,10 +142,15 @@ function shownVersion(a: DocAccess, d: DocRow, mine: MyDecisions): VersionRow | 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 const isoDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null;
 
+const pdfDto = (v: Pick<VersionRow, 'pdf'>) => (v.pdf ? { id: v.pdf.id, name: v.pdf.originalName, sha256: v.pdf.sha256, size: Number(v.pdf.size) } : null);
+
 function versionDto(v: VersionRow) {
   return {
     id: v.id, no: v.no, edition: v.edition, title: v.title, onlyofficeUrl: v.onlyofficeUrl, changeNote: v.changeNote,
     stage: v.stage, stageName: stageName(v.stage), round: v.round, approvedAt: iso(v.approvedAt), createdAt: v.createdAt.toISOString(),
+    /** Итоговый PDF версии; у утверждённой без него — «текст не зафиксирован». */
+    pdf: pdfDto(v),
+    textFrozen: v.pdf !== null,
   };
 }
 
@@ -298,6 +307,8 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     submit: active && workingShown && w !== null && w.stage === 0 && v.ok,
     approve: active && workingShown && w !== null && w.stage > 0 && v.ok,
     revise: active && d.approvedVersion !== null && w === null && (isOwner || a.manage),
+    /** Приложить или заменить итоговый PDF рабочей версии (на этапах 1–3 — маршрут заново). */
+    attachPdf: active && workingShown && w !== null && (isOwner || a.manage),
     manage: a.manage,
   };
   return {
@@ -309,12 +320,27 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     can,
     /** Почему вы не можете действовать на текущем этапе (для подсказки в карточке). */
     blockedReason: active && workingShown && w !== null && !v.ok ? v.reason : null,
-    versions: visibleVersions.map((x) => ({ no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote })),
+    versions: visibleVersions.map((x) => ({
+      no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote,
+      pdf: pdfDto(x), textFrozen: x.pdf !== null,
+    })),
     history: history.map((h) => ({
       id: h.id, at: h.at.toISOString(), actor: h.actor.fullName, stage: h.stage, stageName: stageName(h.stage),
       decision: h.decision as 'submitted' | 'approved' | 'returned' | 'revision_started' | 'skipped', comment: h.comment, versionNo: h.versionNo, round: h.round,
+      pdfSha256: h.pdfSha256,
     })),
   };
+}
+
+/** Видит ли пользователь версию (для выдачи её PDF): те же правила, что у списка версий карточки. */
+export async function versionVisible(db: Db, a: DocAccess, versionId: string): Promise<boolean> {
+  const v = await db.documentVersion.findUnique({ where: { id: versionId }, select: { documentId: true, approvedAt: true } });
+  if (!v) return false;
+  const d = await getRow(db, v.documentId);
+  const mine = await myDecisions(db, a.userId, d.workingVersionId ? [d.workingVersionId] : []);
+  const shown = shownVersion(a, d, mine);
+  if (!shown) return false;
+  return a.ibWork || v.approvedAt !== null || (shown === d.workingVersion && shown.id === versionId);
 }
 
 // ---------------------------------------------------------------- проверки ввода
@@ -497,7 +523,23 @@ export interface RouteInput {
   /** Этап, который пользователь видел на экране: если документ уже на другом этапе — 409. */
   stage: number;
   comment?: string;
+  /** Отправка на согласование: итоговый PDF (если ещё не приложен или заменяется). */
+  pdfFileId?: string;
 }
+
+const PDF_MIME = ['application/pdf'];
+
+/** Приложить PDF к рабочей версии; прежний PDF без других ссылок помечается удалённым. Возвращает sha256. */
+async function setPdf(tx: Db, actor: Actor, w: VersionRow, fileId: string): Promise<{ sha256: string; name: string; changed: boolean }> {
+  const [f] = await claimFiles(tx, actor.id, [fileId], { mimes: PDF_MIME, what: 'Итоговый PDF' });
+  if (!f) throw badRequest('PDF_REQUIRED', 'Приложите итоговый PDF документа');
+  if (w.pdfFileId === f.id) return { sha256: f.sha256, name: f.originalName, changed: false };
+  await tx.documentVersion.update({ where: { id: w.id }, data: { pdfFileId: f.id } });
+  if (w.pdfFileId) await deleteIfUnreferenced(tx, actor, w.pdfFileId, `заменён итоговый PDF версии ${w.no}`);
+  return { sha256: f.sha256, name: f.originalName, changed: true };
+}
+
+const pdfRequired = () => conflict('PDF_REQUIRED', 'У версии нет итогового PDF. Автор прикладывает его и отправляет документ на согласование заново');
 
 /** Общее для действий маршрута: свежие права, версия документа, текущий этап и проверка «кто может». */
 async function routeContext(tx: Db, actor: Actor, id: string, input: RouteInput) {
@@ -533,14 +575,21 @@ export async function submitDocument(db: Db, actor: Actor, id: string, input: Ro
   return withTx(db, async (tx) => {
     if (input.stage !== 0) throw conflict('STAGE_CHANGED', 'Отправить на согласование можно только с этапа «Автор». Обновите страницу');
     const { d, w } = await routeContext(tx, actor, id, input);
-    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: 0, decision: 'submitted', comment: '', actorId: actor.id });
+    let sha256 = w.pdf?.sha256 ?? null;
+    if (input.pdfFileId) {
+      const pdf = await setPdf(tx, actor, w, input.pdfFileId);
+      sha256 = pdf.sha256;
+      w.pdfFileId = input.pdfFileId;
+    }
+    if (!sha256) throw badRequest('PDF_REQUIRED', 'Приложите итоговый PDF документа: все этапы согласуют именно этот файл');
+    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: 0, decision: 'submitted', comment: '', actorId: actor.id, pdfSha256: sha256 });
     await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на согласование (версия ${w.no})`);
     await auditSettings(tx, actor, {
       action: 'document.submitted', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) отправлен на согласование`,
-      after: { versionNo: w.no, round: w.round },
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) отправлен на согласование, PDF sha256 ${sha256.slice(0, 12)}…`,
+      after: { versionNo: w.no, round: w.round, pdfSha256: sha256 },
     });
-    await moveTo(tx, actor, d, w, 1);
+    await moveTo(tx, actor, d, w, 1, sha256);
   });
 }
 
@@ -549,7 +598,11 @@ export async function approveDocument(db: Db, actor: Actor, id: string, input: R
   return withTx(db, async (tx) => {
     if (input.stage < 1 || input.stage > LAST_STAGE) throw conflict('STAGE_CHANGED', 'Этот этап не согласуют. Обновите страницу');
     const { d, w } = await routeContext(tx, actor, id, input);
-    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'approved', comment: (input.comment ?? '').trim().slice(0, COMMENT_MAX), actorId: actor.id });
+    // Версия ушла на согласование до этапа 7 без PDF: утверждать нечего зафиксированного (проверка в сервисе;
+    // триггер в БД — релизом-«сужением» перед первой выкладкой).
+    const sha256 = w.pdf?.sha256;
+    if (!sha256) throw pdfRequired();
+    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'approved', comment: (input.comment ?? '').trim().slice(0, COMMENT_MAX), actorId: actor.id, pdfSha256: sha256 });
     if (w.stage < LAST_STAGE) {
       await auditSettings(tx, actor, {
         action: 'document.approved_stage', entity: 'document', entityId: id,
@@ -557,7 +610,7 @@ export async function approveDocument(db: Db, actor: Actor, id: string, input: R
         after: { versionNo: w.no, round: w.round, stage: w.stage },
       });
     }
-    await moveTo(tx, actor, d, w, w.stage + 1);
+    await moveTo(tx, actor, d, w, w.stage + 1, sha256);
   });
 }
 
@@ -588,12 +641,12 @@ async function skipReason(tx: Db, d: DocRow, stage: number): Promise<string | nu
  * Перевести рабочую версию на этап next. Этапы, где согласовать может только владелец, пропускаются
  * с записью «skipped» в истории (кто владелец, почему пропущен); после последнего этапа — утверждение.
  */
-async function moveTo(tx: Db, actor: Actor, d: DocRow, w: VersionRow, next: number) {
+async function moveTo(tx: Db, actor: Actor, d: DocRow, w: VersionRow, next: number, pdfSha256: string) {
   let stage = next;
   for (; stage <= LAST_STAGE; stage++) {
     const reason = await skipReason(tx, d, stage);
     if (!reason) break;
-    await addDecision(tx, { documentId: d.id, versionId: w.id, versionNo: w.no, round: w.round, stage, decision: 'skipped', comment: reason, actorId: d.ownerId });
+    await addDecision(tx, { documentId: d.id, versionId: w.id, versionNo: w.no, round: w.round, stage, decision: 'skipped', comment: reason, actorId: d.ownerId, pdfSha256 });
     await auditSettings(tx, actor, {
       action: 'document.stage_skipped', entity: 'document', entityId: d.id,
       summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): этап «${stageName(stage)}» не требуется — автор ${d.owner.fullName}`,
@@ -616,7 +669,7 @@ async function moveTo(tx: Db, actor: Actor, d: DocRow, w: VersionRow, next: numb
   await auditSettings(tx, actor, {
     action: 'document.approved', entity: 'document', entityId: d.id,
     summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) утверждён, пересмотр до ${formatDateRu(due)}`,
-    after: { versionNo: w.no, round: w.round, reviewDue: due },
+    after: { versionNo: w.no, round: w.round, reviewDue: due, pdfSha256 },
   });
 }
 
@@ -643,6 +696,48 @@ export async function returnDocument(db: Db, actor: Actor, id: string, input: Ro
       action: 'document.returned', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) возвращён на доработку с этапа «${stageName(w.stage)}»`,
       after: { versionNo: w.no, round: w.round, stage: w.stage, comment },
+    });
+  });
+}
+
+export interface PdfInput {
+  version: number;
+  /** Этап, который пользователь видел на экране. */
+  stage: number;
+  fileId: string;
+}
+
+/**
+ * Приложить или заменить итоговый PDF рабочей версии (владелец или docs.manage). На этапе «Автор» — просто
+ * прикладывается; на этапах 1–3 замена возвращает маршрут к началу: новый круг, этап «Автор», согласования
+ * текущего круга больше не действуют (все этапы согласуют один файл).
+ */
+export async function attachPdf(db: Db, actor: Actor, id: string, input: PdfInput) {
+  return withTx(db, async (tx) => {
+    const a = await accessOf(tx, actor.id);
+    const d = await getRow(tx, id);
+    const w = d.workingVersion;
+    if (!w) throw conflict('DOC_APPROVED', 'Утверждённая версия не меняется: PDF прикладывается к новой версии');
+    if (d.version !== input.version) throw versionConflict();
+    if (w.stage !== input.stage) throw conflict('STAGE_CHANGED', `Документ уже на этапе «${stageName(w.stage)}». Обновите страницу`);
+    if (d.archivedAt) throw conflict('DOC_ARCHIVED', 'Документ в архиве. Верните его из архива, чтобы изменить');
+    if (d.ownerId !== a.userId && !a.manage) throw forbiddenWith('FORBIDDEN', 'Итоговый PDF прикладывает владелец документа или пользователь с правом «Документы: управление»');
+    const res = await tx.document.updateMany({ where: { id, version: input.version }, data: { version: { increment: 1 } } });
+    if (res.count === 0) throw versionConflict();
+    const pdf = await setPdf(tx, actor, w, input.fileId);
+    if (!pdf.changed) return;
+    const restart = w.stage > 0;
+    if (restart) {
+      await addDecision(tx, {
+        documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'returned',
+        comment: `Заменён итоговый PDF («${pdf.name}») — маршрут начат заново`, actorId: actor.id, pdfSha256: pdf.sha256,
+      });
+      await tx.documentVersion.update({ where: { id: w.id }, data: { stage: 0, round: w.round + 1 } });
+    }
+    await auditSettings(tx, actor, {
+      action: 'document.pdf_attached', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): ${w.pdfFileId ? 'заменён' : 'приложен'} итоговый PDF «${pdf.name}»${restart ? ` на этапе «${stageName(w.stage)}» — маршрут начат заново` : ''}`,
+      after: { versionNo: w.no, round: w.round, pdfSha256: pdf.sha256, restarted: restart },
     });
   });
 }

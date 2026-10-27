@@ -2,7 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { ApiError } from '../../api/client';
 import { docsApi, dkeys, type DocDetail, type DocResult } from '../../api/documents';
+import type { FileInfo } from '../../api/files';
 import { settingsApi } from '../../api/settings';
+import { FilePreview } from '../../components/files/FilePreview';
+import { FileUpload } from '../../components/files/FileUpload';
 import { LockIcon } from '../../components/LockIcon';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
@@ -12,7 +15,10 @@ import { historyText, reviewLabel, STATUS_TONE, versionLabel } from './logic';
 /** Ошибки, после которых карточку нужно перечитать: документ успели изменить или он ушёл на другой этап. */
 const STALE = new Set(['VERSION_CONFLICT', 'STAGE_CHANGED', 'NOT_IN_ROUTE']);
 
-type Mode = 'view' | 'return' | 'edit' | 'revise' | 'settings';
+type Mode = 'view' | 'return' | 'edit' | 'revise' | 'settings' | 'pdf';
+
+/** Подпись PDF: имя и начало sha256 — какой именно файл согласуют этапы. */
+const shaShort = (sha: string) => `${sha.slice(0, 12)}…`;
 
 interface ContentDraft {
   title: string;
@@ -45,6 +51,8 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
   const [content, setContent] = useState<ContentDraft | null>(null);
   const [settings, setSettings] = useState<{ typeId: string; ownerId: string; reviewMonths: number } | null>(null);
   const [stale, setStale] = useState<string | null>(null);
+  const [pdf, setPdf] = useState<FileInfo[]>([]);
+  const [shownPdf, setShownPdf] = useState<string | null>(null);
   const d = doc.data;
 
   const types = useQuery({ queryKey: dkeys.types, queryFn: () => settingsApi.items('document_types', false), enabled: mode === 'settings' });
@@ -74,7 +82,16 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
 
   const stage = d?.working?.stage ?? 0;
   const at = { version: d?.version ?? 0, stage };
-  const submit = useMutation({ mutationFn: () => docsApi.submit(id, at), onSuccess: (r) => done(r, 'Документ отправлен на согласование'), onError });
+  const submit = useMutation({
+    mutationFn: () => docsApi.submit(id, { ...at, pdfFileId: pdf[0]?.id }),
+    onSuccess: (r) => { setPdf([]); return done(r, 'Документ отправлен на согласование'); },
+    onError,
+  });
+  const attachPdf = useMutation({
+    mutationFn: () => docsApi.attachPdf(id, { ...at, fileId: pdf[0]?.id ?? '' }),
+    onSuccess: (r) => { setPdf([]); return done(r, stage > 0 ? 'PDF заменён. Маршрут начат заново: отправьте документ на согласование' : 'Итоговый PDF приложен'); },
+    onError,
+  });
   const approve = useMutation({
     mutationFn: () => docsApi.approve(id, at),
     onSuccess: (r) => done(r, stage === 3 ? 'Документ утверждён' : `Этап «${d?.stageName ?? ''}» согласован`),
@@ -101,7 +118,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
     onSuccess: (r) => done(r, r.document?.archived ? 'Документ в архиве' : 'Документ возвращён из архива'),
     onError,
   });
-  const busy = submit.isPending || approve.isPending || back.isPending || save.isPending || revise.isPending || saveSettings.isPending || archive.isPending;
+  const busy = attachPdf.isPending || submit.isPending || approve.isPending || back.isPending || save.isPending || revise.isPending || saveSettings.isPending || archive.isPending;
 
   if (doc.isError) {
     return <div className="panel-b form-error">{doc.error instanceof ApiError && doc.error.status === 404 ? 'Документ не найден или вам не виден' : doc.error.message}</div>;
@@ -143,6 +160,9 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           <div className="hint">Действует версия {versionLabel(d.approved)} от {formatDate(d.approved.approvedAt?.slice(0, 10))}. Версия {d.working.no} — на этапе «{d.working.stageName}».</div>
         )}
         {d.archived && <div className="note ro"><LockIcon /><span>Документ в архиве: маршрут и пересмотр не ведутся.</span></div>}
+        {d.approved && !d.approved.textFrozen && (
+          <div className="note"><span className="chip high">текст не зафиксирован</span> Версия {d.approved.no} утверждена до появления итогового PDF: ссылка на OnlyOffice не фиксирует содержимое. Текст зафиксирует следующий пересмотр.</div>
+        )}
 
         <div>
           <div className="eyebrow">Маршрут согласования{d.current.round > 1 ? ` · круг ${d.current.round}` : ''}</div>
@@ -165,9 +185,40 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           </div>
         </div>
 
+        {d.working && (
+          <div className="pdf-box">
+            <div className="eyebrow">Итоговый PDF версии {d.working.no}</div>
+            {d.working.pdf ? (
+              <div className="row">
+                <button type="button" className="btn ghost sm" aria-pressed={shownPdf === d.working.pdf.id} onClick={() => setShownPdf(shownPdf === d.working?.pdf?.id ? null : d.working?.pdf?.id ?? null)}>{d.working.pdf.name}</button>
+                <span className="hint mono" title={d.working.pdf.sha256}>sha256 {shaShort(d.working.pdf.sha256)}</span>
+                {d.can.attachPdf && mode === 'view' && <button type="button" className="btn sm" onClick={() => setMode('pdf')}>Заменить PDF</button>}
+              </div>
+            ) : (
+              <div className="hint">Не приложен. Автор прикладывает PDF при отправке на согласование: все этапы согласуют именно этот файл.</div>
+            )}
+          </div>
+        )}
+        {mode === 'pdf' && (
+          <form className="task-form" aria-label="Итоговый PDF" onSubmit={(e) => { e.preventDefault(); attachPdf.mutate(); }}>
+            <FileUpload label="Итоговый PDF" multiple={false} accept=".pdf" allowed={['pdf']} value={pdf} onChange={setPdf} required />
+            {stage > 0 && <div className="note">Документ на этапе «{d.stageName}». После замены PDF маршрут начнётся заново: согласования этого круга перестанут действовать.</div>}
+            <div className="row">
+              <button className="btn primary" type="submit" disabled={busy || !pdf.length}>{stage > 0 ? 'Заменить и начать маршрут заново' : 'Приложить'}</button>
+              <button className="btn" type="button" onClick={() => { setMode('view'); setPdf([]); }}>Отмена</button>
+            </div>
+          </form>
+        )}
+        {mode === 'view' && d.can.submit && (
+          <form className="task-form" aria-label="Отправка на согласование" onSubmit={(e) => { e.preventDefault(); submit.mutate(); }}>
+            {!d.working?.pdf && <FileUpload label="Итоговый PDF (обязательно)" multiple={false} accept=".pdf" allowed={['pdf']} value={pdf} onChange={setPdf} required />}
+            <div className="row">
+              <button className="btn primary" type="submit" disabled={busy || (!d.working?.pdf && !pdf.length)}>Отправить на согласование</button>
+            </div>
+          </form>
+        )}
         {mode === 'view' && (
           <div className="row">
-            {d.can.submit && <button className="btn primary" type="button" disabled={busy} onClick={() => submit.mutate()}>Отправить на согласование</button>}
             {d.can.approve && <button className="btn primary" type="button" disabled={busy} onClick={() => approve.mutate()}>{stage === 3 ? 'Утвердить' : 'Согласовать этап'}</button>}
             {d.can.approve && <button className="btn" type="button" disabled={busy} onClick={() => setMode('return')}>Вернуть на доработку</button>}
             {d.can.edit && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('edit')}>Изменить черновик</button>}
@@ -230,6 +281,10 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           </form>
         )}
 
+        {shownPdf && (() => {
+          const f = [d.working?.pdf, ...d.versions.map((v) => v.pdf)].find((p) => p?.id === shownPdf);
+          return f ? <FilePreview key={f.id} file={{ id: f.id, name: f.name, mime: 'application/pdf', size: f.size }} /> : null;
+        })()}
         {d.versions.length > 0 && (
           <div>
             <div className="eyebrow">Версии</div>
@@ -239,6 +294,11 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
                   <div>
                     <a href={v.onlyofficeUrl} target="_blank" rel="noopener noreferrer">Версия {versionLabel(v)}</a>
                     {' · '}{v.approvedAt ? `утверждена ${formatDate(v.approvedAt.slice(0, 10))}` : 'в работе'}
+                    {v.pdf && (
+                      <>{' · '}<button type="button" className="btn ghost sm" aria-pressed={shownPdf === v.pdf.id} onClick={() => setShownPdf(shownPdf === v.pdf?.id ? null : v.pdf?.id ?? null)}>PDF</button>
+                        <span className="hint mono" title={v.pdf.sha256}> {shaShort(v.pdf.sha256)}</span></>
+                    )}
+                    {v.approvedAt && !v.textFrozen && <> <span className="chip high" title="Утверждена до появления итогового PDF: ссылка на OnlyOffice не фиксирует содержимое">текст не зафиксирован</span></>}
                   </div>
                   {v.changeNote && <div className="m">{v.changeNote}</div>}
                 </div>
@@ -254,6 +314,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
               {d.history.map((h) => (
                 <div key={h.id} className={`hist-item${h.decision === 'returned' ? ' returned' : ''}`}>
                   {formatDateTime(h.at)} · {h.actor}: {historyText(h)}
+                  {h.pdfSha256 && <span className="hint mono" title={h.pdfSha256}> · PDF {shaShort(h.pdfSha256)}</span>}
                 </div>
               ))}
             </div>

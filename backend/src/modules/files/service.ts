@@ -1,0 +1,91 @@
+// Файлы (этап 7, CLAUDE.md 3.7, ADR-0011). Содержимое — в томе (lib/file-store.ts), метаданные — в files.
+// Кто видит файл, решают ссылки на него: решение другого отдела и доказательство — ib.work; PDF версии
+// документа — тот, кто видит эту версию (ADR-0010); файл без ссылок — только загрузивший.
+// Файл физически не удаляется; отметка «удалён» — только когда ссылок нет (сервис и триггер files_guard).
+import { createHash } from 'node:crypto';
+import { withTx, type Db } from '../../lib/db.js';
+import { AppError, notFound } from '../../lib/errors.js';
+import { checkFile } from '../../lib/file-type.js';
+import type { FileStore } from '../../lib/file-store.js';
+import { auditSettings, type Actor } from '../settings/common.js';
+import { accessOf, versionVisible, type DocAccess } from '../documents/service.js';
+
+import { fileDto, withUploader, type FileDto } from './links.js';
+
+export { fileDto, type FileDto };
+
+/** Загрузить: проверка имени, размера и типа по содержимому, запись на диск, затем строка в БД. */
+export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName: string, data: Buffer): Promise<FileDto> {
+  const check = checkFile(rawName, data);
+  if (!check.ok) throw new AppError(check.code === 'FILE_TOO_LARGE' ? 413 : 400, check.code, check.message);
+  const sha256 = createHash('sha256').update(data).digest('hex');
+  // Сначала диск: если вставка в БД не пройдёт, на диске останется файл без строки — его покажет check:integrity.
+  const storageKey = await store.put(data);
+  return withTx(db, async (tx) => {
+    const row = await tx.file.create({
+      data: { storageKey, originalName: check.name, mime: check.mime, size: BigInt(data.length), sha256, uploadedBy: actor.id },
+      include: withUploader,
+    });
+    await auditSettings(tx, actor, {
+      action: 'file.uploaded', entity: 'file', entityId: row.id,
+      summary: `Загружен файл «${check.name}» (${check.mime}, ${data.length} Б)`,
+      after: { name: check.name, mime: check.mime, size: data.length, sha256 },
+    });
+    return fileDto(row);
+  });
+}
+
+// ---------------------------------------------------------------- ссылки и доступ
+
+export interface FileRef {
+  kind: 'evidence' | 'decision' | 'document_pdf';
+  id: string;
+  label: string;
+}
+
+/** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
+export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
+  const [links, decisions, versions] = await Promise.all([
+    db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
+    db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
+    db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
+  ]);
+  return [
+    ...links.map((l) => ({ kind: 'evidence' as const, id: l.evidence.id, label: `Доказательство #${l.evidence.number} «${l.evidence.title}»` })),
+    ...decisions.map((d) => ({ kind: 'decision' as const, id: d.id, label: `Решение: ${d.documentTitle} № ${d.documentNumber}` })),
+    ...versions.map((v) => ({ kind: 'document_pdf' as const, id: v.documentId, versionId: v.id, label: `PDF версии ${v.no} «${v.title}»` })),
+  ];
+}
+
+async function canRead(db: Db, a: DocAccess, f: { id: string; uploadedBy: string }, refs: Awaited<ReturnType<typeof fileRefs>>): Promise<boolean> {
+  if (!refs.length) return f.uploadedBy === a.userId;
+  if (a.ibWork) return true;
+  for (const r of refs) {
+    if (r.kind === 'document_pdf' && r.versionId && (await versionVisible(db, a, r.versionId))) return true;
+  }
+  return false;
+}
+
+/** Файл, который пользователь может читать; иначе 404 (не раскрываем, что файл есть). */
+async function readable(db: Db, userId: string, id: string) {
+  const f = await db.file.findUnique({ where: { id }, include: withUploader });
+  if (!f || f.deletedAt) throw notFound('Файл');
+  const refs = await fileRefs(db, id);
+  if (!(await canRead(db, await accessOf(db, userId), f, refs))) throw notFound('Файл');
+  return { f, refs };
+}
+
+export async function getFileMeta(db: Db, actor: Actor, id: string) {
+  const { f, refs } = await readable(db, actor.id, id);
+  return { ...fileDto(f), refs: refs.map(({ kind, id: rid, label }) => ({ kind, id: rid, label })) };
+}
+
+/** Открыть содержимое на чтение (с проверкой прав); выдача пишется в журнал. */
+export async function openFile(db: Db, store: FileStore, actor: Actor, id: string) {
+  const { f } = await readable(db, actor.id, id);
+  await auditSettings(db, actor, {
+    action: 'file.downloaded', entity: 'file', entityId: f.id,
+    summary: `Выдан файл «${f.originalName}»`,
+  });
+  return { file: fileDto(f), stream: store.open(f.storageKey) };
+}

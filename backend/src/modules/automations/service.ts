@@ -17,6 +17,8 @@ import {
 import { auditSettings, ensureVersioned, type Actor } from '../settings/common.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { runDocumentReviews } from '../documents/review.js';
+import { runEvidenceExpiry } from '../evidence/expiry.js';
+import { sweepOrphanFiles } from '../files/links.js';
 import { registerEvent, tasksFromEvents } from '../tasks/from-events.js';
 import { EVENT_TYPE_NAMES, evaluate, type Action, type Condition, type EventType, type Recipient } from './conditions.js';
 
@@ -363,7 +365,7 @@ export async function listEvents(
 /** Событие обработано: на этапе 5 так же закроется созданная из него задача. Пишется в историю записи. */
 export async function processEvent(db: Db, actor: Actor, id: string) {
   await withTx(db, async (tx) => {
-    const row = await tx.automationEvent.findUnique({ where: { id, documentId: null }, include: { automation: true, record: { select: { number: true } } } });
+    const row = await tx.automationEvent.findUnique({ where: { id, documentId: null, evidenceId: null }, include: { automation: true, record: { select: { number: true } } } });
     if (!row) throw notFound('Событие');
     const e = registerEvent(row);
     if (e.status === 'processed') return;
@@ -395,6 +397,8 @@ export interface RunResult {
   /** Задачи из новых событий: создано и дополнено комментарием. */
   tasksCreated: number;
   tasksCommented: number;
+  /** Непривязанные файлы старше суток, помеченные удалённым (этап 7). */
+  orphanFiles?: number;
 }
 
 /** Ключ advisory-блокировки: один прогон за раз, даже если backend запущен в нескольких экземплярах. */
@@ -487,11 +491,16 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
         return { when: dto.when, then: dto.then };
       },
     });
-    // Пересмотр документов (этап 6) — в общем прогоне, не в прогоне одного реестра.
-    const docs = opts.registerId ? { tasksCreated: 0, tasksCommented: 0 } : await runDocumentReviews(tx, { today });
+    // Пересмотр документов (этап 6), срок действия доказательств и непривязанные файлы (этап 7) —
+    // в общем прогоне, не в прогоне одного реестра.
+    const none = { tasksCreated: 0, tasksCommented: 0 };
+    const docs = opts.registerId ? none : await runDocumentReviews(tx, { today });
+    const evidence = opts.registerId ? none : await runEvidenceExpiry(tx, { today });
+    const orphanFiles = opts.registerId ? 0 : await sweepOrphanFiles(tx, opts.now ?? new Date());
     return {
-      ran: true, today, rules: rules.length, checked, created,
-      tasksCreated: tasks.created + docs.tasksCreated, tasksCommented: tasks.commented + docs.tasksCommented,
+      ran: true, today, rules: rules.length, checked, created, orphanFiles,
+      tasksCreated: tasks.created + docs.tasksCreated + evidence.tasksCreated,
+      tasksCommented: tasks.commented + docs.tasksCommented + evidence.tasksCommented,
     };
   });
 }

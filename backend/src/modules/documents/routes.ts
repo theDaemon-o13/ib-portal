@@ -36,9 +36,14 @@ const DocItem = z.object({
   archived: z.boolean(),
   version: z.number().int(),
 });
+/** Итоговый PDF версии (этап 7): файл в хранилище портала, sha256 — в истории каждого решения. */
+const Pdf = z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int() });
 const Version_ = z.object({
   id: z.string(), no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), changeNote: z.string(),
   stage: z.number().int(), stageName: z.string(), round: z.number().int(), approvedAt: z.string().nullable(), createdAt: z.string(),
+  pdf: Pdf.nullable(),
+  /** false у утверждённой версии без PDF (утверждена до этапа 7): «текст не зафиксирован». */
+  textFrozen: z.boolean(),
 });
 const DocDetail = DocItem.extend({
   current: Version_,
@@ -50,14 +55,17 @@ const DocDetail = DocItem.extend({
     /** Этап не требуется (согласовать мог только владелец): причина. */
     skipped: z.string().nullable(),
   })),
-  can: z.object({ edit: z.boolean(), submit: z.boolean(), approve: z.boolean(), revise: z.boolean(), manage: z.boolean() }),
+  can: z.object({ edit: z.boolean(), submit: z.boolean(), approve: z.boolean(), revise: z.boolean(), attachPdf: z.boolean(), manage: z.boolean() }),
   blockedReason: z.string().nullable(),
   versions: z.array(z.object({
     no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), approvedAt: z.string().nullable(), changeNote: z.string(),
+    pdf: Pdf.nullable(), textFrozen: z.boolean(),
   })),
   history: z.array(z.object({
     id: z.string(), at: z.string(), actor: z.string(), stage: z.number().int(), stageName: z.string(),
     decision: z.enum(['submitted', 'approved', 'returned', 'revision_started', 'skipped']), comment: z.string(), versionNo: z.number().int(), round: z.number().int(),
+    /** sha256 PDF, который был у версии в момент решения; null — решение до этапа 7. */
+    pdfSha256: z.string().nullable(),
   })),
 });
 type DetailOut = z.infer<typeof DocDetail>;
@@ -156,9 +164,14 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
     return result(request, request.params.id);
   });
 
-  const RouteBody = Version.extend({ stage: z.number().int().min(0).max(3), comment: z.string().max(svc.COMMENT_MAX).optional() });
+  const RouteBody = Version.extend({
+    stage: z.number().int().min(0).max(3),
+    comment: z.string().max(svc.COMMENT_MAX).optional(),
+    /** submit: итоговый PDF (файл из POST /files), если он ещё не приложен. */
+    pdfFileId: z.string().uuid().optional(),
+  });
   for (const [path, fn, summary] of [
-    ['submit', svc.submitDocument, 'Этап «Автор»: отправить на согласование (владелец или docs.manage)'],
+    ['submit', svc.submitDocument, 'Этап «Автор»: отправить на согласование (владелец или docs.manage). Без итогового PDF — 400 PDF_REQUIRED'],
     ['approve', svc.approveDocument, 'Согласовать текущий этап (право этапа; не супер-администратор; не второй этап той же версии)'],
     ['return', svc.returnDocument, 'Вернуть на доработку с комментарием: маршрут заново, владельцу — задача'],
   ] as const) {
@@ -170,6 +183,20 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       return result(request, request.params.id);
     });
   }
+
+  app.post('/documents/:id/pdf', {
+    preHandler: anyUser,
+    schema: {
+      tags,
+      summary: 'Приложить или заменить итоговый PDF рабочей версии (владелец или docs.manage). Замена на этапах 1–3 возвращает маршрут к началу',
+      params: IdParams,
+      body: Version.extend({ stage: z.number().int().min(0).max(3), fileId: z.string().uuid() }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.attachPdf(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
 
   app.post('/documents/:id/revise', {
     preHandler: anyUser,

@@ -3,7 +3,7 @@ import type { DocDetail } from '../../api/documents';
 import { historyText, reviewLabel, stageHint, versionLabel } from './logic';
 
 const h = (extra: Partial<DocDetail['history'][number]>): DocDetail['history'][number] => ({
-  id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, ...extra,
+  id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, ...extra,
 });
 
 describe('документы: подписи', () => {

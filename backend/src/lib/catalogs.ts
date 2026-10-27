@@ -48,6 +48,7 @@ export const SYSTEM_ITEMS: readonly SystemItemDef[] = [
   { catalog: 'task_categories', key: 'mail', value: 'Почта', color: 'info', why: 'задачи из писем создаются с этой категорией' },
   { catalog: 'task_categories', key: 'register', value: 'Реестр', color: 'crit', why: 'её ставят автоматизации реестров' },
   { catalog: 'task_categories', key: 'documents', value: 'Документы', color: 'accent', why: 'её ставят пересмотр и возврат документа на доработку' },
+  { catalog: 'task_categories', key: 'evidence', value: 'Доказательства', color: 'low', why: 'её ставят отклонение доказательства и окончание срока его действия' },
   { catalog: 'task_statuses', key: 'new', value: 'Новые', why: 'статус участвует в маршруте задачи' },
   { catalog: 'task_statuses', key: 'work', value: 'В работе', why: 'статус участвует в маршруте задачи' },
   { catalog: 'task_statuses', key: 'review', value: 'На проверке', why: 'статус участвует в маршруте задачи' },

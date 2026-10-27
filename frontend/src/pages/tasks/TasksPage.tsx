@@ -59,6 +59,7 @@ function Card({ t, today, archived, drag, onPointerDown, onOpen }: {
           {t.source === 'automation' && <span className="chip crit" title="Задача из автоматизации реестра">авто</span>}
           {t.source === 'mail' && <span className="chip info" title="Задача из письма">письмо</span>}
           {t.source === 'document' && <span className="chip acc" title="Задача по документу">документ</span>}
+          {t.source === 'evidence' && <span className="chip acc" title="Задача по доказательству">доказательство</span>}
         </span>
       </div>
     </article>
@@ -94,7 +95,7 @@ export function TasksPage() {
   const openTask = useCallback((id: string) => setParam({ task: id }), [setParam]);
 
   const [quick, setQuick] = useState({ title: '', categoryId: '', assigneeId: me.id, dueDate: plusDays(5) });
-  const quickCategories = (categories.data?.items ?? []).filter((c) => c.systemKey !== 'register' && c.systemKey !== 'mail' && c.systemKey !== 'documents');
+  const quickCategories = (categories.data?.items ?? []).filter((c) => c.systemKey !== 'register' && c.systemKey !== 'mail' && c.systemKey !== 'documents' && c.systemKey !== 'evidence');
   const quickCategory = quick.categoryId || quickCategories[0]?.id || '';
   const create = useMutation({
     mutationFn: () => tasksApi.create({ title: quick.title, categoryId: quickCategory, assigneeId: quick.assigneeId || null, dueDate: quick.dueDate || null }),

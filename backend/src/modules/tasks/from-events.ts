@@ -52,7 +52,7 @@ export async function tasksFromEvents(
 ): Promise<EventTasksResult> {
   const events = await tx.automationEvent.findMany({
     // События документов (пересмотр) обрабатывает modules/documents/review.ts.
-    where: { status: 'new', documentId: null, ...(opts.registerId ? { registerId: opts.registerId } : {}) },
+    where: { status: 'new', documentId: null, evidenceId: null, ...(opts.registerId ? { registerId: opts.registerId } : {}) },
     include: { automation: true, record: { select: { id: true, number: true, values: true, archivedAt: true, deletedAt: true } } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });

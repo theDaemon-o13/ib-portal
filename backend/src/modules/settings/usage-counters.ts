@@ -3,7 +3,7 @@
 // не нужно импортировать задачи и реестры.
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import type { Db } from '../../lib/db.js';
-import { catalogItemUsage } from './usage.js';
+import { catalogItemUsage, formTemplateUsage } from './usage.js';
 
 const add = (m: Map<string, number>, id: string, n: number) => m.set(id, (m.get(id) ?? 0) + n);
 
@@ -47,5 +47,23 @@ catalogItemUsage.register('automation_labels', async (db: Db, ids) => {
       .some((x) => x.kind === 'label' && (x.itemId ? x.itemId === item.id : x.label?.toLowerCase() === item.value.toLowerCase()))).length;
     if (n) add(out, item.id, n);
   }
+  return out;
+});
+
+/** Доказательства по системе (объект доказательства — значение справочника «Системы»). */
+catalogItemUsage.register('evidence_systems', async (db: Db, ids) => {
+  const out = new Map<string, number>();
+  if (!ids.length) return out;
+  const rows = await db.evidence.groupBy({ by: ['systemItemId'], where: { systemItemId: { in: [...ids] }, deletedAt: null }, _count: { _all: true } });
+  for (const r of rows) if (r.systemItemId) add(out, r.systemItemId, r._count._all);
+  return out;
+});
+
+/** Формы подтверждения, загруженные по шаблону: такой шаблон не удаляется, только уходит в архив. */
+formTemplateUsage.register('evidence_forms', async (db: Db, ids) => {
+  const out = new Map<string, number>();
+  if (!ids.length) return out;
+  const rows = await db.evidence.groupBy({ by: ['templateId'], where: { templateId: { in: [...ids] }, deletedAt: null }, _count: { _all: true } });
+  for (const r of rows) if (r.templateId) add(out, r.templateId, r._count._all);
   return out;
 });
