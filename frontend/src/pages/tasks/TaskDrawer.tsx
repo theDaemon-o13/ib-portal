@@ -240,7 +240,7 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
           )}
           {t && !t.assignee && t.recipients.length > 0 && (
             <div className="note" role="note">
-              Ответственный не назначен: у метки нет пользователей портала. Напишите получателям вручную или назначьте задачу сотруднику ИБ.
+              Ответственный не назначен: у метки нет пользователей портала. Назначьте задачу сотруднику ИБ или свяжитесь с получателями сами — адреса для справки, письма портал не отправляет.
               <ul className="recipients">
                 {t.recipients.map((r) => (
                   <li key={r.label}>

@@ -35,7 +35,7 @@ const SYSTEM_OWNER = 'system_owner';
 
 /**
  * Участники метки: только сотрудники с доступом к разделам ИБ — им ставятся задачи.
- * Остальных указывают e-mail; письма придут, когда в портале появится почта (этап 9).
+ * Остальных можно записать e-mail — для справки: портал письма не отправляет (внешних интеграций нет).
  */
 function MembersEditor({ draft, setDraft, people }: {
   draft: Draft; setDraft: (d: Draft) => void; people: { id: string; fullName: string; ibWork: boolean }[];
@@ -57,7 +57,7 @@ function MembersEditor({ draft, setDraft, people }: {
         const u = people.find((x) => x.id === e.target.value);
         if (!u) return;
         if (!u.ibWork) {
-          setRefused(`У «${u.fullName}» нет доступа к разделам ИБ — задачу ему не назначить. Укажите его e-mail: письма придут, когда в портале появится почта`);
+          setRefused(`У «${u.fullName}» нет доступа к разделам ИБ — задачу ему не назначить. Его e-mail можно записать для справки — письма портал не отправляет`);
           return;
         }
         setRefused(null);
@@ -182,7 +182,7 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
               {isMail && <th>Ключевые слова</th>}
               {isSystems && <th>Владелец системы</th>}
               {isRecipients && <th>Участники (задачи)</th>}
-              {isRecipients && <th>E-mail (письма — этап 9)</th>}
+              {isRecipients && <th title="Для справки: портал письма не отправляет">E-mail (для справки)</th>}
               {isMail ? <th>Ответственный</th> : <th title="Сколько записей ссылается на значение">Используется</th>}
               <th>Статус</th>
               <th />
@@ -316,7 +316,7 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
           {isSystems && <label>Владелец системы{systemOwnerSelect(add, setAdd, 'ca-sowner')}</label>}
           {isRecipients && (
             <label>
-              E-mail
+              E-mail (для справки)
               <input className="inp" placeholder="адреса через запятую; участников — после добавления" value={add.emails}
                 onChange={(e) => setAdd({ ...add, emails: e.target.value })} />
             </label>
@@ -329,6 +329,7 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
           <div className="hint">
             Метка — адресат правил автоматизаций. Участникам (только с доступом к разделам ИБ) событие ставит задачи;
             если участников нет или указаны только e-mail — задача создаётся без ответственного, а в её карточке видны метка и адреса.
+            E-mail — для справки, письма портал не отправляет: портал работает в закрытом контуре без внешних интеграций.
             При смене руководителя меняется одна строка здесь, правила остаются как есть.
           </div>
         </div>

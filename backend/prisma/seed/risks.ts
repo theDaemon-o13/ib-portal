@@ -42,7 +42,7 @@ export async function seedRisks(tx: Tx): Promise<void> {
     const ibHead = await tx.catalogItem.findUnique({ where: { catalogCode_systemKey: { catalogCode: 'notify_recipients', systemKey: 'ib_head' } } });
     if (!ibHead) throw new Error('нет системной метки ib_head');
     // Правила прототипа «вернуть статус» и «напомнить ОУР письмом» движок не выполняет (только события → задачи;
-    // письма — этап 9): вместо них напоминание владельцу риска и уведомление начальнику ИБ. Правила обычные — их можно менять.
+    // писем портал не отправляет): вместо них напоминание владельцу риска и уведомление начальнику ИБ. Правила обычные — их можно менять.
     const rules: { condition: Prisma.InputJsonValue; action: Prisma.InputJsonValue }[] = [
       {
         condition: { kind: 'before', fieldId: ids.reviewDue, days: 30 },

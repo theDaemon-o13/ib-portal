@@ -32,6 +32,14 @@ RUN npm run build && npm prune --omit=dev --omit=optional
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
+# Закрытый контур: ни Prisma CLI (checkpoint — проверка версии и телеметрия), ни npm/npx (проверка обновлений,
+# загрузка пакетов) не обращаются в интернет. migrate запускает npx prisma — пакет уже в образе.
+ENV CHECKPOINT_DISABLE=1 \
+    PRISMA_HIDE_UPDATE_MESSAGE=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_OFFLINE=true \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false
 WORKDIR /app
 # prisma CLI и движки нужны сервису migrate; в закрытом контуре npx ничего не скачает.
 COPY --from=build --chown=node:node /app/node_modules node_modules

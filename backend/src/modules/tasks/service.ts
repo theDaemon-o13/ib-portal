@@ -169,7 +169,7 @@ export async function taskSummary(db: Db, userId: string) {
   return { overdue: all, overdueMine: mine };
 }
 
-/** Метки получателей задачи с их e-mail: сотрудник ИБ может написать им вручную (письма — этап 9). */
+/** Метки получателей задачи с их e-mail: сотрудник ИБ может написать им вручную (для справки: письма портал не отправляет). */
 async function recipientsOf(db: Db, label: string | null) {
   if (!label) return [];
   const labels = label.split(', ').map((l) => l.trim()).filter(Boolean);

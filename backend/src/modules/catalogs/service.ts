@@ -152,7 +152,7 @@ function normalizeEmails(raw: readonly string[]): string[] {
 
 /**
  * Участники метки — только активные пользователи с ib.work: им ставятся задачи.
- * Остальных указывают e-mail (письма — этап 9).
+ * Остальных можно записать e-mail — для справки: письма портал не отправляет.
  */
 async function checkMembers(db: Db, ids: readonly string[]): Promise<string[]> {
   const unique = [...new Set(ids)];

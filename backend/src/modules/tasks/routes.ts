@@ -45,7 +45,7 @@ export const Task = z.object({
 });
 const TaskDetail = Task.extend({
   record: z.object({ id: z.string(), registerId: z.string(), registerName: z.string(), number: z.number().int(), title: z.string() }).nullable(),
-  /** Метки и их e-mail: если ответственного нет, сотрудник ИБ пишет им вручную (письма — этап 9). */
+  /** Метки и их e-mail: если ответственного нет, сотрудник ИБ пишет им вручную (для справки: письма портал не отправляет). */
   recipients: z.array(z.object({ label: z.string(), emails: z.array(z.string()) })),
   mail: z.object({
     from: z.string(), subject: z.string(), sent: z.string(), body: z.string(),

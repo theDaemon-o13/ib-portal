@@ -5,6 +5,7 @@ name: ibportal
 services:
   db:
     image: ibportal-db:${VERSION:?VERSION не задан в .env}
+    pull_policy: never              # образы только из релиза (docker load), реестра в контуре нет
     restart: unless-stopped
     environment:
       POSTGRES_DB: ibportal
@@ -22,6 +23,7 @@ services:
 
   backend:
     image: ibportal-backend:${VERSION:?VERSION не задан в .env}
+    pull_policy: never              # образы только из релиза (docker load), реестра в контуре нет
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -32,7 +34,7 @@ services:
       APP_TZ: ${APP_TZ:-Asia/Dushanbe}
       AUTOMATION_INTERVAL_MIN: ${AUTOMATION_INTERVAL_MIN:-60}
       # Кому верить в X-Forwarded-For: только nginx портала (его постоянный адрес в сети front, см. FRONTEND_IP).
-      # За PT AF или балансировщиком — добавить их адреса через запятую.
+      # Если перед порталом стоит балансировщик или другой обратный прокси — добавить его адрес через запятую.
       TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.31.250.6}
       # Адреса настенных мониторов (IP и подсети через запятую). Пусто — вход учётной записи монитора запрещён.
       MONITOR_ALLOWED_IPS: ${MONITOR_ALLOWED_IPS:-}
@@ -47,6 +49,7 @@ services:
 
   frontend:
     image: ibportal-frontend:${VERSION:?VERSION не задан в .env}
+    pull_policy: never              # образы только из релиза (docker load), реестра в контуре нет
     restart: unless-stopped
     ports: ["443:8443"]
     volumes:
@@ -59,6 +62,7 @@ services:
 
   migrate:                          # разовый запуск: docker compose --profile tools run --rm migrate
     image: ibportal-backend:${VERSION:?VERSION не задан в .env}
+    pull_policy: never              # образы только из релиза (docker load), реестра в контуре нет
     profiles: [tools]
     # Миграции, затем идемпотентный seed прав и системных ролей (ADR-0003).
     command: ["sh", "-c", "npx prisma migrate deploy && node dist/prisma/seed/index.js"]

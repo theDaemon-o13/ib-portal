@@ -196,7 +196,7 @@ model CatalogItem {
   keywords    String[]  @default([])
   /// Ответственный правила почты; владелец системы (справочник «Системы»).
   ownerUserId String?   @map("owner_user_id") @db.Uuid
-  /// Только для меток «Получатели уведомлений»: адреса вне портала (письма — этап 9).
+  /// Только для меток «Получатели уведомлений»: адреса вне портала — для справки, письма портал не отправляет.
   emails      String[]  @default([])
   sortOrder   Int       @default(0) @map("sort_order")
   version     Int       @default(1)
@@ -618,7 +618,7 @@ model CatalogItemUser {
 
 model Task {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  /// Сквозной номер «Задача #123»; на этапе 9 — [ИБ-123] в теме письма.
+  /// Сквозной номер «Задача #123».
   number         Int       @unique @default(autoincrement())
   title          String
   description    String    @default("")
