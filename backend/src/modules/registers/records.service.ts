@@ -479,7 +479,7 @@ export async function recordHistory(db: Db, id: string) {
     take: 200,
   });
   return rows.map((r) => {
-    const diff = (r.diff ?? {}) as { summary?: string; after?: { changes?: Change[]; via?: string; reason?: string } };
+    const diff = (r.diff ?? {}) as { summary?: string; after?: { changes?: Partial<Change>[]; via?: string; reason?: string } };
     return {
       id: r.id.toString(),
       at: r.at.toISOString(),
@@ -487,7 +487,10 @@ export async function recordHistory(db: Db, id: string) {
       action: r.action,
       summary: diff.summary ?? r.action,
       via: diff.after?.via ?? null,
-      changes: diff.after?.changes ?? [],
+      // Журнал не переписывается (раздел 3.5): в записях решений ОУР до 1.0.0 у изменений нет fieldId.
+      changes: (diff.after?.changes ?? []).map((c) => ({
+        fieldId: c.fieldId ?? '', label: c.label ?? '', from: String(c.from ?? ''), to: String(c.to ?? ''),
+      })),
       reason: diff.after?.reason ?? null,
     };
   });

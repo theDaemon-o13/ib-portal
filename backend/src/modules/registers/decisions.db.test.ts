@@ -57,6 +57,10 @@ describe('решения ОУР', () => {
       expect(rec.values[x.reviewDue.id]).toBe('2027-04-20');
       expect(rec.version).toBe(x.rec.version + 1);
 
+      // История записи: у изменений решения есть fieldId (раньше их не было — история отвечала 500).
+      const [entry] = await records.recordHistory(tx, x.rec.id);
+      expect(must(entry).changes.map((c) => c.fieldId)).toEqual([x.decision.id, x.ormRef.id, x.reviewDue.id]);
+
       const ev = must(await tx.evidence.findFirst({ where: { recordId: x.rec.id }, include: { files: true } }));
       expect(ev).toMatchObject({ kind: 'decision', status: 'accepted' });
       expect(ev.files.map((f) => f.fileId)).toEqual([file.id]);
@@ -69,5 +73,18 @@ describe('решения ОУР', () => {
         recordVersion: x.rec.version, fieldId: x.decision.id, optionId: x.option('Принят'),
         documentTitle: 'СЗ', documentNumber: '1', documentDate: '2026-10-21', fileId: (await makeFileRow(tx, x.staff.id)).id,
       }), 'VERSION_CONFLICT');
+    }));
+
+  it('старые записи журнала без fieldId у изменений — история читается, fieldId пустой', () =>
+    inTx(async (tx) => {
+      const x = await riskRecord(tx);
+      await tx.auditLog.create({
+        data: {
+          userId: x.staff.id, action: 'register_record.decision_added', entity: 'register_record', entityId: x.rec.id,
+          diff: { summary: 'решение до 1.0.0', after: { changes: [{ label: 'Решение ОУР', from: 'Ожидает решения', to: 'Снижение' }] } },
+        },
+      });
+      const [entry] = await records.recordHistory(tx, x.rec.id);
+      expect(must(entry).changes).toEqual([{ fieldId: '', label: 'Решение ОУР', from: 'Ожидает решения', to: 'Снижение' }]);
     }));
 });

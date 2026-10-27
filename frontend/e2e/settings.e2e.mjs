@@ -39,6 +39,18 @@ async function editRow(rowText, fill, method, urlPart) {
   return req;
 }
 
+/** Список пользователей — страницами по 50 (по логину): листаем «Показать ещё», пока не появится строка. */
+async function revealRow(text) {
+  for (let i = 0; i < 40; i++) {
+    if (await ui.evaluate(`!!${$.row(text)}`)) return;
+    const more = $.button('Показать ещё');
+    await ui.waitFor(`!!${$.row(text)} || (${more} && !${more}.disabled)`, `строка «${text}» или «Показать ещё»`);
+    if (await ui.evaluate(`!!${$.row(text)}`)) return;
+    await ui.click(more, '«Показать ещё»');
+  }
+  throw new Error(`строки «${text}» нет и после 40 страниц`);
+}
+
 async function action(label, within, method, urlPart, expectStatus = 200) {
   const m = ui.mark();
   await ui.click($.button(label, within), `«${label}»`);
@@ -311,6 +323,7 @@ describe('Пользователи', () => {
     await ui.waitFor(`document.querySelector('[role=dialog] .temp-pass code')?.textContent.length === 16`, 'окно с временным паролем');
     await ui.click($.button('Готово'));
     await ui.waitFor(`!document.querySelector('[role=dialog]')`, 'окно закрыто');
+    await revealRow(login);
 
     const req = await editRow(login, async () => {
       await ui.type($.input('Должность'), 'Аудитор (e2e)');
@@ -327,6 +340,7 @@ describe('Пользователи', () => {
       });
     }
     await ui.goto('/settings/users');
+    await revealRow(login);
     await ui.waitFor(`${$.row(login)}?.textContent.includes('Вход заблокирован')`, 'отметка о блокировке');
     await action('Разблокировать', $.row(login), 'POST', '/unlock');
     await ui.waitFor(`!${$.row(login)}?.textContent.includes('Вход заблокирован')`, 'блокировка снята');

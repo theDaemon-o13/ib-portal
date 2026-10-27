@@ -70,17 +70,17 @@ export async function addDecision(db: Db, actor: Actor, recordId: string, input:
     // В реестре рисков решение заполняет «№ в реестре ОУР» и «Пересмотр до».
     const current = (row.values ?? {}) as Values;
     const values: Values = { ...current };
-    const mirrored: { label: string; from: string; to: string }[] = [];
+    const mirrored: { fieldId: string; label: string; from: string; to: string }[] = [];
     if (isRiskRegister(reg)) {
       const ref = riskField(reg, 'ormRef');
       if (ref && externalRef && current[ref.id] !== externalRef) {
         values[ref.id] = externalRef;
-        mirrored.push({ label: ref.label, from: String(current[ref.id] ?? '—'), to: externalRef });
+        mirrored.push({ fieldId: ref.id, label: ref.label, from: String(current[ref.id] ?? '—'), to: externalRef });
       }
       const due = riskField(reg, 'reviewDue');
       if (due && reviewDue && current[due.id] !== reviewDue) {
         values[due.id] = reviewDue;
-        mirrored.push({ label: due.label, from: typeof current[due.id] === 'string' ? formatDateRu(current[due.id] as string) : '—', to: formatDateRu(reviewDue) });
+        mirrored.push({ fieldId: due.id, label: due.label, from: typeof current[due.id] === 'string' ? formatDateRu(current[due.id] as string) : '—', to: formatDateRu(reviewDue) });
       }
     }
     const users = await loadUsers(tx, userIdsIn(reg, [values]));
@@ -110,7 +110,7 @@ export async function addDecision(db: Db, actor: Actor, recordId: string, input:
       summary: `«${reg.name}», запись #${row.number}: «${field.label}» — «${option.label}» по документу «${documentTitle}» № ${documentNumber} от ${formatDateRu(input.documentDate)}; файл «${file.originalName}», доказательство #${ev.number}`,
       after: {
         changes: [
-          { label: field.label, from: before > 1 ? 'прежнее решение' : 'Ожидает решения', to: option.label },
+          { fieldId: field.id, label: field.label, from: before > 1 ? 'прежнее решение' : 'Ожидает решения', to: option.label },
           ...mirrored,
         ],
         decisionId: decision.id, fileId: file.id, sha256: file.sha256, evidenceId: ev.id,
