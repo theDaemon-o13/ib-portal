@@ -79,4 +79,9 @@ networks:
     ipam:
       config:
         - subnet: ${FRONT_SUBNET:-172.31.250.0/29}
-  back: { internal: true }
+  # backend ↔ db, без выхода наружу. Подсеть задана явно и согласуется с сетевым отделом (runbook).
+  back:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${BACK_SUBNET:-172.31.249.0/24}

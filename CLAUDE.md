@@ -403,7 +403,11 @@ networks:
     ipam:
       config:
         - subnet: ${FRONT_SUBNET:-172.31.250.0/29}
-  back: { internal: true }
+  back:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${BACK_SUBNET:-172.31.249.0/24}
 ```
 
 Сервис `migrate` после миграций выполняет идемпотентный seed прав и системных ролей (ADR-0003).
