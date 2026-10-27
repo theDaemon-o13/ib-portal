@@ -6,6 +6,8 @@ import { prismaAuditWriter } from './modules/audit/audit.js';
 import { prismaAuthRepository } from './modules/auth/repository.prisma.js';
 
 const config = loadConfig();
+// lib/today.ts читает часовой пояс из окружения; значение по умолчанию — из проверенной конфигурации.
+process.env.APP_TZ = config.APP_TZ;
 const prisma = createPrisma(config.DATABASE_URL);
 
 const app = await buildApp({
@@ -15,6 +17,7 @@ const app = await buildApp({
   hasher: argon2Hasher,
   sessionSecret: config.SESSION_SECRET,
   trustProxy: config.TRUST_PROXY,
+  automationIntervalMin: config.AUTOMATION_INTERVAL_MIN,
   logger: {
     level: config.LOG_LEVEL,
     redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],

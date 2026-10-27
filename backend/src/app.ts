@@ -12,6 +12,7 @@ import type { PasswordHasher } from './lib/passwords.js';
 import type { AuditWriter } from './modules/audit/audit.js';
 import type { AuthRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { automationRoutes } from './modules/automations/routes.js';
 import { createAuthService } from './modules/auth/service.js';
 import { calendarRoutes } from './modules/calendar/routes.js';
 import { catalogRoutes } from './modules/catalogs/routes.js';
@@ -21,8 +22,10 @@ import { IMPORT_BODY_LIMIT, registerRoutes, XLSX_TYPE } from './modules/register
 import { roleRoutes } from './modules/roles/routes.js';
 import { journalRoutes } from './modules/settings/journal.js';
 import { userRoutes } from './modules/users/routes.js';
+import { vulnRoutes } from './modules/vulns/routes.js';
 import { installAuth } from './plugins/auth.js';
 import { installErrorHandler } from './plugins/errors.js';
+import { installJobs } from './plugins/jobs.js';
 import { installRouteAccessCheck } from './plugins/rbac.js';
 import './types.js';
 
@@ -36,6 +39,8 @@ export interface AppDeps {
   now?: () => Date;
   logger?: FastifyServerOptions['logger'];
   trustProxy?: FastifyServerOptions['trustProxy'];
+  /** Фоновая проверка автоматизаций, интервал в минутах; не задано или 0 — выключена (тесты). */
+  automationIntervalMin?: number;
 }
 
 export async function buildApp(deps: AppDeps) {
@@ -76,6 +81,10 @@ export async function buildApp(deps: AppDeps) {
   await app.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(journalRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
+
+  if (deps.automationIntervalMin) installJobs(base, { db: deps.db, intervalMs: deps.automationIntervalMin * 60_000, now: deps.now });
 
   app.get('/api/v1/openapi.json', { config: { public: true }, schema: { hide: true } }, async () => app.swagger());
 

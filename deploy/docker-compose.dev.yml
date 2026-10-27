@@ -43,6 +43,9 @@ services:
       DATABASE_URL: postgresql://${DB_APP_USER}:${DB_APP_PASSWORD}@db:5432/ibportal_dev
       FILES_DIR: /data/files
       SESSION_SECRET: ${SESSION_SECRET}
+      # Часовой пояс «сегодня» для сроков и автоматизаций; интервал проверки правил, 0 — выключено
+      APP_TZ: ${APP_TZ:-Asia/Dushanbe}
+      AUTOMATION_INTERVAL_MIN: ${AUTOMATION_INTERVAL_MIN:-60}
       LOG_LEVEL: debug
     volumes:
       - ../backend:/app

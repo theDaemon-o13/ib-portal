@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { registersApi, type CalcRule, type RegisterDetail, type RegisterField } from '../../api/registers';
+import { registersApi, type DueRule, type RegisterDetail, type RegisterField } from '../../api/registers';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
 
 /** Правило вычисляемого поля: дата + срок в днях по значению списка, с переопределением датой. */
-export function CalcRuleEditor({ reg, value, onChange, selfId }: { reg: RegisterDetail; value: CalcRule | null; onChange: (r: CalcRule | null) => void; selfId?: string }) {
+export function CalcRuleEditor({ reg, value, onChange, selfId }: { reg: RegisterDetail; value: DueRule | null; onChange: (r: DueRule | null) => void; selfId?: string }) {
   const live = reg.fields.filter((f) => !f.archived && f.id !== selfId);
   const dates = live.filter((f) => f.type === 'date');
   const selects = live.filter((f) => f.type === 'select');
-  const rule: CalcRule = value ?? { fromFieldId: dates[0]?.id ?? '', byFieldId: selects[0]?.id ?? '', days: {}, overrideFieldId: null };
+  const rule: DueRule = value ?? { fromFieldId: dates[0]?.id ?? '', byFieldId: selects[0]?.id ?? '', days: {}, overrideFieldId: null };
   const by = selects.find((f) => f.id === rule.byFieldId);
-  const set = (patch: Partial<CalcRule>) => onChange({ ...rule, ...patch });
+  const set = (patch: Partial<DueRule>) => onChange({ ...rule, ...patch });
+  const fillable = live.filter((f) => f.type !== 'calc' && f.type !== 'decision');
   if (!dates.length || !selects.length) {
     return <div className="hint">Для вычисляемого поля нужны поле-дата и поле-список в этом реестре.</div>;
   }
@@ -32,13 +33,25 @@ export function CalcRuleEditor({ reg, value, onChange, selfId }: { reg: Register
           {dates.filter((f) => f.id !== rule.fromFieldId).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
         </select>
       </label>
+      {rule.overrideFieldId && (
+        <label>…только если заполнено
+          <select className="inp" value={rule.overrideWhenFilledFieldId ?? ''} onChange={(e) => set({ overrideWhenFilledFieldId: e.target.value || null })} aria-label="Условие переопределения">
+            <option value="">— без условия</option>
+            {fillable.filter((f) => f.id !== rule.overrideFieldId).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+        </label>
+      )}
+      <label className="check">
+        <input type="checkbox" checked={!!rule.shiftToWorkday} onChange={(e) => set({ shiftToWorkday: e.target.checked })} />
+        Срок на выходной или праздник — перенос на рабочий день
+      </label>
       <div className="calc-days">
         {by?.options.filter((o) => !o.archived).map((o) => (
           <label key={o.id}>{o.label}, дн.
             <input className="inp" type="number" min={0} max={3650} value={rule.days[o.id] ?? ''} aria-label={`Дней: ${o.label}`}
               onChange={(e) => {
                 const rest = Object.fromEntries(Object.entries(rule.days).filter(([k]) => k !== o.id));
-                set({ days: e.target.value === '' ? rest : { ...rest, [o.id]: Math.max(0, Math.trunc(Number(e.target.value))) } });
+                set({ days: e.target.value === '' ? (rest as Record<string, number>) : { ...rest, [o.id]: Math.max(0, Math.trunc(Number(e.target.value))) } });
               }} />
           </label>
         ))}
@@ -89,7 +102,7 @@ export function OptionsEditor({ reg, field, canManage }: { reg: RegisterDetail; 
               {field.isStatus && (
                 <td>
                   <label className="check">
-                    <input type="checkbox" checked={o.isClosed} disabled={!canManage || closed.isPending}
+                    <input type="checkbox" checked={o.isClosed} disabled={!canManage || closed.isPending || !!o.systemKey}
                       onChange={(e) => closed.mutate({ id: o.id, version: o.version, isClosed: e.target.checked })} aria-label={`«${o.label}» закрывает запись`} />
                     закрывает запись
                   </label>
@@ -101,8 +114,12 @@ export function OptionsEditor({ reg, field, canManage }: { reg: RegisterDetail; 
                     <button className="btn ghost sm" type="button" aria-label="Выше" disabled={i === 0 || move.isPending} onClick={() => move.mutate({ id: o.id, dir: 'up' })}>↑</button>
                     <button className="btn ghost sm" type="button" aria-label="Ниже" disabled={i === opts.length - 1 || move.isPending} onClick={() => move.mutate({ id: o.id, dir: 'down' })}>↓</button>
                     <button className="btn ghost sm" type="button" onClick={() => { setEditId(o.id); setLabel(o.label); }}>Изменить</button>
-                    <button className="btn ghost sm" type="button" onClick={() => archive.mutate({ id: o.id, version: o.version, archived: o.archived })} disabled={archive.isPending}>{o.archived ? 'Вернуть' : 'В архив'}</button>
-                    <button className="btn ghost sm danger-t" type="button" onClick={() => remove.mutate({ id: o.id, version: o.version })} disabled={remove.isPending}>Удалить</button>
+                    {o.systemKey ? <span className="hint" title="На значении держится формула или статус системного реестра">системное</span> : (
+                      <>
+                        <button className="btn ghost sm" type="button" onClick={() => archive.mutate({ id: o.id, version: o.version, archived: o.archived })} disabled={archive.isPending}>{o.archived ? 'Вернуть' : 'В архив'}</button>
+                        <button className="btn ghost sm danger-t" type="button" onClick={() => remove.mutate({ id: o.id, version: o.version })} disabled={remove.isPending}>Удалить</button>
+                      </>
+                    )}
                   </div>
                 )}
               </td>

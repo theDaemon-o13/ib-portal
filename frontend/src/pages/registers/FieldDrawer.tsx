@@ -1,9 +1,9 @@
 import { Overlay } from '../../components/Overlay';
 import { useEffect, useState } from 'react';
-import { registersApi, type CalcRule, type FieldType, type RegisterDetail, type RegisterField, type TypePreview } from '../../api/registers';
+import { registersApi, type DueRule, type FieldType, type RegisterDetail, type RegisterField, type TypePreview } from '../../api/registers';
 import { useAction } from '../settings/useAction';
 import { CalcRuleEditor, OptionsEditor } from './FieldEditors';
-import { ALLOWED_ROLES, describeRule, ROLE_NAMES, TYPE_NAMES, typeTargets } from './logic';
+import { ALLOWED_ROLES, describeRule, dueRuleOf, ROLE_NAMES, TYPE_NAMES, typeTargets } from './logic';
 import { rkeys } from './keys';
 
 const KIND_TEXT: Record<TypePreview['kind'], string> = {
@@ -76,7 +76,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
   const field = reg.fields.find((f) => f.id === fieldId);
   const [label, setLabel] = useState(field?.label ?? '');
   const [changingType, setChangingType] = useState(false);
-  const [rule, setRule] = useState<CalcRule | null>(field?.calcRule ?? null);
+  const [rule, setRule] = useState<DueRule | null>(field ? dueRuleOf(field) : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -97,7 +97,9 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
 
   if (!field) return null;
   const roles = ALLOWED_ROLES[field.type];
-  const canDetach = !field.isTitle && !field.isStatus;
+  // Системное поле (реестр уязвимостей): переименовать можно, остальное держит формулы и импорт сканера.
+  const system = !!field.systemKey;
+  const canDetach = !field.isTitle && !field.isStatus && !system;
 
   return (
     <Overlay>
@@ -112,6 +114,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
               {field.isTitle && <span className="chip acc">Заголовок</span>}
               {field.isStatus && <span className="chip info">Статус</span>}
               {field.archived && <span className="chip">В архиве</span>}
+              {system && <span className="chip" title="Не удаляется, не архивируется, тип не меняется">Системное</span>}
             </div>
           </div>
           <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
@@ -140,7 +143,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
                   <button className="btn sm" type="button" onClick={() => setChangingType(true)}>Сменить тип</button>
                 ) : (
                   <span className="hint">
-                    {field.type === 'calc' || field.type === 'decision' ? 'Тип этого поля не меняется' : field.isTitle ? 'Заголовок всегда текстовый' : field.isStatus ? 'Сначала снимите признак статуса' : ''}
+                    {system ? 'Тип системного поля не меняется' : field.type === 'calc' || field.type === 'decision' ? 'Тип этого поля не меняется' : field.isTitle ? 'Заголовок всегда текстовый' : field.isStatus ? 'Сначала снимите признак статуса' : ''}
                   </span>
                 )}
               </div>
@@ -158,21 +161,27 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
             <section className="fd-section grid-gap">
               <div className="eyebrow">Правило вычисления</div>
               <div className="hint">{describeRule(reg, field)}</div>
-              <CalcRuleEditor reg={reg} value={rule} onChange={setRule} selfId={field.id} />
-              <div className="row">
-                <button className="btn primary sm" type="button" disabled={!rule || patch.isPending}
-                  onClick={() => patch.mutate({ body: { calcRule: rule ?? undefined }, ok: 'Правило сохранено' })}>Сохранить правило</button>
-              </div>
+              {system ? (
+                <div className="hint">Правило задано процедурой управления уязвимостями (п. 7.1–7.3) и меняется только выпуском портала.</div>
+              ) : (
+                <>
+                  <CalcRuleEditor reg={reg} value={rule} onChange={setRule} selfId={field.id} />
+                  <div className="row">
+                    <button className="btn primary sm" type="button" disabled={!rule || patch.isPending}
+                      onClick={() => patch.mutate({ body: { calcRule: rule ?? undefined }, ok: 'Правило сохранено' })}>Сохранить правило</button>
+                  </div>
+                </>
+              )}
             </section>
           )}
 
           <section className="fd-section grid-gap">
             <div className="eyebrow">Роль в реестре</div>
             <div className="row">
-              {field.type === 'text' && !field.isTitle && !field.archived && (
+              {field.type === 'text' && !field.isTitle && !field.archived && !reg.fields.some((f) => f.isTitle && f.systemKey) && (
                 <button className="btn sm" type="button" onClick={() => patch.mutate({ body: { isTitle: true }, ok: `«${field.label}» — заголовок записи` })}>Сделать заголовком</button>
               )}
-              {field.type === 'select' && !field.archived && (
+              {field.type === 'select' && !field.archived && !reg.fields.some((f) => f.isStatus && f.systemKey) && (
                 <button className="btn sm" type="button" onClick={() => patch.mutate({ body: { isStatus: !field.isStatus }, ok: field.isStatus ? 'Поле больше не статус' : `«${field.label}» — поле статуса` })}>
                   {field.isStatus ? 'Снять признак статуса' : 'Сделать статусом'}
                 </button>
@@ -210,7 +219,7 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
                 )}
               </>
             ) : (
-              <div className="hint">Поле-заголовок и поле статуса нельзя отправить в архив или удалить.</div>
+              <div className="hint">{system ? 'Системное поле нельзя отправить в архив или удалить: на нём держатся формулы, импорт сканера и автоматизации.' : 'Поле-заголовок и поле статуса нельзя отправить в архив или удалить.'}</div>
             )}
           </section>
         </div>

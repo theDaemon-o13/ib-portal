@@ -1,0 +1,404 @@
+// Правила автоматизации реестров и их события (право registers.manage на правила, records.edit — отметить событие).
+import type { Prisma } from '@prisma/client';
+import { withTx, type Db } from '../../lib/db.js';
+import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { isScoreRule, type Values } from '../../lib/register-values.js';
+import { todayIso } from '../../lib/today.js';
+import { loadFullWorkCalendar } from '../calendar/service.js';
+import {
+  assertNotArchived,
+  dateOf,
+  isClosed,
+  loadRegister,
+  loadUsers,
+  type FieldMeta,
+  type RegisterDef,
+} from '../registers/definition.js';
+import { auditSettings, ensureVersioned, type Actor } from '../settings/common.js';
+import { EVENT_TYPE_NAMES, evaluate, type Action, type Condition, type EventType, type Recipient } from './conditions.js';
+
+export const MAX_RECIPIENTS = 6;
+
+// ---------------------------------------------------------------- проверка и описание
+
+const isDateField = (f: FieldMeta) => f.type === 'date' || (f.type === 'calc' && !!f.calcRule && !isScoreRule(f.calcRule));
+
+function liveField(reg: RegisterDef, id: string | null | undefined): FieldMeta | undefined {
+  return id ? reg.fields.find((f) => f.id === id && !f.archived) : undefined;
+}
+
+export function validateRule(reg: RegisterDef, condition: Condition, action: Action): { condition: Condition; action: Action } {
+  let cond: Condition;
+  const field = liveField(reg, condition.fieldId);
+  switch (condition.kind) {
+    case 'before': {
+      if (!field || !isDateField(field)) throw badRequest('BAD_RULE', 'Выберите поле-дату или вычисляемый срок');
+      if (!Number.isInteger(condition.days) || condition.days < 0 || condition.days > 365) throw badRequest('BAD_RULE', 'За сколько дней — целое число от 0 до 365');
+      cond = { kind: 'before', fieldId: field.id, days: condition.days };
+      break;
+    }
+    case 'overdue': {
+      if (!field || !isDateField(field)) throw badRequest('BAD_RULE', 'Выберите поле-дату или вычисляемый срок');
+      cond = { kind: 'overdue', fieldId: field.id };
+      if (condition.workdays !== undefined && condition.workdays !== null) {
+        if (!Number.isInteger(condition.workdays) || condition.workdays < 1 || condition.workdays > 365) {
+          throw badRequest('BAD_RULE', 'Рабочих дней просрочки — целое число от 1 до 365');
+        }
+        cond.workdays = condition.workdays;
+      }
+      if (condition.unlessFilledFieldId) {
+        const u = liveField(reg, condition.unlessFilledFieldId);
+        if (!u || u.type === 'calc' || u.type === 'decision') throw badRequest('BAD_RULE', 'Условие «если пусто» — только для заполняемого поля');
+        cond.unlessFilledFieldId = u.id;
+      }
+      break;
+    }
+    case 'equals': {
+      if (!field || field.type !== 'select') throw badRequest('BAD_RULE', 'Выберите поле-список');
+      const opt = field.options.find((o) => o.id === condition.optionId && !o.archived);
+      if (!opt) throw badRequest('BAD_RULE', 'Выберите значение списка');
+      cond = { kind: 'equals', fieldId: field.id, optionId: opt.id };
+      break;
+    }
+    default:
+      throw badRequest('BAD_RULE', 'Неизвестное условие');
+  }
+  if (!action.recipients.length) throw badRequest('BAD_RULE', 'Укажите, кому адресовано событие');
+  if (action.recipients.length > MAX_RECIPIENTS) throw badRequest('BAD_RULE', `Не больше ${MAX_RECIPIENTS} получателей`);
+  const recipients: Recipient[] = action.recipients.map((r) => {
+    if (r.kind === 'field') {
+      const f = liveField(reg, r.fieldId);
+      if (!f || f.type !== 'user') throw badRequest('BAD_RULE', 'Получатель из записи — только поле «Сотрудник»');
+      return { kind: 'field', fieldId: f.id };
+    }
+    const label = r.label.trim().replace(/\s+/g, ' ');
+    if (!label || label.length > 100) throw badRequest('BAD_RULE', 'Получатель — от 1 до 100 символов');
+    return { kind: 'label', label };
+  });
+  return { condition: cond, action: { eventType: action.eventType, recipients } };
+}
+
+const fieldName = (reg: RegisterDef, id: string | null | undefined) => reg.fields.find((f) => f.id === id)?.label ?? '(поле удалено)';
+
+export function describeCondition(reg: RegisterDef, c: Condition): string {
+  switch (c.kind) {
+    case 'before':
+      return c.days === 0 ? `В день «${fieldName(reg, c.fieldId)}»` : `За ${c.days} дн. до «${fieldName(reg, c.fieldId)}»`;
+    case 'overdue': {
+      const base = c.workdays ? `«${fieldName(reg, c.fieldId)}» просрочен на ${c.workdays} раб. дн.` : `«${fieldName(reg, c.fieldId)}» просрочен`;
+      return c.unlessFilledFieldId ? `${base} и пусто «${fieldName(reg, c.unlessFilledFieldId)}»` : base;
+    }
+    case 'equals': {
+      const f = reg.fields.find((x) => x.id === c.fieldId);
+      return `«${f?.label ?? '(поле удалено)'}» = «${f?.options.find((o) => o.id === c.optionId)?.label ?? '?'}»`;
+    }
+  }
+}
+
+export function describeAction(reg: RegisterDef, a: Action): string {
+  const who = a.recipients.map((r) => (r.kind === 'field' ? fieldName(reg, r.fieldId) : r.label)).join(', ');
+  return `${EVENT_TYPE_NAMES[a.eventType]}: ${who}`;
+}
+
+// ---------------------------------------------------------------- правила
+
+type RuleRow = {
+  id: string; registerId: string; systemKey: string | null; condition: Prisma.JsonValue; action: Prisma.JsonValue;
+  enabled: boolean; version: number; archivedAt: Date | null; createdAt: Date;
+};
+
+function toRuleDto(reg: RegisterDef, r: RuleRow) {
+  const condition = r.condition as unknown as Condition;
+  const action = r.action as unknown as Action;
+  return {
+    id: r.id,
+    registerId: r.registerId,
+    systemKey: r.systemKey,
+    condition,
+    action,
+    enabled: r.enabled,
+    archived: r.archivedAt !== null,
+    version: r.version,
+    when: describeCondition(reg, condition),
+    then: describeAction(reg, action),
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+export type RuleDto = ReturnType<typeof toRuleDto>;
+
+export async function listRules(db: Db, registerId: string, opts: { includeArchived: boolean }) {
+  const reg = await loadRegister(db, registerId);
+  const rows = await db.registerAutomation.findMany({
+    where: { registerId, deletedAt: null, ...(opts.includeArchived ? {} : { archivedAt: null }) },
+    orderBy: { createdAt: 'asc' },
+  });
+  return rows.map((r) => toRuleDto(reg, r));
+}
+
+async function getRule(db: Db, id: string) {
+  const rule = await db.registerAutomation.findFirst({ where: { id, deletedAt: null } });
+  if (!rule) throw notFound('Правило');
+  const reg = await loadRegister(db, rule.registerId);
+  return { rule, reg };
+}
+
+export async function createRule(db: Db, actor: Actor, registerId: string, input: { condition: Condition; action: Action }) {
+  return withTx(db, async (tx) => {
+    const reg = await loadRegister(tx, registerId);
+    assertNotArchived(reg);
+    const v = validateRule(reg, input.condition, input.action);
+    const r = await tx.registerAutomation.create({
+      data: {
+        registerId, createdBy: actor.id,
+        condition: v.condition as unknown as Prisma.InputJsonValue, action: v.action as unknown as Prisma.InputJsonValue,
+      },
+    });
+    const dto = toRuleDto(reg, r);
+    await auditSettings(tx, actor, {
+      action: 'register.automation.created', entity: 'register_automation', entityId: r.id,
+      summary: `Реестр «${reg.name}»: правило «${dto.when} → ${dto.then}»`, after: { condition: v.condition, action: v.action },
+    });
+    return dto;
+  });
+}
+
+export async function updateRule(
+  db: Db, actor: Actor, id: string,
+  input: { version: number; condition?: Condition; action?: Action; enabled?: boolean },
+) {
+  return withTx(db, async (tx) => {
+    const { rule, reg } = await getRule(tx, id);
+    assertNotArchived(reg);
+    if (rule.version !== input.version) throw versionConflict();
+    const data: Prisma.RegisterAutomationUpdateManyMutationInput = {};
+    const before = toRuleDto(reg, rule);
+    if (input.condition || input.action) {
+      // Системные правила п. 7.4 заданы процедурой: их можно только выключить.
+      if (rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не меняется — его можно только выключить');
+      const v = validateRule(reg, input.condition ?? before.condition, input.action ?? before.action);
+      data.condition = v.condition as unknown as Prisma.InputJsonValue;
+      data.action = v.action as unknown as Prisma.InputJsonValue;
+    }
+    if (input.enabled !== undefined && input.enabled !== rule.enabled) data.enabled = input.enabled;
+    if (!Object.keys(data).length) return before;
+    const res = await tx.registerAutomation.updateMany({ where: { id, version: input.version }, data: { ...data, version: { increment: 1 } } });
+    await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
+    const after = toRuleDto(reg, await tx.registerAutomation.findUniqueOrThrow({ where: { id } }));
+    const what = data.enabled === undefined ? `«${before.when} → ${before.then}» → «${after.when} → ${after.then}»` : `«${after.when} → ${after.then}» ${after.enabled ? 'включено' : 'выключено'}`;
+    await auditSettings(tx, actor, {
+      action: 'register.automation.updated', entity: 'register_automation', entityId: id,
+      summary: `Реестр «${reg.name}», правило: ${what}`,
+      before: { condition: before.condition, action: before.action, enabled: before.enabled },
+      after: { condition: after.condition, action: after.action, enabled: after.enabled },
+    });
+    return after;
+  });
+}
+
+export async function setRuleArchived(db: Db, actor: Actor, id: string, version: number, archived: boolean) {
+  return withTx(db, async (tx) => {
+    const { rule, reg } = await getRule(tx, id);
+    assertNotArchived(reg);
+    if (archived && rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не уходит в архив — его можно выключить');
+    if ((rule.archivedAt !== null) === archived) {
+      if (rule.version !== version) throw versionConflict();
+      return toRuleDto(reg, rule);
+    }
+    const res = await tx.registerAutomation.updateMany({ where: { id, version }, data: { archivedAt: archived ? new Date() : null, version: { increment: 1 } } });
+    await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
+    const dto = toRuleDto(reg, await tx.registerAutomation.findUniqueOrThrow({ where: { id } }));
+    await auditSettings(tx, actor, {
+      action: archived ? 'register.automation.archived' : 'register.automation.restored', entity: 'register_automation', entityId: id,
+      summary: `Реестр «${reg.name}»: правило «${dto.when} → ${dto.then}» ${archived ? 'в архиве' : 'возвращено из архива'}`,
+    });
+    return dto;
+  });
+}
+
+/** Удалить можно только правило без событий; с событиями — в архив (события ссылаются на правило). */
+export async function deleteRule(db: Db, actor: Actor, id: string, version: number) {
+  await withTx(db, async (tx) => {
+    const { rule, reg } = await getRule(tx, id);
+    assertNotArchived(reg);
+    if (rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не удаляется — его можно выключить');
+    const events = await tx.automationEvent.count({ where: { automationId: id } });
+    if (events > 0) throw conflict('HAS_EVENTS', `По правилу есть события (${events}). Отправьте его в архив`);
+    const res = await tx.registerAutomation.updateMany({ where: { id, version }, data: { deletedAt: new Date(), version: { increment: 1 } } });
+    await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
+    const dto = toRuleDto(reg, rule);
+    await auditSettings(tx, actor, {
+      action: 'register.automation.deleted', entity: 'register_automation', entityId: id,
+      summary: `Реестр «${reg.name}»: удалено правило «${dto.when} → ${dto.then}»`,
+      before: { condition: dto.condition, action: dto.action },
+    });
+  });
+}
+
+// ---------------------------------------------------------------- события
+
+export type EventRecipient = { kind: 'user'; userId: string; name: string } | { kind: 'label'; label: string };
+
+export async function listEvents(
+  db: Db, registerId: string,
+  q: { status?: 'new' | 'processed'; recordId?: string; limit: number; cursor?: string },
+) {
+  const reg = await loadRegister(db, registerId);
+  const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
+  const where: Prisma.AutomationEventWhereInput = {
+    registerId, ...(q.status ? { status: q.status } : {}), ...(q.recordId ? { recordId: q.recordId } : {}),
+    // Журнал реестра — по действующим записям; в карточке видны и события записи из архива.
+    record: { deletedAt: null, ...(q.recordId ? {} : { archivedAt: null }) },
+  };
+  const [rows, total] = await Promise.all([
+    db.automationEvent.findMany({
+      where,
+      include: {
+        record: { select: { number: true, values: true } },
+        automation: true,
+        processor: { select: { fullName: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      skip: offset,
+      take: q.limit + 1,
+    }),
+    db.automationEvent.count({ where }),
+  ]);
+  const title = reg.fields.find((f) => f.isTitle);
+  return {
+    items: rows.slice(0, q.limit).map((e) => {
+      const rule = toRuleDto(reg, e.automation);
+      const values = e.record.values as Values;
+      return {
+        id: e.id,
+        recordId: e.recordId,
+        recordNumber: e.record.number,
+        recordTitle: title ? String(values[title.id] ?? '') : '',
+        automationId: e.automationId,
+        when: rule.when,
+        then: rule.then,
+        eventType: e.eventType as EventType,
+        recipients: e.recipients as unknown as EventRecipient[],
+        triggerKey: e.triggerKey,
+        fireAt: e.fireAt.toISOString().slice(0, 10),
+        status: e.status as 'new' | 'processed',
+        processedAt: e.processedAt?.toISOString() ?? null,
+        processedBy: e.processor?.fullName ?? null,
+        createdAt: e.createdAt.toISOString(),
+      };
+    }),
+    nextCursor: rows.length > q.limit ? String(offset + q.limit) : null,
+    total,
+  };
+}
+
+/** Событие обработано: на этапе 5 так же закроется созданная из него задача. Пишется в историю записи. */
+export async function processEvent(db: Db, actor: Actor, id: string) {
+  await withTx(db, async (tx) => {
+    const e = await tx.automationEvent.findUnique({ where: { id }, include: { automation: true, record: { select: { number: true } } } });
+    if (!e) throw notFound('Событие');
+    if (e.status === 'processed') return;
+    const reg = await loadRegister(tx, e.registerId);
+    const res = await tx.automationEvent.updateMany({
+      where: { id, status: 'new' },
+      data: { status: 'processed', processedAt: new Date(), processedBy: actor.id },
+    });
+    if (res.count === 0) return;
+    const rule = toRuleDto(reg, e.automation);
+    await auditSettings(tx, actor, {
+      action: 'automation_event.processed', entity: 'register_record', entityId: e.recordId,
+      summary: `«${reg.name}», запись #${e.record.number}: событие «${rule.when} → ${rule.then}» обработано`,
+      after: { eventId: id, via: 'automation' },
+    });
+  });
+}
+
+// ---------------------------------------------------------------- прогон
+
+export interface RunResult {
+  /** false — другой прогон уже идёт, этот пропущен. */
+  ran: boolean;
+  today: string;
+  rules: number;
+  checked: number;
+  created: number;
+}
+
+/** Ключ advisory-блокировки: один прогон за раз, даже если backend запущен в нескольких экземплярах. */
+const RUN_LOCK = 0x1b_a0_7e;
+
+/**
+ * Проверить правила и создать события. Идемпотентно: событие уникально по (правило, запись, trigger_key),
+ * повторный прогон в тот же день — и через час, и после перезапуска — дублей не создаёт.
+ */
+export async function runAutomations(db: Db, opts: { now?: Date; registerId?: string } = {}): Promise<RunResult> {
+  const today = todayIso(opts.now ?? new Date());
+  return withTx(db, async (tx) => {
+    const [lock] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT pg_try_advisory_xact_lock(${RUN_LOCK}::bigint) AS ok`;
+    if (!lock?.ok) return { ran: false, today, rules: 0, checked: 0, created: 0 };
+    const rules = await tx.registerAutomation.findMany({
+      where: {
+        enabled: true, archivedAt: null, deletedAt: null, register: { archivedAt: null },
+        ...(opts.registerId ? { registerId: opts.registerId } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const calendar = await loadFullWorkCalendar(tx);
+    const byRegister = new Map<string, typeof rules>();
+    for (const r of rules) byRegister.set(r.registerId, [...(byRegister.get(r.registerId) ?? []), r]);
+    let checked = 0;
+    let created = 0;
+    for (const [registerId, regRules] of byRegister) {
+      const reg = await loadRegister(tx, registerId);
+      const records = (await tx.registerRecord.findMany({
+        where: { registerId, deletedAt: null, archivedAt: null },
+        select: { id: true, values: true },
+      })).filter((r) => !isClosed(reg, r.values as Values));
+      checked += records.length;
+      const users = await loadUsers(tx, records.flatMap((r) => {
+        const v = r.values as Values;
+        return reg.fields.filter((f) => f.type === 'user' && typeof v[f.id] === 'string').map((f) => v[f.id] as string);
+      }));
+      const data: Prisma.AutomationEventCreateManyInput[] = [];
+      for (const rule of regRules) {
+        const condition = rule.condition as unknown as Condition;
+        const action = rule.action as unknown as Action;
+        for (const r of records) {
+          const values = r.values as Values;
+          const view = {
+            values,
+            dateOf: (fieldId: string) => {
+              const f = reg.fields.find((x) => x.id === fieldId);
+              return f ? dateOf(reg, f, values, calendar) : null;
+            },
+          };
+          const t = evaluate(condition, view, today, calendar);
+          if (!t) continue;
+          const recipients: EventRecipient[] = action.recipients.map((x) => {
+            if (x.kind === 'label') return { kind: 'label', label: x.label };
+            const uid = values[x.fieldId];
+            const u = typeof uid === 'string' ? users.get(uid) : undefined;
+            return u ? { kind: 'user', userId: u.id, name: u.fullName } : { kind: 'label', label: `«${fieldName(reg, x.fieldId)}» не назначен` };
+          });
+          data.push({
+            registerId, recordId: r.id, automationId: rule.id, eventType: action.eventType,
+            recipients: recipients as unknown as Prisma.InputJsonValue,
+            triggerKey: t.triggerKey, fireAt: new Date(`${today}T00:00:00Z`),
+          });
+        }
+      }
+      if (!data.length) continue;
+      const res = await tx.automationEvent.createMany({ data, skipDuplicates: true });
+      created += res.count;
+      if (res.count > 0) {
+        // Системное действие: автора нет (user_id пустой).
+        await tx.auditLog.create({
+          data: {
+            userId: null, action: 'automation.run', entity: 'register', entityId: registerId,
+            diff: { summary: `«${reg.name}»: автоматизации создали событий — ${res.count}`, today, created: res.count } as Prisma.InputJsonValue,
+          },
+        });
+      }
+    }
+    return { ran: true, today, rules: rules.length, checked, created };
+  });
+}

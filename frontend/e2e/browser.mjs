@@ -53,17 +53,31 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
   // Журнал запросов к API: метод, адрес, тело, статус.
   const requests = [];
   const byId = new Map();
+  const bodies = new Map();
   const consoleErrors = [];
   listeners.add((m) => {
     if (m.method === 'Network.requestWillBeSent' && m.params.request.url.startsWith(`${baseUrl}/api/`)) {
-      const r = { method: m.params.request.method, url: m.params.request.url.slice(baseUrl.length), body: m.params.request.postData ?? null, status: null };
+      const r = { requestId: m.params.requestId, method: m.params.request.method, url: m.params.request.url.slice(baseUrl.length), body: m.params.request.postData ?? null, status: null, done: false };
       requests.push(r);
       byId.set(m.params.requestId, r);
     }
     if (m.method === 'Network.responseReceived' && byId.has(m.params.requestId)) byId.get(m.params.requestId).status = m.params.response.status;
+    if ((m.method === 'Network.loadingFinished' || m.method === 'Network.loadingFailed') && byId.has(m.params.requestId)) {
+      const r = byId.get(m.params.requestId);
+      r.done = true;
+    }
+    // Тело ответа API забирается на перехвате (Fetch): из буфера Network Chrome теряет ответы
+    // на запросы, у которых тело — файл (предпросмотр импорта), с ошибкой «evicted from inspector cache».
+    if (m.method === 'Fetch.requestPaused') {
+      const { requestId, networkId } = m.params;
+      const got = send('Fetch.getResponseBody', { requestId }).catch((e) => ({ error: e.message }));
+      bodies.set(networkId, got);
+      void got.finally(() => send('Fetch.continueRequest', { requestId }).catch(() => undefined));
+    }
     if (m.method === 'Runtime.exceptionThrown') consoleErrors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
   });
   await send('Network.enable');
+  await send('Fetch.enable', { patterns: [{ urlPattern: `${baseUrl}/api/*`, requestStage: 'Response' }] });
   await send('Runtime.enable');
   await send('Page.enable');
 
@@ -102,7 +116,10 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     async click(expr, what = expr) {
       await ui.waitFor(`!!(${expr})`, what);
       const box = await evaluate(`(() => { const el = ${expr}; el.scrollIntoView({ block: 'center' });
-        const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+        // Центр видимой части: строка широкой таблицы может выходить за край окна.
+        const r = el.getBoundingClientRect();
+        const left = Math.max(r.left, 0), right = Math.min(r.right, innerWidth), top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight);
+        return { x: (left + right) / 2, y: (top + bottom) / 2 }; })()`);
       for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
         await send('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
       }
@@ -132,7 +149,7 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await sleep(80);
     },
 
-    /** Ждать запрос method url* после пометки и ответ на него. */
+    /** Ждать запрос method url* после пометки и ответ на него; json — тело запроса, ответ — ui.response(req). */
     async request(mark, method, urlPart, what = `${method} ${urlPart}`) {
       const t0 = Date.now();
       for (;;) {
@@ -141,6 +158,16 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
         if (Date.now() - t0 > 8000) throw new Error(`не дождались запроса ${what}; были: ${JSON.stringify(requests.slice(mark))}`);
         await sleep(50);
       }
+    },
+
+    /** Тело ответа на запрос из журнала (JSON или null для пустого ответа). */
+    async response(req) {
+      for (let i = 0; i < 100 && !bodies.has(req.requestId); i++) await sleep(50);
+      const got = await bodies.get(req.requestId);
+      if (!got || got.error) throw new Error(`нет тела ответа ${req.method} ${req.url}: ${got?.error ?? 'запрос не завершился'}`);
+      const { body, base64Encoded } = got;
+      const text = base64Encoded ? Buffer.from(body, 'base64').toString('utf8') : body;
+      return text ? JSON.parse(text) : null;
     },
 
     /** Выбрать файл в <input type=file> (как пользователь в диалоге выбора файла). */

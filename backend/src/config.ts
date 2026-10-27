@@ -10,6 +10,17 @@ const EnvSchema = z.object({
   // Адреса прокси, которым верим в X-Forwarded-For: nginx в сети front.
   TRUST_PROXY: z.string().default('loopback,uniquelocal'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // Часовой пояс банка: «сегодня» для сроков и автоматизаций (lib/today.ts).
+  APP_TZ: z.string().default('Asia/Dushanbe').refine((tz) => {
+    try {
+      new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'неизвестный часовой пояс'),
+  // Проверка правил автоматизации внутри backend (минуты). 0 — выключено.
+  AUTOMATION_INTERVAL_MIN: z.coerce.number().int().min(0).max(1440).default(60),
 });
 
 export type Config = z.infer<typeof EnvSchema>;

@@ -81,6 +81,54 @@ describe('вычисляемый срок', () => {
   });
 });
 
+describe('срок уязвимости: перенос и решение ИБ (п. 7.2, 7.3)', () => {
+  const rule = {
+    fromFieldId: 'notified', byFieldId: 'crit', days: { critical: 14, high: 30, medium: 90, low: 180 },
+    overrideFieldId: 'newDue', overrideWhenFilledFieldId: 'measures', shiftToWorkday: true,
+  };
+  // 06.11.2026 (пятница) — праздник; 07–08.11 — выходные.
+  const calendar = { weekendDays: [6, 7], days: new Map([['2026-11-06', 'holiday' as const]]) };
+
+  it('14 / 30 / 90 / 180 календарных дней от передачи в ДИКТ', () => {
+    const raw = { ...rule, shiftToWorkday: false };
+    const at = (crit: string) => calcValue(raw, { notified: '2026-10-01', crit }, { calendar });
+    expect([at('critical'), at('high'), at('medium'), at('low')]).toEqual(['2026-10-15', '2026-10-31', '2026-12-30', '2027-03-30']);
+    // 31.10.2026 — суббота: с переносом срок — понедельник 02.11.
+    expect(calcValue(rule, { notified: '2026-10-01', crit: 'high' }, { calendar })).toBe('2026-11-02');
+  });
+
+  it('срок в праздник переносится через праздник и выходные на ближайший рабочий день', () => {
+    // 23.10 + 14 = 06.11 (праздник) → 07, 08 — выходные → 09.11 (понедельник).
+    expect(calcValue(rule, { notified: '2026-10-23', crit: 'critical' }, { calendar })).toBe('2026-11-09');
+    // Без переноса — ровно 14 дней.
+    expect(calcValue({ ...rule, shiftToWorkday: false }, { notified: '2026-10-23', crit: 'critical' }, { calendar })).toBe('2026-11-06');
+    // Рабочий перенос (суббота — рабочая) делает субботу сроком.
+    const moved = { weekendDays: [6, 7], days: new Map([['2026-11-06', 'holiday' as const], ['2026-11-07', 'workday' as const]]) };
+    expect(calcValue(rule, { notified: '2026-10-23', crit: 'critical' }, { calendar: moved })).toBe('2026-11-07');
+  });
+
+  it('п. 7.3: срок ИБ — только при заполненных компенсирующих мерах', () => {
+    const base = { notified: '2026-10-01', crit: 'critical' };
+    expect(calcValue(rule, { ...base, newDue: '2027-02-01' }, { calendar })).toBe('2026-10-15');
+    expect(calcValue(rule, { ...base, measures: 'Сегмент изолирован', newDue: '2027-02-01' }, { calendar })).toBe('2027-02-01');
+    expect(calcValue(rule, { ...base, measures: '   ', newDue: '2027-02-01' }, { calendar })).toBe('2026-10-15');
+    // Явная дата решения ИБ не переносится, даже если это выходной.
+    expect(calcValue(rule, { ...base, measures: 'Есть', newDue: '2026-11-07' }, { calendar })).toBe('2026-11-07');
+  });
+
+  it('оценка — вычисляемое поле по системным ключам значений', () => {
+    const fields = [
+      { id: 'exploit', label: 'Эксплойт', type: 'select' as const, calcRule: null, archived: false,
+        options: [{ id: 'e1', label: 'Есть, эксплуатируется', isClosed: false, archived: false, systemKey: 'exploited' }] },
+      { id: 'fix', label: 'Исправление', type: 'select' as const, calcRule: null, archived: false,
+        options: [{ id: 'f1', label: 'Выпущено', isClosed: false, archived: false, systemKey: 'released' }] },
+    ];
+    const score = { kind: 'vuln_score' as const, cvssFieldId: 'cvss', exploitFieldId: 'exploit', fixFieldId: 'fix' };
+    expect(calcValue(score, { cvss: 8.6, exploit: 'e1', fix: 'f1' }, { fields })).toBe(8.2);
+    expect(calcValue(score, { exploit: 'e1' }, { fields })).toBeNull();
+  });
+});
+
 describe('смена типа поля', () => {
   it('А: поле без данных — любой тип, кроме вычисляемого и решения', () => {
     expect(typeChangeKind('text', 'user', false)).toEqual({ ok: true, value: 'empty' });

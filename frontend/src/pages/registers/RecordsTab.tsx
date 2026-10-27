@@ -1,17 +1,23 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
-import { registersApi, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord } from '../../api/registers';
+import {
+  registersApi, VULN_REGISTER_KEY, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, type ScanPreview,
+} from '../../api/registers';
 import { useToast } from '../../components/Toast';
 import { ImportDialog } from './ImportDialog';
-import { isWritable, pinOffsets, visibleColumns } from './logic';
+import { deadlineChip, deadlineFieldOf, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
 import { rkeys } from './keys';
 import { RecordDrawer } from './RecordDrawer';
+import { ScanImportDialog } from './ScanImportDialog';
 
 interface Col {
   key: string;
   label: string;
   field?: RegisterField;
 }
+
+/** Колонка контроля сроков (не поле реестра): сортировка «срочное сначала» на сервере. */
+const DEADLINE_KEY = 'deadline';
 
 const pinKey = (id: string) => `ibportal.registers.pin.${id}`;
 /** По умолчанию закреплены 2 столбца, как в прототипе. */
@@ -37,24 +43,73 @@ function savePin(id: string, n: number) {
 }
 
 function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
-  if (col.key === 'number') return <span className="mono">{rec.number}</span>;
+  if (col.key === 'number') {
+    return (
+      <span className="mono">
+        {rec.number}
+        {rec.openEvents > 0 && <span className="ev-dot" title={`Необработанных событий: ${rec.openEvents}`} aria-label={`событий: ${rec.openEvents}`}>{rec.openEvents}</span>}
+      </span>
+    );
+  }
+  if (col.key === DEADLINE_KEY) {
+    const chip = deadlineChip(rec.deadline);
+    if (!chip) return <span className="faint">—</span>;
+    return <span className={`chip ${chip.cls}`} title={rec.deadline?.date ? `Срок: ${formatDate(rec.deadline.date)}` : undefined}>{chip.text}</span>;
+  }
   const f = col.field as RegisterField;
   const text = rec.display[f.id] ?? '';
   if (!text) return <span className="faint">—</span>;
   if (f.type === 'number' || f.type === 'date' || f.type === 'calc') return <span className="mono">{text}</span>;
   if (f.type === 'select' || f.type === 'decision') {
     const closed = f.isStatus && rec.closed;
-    return <span className={`chip ${closed ? '' : f.isStatus ? 'acc' : 'info'}`}>{text}</span>;
+    const tone = optionTone(f.options.find((o) => o.id === rec.values[f.id]));
+    const manual = rec.manualFieldIds.includes(f.id);
+    return (
+      <span className={`chip ${closed ? '' : tone ?? (f.isStatus ? 'acc' : 'info')}`} title={manual ? 'Исправлено вручную' : undefined}>
+        {text}{manual ? ' ✎' : ''}
+      </span>
+    );
   }
   return <span title={text}>{text}</span>;
+}
+
+/** Загруженные отчёты сканера: отдел · дата · хостов · уязвимостей, внутри — хосты. */
+function ScanReports({ registerId }: { registerId: string }) {
+  const reports = useQuery({ queryKey: rkeys.scanReports(registerId), queryFn: () => registersApi.scanReports(registerId) });
+  const items = reports.data?.items ?? [];
+  if (!items.length) return null;
+  return (
+    <div className="scan-reports">
+      {items.map((r) => (
+        <details key={r.id} className="scan-report">
+          <summary>
+            <b>{r.label}</b>
+            <span className="hint"> · хостов: {r.hostsCount} · уязвимостей в отчёте: {r.rowsTotal} · новых: {r.createdCount} · передан в ДИКТ {formatDate(r.notifiedDate)}</span>
+          </summary>
+          <div className="tbl-wrap">
+            <table className="cat-tbl">
+              <thead><tr><th>Хост</th><th>IP-адрес</th><th>ОС</th></tr></thead>
+              <tbody>{r.hosts.map((h, i) => <tr key={i}><td>{h.name}</td><td className="mono">{h.ip}</td><td>{h.os}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </details>
+      ))}
+    </div>
+  );
 }
 
 export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; canEdit: boolean; canDelete: boolean }) {
   const toast = useToast();
   const [qInput, setQInput] = useState('');
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'number', dir: 'desc' });
+  const deadline = deadlineFieldOf(reg);
+  const isVulns = reg.systemKey === VULN_REGISTER_KEY;
+  // Реестр со сроками открывается «срочное сначала», как в прототипе.
+  const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' }>(deadline ? { key: DEADLINE_KEY, dir: 'asc' } : { key: 'number', dir: 'desc' });
   const [archived, setArchived] = useState(false);
+  const [withEvents, setWithEvents] = useState(false);
+  const [scanPreview, setScanPreview] = useState<ScanPreview | null>(null);
+  const scanRef = useRef<HTMLInputElement>(null);
   const [pin, setPin] = useState(() => loadPin(reg.id));
   const [open, setOpen] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -70,14 +125,21 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   }, [qInput]);
 
   const query = useInfiniteQuery({
-    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived],
-    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, cursor: pageParam }),
+    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, withEvents],
+    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, withEvents, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
   const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
   const total = query.data?.pages[0]?.total ?? 0;
-  const cols: Col[] = [{ key: 'number', label: '№' }, ...visibleColumns(reg).map((f) => ({ key: f.id, label: f.label, field: f }))];
+  const fieldCols = visibleColumns(reg).map((f): Col => ({ key: f.id, label: f.label, field: f }));
+  // «Дней до срока» — сразу после заголовка записи.
+  const cols: Col[] = [
+    { key: 'number', label: '№' },
+    ...fieldCols.slice(0, 1),
+    ...(deadline ? [{ key: DEADLINE_KEY, label: 'Дней до срока' }] : []),
+    ...fieldCols.slice(1),
+  ];
 
   // Закреплённые столбцы: отступ слева = сумма ширин предыдущих.
   useLayoutEffect(() => {
@@ -85,9 +147,12 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     setLefts(pinOffsets(widths, pin));
   }, [pin, rows.length, reg.version, q]);
 
+  // Вычисляемые поля и сроки сортируются на сервере; решение другого отдела — нет.
+  const sortable = (c: Col) => !c.field || c.field.type !== 'decision';
   const sortBy = (c: Col) => {
-    if (c.field && !isWritable(c.field.type)) return; // по вычисляемому сроку — на этапе 4
-    setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === 'desc' ? 'asc' : 'desc' }));
+    if (!sortable(c)) return;
+    const first = c.key === DEADLINE_KEY ? 'asc' : 'desc';
+    setSort((s) => ({ key: c.key, dir: s.key === c.key ? (s.dir === 'asc' ? 'desc' : 'asc') : first }));
   };
 
   const exportFile = async () => {
@@ -124,6 +189,20 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     }
   };
 
+  const onScanFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      setScanPreview(await registersApi.previewScan(reg.id, file));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Не удалось прочитать отчёт', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const pinStyle = (i: number) => (i < lefts.length ? { left: lefts[i] } : undefined);
   const pinClass = (i: number) => (i < pin ? `pin${i === pin - 1 ? ' pin-last' : ''}` : undefined);
 
@@ -131,6 +210,12 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     <>
       <div className="io panel-b">
         <div className="row">
+          {canEdit && isVulns && (
+            <>
+              <button className="btn primary" type="button" onClick={() => scanRef.current?.click()} disabled={busy}>Импорт отчёта сканера</button>
+              <input ref={scanRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => void onScanFile(e)} aria-label="Файл отчёта сканера" />
+            </>
+          )}
           {canEdit && (
             <>
               <button className="btn" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Импорт из Excel</button>
@@ -138,8 +223,12 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
             </>
           )}
           <button className="btn" type="button" onClick={() => void exportFile()} disabled={busy}>Экспорт в Excel</button>
-          <span className="hint">Выгруженный файл после заполнения в ДИКТ обновляет записи по колонке ID. Перед применением — предпросмотр.</span>
+          <span className="hint">
+            {isVulns ? 'Отчёт сканера — листы «Хосты» и уязвимости, дата в имени файла. ' : ''}
+            Выгруженный файл после заполнения в ДИКТ обновляет записи по колонке ID. Перед применением — предпросмотр.
+          </span>
         </div>
+        {isVulns && <ScanReports registerId={reg.id} />}
       </div>
       <div className="rec-tools">
         <input className="inp" type="search" placeholder="Поиск по реестру" value={qInput} onChange={(e) => setQInput(e.target.value)} aria-label="Поиск по реестру" />
@@ -150,6 +239,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           ))}
         </select>
         <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> С архивными</label>
+        <label className="check"><input type="checkbox" checked={withEvents} onChange={(e) => setWithEvents(e.target.checked)} /> С событиями</label>
         <span className="hint mono">{rows.length} из {total}</span>
         {canEdit && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
       </div>
@@ -158,12 +248,12 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           <thead>
             <tr>
               {cols.map((c, i) => {
-                const sortable = !c.field || isWritable(c.field.type);
+                const canSort = sortable(c);
                 const active = sort.key === c.key;
                 return (
                   <th key={c.key} ref={(el) => { headRefs.current[i] = el; }} className={pinClass(i)} style={pinStyle(i)}
                     aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
-                    {sortable ? (
+                    {canSort ? (
                       <button type="button" className="th-sort" onClick={() => sortBy(c)}>
                         {c.label}{active ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ''}
                       </button>
@@ -176,7 +266,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           <tbody>
             {query.isPending && <tr><td colSpan={cols.length} className="hint">Загрузка…</td></tr>}
             {query.isError && <tr><td colSpan={cols.length} className="form-error">{query.error.message}</td></tr>}
-            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
+            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q || withEvents ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
             {rows.map((rec) => (
               <tr key={rec.id} className={`rec-row${rec.closed ? ' closed' : ''}${rec.archived ? ' archived' : ''}`} tabIndex={0}
                 title="Открыть карточку записи" onClick={() => setOpen(rec.id)}
@@ -192,6 +282,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       )}
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
       {preview && <ImportDialog reg={reg} preview={preview} onClose={() => setPreview(null)} />}
+      {scanPreview && <ScanImportDialog reg={reg} preview={scanPreview} onClose={() => setScanPreview(null)} />}
     </>
   );
 }

@@ -7,6 +7,7 @@ import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/per
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedRegisters } from './registers.js';
 import { seedStarter } from './starter.js';
+import { seedVulns } from './vulns.js';
 
 const prisma = new PrismaClient();
 
@@ -81,6 +82,7 @@ async function main() {
 
     await seedStarter(tx);
     await seedRegisters(tx);
+    await seedVulns(tx);
   });
   console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}, справочников ${CATALOGS.length}`);
 }

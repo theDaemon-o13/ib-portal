@@ -1,5 +1,5 @@
 // Чистые функции конструктора реестров: без React, покрыты тестами.
-import type { FieldType, RegisterDetail, RegisterField, RegisterRecord } from '../../api/registers';
+import type { CalcRule, Deadline, DueRule, FieldOption, FieldType, RegisterDetail, RegisterField, RegisterRecord, ScoreRule } from '../../api/registers';
 
 export const TYPE_NAMES: Record<FieldType, string> = {
   text: 'Текст',
@@ -41,18 +41,70 @@ export function fieldName(reg: RegisterDetail, id: string | null | undefined): s
   return reg.fields.find((f) => f.id === id)?.label ?? '?';
 }
 
-/** «Выявлено» + срок по «Уровень» (Высокий 14 дн., Средний 30 дн.); если задано «Новый срок» — оно. */
+export function isScoreRule(r: CalcRule | null | undefined): r is ScoreRule {
+  return !!r && 'kind' in r && r.kind === 'vuln_score';
+}
+
+export function dueRuleOf(field: RegisterField): DueRule | null {
+  const r = field.calcRule;
+  return r && !isScoreRule(r) ? r : null;
+}
+
+/**
+ * «Выявлено» + срок по «Уровень» (Высокий 14 дн., Средний 30 дн.); если задано «Новый срок» — оно.
+ * Оценка уязвимости: «CVSS» × Кэ по «Эксплойт» × Ки по «Исправление».
+ */
 export function describeRule(reg: RegisterDetail, field: RegisterField): string {
   const r = field.calcRule;
   if (!r) return '';
+  if (isScoreRule(r)) {
+    return `«${fieldName(reg, r.cvssFieldId)}» × Кэ по «${fieldName(reg, r.exploitFieldId)}» (1,00 / 0,94 / 0,91) × Ки по «${fieldName(reg, r.fixFieldId)}» (0,95 / 1,00), округление вверх до 0,1`;
+  }
   const by = reg.fields.find((f) => f.id === r.byFieldId);
   const days = Object.entries(r.days)
     .map(([o, n]) => `${by?.options.find((x) => x.id === o)?.label ?? '?'} ${n} дн.`)
     .join(', ');
+  const when = r.overrideWhenFilledFieldId ? ` и «${fieldName(reg, r.overrideWhenFilledFieldId)}»` : '';
   return `«${fieldName(reg, r.fromFieldId)}» + срок по «${fieldName(reg, r.byFieldId)}» (${days})${
-    r.overrideFieldId ? `; если задано «${fieldName(reg, r.overrideFieldId)}» — берётся оно` : ''
-  }`;
+    r.overrideFieldId ? `; если задано «${fieldName(reg, r.overrideFieldId)}»${when} — берётся оно` : ''
+  }${r.shiftToWorkday ? '; выходной или праздник — перенос на рабочий день' : ''}`;
 }
+
+/** Вычисляемое значение для карточки: срок — ДД.ММ.ГГГГ, оценка — «9,4». */
+export function formatCalc(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'number') return String(v).replace('.', ',');
+  return formatDate(v);
+}
+
+/** Поле контроля сроков: дата или вычисляемый срок с ролью «срок». */
+export function deadlineFieldOf(reg: RegisterDetail): RegisterField | undefined {
+  return reg.fields.find((f) => !f.archived && f.analyticsRole === 'deadline' && (f.type === 'date' || (f.type === 'calc' && !isScoreRule(f.calcRule))));
+}
+
+/** Метка «Дней до срока» — как в прототипе: просрочено / ≤ 7 дней / в срок / закрыто. */
+export function deadlineChip(d: Deadline | null | undefined): { cls: string; text: string } | null {
+  if (!d || d.state === 'none') return null;
+  const n = d.daysLeft ?? 0;
+  switch (d.state) {
+    case 'closed':
+      return { cls: '', text: 'Закрыто' };
+    case 'overdue':
+      return { cls: 'crit', text: `Просрочено ${-n} дн.` };
+    case 'soon':
+      return { cls: 'high', text: n === 0 ? 'Срок сегодня' : `Осталось ${n} дн.` };
+    default:
+      return { cls: 'low', text: `В срок · ${n} дн.` };
+  }
+}
+
+/** Цвет значения критичности по системному ключу (переименование не ломает цвет). */
+const CRIT_TONES: Record<string, string> = { critical: 'crit', high: 'high', medium: 'med', low: 'low' };
+export function optionTone(o: FieldOption | undefined): string | null {
+  return o?.systemKey ? (CRIT_TONES[o.systemKey] ?? null) : null;
+}
+
+export const EVENT_TYPE_NAMES: Record<string, string> = { remind: 'Напоминание', notify: 'Уведомление', escalate: 'Эскалация' };
 
 export const isWritable = (t: FieldType) => t !== 'calc' && t !== 'decision';
 

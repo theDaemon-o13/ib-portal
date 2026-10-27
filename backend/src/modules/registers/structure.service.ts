@@ -7,9 +7,11 @@ import {
   displayValue,
   fromText,
   toText,
+  isScoreRule,
   typeChangeKind,
   type AnalyticsRole,
   type CalcRule,
+  type DueDateRule,
   type FieldType,
   type StoredValue,
   type Values,
@@ -31,6 +33,15 @@ import {
 const TYPE_NAMES: Record<FieldType, string> = {
   text: 'Текст', select: 'Список', number: 'Число', date: 'Дата', user: 'Сотрудник', calc: 'Вычисляемое', decision: 'Решение другого отдела',
 };
+
+/** Системное поле (реестр уязвимостей): на нём держатся формулы, импорт сканера и автоматизации. */
+function assertNotSystemField(field: FieldMeta, what: string) {
+  if (field.systemKey) throw conflict('SYSTEM_FIELD', `«${field.label}» — системное поле: его нельзя ${what}. Переименовать можно`);
+}
+
+function assertNotSystemOption(option: { label: string; systemKey: string | null }, what: string) {
+  if (option.systemKey) throw conflict('SYSTEM_OPTION', `«${option.label}» — системное значение: его нельзя ${what}. Переименовать можно`);
+}
 
 // ---------------------------------------------------------------- реестры
 
@@ -129,6 +140,7 @@ export async function updateRegister(db: Db, actor: Actor, id: string, input: { 
 export async function setRegisterArchived(db: Db, actor: Actor, id: string, version: number, archived: boolean) {
   return withTx(db, async (tx) => {
     const reg = await loadRegister(tx, id);
+    if (archived && reg.systemKey) throw conflict('SYSTEM_REGISTER', `«${reg.name}» — системный реестр: его нельзя отправить в архив`);
     if (reg.archived === archived) {
       if (reg.version !== version) throw versionConflict();
       return reg;
@@ -168,8 +180,12 @@ function assertRole(type: FieldType, role: string | null | undefined) {
   }
 }
 
-/** Правило вычисляемого поля: дата «от» + дни по варианту списка; переопределение — дата. */
-function validateCalcRule(reg: RegisterDef, rule: CalcRule, selfId?: string): CalcRule {
+/**
+ * Правило вычисляемого поля: дата «от» + дни по варианту списка; переопределение — дата
+ * (по желанию — только при заполненном поле-условии) и перенос срока на рабочий день.
+ * Оценка уязвимости — только у системного поля, через интерфейс не задаётся.
+ */
+function validateCalcRule(reg: RegisterDef, rule: DueDateRule, selfId?: string): DueDateRule {
   const live = (id: string | null) => (id ? reg.fields.find((f) => f.id === id && !f.archived && f.id !== selfId) : undefined);
   const from = live(rule.fromFieldId);
   if (!from || from.type !== 'date') throw badRequest('BAD_CALC_RULE', 'Выберите поле-дату, от которой считается срок');
@@ -188,14 +204,26 @@ function validateCalcRule(reg: RegisterDef, rule: CalcRule, selfId?: string): Ca
     if (!o || o.type !== 'date') throw badRequest('BAD_CALC_RULE', 'Переопределять срок может только поле-дата');
     overrideFieldId = o.id;
   }
-  return { fromFieldId: from.id, byFieldId: by.id, days, overrideFieldId };
+  const out: DueDateRule = { fromFieldId: from.id, byFieldId: by.id, days, overrideFieldId };
+  if (rule.overrideWhenFilledFieldId) {
+    if (!overrideFieldId) throw badRequest('BAD_CALC_RULE', 'Условие замены срока задаётся вместе с полем-датой замены');
+    const w = live(rule.overrideWhenFilledFieldId);
+    if (!w || w.type === 'calc' || w.type === 'decision') throw badRequest('BAD_CALC_RULE', 'Условием замены срока может быть только заполняемое поле');
+    out.overrideWhenFilledFieldId = w.id;
+  }
+  if (rule.shiftToWorkday) out.shiftToWorkday = true;
+  return out;
 }
 
 function describeRule(reg: RegisterDef, rule: CalcRule): string {
-  const name = (id: string | null) => reg.fields.find((f) => f.id === id)?.label ?? '?';
+  const name = (id: string | null | undefined) => reg.fields.find((f) => f.id === id)?.label ?? '?';
+  if (isScoreRule(rule)) return `«${name(rule.cvssFieldId)}» × Кэ по «${name(rule.exploitFieldId)}» × Ки по «${name(rule.fixFieldId)}»`;
   const by = reg.fields.find((f) => f.id === rule.byFieldId);
   const days = Object.entries(rule.days).map(([o, n]) => `${by?.options.find((x) => x.id === o)?.label ?? '?'} ${n} дн.`).join(', ');
-  return `«${name(rule.fromFieldId)}» + срок по «${name(rule.byFieldId)}» (${days})${rule.overrideFieldId ? `; если задано «${name(rule.overrideFieldId)}» — оно` : ''}`;
+  const override = rule.overrideFieldId
+    ? `; если задано «${name(rule.overrideFieldId)}»${rule.overrideWhenFilledFieldId ? ` и «${name(rule.overrideWhenFilledFieldId)}»` : ''} — оно`
+    : '';
+  return `«${name(rule.fromFieldId)}» + срок по «${name(rule.byFieldId)}» (${days})${override}${rule.shiftToWorkday ? '; нерабочий день — перенос на рабочий' : ''}`;
 }
 
 export interface NewFieldInput {
@@ -203,7 +231,7 @@ export interface NewFieldInput {
   type: FieldType;
   options?: string[];
   analyticsRole?: AnalyticsRole | null;
-  calcRule?: CalcRule;
+  calcRule?: DueDateRule;
 }
 
 export async function addField(db: Db, actor: Actor, registerId: string, input: NewFieldInput) {
@@ -214,7 +242,7 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
     if (!label) throw badRequest('EMPTY_LABEL', 'Укажите название поля');
     await assertLabelFree(tx, registerId, label);
     assertRole(input.type, input.analyticsRole);
-    let calcRule: CalcRule | null = null;
+    let calcRule: DueDateRule | null = null;
     if (input.type === 'calc') {
       if (!input.calcRule) throw badRequest('BAD_CALC_RULE', 'Для вычисляемого поля задайте правило');
       calcRule = validateCalcRule(reg, input.calcRule);
@@ -255,7 +283,7 @@ export interface FieldUpdate {
   analyticsRole?: AnalyticsRole | null;
   isTitle?: boolean;
   isStatus?: boolean;
-  calcRule?: CalcRule;
+  calcRule?: DueDateRule;
 }
 
 export async function updateField(db: Db, actor: Actor, fieldId: string, input: FieldUpdate) {
@@ -276,7 +304,10 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
       data.analyticsRole = input.analyticsRole;
       changes.push('роль для аналитики');
     }
+    const systemTitle = reg.fields.find((f) => f.isTitle && f.systemKey);
+    const systemStatus = reg.fields.find((f) => f.isStatus && f.systemKey);
     if (input.isTitle !== undefined && input.isTitle !== field.isTitle) {
+      if (systemTitle) throw conflict('SYSTEM_FIELD', `Заголовок записи — системное поле «${systemTitle.label}», он не меняется`);
       if (!input.isTitle) throw badRequest('TITLE_REQUIRED', 'Назначьте заголовком другое поле — оно заменит это');
       if (field.type !== 'text') throw badRequest('TITLE_TEXT', 'Заголовком записи может быть только текстовое поле');
       if (field.archived) throw badRequest('ARCHIVED_FIELD', 'Архивное поле не может быть заголовком');
@@ -285,6 +316,7 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
       changes.push('назначено заголовком записи');
     }
     if (input.isStatus !== undefined && input.isStatus !== field.isStatus) {
+      if (systemStatus) throw conflict('SYSTEM_FIELD', `Статус записи — системное поле «${systemStatus.label}», он не меняется`);
       if (input.isStatus && field.type !== 'select') throw badRequest('STATUS_SELECT', 'Статусом может быть только поле-список');
       if (input.isStatus && field.archived) throw badRequest('ARCHIVED_FIELD', 'Архивное поле не может быть статусом');
       if (input.isStatus) await tx.registerField.updateMany({ where: { registerId: reg.id, isStatus: true }, data: { isStatus: false, version: { increment: 1 } } });
@@ -293,6 +325,8 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
     }
     if (input.calcRule !== undefined) {
       if (field.type !== 'calc') throw badRequest('BAD_CALC_RULE', 'Правило вычисления бывает только у вычисляемого поля');
+      // Сроки и оценка системного реестра заданы процедурой (п. 7.1–7.3) и меняются только выпуском портала.
+      assertNotSystemField(field, 'менять правило вычисления');
       const rule = validateCalcRule(reg, input.calcRule, fieldId);
       data.calcRule = rule as unknown as Prisma.InputJsonValue;
       changes.push(`правило: ${describeRule(reg, rule)}`);
@@ -332,6 +366,7 @@ export async function moveField(db: Db, actor: Actor, fieldId: string, direction
 
 /** Ограничения на архив и удаление: заголовок, статус, ссылки из правил вычисления. */
 function assertDetachable(reg: RegisterDef, field: FieldMeta, what: string) {
+  assertNotSystemField(field, what);
   if (field.isTitle) throw conflict('TITLE_FIELD', `Поле-заголовок нельзя ${what}: сначала назначьте заголовком другое текстовое поле`);
   if (field.isStatus) throw conflict('STATUS_FIELD', `Поле статуса нельзя ${what}: сначала снимите признак статуса`);
   const deps = calcDependents(reg, field.id).filter((d) => d.id !== field.id);
@@ -393,6 +428,7 @@ export interface TypeChangePreview {
 }
 
 async function planTypeChange(tx: Db, reg: RegisterDef, field: FieldMeta, to: FieldType) {
+  assertNotSystemField(field, 'менять тип');
   if (field.isTitle) throw conflict('TITLE_FIELD', 'Тип поля-заголовка не меняется: заголовок всегда текстовый');
   if (field.isStatus) throw conflict('STATUS_FIELD', 'Тип поля статуса не меняется: сначала снимите признак статуса');
   if (calcDependents(reg, field.id).some((d) => d.id !== field.id)) {
@@ -545,6 +581,7 @@ export async function updateOption(db: Db, actor: Actor, optionId: string, input
       changes.push(`«${option.label}» → «${data.label}»`);
     }
     if (input.isClosed !== undefined && input.isClosed !== option.isClosed) {
+      assertNotSystemOption(option, 'сделать открытым или закрытым');
       if (!field.isStatus) throw badRequest('NOT_STATUS', 'Признак закрытого статуса есть только у поля статуса');
       data.isClosed = input.isClosed;
       changes.push(`«${option.label}» ${input.isClosed ? 'закрывает запись' : 'больше не закрывает запись'}`);
@@ -591,6 +628,7 @@ export async function setOptionArchived(db: Db, actor: Actor, optionId: string, 
       if (option.version !== version) throw versionConflict();
       return reg;
     }
+    if (archived) assertNotSystemOption(option, 'отправить в архив');
     if (archived && field.options.filter((o) => !o.archived).length <= 1) {
       throw conflict('LAST_OPTION', 'В списке должно остаться хотя бы одно активное значение');
     }
@@ -609,9 +647,10 @@ export async function deleteOption(db: Db, actor: Actor, optionId: string, versi
   return withTx(db, async (tx) => {
     const { reg, field, option } = await getOption(tx, optionId);
     assertNotArchived(reg);
+    assertNotSystemOption(option, 'удалить');
     const used = await optionUsage(tx, field.id, optionId);
     if (used > 0) throw conflict('IN_USE', `«${option.label}» используется (${used}). Отправьте значение в архив`);
-    if (reg.fields.some((f) => f.calcRule && f.calcRule.byFieldId === field.id && optionId in f.calcRule.days)) {
+    if (reg.fields.some((f) => f.calcRule && !isScoreRule(f.calcRule) && f.calcRule.byFieldId === field.id && optionId in f.calcRule.days)) {
       throw conflict('CALC_DEPENDENCY', `Для «${option.label}» задан срок в правиле вычисляемого поля — сначала измените правило`);
     }
     if (field.options.filter((o) => !o.archived && o.id !== optionId).length === 0) {

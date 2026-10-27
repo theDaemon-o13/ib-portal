@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { RegisterDetail, RegisterRecord } from '../../api/registers';
-import { changedValues, describeRule, draftOf, pinOffsets, toApiValue, typeTargets, visibleColumns } from './logic';
+import { changedValues, deadlineChip, deadlineFieldOf, describeRule, draftOf, formatCalc, optionTone, pinOffsets, toApiValue, typeTargets, visibleColumns } from './logic';
 
 const field = (id: string, label: string, type: RegisterDetail['fields'][number]['type'], extra: Partial<RegisterDetail['fields'][number]> = {}) => ({
-  id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, calcRule: null, archived: false, version: 1, options: [], ...extra,
+  id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, calcRule: null, archived: false, version: 1, systemKey: null, options: [], ...extra,
 });
 const reg: RegisterDetail = {
-  id: 'r', name: 'Р', description: '', ownerUserId: null, archived: false, version: 1,
+  id: 'r', name: 'Р', description: '', ownerUserId: null, archived: false, version: 1, systemKey: null,
   fields: [
-    field('lvl', 'Уровень', 'select', { options: [{ id: 'h', label: 'Высокий', isClosed: false, archived: false, sortOrder: 1, version: 1 }] }),
+    field('lvl', 'Уровень', 'select', { options: [{ id: 'h', label: 'Высокий', isClosed: false, archived: false, sortOrder: 1, version: 1, systemKey: null }] }),
     field('t', 'Название', 'text', { isTitle: true }),
     field('n', 'Баллы', 'number'),
     field('d', 'Выявлено', 'date'),
@@ -20,6 +20,38 @@ const reg: RegisterDetail = {
 describe('логика реестров', () => {
   it('описание правила вычисляемого поля', () => {
     expect(describeRule(reg, reg.fields[4] as RegisterDetail['fields'][number])).toBe('«Выявлено» + срок по «Уровень» (Высокий 14 дн.)');
+  });
+
+  it('описание правила: срок с решением ИБ и переносом; оценка уязвимости', () => {
+    const due = field('due2', 'Срок 2', 'calc', {
+      calcRule: { fromFieldId: 'd', byFieldId: 'lvl', days: { h: 14 }, overrideFieldId: 'd', overrideWhenFilledFieldId: 'n', shiftToWorkday: true },
+    });
+    expect(describeRule(reg, due)).toBe('«Выявлено» + срок по «Уровень» (Высокий 14 дн.); если задано «Выявлено» и «Баллы» — берётся оно; выходной или праздник — перенос на рабочий день');
+    const score = field('s', 'Оценка', 'calc', { calcRule: { kind: 'vuln_score', cvssFieldId: 'n', exploitFieldId: 'lvl', fixFieldId: 'lvl' } });
+    expect(describeRule(reg, score)).toContain('«Баллы» × Кэ по «Уровень»');
+  });
+
+  it('контроль сроков: метки как в прототипе', () => {
+    expect(deadlineChip({ date: '2026-10-01', daysLeft: -5, state: 'overdue' })).toEqual({ cls: 'crit', text: 'Просрочено 5 дн.' });
+    expect(deadlineChip({ date: '2026-10-01', daysLeft: 7, state: 'soon' })).toEqual({ cls: 'high', text: 'Осталось 7 дн.' });
+    expect(deadlineChip({ date: '2026-10-01', daysLeft: 0, state: 'soon' })).toEqual({ cls: 'high', text: 'Срок сегодня' });
+    expect(deadlineChip({ date: '2026-10-01', daysLeft: 30, state: 'ok' })).toEqual({ cls: 'low', text: 'В срок · 30 дн.' });
+    expect(deadlineChip({ date: '2026-10-01', daysLeft: null, state: 'closed' })).toEqual({ cls: '', text: 'Закрыто' });
+    expect(deadlineChip({ date: null, daysLeft: null, state: 'none' })).toBeNull();
+    expect(deadlineChip(null)).toBeNull();
+    expect(deadlineFieldOf(reg)).toBeUndefined();
+    expect(deadlineFieldOf({ ...reg, fields: reg.fields.map((f) => (f.id === 'due' ? { ...f, analyticsRole: 'deadline' } : f)) })?.id).toBe('due');
+  });
+
+  it('вычисляемые значения и цвет критичности', () => {
+    expect(formatCalc(9.4)).toBe('9,4');
+    expect(formatCalc('2026-10-29')).toBe('29.10.2026');
+    expect(formatCalc(null)).toBe('');
+    const o = { id: 'c', label: 'Очень плохо', isClosed: false, archived: false, sortOrder: 1, version: 1 };
+    expect(optionTone({ ...o, systemKey: 'critical' })).toBe('crit');
+    expect(optionTone({ ...o, systemKey: 'medium' })).toBe('med');
+    expect(optionTone({ ...o, systemKey: 'exploited' })).toBeNull();
+    expect(optionTone({ ...o, systemKey: null })).toBeNull();
   });
 
   it('безопасные смены типа', () => {
@@ -60,12 +92,13 @@ describe('закрепление столбцов', () => {
 });
 
 describe('адрес конструктора', () => {
-  it('#реестр/вкладка; неизвестная и неактивная вкладка — «Записи»', async () => {
+  it('#реестр/вкладка; неизвестная вкладка — «Записи»', async () => {
     const { parseRegHash } = await import('./RegistersPage');
     const id = '6872a7a5-8ef5-4cf6-b96e-d4adb7482343';
     expect(parseRegHash(`#${id}/fields`)).toEqual({ id, tab: 'fields' });
     expect(parseRegHash(`#${id}`)).toEqual({ id, tab: 'records' });
-    expect(parseRegHash(`#${id}/automation`)).toEqual({ id, tab: 'records' });
+    expect(parseRegHash(`#${id}/automation`)).toEqual({ id, tab: 'automation' });
+    expect(parseRegHash(`#${id}/unknown`)).toEqual({ id, tab: 'records' });
     expect(parseRegHash('#abc/fields')).toEqual({ id: null, tab: 'fields' });
     expect(parseRegHash('')).toEqual({ id: null, tab: 'records' });
   });

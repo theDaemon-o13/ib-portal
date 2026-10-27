@@ -3,9 +3,11 @@
 // настоящие щелчки мыши и ввод с клавиатуры. Каждая операция изменения проверяется по телу запроса,
 // ответу и результату на экране.
 //
-//   E2E_LOGIN=admin.dev E2E_PASSWORD=... npm run test:e2e
+//   npm run test:e2e   (логин и пароль — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
-// Создаёт реестр «Реестр E2E-…» и в конце отправляет его в архив (данные реестров не удаляются).
+// Каждый тест готовит свои данные сам (реестры «Реестр E2E-… <назначение>» через API) и начинает
+// с полной загрузки страницы, поэтому падение одного теста не валит остальные.
+// В конце все реестры прогона уходят в архив (данные реестров не удаляются).
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -25,8 +27,12 @@ const REG = `Реестр E2E-${RUN}`;
 
 let ui;
 let tmp;
-let regId;
-let adminName;
+let me;
+/** Реестр, на котором работают тесты вкладок, полей и карточки. Создаётся через API в before(). */
+let base;
+/** Все реестры прогона: в конце уходят в архив. */
+const created = [];
+let navSeq = 0;
 
 const fieldRow = (label) => `[...document.querySelectorAll('table.fields-tbl tbody tr')].find((tr) => tr.querySelector('b')?.textContent === ${JSON.stringify(label)})`;
 const recRow = (text) => `[...document.querySelectorAll('table.recs tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(text)}))`;
@@ -37,6 +43,70 @@ const fieldDrawer = `document.querySelector('aside.drawer[aria-label="Настр
 const tab = (name) => `[...document.querySelectorAll('.reg-bar [role=tab]')].find((b) => b.textContent === ${JSON.stringify(name)})`;
 const pickerTitle = `document.querySelector('.picker-btn .reg-title')?.textContent`;
 const tabsRect = `(() => { const r = document.querySelector('.reg-bar [role=tablist]').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width)].join(','); })()`;
+const TAB_CONTENT = { fields: `!!document.querySelector('table.fields-tbl')`, records: `!!document.querySelector('table.recs')`, automation: `!!document.querySelector('form[aria-label="Новое правило"]')` };
+
+/** Запрос к API из страницы (cookie сессии и Origin — как у пользователя); подготовка данных теста. */
+async function api(method, path, body) {
+  const res = await ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify(body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
+    .then(async (r) => ({ status: r.status, text: await r.text() }))`);
+  assert.ok(res.status >= 200 && res.status < 300, `${method} ${path} → ${res.status} ${res.text}`);
+  return res.text ? JSON.parse(res.text) : null;
+}
+
+const fieldOf = (reg, label) => {
+  const f = reg.fields.find((x) => x.label === label);
+  assert.ok(f, `в реестре «${reg.name}» нет поля «${label}»`);
+  return f;
+};
+const optionOf = (reg, label, option) => fieldOf(reg, label).options.find((o) => o.label === option).id;
+
+/**
+ * Реестр для теста через API. fields — тела POST /fields; calcRule может быть функцией от реестра
+ * (ей нужны id полей, созданных раньше).
+ */
+async function makeRegister(suffix, fields = []) {
+  let reg = await api('POST', '/api/v1/registers', { name: `${REG} ${suffix}` });
+  created.push(reg.id);
+  for (const f of fields) {
+    reg = await api('POST', `/api/v1/registers/${reg.id}/fields`, typeof f.calcRule === 'function' ? { ...f, calcRule: f.calcRule(reg) } : f);
+  }
+  return reg;
+}
+
+/** Запись через API; values — по названиям полей, списки — по названию значения, «me» — текущий пользователь. */
+async function makeRecord(reg, values) {
+  const out = {};
+  for (const [label, v] of Object.entries(values)) {
+    const f = fieldOf(reg, label);
+    out[f.id] = f.type === 'select' ? optionOf(reg, label, v) : f.type === 'user' && v === 'me' ? me.id : v;
+  }
+  return api('POST', `/api/v1/registers/${reg.id}/records`, { values: out });
+}
+
+/** Каждый тест начинает с полной загрузки страницы: без открытых панелей, окон и чужого состояния. */
+async function openReg(reg, tabName) {
+  await ui.goto(`/registers?run=${++navSeq}#${reg.id}/${tabName}`);
+  await ui.waitFor(`location.hash === ${JSON.stringify(`#${reg.id}/${tabName}`)} && ${pickerTitle} === ${JSON.stringify(reg.name)} && ${TAB_CONTENT[tabName]}`,
+    `реестр «${reg.name}», вкладка ${tabName}`);
+}
+
+const BASE_FIELDS = [
+  { label: 'Уровень', type: 'select', options: ['Высокий', 'Средний'], analyticsRole: 'dimension' },
+  { label: 'Баллы', type: 'number' },
+  { label: 'Выявлено', type: 'date' },
+  { label: 'Новый срок', type: 'date' },
+  { label: 'Ответственный', type: 'user' },
+  { label: 'Комментарий', type: 'text' },
+  { label: 'Примечание', type: 'text' },
+  { label: 'Решение ОУР', type: 'decision', options: ['Ожидает решения', 'Принят', 'Отклонён'] },
+  {
+    label: 'Срок устранения', type: 'calc',
+    calcRule: (reg) => ({
+      fromFieldId: fieldOf(reg, 'Выявлено').id, byFieldId: fieldOf(reg, 'Уровень').id, overrideFieldId: fieldOf(reg, 'Новый срок').id,
+      days: { [optionOf(reg, 'Уровень', 'Высокий')]: 14, [optionOf(reg, 'Уровень', 'Средний')]: 30 },
+    }),
+  },
+];
 
 async function act(label, within, method, urlPart, status = 200) {
   const m = ui.mark();
@@ -98,14 +168,15 @@ before(async () => {
   await ui.type(`document.querySelector('input[name=password]')`, PASSWORD);
   await ui.click(`document.querySelector('form button[type=submit]')`);
   await ui.waitFor(`location.pathname !== '/login'`, 'вход');
-  adminName = await ui.evaluate(`fetch('/api/v1/auth/me').then((r) => r.json()).then((j) => j.user.fullName)`);
+  me = (await api('GET', '/api/v1/auth/me')).user;
+  base = await makeRegister('основной', BASE_FIELDS);
 });
 
 after(async () => {
   // Уборка: всё, что создал прогон, — в архив, даже если тест упал на середине.
-  if (ui && regId) {
-    await ui.evaluate(`fetch('/api/v1/registers/${regId}').then((r) => r.json()).then((reg) => reg.archived ? null
-      : fetch('/api/v1/registers/${regId}/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: reg.version }) }))`).catch(() => undefined);
+  for (const id of ui ? created : []) {
+    await ui.evaluate(`fetch('/api/v1/registers/${id}').then((r) => r.json()).then((reg) => reg.archived ? null
+      : fetch('/api/v1/registers/${id}/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: reg.version }) }))`).catch(() => undefined);
   }
   if (ui) {
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
@@ -125,40 +196,42 @@ describe('Реестр', () => {
     const req = await ui.request(m, 'POST', '/api/v1/registers');
     assert.equal(req.status, 201);
     await ui.waitFor(`${pickerTitle} === ${JSON.stringify(`${REG} черновик`)} && location.hash.endsWith('/fields')`, 'новый реестр открыт на «Полях»');
-    regId = await ui.evaluate(`location.hash.slice(1).split('/')[0]`);
+    const id = await ui.evaluate(`location.hash.slice(1).split('/')[0]`);
+    created.push(id);
 
     await ui.click(`document.querySelector('button[aria-label="Действия реестра"]')`);
     await ui.click(`[...document.querySelectorAll('[role=menuitem]')].find((b) => b.textContent === 'Переименовать')`);
-    await ui.type(`document.querySelector('input[aria-label="Название реестра"]')`, REG);
+    await ui.type(`document.querySelector('input[aria-label="Название реестра"]')`, `${REG} шапка`);
     const m2 = ui.mark();
     await ui.click($.button('Сохранить', `document.querySelector('[role=dialog]')`));
-    const rn = await ui.request(m2, 'PATCH', `/registers/${regId}`);
+    const rn = await ui.request(m2, 'PATCH', `/registers/${id}`);
     assert.equal(rn.status, 200);
-    assert.equal(rn.json.name, REG);
-    await ui.waitFor(`${pickerTitle} === ${JSON.stringify(REG)}`, 'новое имя в шапке');
+    assert.equal(rn.json.name, `${REG} шапка`);
+    await ui.waitFor(`${pickerTitle} === ${JSON.stringify(`${REG} шапка`)}`, 'новое имя в шапке');
   });
 
-  it('переключатель вкладок не сдвигается; «Автоматизация» неактивна; выбор сохраняется после обновления', async () => {
+  it('переключатель вкладок не сдвигается; «Автоматизация» открывается; выбор сохраняется после обновления', async () => {
+    await openReg(base, 'fields');
     const onFields = await ui.evaluate(tabsRect);
     await ui.click(tab('Записи'));
-    await ui.waitFor(`location.hash === ${JSON.stringify(`#${regId}/records`)} && !!document.querySelector('table.recs')`, 'вкладка «Записи»');
+    await ui.waitFor(`location.hash === ${JSON.stringify(`#${base.id}/records`)} && ${TAB_CONTENT.records}`, 'вкладка «Записи»');
     assert.equal(await ui.evaluate(tabsRect), onFields, 'переключатель на том же месте');
-    const auto = tab('Автоматизация');
-    assert.equal(await ui.evaluate(`${auto}.getAttribute('aria-disabled')`), 'true');
-    assert.equal(await ui.evaluate(`${auto}.title`), 'Появится в следующем выпуске');
-    await ui.click(auto);
-    assert.equal(await ui.evaluate('location.hash'), `#${regId}/records`, 'щелчок по «Автоматизации» ничего не меняет');
+    // Этап 4: вкладка «Автоматизация» рабочая.
+    await ui.click(tab('Автоматизация'));
+    await ui.waitFor(`location.hash === ${JSON.stringify(`#${base.id}/automation`)} && ${TAB_CONTENT.automation}`, 'вкладка «Автоматизация»');
+    assert.equal(await ui.evaluate(`${tab('Автоматизация')}.getAttribute('aria-disabled')`), null, '«Автоматизация» активна');
+    assert.equal(await ui.evaluate(tabsRect), onFields, 'переключатель на том же месте');
     await ui.click(tab('Поля'));
-    await ui.waitFor(`location.hash === ${JSON.stringify(`#${regId}/fields`)}`, 'вкладка «Поля»');
-    await ui.goto(`/registers#${regId}/fields`);
+    await ui.waitFor(`location.hash === ${JSON.stringify(`#${base.id}/fields`)}`, 'вкладка «Поля»');
     await ui.evaluate('location.reload()');
-    await ui.waitFor(`${pickerTitle} === ${JSON.stringify(REG)} && !!document.querySelector('table.fields-tbl')`, 'после обновления — тот же реестр и вкладка');
+    await ui.waitFor(`${pickerTitle} === ${JSON.stringify(base.name)} && ${TAB_CONTENT.fields}`, 'после обновления — тот же реестр и вкладка');
     assert.equal(await ui.evaluate(tabsRect), onFields, 'после обновления переключатель на том же месте');
   });
 });
 
 describe('Поля', () => {
   it('добавить поля всех типов, включая вычисляемое и решение', async () => {
+    await openReg(await makeRegister('поля'), 'fields');
     await addField('Уровень', 'select', { options: 'Высокий, Средний', role: 'dimension' });
     await submitField('Уровень');
     await addField('Баллы', 'number');
@@ -175,9 +248,10 @@ describe('Поля', () => {
     await submitField('Решение ОУР');
 
     await addField('Срок устранения', 'calc');
-    await ui.select(`document.querySelector('.calc-editor select[aria-label="Поле-дата"]')`, await ui.evaluate(`[...document.querySelector('.calc-editor select[aria-label="Поле-дата"]').options].find((o) => o.textContent === 'Выявлено').value`));
-    await ui.select(`document.querySelector('.calc-editor select[aria-label="Поле-список"]')`, await ui.evaluate(`[...document.querySelector('.calc-editor select[aria-label="Поле-список"]').options].find((o) => o.textContent === 'Уровень').value`));
-    await ui.select(`document.querySelector('.calc-editor select[aria-label="Переопределение"]')`, await ui.evaluate(`[...document.querySelector('.calc-editor select[aria-label="Переопределение"]').options].find((o) => o.textContent === 'Новый срок').value`));
+    const pick = (aria, label) => ui.evaluate(`[...document.querySelector('.calc-editor select[aria-label="${aria}"]').options].find((o) => o.textContent === ${JSON.stringify(label)}).value`);
+    await ui.select(`document.querySelector('.calc-editor select[aria-label="Поле-дата"]')`, await pick('Поле-дата', 'Выявлено'));
+    await ui.select(`document.querySelector('.calc-editor select[aria-label="Поле-список"]')`, await pick('Поле-список', 'Уровень'));
+    await ui.select(`document.querySelector('.calc-editor select[aria-label="Переопределение"]')`, await pick('Переопределение', 'Новый срок'));
     await ui.type(`document.querySelector('input[aria-label="Дней: Высокий"]')`, '14');
     await ui.type(`document.querySelector('input[aria-label="Дней: Средний"]')`, '30');
     const req = await submitField('Срок устранения');
@@ -188,26 +262,29 @@ describe('Поля', () => {
   });
 
   it('строка поля — одна линия, «Для аналитики» в каждой строке', async () => {
+    await openReg(base, 'fields');
     const rows = await ui.evaluate(`[...document.querySelectorAll('table.fields-tbl tbody tr')].map((tr) => ({
       label: tr.querySelector('b')?.textContent, select: !!tr.querySelector('select.role-select'),
       disabled: tr.querySelector('select.role-select')?.disabled, buttons: tr.querySelectorAll('button').length,
     }))`);
+    assert.ok(rows.length >= BASE_FIELDS.length, `строки полей: ${rows.length}`);
     assert.ok(rows.every((r) => r.select), 'список «Для аналитики» есть в каждой строке');
-    assert.equal(rows.find((r) => r.label === 'Комментарий').disabled, true, 'для текста — неактивный «Не используется»');
+    assert.equal(rows.find((r) => r.label === 'Комментарий')?.disabled, true, 'для текста — неактивный «Не используется»');
     assert.ok(rows.every((r) => r.buttons <= 2), 'в строке только стрелки порядка');
   });
 
   it('панель поля: переименование; стрелки порядка и роль аналитики в строке', async () => {
-    await openField('Комментарий');
-    await ui.type(`${fieldDrawer}.querySelector('input[aria-label="Название поля"]')`, 'Комментарий ДИКТ');
+    await openReg(base, 'fields');
+    await openField('Примечание');
+    await ui.type(`${fieldDrawer}.querySelector('input[aria-label="Название поля"]')`, 'Примечание ДИКТ');
     const m1 = ui.mark();
     await ui.click($.button('Сохранить', fieldDrawer));
-    assert.equal((await ui.request(m1, 'PATCH', '/register-fields/')).json.label, 'Комментарий ДИКТ');
-    await ui.waitFor(`!!${fieldRow('Комментарий ДИКТ')}`, 'поле переименовано');
+    assert.equal((await ui.request(m1, 'PATCH', '/register-fields/')).json.label, 'Примечание ДИКТ');
+    await ui.waitFor(`!!${fieldRow('Примечание ДИКТ')}`, 'поле переименовано');
     await closeField();
 
     const m2 = ui.mark();
-    await ui.click(`document.querySelector('button[aria-label="Поле «Комментарий ДИКТ» выше"]')`);
+    await ui.click(`document.querySelector('button[aria-label="Поле «Примечание ДИКТ» выше"]')`);
     assert.equal((await ui.request(m2, 'POST', '/move')).status, 200);
     assert.equal(await ui.evaluate(`!!${fieldDrawer}`), false, 'стрелка не открывает панель');
     const m3 = ui.mark();
@@ -217,6 +294,7 @@ describe('Поля', () => {
   });
 
   it('значения списка в панели: добавить, переименовать, архив, удалить; закрытый статус', async () => {
+    await openReg(base, 'fields');
     await openField('Уровень');
     const editor = `${fieldDrawer}.querySelector('.options-editor')`;
     await ui.type(`${editor}.querySelector('input[aria-label="Новое значение поля «Уровень»"]')`, 'Низкий');
@@ -250,8 +328,7 @@ describe('Поля', () => {
 
 describe('Записи', () => {
   it('карточка: создать, вычисляемый срок, правка только изменённого, история', async () => {
-    await ui.click(tab('Записи'));
-    await ui.waitFor(`!!document.querySelector('table.recs')`, 'таблица записей');
+    await openReg(base, 'records');
     await ui.click($.button('Новая запись'));
     await ui.waitFor(`!!${drawer}?.querySelector('form.recform')`, 'карточка новой записи');
     await assertDrawerPlacement(drawer);
@@ -259,12 +336,12 @@ describe('Записи', () => {
     await ui.select(cardInput('Уровень'), await ui.evaluate(`[...${cardInput('Уровень')}.options].find((o) => o.textContent === 'Высокий').value`));
     await ui.type(cardInput('Баллы'), '7,5');
     await setNative(cardInput('Выявлено'), '2026-10-01');
-    await ui.select(cardInput('Ответственный'), await ui.evaluate(`[...${cardInput('Ответственный')}.options].find((o) => o.textContent === ${JSON.stringify(adminName)}).value`));
+    await ui.select(cardInput('Ответственный'), me.id);
     let m = ui.mark();
     await ui.click($.button('Создать запись', drawer));
-    const created = await ui.request(m, 'POST', `/registers/${regId}/records`);
-    assert.equal(created.status, 201);
-    assert.equal(Object.values(created.json.values).includes(7.5), true);
+    const rec = await ui.request(m, 'POST', `/registers/${base.id}/records`);
+    assert.equal(rec.status, 201);
+    assert.equal(Object.values(rec.json.values).includes(7.5), true);
     await ui.waitFor(`${drawer}?.textContent.includes('15.10.2026')`, 'вычисляемый срок 01.10 + 14 дней');
 
     await ui.type(cardInput('Баллы'), '8');
@@ -276,17 +353,14 @@ describe('Записи', () => {
     assert.equal(typeof upd.json.version, 'number');
     await ui.waitFor(`${drawer}?.querySelector('.hist')?.textContent.includes('«Баллы»: 7,5 → 8')`, 'история изменений');
     await ui.click($.button('Закрыть', drawer));
-
-    await ui.click($.button('Новая запись'));
-    await ui.type(cardInput('Наименование'), 'Второй инцидент');
-    m = ui.mark();
-    await ui.click($.button('Создать запись', drawer));
-    assert.equal((await ui.request(m, 'POST', '/records')).status, 201);
-    await ui.click($.button('Закрыть', drawer));
-    await ui.waitFor(`!!${recRow('Второй инцидент')}`, 'вторая запись в таблице');
+    await ui.waitFor(`!${drawer} && !!${recRow('CVE-2026-0001')}`, 'запись в таблице');
   });
 
   it('поиск, сортировка, закрепление столбцов', async () => {
+    const reg = await makeRegister('поиск', [{ label: 'Баллы', type: 'number' }]);
+    await makeRecord(reg, { Наименование: 'Первый инцидент', Баллы: 1 });
+    await makeRecord(reg, { Наименование: 'Второй инцидент', Баллы: 2 });
+    await openReg(reg, 'records');
     let m = ui.mark();
     await ui.type(`document.querySelector('input[aria-label="Поиск по реестру"]')`, 'втор');
     await ui.request(m, 'GET', 'q=%D0%B2%D1%82%D0%BE%D1%80');
@@ -297,6 +371,7 @@ describe('Записи', () => {
     m = ui.mark();
     await ui.click(`[...document.querySelectorAll('table.recs th button')].find((b) => b.textContent.startsWith('Баллы'))`);
     assert.match((await ui.request(m, 'GET', 'sort=')).url, /dir=desc/);
+    await ui.waitFor(`document.querySelector('table.recs tbody tr.rec-row')?.textContent.includes('Второй инцидент')`, 'больше баллов — выше');
 
     await ui.select(`document.querySelector('#rec-pin')`, '2');
     await ui.waitFor(`document.querySelectorAll('table.recs thead th.pin').length === 2`, 'закреплены 2 столбца');
@@ -306,46 +381,54 @@ describe('Записи', () => {
   });
 
   it('архив, возврат и удаление записи', async () => {
-    await ui.click(recRow('Второй инцидент'));
+    await makeRecord(base, { Наименование: 'Удаляемая запись' });
+    await openReg(base, 'records');
+    await ui.click(recRow('Удаляемая запись'), 'строка «Удаляемая запись»');
     await ui.waitFor(`!!${drawer}?.querySelector('form.recform')`, 'карточка');
     await act('В архив', drawer, 'POST', '/archive');
     await ui.waitFor(`${drawer}?.textContent.includes('В архиве')`, 'в архиве');
     await act('Вернуть из архива', drawer, 'POST', '/restore');
     await ui.click($.button('Удалить запись', drawer));
     await act('Удалить', `${drawer}.querySelector('.danger-zone')`, 'POST', '/delete', 204);
-    await ui.waitFor(`!${drawer} && !${recRow('Второй инцидент')}`, 'запись удалена');
+    await ui.waitFor(`!${drawer} && !${recRow('Удаляемая запись')}`, 'запись удалена');
   });
 });
 
 describe('Excel', () => {
   it('экспорт, затем импорт с предпросмотром и применением', async () => {
+    const reg = await makeRegister('Excel', [{ label: 'Баллы', type: 'number' }, { label: 'Ответственный', type: 'user' }]);
+    await makeRecord(reg, { Наименование: 'CVE-2026-0001', Баллы: 7.5, Ответственный: 'me' });
+    await openReg(reg, 'records');
     let m = ui.mark();
     await ui.click($.button('Экспорт в Excel'));
-    const exp = await ui.request(m, 'GET', `/registers/${regId}/export`);
+    const exp = await ui.request(m, 'GET', `/registers/${reg.id}/export`);
     assert.equal(exp.status, 200);
 
     // Файл, как его заполнит ДИКТ: та же выгрузка, полученная в браузере с cookie сессии.
-    const b64 = await ui.evaluate(`fetch('/api/v1/registers/${regId}/export').then((r) => r.arrayBuffer())
+    const b64 = await ui.evaluate(`fetch('/api/v1/registers/${reg.id}/export').then((r) => r.arrayBuffer())
       .then((b) => { let s = ''; new Uint8Array(b).forEach((x) => { s += String.fromCharCode(x); }); return btoa(s); })`);
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(Buffer.from(b64, 'base64'));
     const ws = wb.getWorksheet('Реестр');
     const header = [];
     ws.getRow(1).eachCell((c, n) => { header[n] = String(c.value); });
-    const col = (h) => header.indexOf(h);
-    const me = await ui.evaluate(`fetch('/api/v1/auth/me').then((r) => r.json()).then((j) => j.user.login)`);
-    assert.equal(ws.getRow(2).getCell(col('Ответственный')).value, `${adminName} (${me})`, 'сотрудник выгружается как «ФИО (логин)»');
+    const col = (h) => {
+      const n = header.indexOf(h);
+      assert.ok(n > 0, `в выгрузке нет колонки «${h}»; есть: ${header.filter(Boolean).join(', ')}`);
+      return n;
+    };
+    assert.equal(ws.getRow(2).getCell(col('Ответственный')).value, `${me.fullName} (${me.login})`, 'сотрудник выгружается как «ФИО (логин)»');
     ws.getRow(2).getCell(col('Баллы')).value = 9;
     const added = ws.addRow([]);
     added.getCell(col('Наименование')).value = 'Из Excel';
-    added.getCell(col('Ответственный')).value = `Кто угодно (${me})`;
+    added.getCell(col('Ответственный')).value = `Кто угодно (${me.login})`;
     ws.addRow([999, 'Неизвестный ID']);
     const file = join(tmp, `импорт ${RUN}.xlsx`);
     writeFileSync(file, Buffer.from(await wb.xlsx.writeBuffer()));
 
     m = ui.mark();
     await ui.setFiles('input[aria-label="Файл импорта"]', [file]);
-    const prev = await ui.request(m, 'POST', `/registers/${regId}/imports`);
+    const prev = await ui.request(m, 'POST', `/registers/${reg.id}/imports`);
     assert.equal(prev.status, 201);
     await ui.waitFor(`!!document.querySelector('[role=dialog] .imp-kpis')`, 'окно предпросмотра');
     const kpis = await ui.evaluate(`[...document.querySelectorAll('.imp-kpis > div')].map((d) => d.textContent)`);
@@ -363,8 +446,9 @@ describe('Excel', () => {
 
 describe('Смена типа и архив поля', () => {
   it('панель поля: число → текст с предпросмотром; архив поля с данными; удаление поля без данных; архив реестра', async () => {
-    await ui.click(tab('Поля'));
-    await ui.waitFor(`!!document.querySelector('table.fields-tbl')`, 'вкладка полей');
+    const reg = await makeRegister('тип', [{ label: 'Баллы', type: 'number' }, { label: 'Комментарий ДИКТ', type: 'text' }]);
+    await makeRecord(reg, { Наименование: 'Запись с данными', Баллы: 5, 'Комментарий ДИКТ': 'есть данные' });
+    await openReg(reg, 'fields');
     await openField('Баллы');
     await ui.click($.button('Сменить тип', fieldDrawer));
     await ui.waitFor(`${fieldDrawer}?.querySelector('.type-change .note')?.textContent.includes('Изменится записей: 1')`, 'предпросмотр смены типа');
@@ -390,7 +474,7 @@ describe('Смена типа и архив поля', () => {
     m = ui.mark();
     await ui.click(`document.querySelector('button[aria-label="Действия реестра"]')`);
     await ui.click(`[...document.querySelectorAll('[role=menuitem]')].find((b) => b.textContent === 'В архив')`);
-    assert.equal((await ui.request(m, 'POST', `/registers/${regId}/archive`)).status, 200);
+    assert.equal((await ui.request(m, 'POST', `/registers/${reg.id}/archive`)).status, 200);
     await ui.waitFor(`document.querySelector('.picker-btn')?.textContent.includes('архив')`, 'реестр в архиве');
   });
 });

@@ -8,6 +8,7 @@ import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import {
   cellPrimitive,
   displayValue,
+  formatNumberRu,
   isWritable,
   parseCell,
   sameValue,
@@ -15,6 +16,7 @@ import {
   type Values,
 } from '../../lib/register-values.js';
 import { auditSettings, type Actor } from '../settings/common.js';
+import { applyDerived } from '../vulns/derive.js';
 import {
   assertNotArchived,
   loadRegister,
@@ -47,7 +49,9 @@ const TYPE_NAME: Record<string, string> = {
   text: 'Текст', number: 'Число', date: 'Дата', select: 'Список', user: 'Сотрудник', calc: 'Вычисляемое', decision: 'Решение другого отдела',
 };
 
-type ColKind = 'id' | 'value' | 'readonly' | 'doc';
+/** derived — колонка портала без поля («Дней до срока»): при импорте пропускается молча. */
+type ColKind = 'id' | 'value' | 'readonly' | 'doc' | 'derived';
+const DAYS_LEFT_HEADER = 'Дней до срока';
 
 // ---------------------------------------------------------------- экспорт
 
@@ -78,6 +82,9 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
       cols.push({ header: `${f.label}: документ`, kind: 'doc', field: f });
     } else cols.push({ header: f.label, kind: 'value', field: f });
   }
+  // Контроль сроков: дни до срока на дату выгрузки; у закрытых записей пусто.
+  const hasDeadline = dtos.some((d) => d.deadline !== null);
+  if (hasDeadline) cols.push({ header: DAYS_LEFT_HEADER, kind: 'derived' });
   cols.forEach((c, i) => map.addRow([i + 1, c.field?.id ?? '', c.kind]));
 
   ws.columns = cols.map((c) => ({
@@ -93,12 +100,18 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
     const values = rows[i]?.values as Values;
     const row = ws.addRow(cols.map((c) => {
       if (c.kind === 'id') return rec.number;
+      if (c.kind === 'derived') return rec.deadline?.state === 'closed' ? null : rec.deadline?.daysLeft ?? null;
       const f = c.field as FieldMeta;
       if (c.kind === 'doc') {
         const d = rec.decisions[f.id];
         return d ? `${d.documentTitle} № ${d.documentNumber} от ${d.documentDate.split('-').reverse().join('.')}` : '';
       }
-      if (f.type === 'calc') return rec.calc[f.id] ? new Date(`${rec.calc[f.id]}T00:00:00Z`) : null;
+      if (f.type === 'calc') {
+        const v = rec.calc[f.id];
+        // Оценка уязвимости — число, срок — дата.
+        if (typeof v === 'number') return v;
+        return v ? new Date(`${v}T00:00:00Z`) : null;
+      }
       if (f.type === 'decision') return rec.display[f.id] ?? '';
       const v = values[f.id];
       if (v === undefined) return null;
@@ -109,12 +122,12 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
     }));
     cols.forEach((c, j) => {
       const cell = row.getCell(j + 1);
-      if (c.field?.type === 'date' || c.field?.type === 'calc') cell.numFmt = 'dd.mm.yyyy';
-      if (c.kind === 'readonly' || c.kind === 'doc' || c.kind === 'id') cell.fill = grey;
+      if (c.field?.type === 'date' || (c.field?.type === 'calc' && cell.value instanceof Date)) cell.numFmt = 'dd.mm.yyyy';
+      if (c.kind === 'readonly' || c.kind === 'doc' || c.kind === 'id' || c.kind === 'derived') cell.fill = grey;
     });
   }
   cols.forEach((c, j) => {
-    if (c.kind === 'readonly' || c.kind === 'doc') {
+    if (c.kind === 'readonly' || c.kind === 'doc' || c.kind === 'derived') {
       const cell = header.getCell(j + 1);
       cell.fill = grey;
       cell.note = 'Только для чтения: при импорте не меняется';
@@ -197,7 +210,7 @@ function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDe
       const col = Number(cellPrimitive(row.getCell(1).value));
       const fieldId = String(cellPrimitive(row.getCell(2).value) ?? '');
       const kind = String(cellPrimitive(row.getCell(3).value) ?? '') as ColKind;
-      if (!Number.isInteger(col)) return;
+      if (!Number.isInteger(col) || kind === 'derived') return;
       if (kind === 'id') {
         cols.set(col, { kind });
         return;
@@ -221,6 +234,7 @@ function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDe
         cols.set(col, { kind: 'id' });
         return;
       }
+      if (h.toLowerCase() === DAYS_LEFT_HEADER.toLowerCase()) return;
       const field = reg.fields.find((f) => f.label.trim().toLowerCase() === h.toLowerCase());
       const docField = reg.fields.find((f) => f.type === 'decision' && `${f.label}: документ`.toLowerCase() === h.toLowerCase());
       if (docField) cols.set(col, { kind: 'doc', field: docField });
@@ -340,7 +354,10 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
       for (const [col, c] of cols) {
         if (c.kind !== 'readonly' || !c.field) continue;
         const v = cellPrimitive(row.getCell(col).value);
-        const inFile = v === null ? '' : v instanceof Date ? v.toISOString().slice(0, 10).split('-').reverse().join('.') : String(v).trim();
+        const inFile = v === null ? ''
+          : v instanceof Date ? (Number.isNaN(v.getTime()) ? '' : v.toISOString().slice(0, 10).split('-').reverse().join('.'))
+          : typeof v === 'number' ? formatNumberRu(v)
+          : String(v).trim();
         if (inFile !== (shownNow[c.field.id] ?? '')) readonlyChanged++;
       }
     }
@@ -400,7 +417,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
 
 export async function getImport(db: Db, id: string) {
   const imp = await db.registerImport.findUnique({ where: { id } });
-  if (!imp) throw notFound('Импорт');
+  if (!imp || imp.kind !== 'records') throw notFound('Импорт');
   const status = imp.status === 'preview' && imp.expiresAt < new Date() ? 'expired' : imp.status;
   return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary: imp.summary as unknown as ImportSummary };
 }
@@ -414,6 +431,7 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM register_imports WHERE id = ${importId}::uuid FOR UPDATE`;
     if (!locked.length) throw notFound('Импорт');
     const imp = await tx.registerImport.findUniqueOrThrow({ where: { id: importId } });
+    if (imp.kind !== 'records') throw notFound('Импорт');
     if (imp.createdBy !== actor.id) throw new AppError(403, 'IMPORT_OTHER_USER', 'Применить импорт может только тот, кто загрузил файл');
     if (imp.status !== 'preview') throw conflict('IMPORT_NOT_PENDING', 'Этот импорт уже применён или отменён');
     if (imp.expiresAt < new Date()) {
@@ -436,8 +454,10 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
     // Записи не должны были измениться после предпросмотра.
     const ids = payload.updates.map((u) => u.recordId);
     const current = ids.length
-      ? await tx.$queryRaw<{ id: string; number: number; values: Values; version: number; archived_at: Date | null; deleted_at: Date | null }[]>`
-          SELECT id, number, "values", version, archived_at, deleted_at FROM register_records
+      ? await tx.$queryRaw<{
+          id: string; number: number; values: Values; version: number; manual_field_ids: string[]; archived_at: Date | null; deleted_at: Date | null;
+        }[]>`
+          SELECT id, number, "values", version, manual_field_ids, archived_at, deleted_at FROM register_records
           WHERE id = ANY(${ids}::uuid[]) FOR UPDATE`
       : [];
     const byId = new Map(current.map((r) => [r.id, r]));
@@ -463,14 +483,17 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
     for (const u of payload.updates) {
       const r = byId.get(u.recordId);
       if (!r) continue;
-      const values = { ...r.values, ...u.changes };
+      // Вычисляемые поля и решения импорт не трогает; критичность уязвимости пересчитывается, если не правлена вручную.
+      const { values, manualFieldIds, derived } = applyDerived(reg, {
+        before: r.values, after: { ...r.values, ...u.changes }, manual: r.manual_field_ids, edited: Object.keys(u.changes), isNew: false,
+      });
       await tx.registerRecord.update({
         where: { id: r.id },
-        data: { values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, r.number, values, users), version: { increment: 1 } },
+        data: { values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, r.number, values, users), version: { increment: 1 } },
       });
-      const changes = Object.keys(u.changes).map((fid) => {
+      const changes = [...new Set([...Object.keys(u.changes), ...derived])].filter((fid) => !sameValue(r.values[fid], values[fid])).map((fid) => {
         const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
-        return { fieldId: fid, label: f.label, from: displayValue(f, r.values[fid], { users }), to: displayValue(f, u.changes[fid], { users }) };
+        return { fieldId: fid, label: f.label, from: displayValue(f, r.values[fid], { users }), to: displayValue(f, values[fid], { users }) };
       });
       await auditSettings(tx, actor, {
         action: 'register_record.updated', entity: 'register_record', entityId: r.id,
@@ -484,10 +507,10 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
     const firstStatus = status?.options.find((o) => !o.archived);
     let number = payload.creates.length ? await nextNumbers(tx, reg.id, payload.creates.length) : 0;
     for (const c of payload.creates) {
-      const values: Values = { ...c.values };
+      const { values, manualFieldIds } = applyDerived(reg, { before: {}, after: { ...c.values }, manual: [], edited: Object.keys(c.values), isNew: true });
       if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
       const rec = await tx.registerRecord.create({
-        data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, number, values, users) },
+        data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users) },
       });
       const changes = Object.keys(values).map((fid) => {
         const f = reg.fields.find((x) => x.id === fid) as FieldMeta;

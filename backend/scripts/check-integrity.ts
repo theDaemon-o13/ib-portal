@@ -3,6 +3,7 @@
 // Ничего не меняет, только читает. Код выхода 1, если что-то не так.
 import { createPrisma } from '../src/lib/db.js';
 import { APPROVAL_PERMISSIONS, PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../src/lib/permissions.js';
+import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -38,6 +39,28 @@ async function main() {
     SELECT bool_or(has_table_privilege('ibportal_app', 'public.register_decisions', p)) AS granted
     FROM unnest(ARRAY['UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
   check(decisionPrivs[0]?.granted === false, 'ibportal_app: нет UPDATE, DELETE, TRUNCATE на register_decisions');
+
+  // Этап 4: роль приложения пишет в новые таблицы (права — через ALTER DEFAULT PRIVILEGES).
+  for (const table of ['scan_reports', 'scan_hosts', 'register_automations', 'automation_events']) {
+    const ok = await prisma.$queryRaw<{ ok: boolean }[]>`
+      SELECT bool_and(has_table_privilege('ibportal_app', ${`public.${table}`}, p)) AS ok
+      FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE']) AS p`;
+    check(ok[0]?.ok === true, `ibportal_app: SELECT, INSERT, UPDATE на ${table}`);
+  }
+
+  // Системный реестр уязвимостей: все системные поля на месте (формулы и импорт ищут их по ключу).
+  const vulns = await prisma.register.findUnique({
+    where: { systemKey: VULN_REGISTER_KEY },
+    include: { fields: { where: { deletedAt: null, systemKey: { not: null } }, select: { systemKey: true, archivedAt: true } } },
+  });
+  check(vulns !== null, 'есть системный «Реестр уязвимостей»', 'выполните seed');
+  if (vulns) {
+    const keys = new Set(vulns.fields.filter((f) => f.archivedAt === null).map((f) => f.systemKey));
+    const missing = VULN_FIELDS.filter((f) => !keys.has(f.key)).map((f) => f.label);
+    check(missing.length === 0, 'у реестра уязвимостей все системные поля', `нет: ${missing.join(', ')}`);
+    const rules = await prisma.registerAutomation.count({ where: { registerId: vulns.id, systemKey: { not: null }, deletedAt: null } });
+    check(rules === 3, 'системные правила п. 7.4 на месте (3)', `найдено ${rules}`);
+  }
 
   const appCanCreate = await prisma.$queryRaw<{ ok: boolean }[]>`
     SELECT has_schema_privilege('ibportal_app', 'public', 'CREATE') AS ok`;

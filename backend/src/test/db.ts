@@ -80,3 +80,9 @@ export async function expectCode(p: Promise<unknown>, code: string): Promise<voi
   }
   throw new Error(`ожидалась ошибка ${code}, но операция выполнилась`);
 }
+
+/** Значение должно быть: иначе тест падает с понятным сообщением (вместо `!`). */
+export function must<T>(v: T | null | undefined, what = 'значение'): T {
+  if (v === null || v === undefined) throw new Error(`нет: ${what}`);
+  return v;
+}

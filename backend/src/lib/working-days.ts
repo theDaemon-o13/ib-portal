@@ -62,3 +62,9 @@ export function workingDaysBetween(from: Date, to: Date, cal: WorkCalendar): num
   }
   return count;
 }
+
+/** Ближайший рабочий день, начиная с самого d: срок на праздник или выходной переносится вперёд. */
+export function onOrNextWorkingDay(d: Date, cal: WorkCalendar): Date {
+  if (isWorkingDay(d, cal)) return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  return addWorkingDays(d, 1, cal);
+}

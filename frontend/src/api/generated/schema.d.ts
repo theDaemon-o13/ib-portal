@@ -5727,6 +5727,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -5736,7 +5737,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -5745,9 +5752,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -5755,6 +5767,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -5885,6 +5898,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -5894,7 +5908,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -5903,9 +5923,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -5913,6 +5938,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -6044,6 +6070,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -6053,7 +6080,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -6062,9 +6095,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6072,6 +6110,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -6345,6 +6384,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -6354,7 +6394,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -6363,9 +6409,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6373,6 +6424,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -6511,6 +6563,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -6520,7 +6573,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -6529,9 +6588,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6539,6 +6603,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -6673,6 +6738,8 @@ export interface paths {
                                 [key: string]: number;
                             };
                             overrideFieldId: string | null;
+                            overrideWhenFilledFieldId?: string | null;
+                            shiftToWorkday?: boolean;
                         };
                     };
                 };
@@ -6691,6 +6758,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -6700,7 +6768,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -6709,9 +6783,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6719,6 +6798,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -6857,6 +6937,8 @@ export interface paths {
                                 [key: string]: number;
                             };
                             overrideFieldId: string | null;
+                            overrideWhenFilledFieldId?: string | null;
+                            shiftToWorkday?: boolean;
                         };
                     };
                 };
@@ -6875,6 +6957,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -6884,7 +6967,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -6893,9 +6982,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6903,6 +6997,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -7038,6 +7133,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -7047,7 +7143,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -7056,9 +7158,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7066,6 +7173,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -7204,6 +7312,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -7213,7 +7322,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -7222,9 +7337,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7232,6 +7352,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -7370,6 +7491,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -7379,7 +7501,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -7388,9 +7516,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7398,6 +7531,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -7536,6 +7670,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -7545,7 +7680,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -7554,9 +7695,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7564,6 +7710,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -7848,6 +7995,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -7857,7 +8005,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -7866,9 +8020,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7876,6 +8035,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8014,6 +8174,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -8023,7 +8184,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -8032,9 +8199,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8042,6 +8214,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8186,6 +8359,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -8195,7 +8369,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -8204,9 +8384,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8214,6 +8399,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8349,6 +8535,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -8358,7 +8545,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -8367,9 +8560,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8377,6 +8575,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8515,6 +8714,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -8524,7 +8724,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -8533,9 +8739,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8543,6 +8754,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8681,6 +8893,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -8690,7 +8903,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -8699,9 +8918,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8709,6 +8933,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8847,6 +9072,7 @@ export interface paths {
                             ownerUserId: string | null;
                             archived: boolean;
                             version: number;
+                            systemKey: string | null;
                             fields: {
                                 id: string;
                                 label: string;
@@ -8856,7 +9082,13 @@ export interface paths {
                                 analyticsRole: string | null;
                                 isTitle: boolean;
                                 isStatus: boolean;
-                                calcRule: {
+                                calcRule: ({
+                                    /** @enum {string} */
+                                    kind: "vuln_score";
+                                    cvssFieldId: string;
+                                    exploitFieldId: string;
+                                    fixFieldId: string;
+                                } | {
                                     /** Format: uuid */
                                     fromFieldId: string;
                                     /** Format: uuid */
@@ -8865,9 +9097,14 @@ export interface paths {
                                         [key: string]: number;
                                     };
                                     overrideFieldId: string | null;
-                                } | null;
+                                    overrideWhenFilledFieldId?: string | null;
+                                    shiftToWorkday?: boolean;
+                                    /** @enum {string} */
+                                    kind?: "due_date";
+                                }) | null;
                                 archived: boolean;
                                 version: number;
+                                systemKey: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8875,6 +9112,7 @@ export interface paths {
                                     archived: boolean;
                                     sortOrder: number;
                                     version: number;
+                                    systemKey: string | null;
                                 }[];
                             }[];
                         };
@@ -8990,6 +9228,7 @@ export interface paths {
                     sort?: string;
                     dir?: "asc" | "desc";
                     includeArchived?: "true" | "false";
+                    withEvents?: "true" | "false";
                 };
                 header?: never;
                 path: {
@@ -9016,7 +9255,7 @@ export interface paths {
                                     [key: string]: string;
                                 };
                                 calc: {
-                                    [key: string]: string | null;
+                                    [key: string]: string | number | null;
                                 };
                                 decisions: {
                                     [key: string]: {
@@ -9032,6 +9271,14 @@ export interface paths {
                                 };
                                 closed: boolean;
                                 archived: boolean;
+                                manualFieldIds: string[];
+                                deadline: {
+                                    date: string | null;
+                                    daysLeft: number | null;
+                                    /** @enum {string} */
+                                    state: "overdue" | "soon" | "ok" | "closed" | "none";
+                                } | null;
+                                openEvents: number;
                                 version: number;
                                 createdAt: string;
                                 updatedAt: string;
@@ -9165,7 +9412,7 @@ export interface paths {
                                 [key: string]: string;
                             };
                             calc: {
-                                [key: string]: string | null;
+                                [key: string]: string | number | null;
                             };
                             decisions: {
                                 [key: string]: {
@@ -9181,6 +9428,14 @@ export interface paths {
                             };
                             closed: boolean;
                             archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9315,7 +9570,7 @@ export interface paths {
                                 [key: string]: string;
                             };
                             calc: {
-                                [key: string]: string | null;
+                                [key: string]: string | number | null;
                             };
                             decisions: {
                                 [key: string]: {
@@ -9331,6 +9586,14 @@ export interface paths {
                             };
                             closed: boolean;
                             archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9466,7 +9729,7 @@ export interface paths {
                                 [key: string]: string;
                             };
                             calc: {
-                                [key: string]: string | null;
+                                [key: string]: string | number | null;
                             };
                             decisions: {
                                 [key: string]: {
@@ -9482,6 +9745,14 @@ export interface paths {
                             };
                             closed: boolean;
                             archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9718,6 +9989,173 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/register-records/{id}/auto/{fieldId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Считать поле автоматически (снять ручную правку критичности) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    fieldId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            values: {
+                                [key: string]: string | number;
+                            };
+                            display: {
+                                [key: string]: string;
+                            };
+                            calc: {
+                                [key: string]: string | number | null;
+                            };
+                            decisions: {
+                                [key: string]: {
+                                    optionId: string;
+                                    label: string;
+                                    documentTitle: string;
+                                    documentNumber: string;
+                                    documentDate: string;
+                                    hasFile: boolean;
+                                    decidedAt: string;
+                                    decidedBy: string;
+                                } | null;
+                            };
+                            closed: boolean;
+                            archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
+                            version: number;
+                            createdAt: string;
+                            updatedAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/register-records/{id}/archive": {
         parameters: {
             query?: never;
@@ -9761,7 +10199,7 @@ export interface paths {
                                 [key: string]: string;
                             };
                             calc: {
-                                [key: string]: string | null;
+                                [key: string]: string | number | null;
                             };
                             decisions: {
                                 [key: string]: {
@@ -9777,6 +10215,14 @@ export interface paths {
                             };
                             closed: boolean;
                             archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9919,7 +10365,7 @@ export interface paths {
                                 [key: string]: string;
                             };
                             calc: {
-                                [key: string]: string | null;
+                                [key: string]: string | number | null;
                             };
                             decisions: {
                                 [key: string]: {
@@ -9935,6 +10381,14 @@ export interface paths {
                             };
                             closed: boolean;
                             archived: boolean;
+                            manualFieldIds: string[];
+                            deadline: {
+                                date: string | null;
+                                daysLeft: number | null;
+                                /** @enum {string} */
+                                state: "overdue" | "soon" | "ok" | "closed" | "none";
+                            } | null;
+                            openEvents: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10633,6 +11087,2350 @@ export interface paths {
         get?: never;
         put?: never;
         /** Отменить импорт */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/scan-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отчёт сканера, шаг 1: предпросмотр (новые, дубли «CVE + пакет», хосты). Тело — файл .xlsx, имя — в X-File-Name */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            status: string;
+                            expiresAt: string;
+                            summary: {
+                                fileName: string;
+                                sheet: string;
+                                department: string;
+                                reportDate: string | null;
+                                rows: number;
+                                created: number;
+                                merged: number;
+                                mergedChanged: number;
+                                inFileDuplicates: number;
+                                errorRows: number;
+                                hostsCount: number;
+                                hosts: {
+                                    name: string;
+                                    ip: string;
+                                    os: string;
+                                }[];
+                                critCounts: {
+                                    /** @enum {string} */
+                                    key: "critical" | "high" | "medium" | "low";
+                                    label: string;
+                                    count: number;
+                                }[];
+                                newOptions: {
+                                    field: string;
+                                    values: string[];
+                                }[];
+                                duplicates: {
+                                    row: number;
+                                    cve: string;
+                                    pkg: string;
+                                    recordId: string;
+                                    number: number;
+                                    hitsBefore: number | null;
+                                    hitsAfter: number | null;
+                                }[];
+                                items: {
+                                    row: number;
+                                    cve: string;
+                                    pkg: string;
+                                    cvss: number | null;
+                                    score: number | null;
+                                    crit: string;
+                                }[];
+                                errors: {
+                                    row: number;
+                                    field: string | null;
+                                    message: string;
+                                }[];
+                                warnings: string[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scan-imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Предпросмотр отчёта сканера */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            status: string;
+                            expiresAt: string;
+                            summary: {
+                                fileName: string;
+                                sheet: string;
+                                department: string;
+                                reportDate: string | null;
+                                rows: number;
+                                created: number;
+                                merged: number;
+                                mergedChanged: number;
+                                inFileDuplicates: number;
+                                errorRows: number;
+                                hostsCount: number;
+                                hosts: {
+                                    name: string;
+                                    ip: string;
+                                    os: string;
+                                }[];
+                                critCounts: {
+                                    /** @enum {string} */
+                                    key: "critical" | "high" | "medium" | "low";
+                                    label: string;
+                                    count: number;
+                                }[];
+                                newOptions: {
+                                    field: string;
+                                    values: string[];
+                                }[];
+                                duplicates: {
+                                    row: number;
+                                    cve: string;
+                                    pkg: string;
+                                    recordId: string;
+                                    number: number;
+                                    hitsBefore: number | null;
+                                    hitsAfter: number | null;
+                                }[];
+                                items: {
+                                    row: number;
+                                    cve: string;
+                                    pkg: string;
+                                    cvss: number | null;
+                                    score: number | null;
+                                    crit: string;
+                                }[];
+                                errors: {
+                                    row: number;
+                                    field: string | null;
+                                    message: string;
+                                }[];
+                                warnings: string[];
+                            };
+                            registerId: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scan-imports/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отчёт сканера, шаг 2: применить одной транзакцией. Дата отчёта обязательна, если её нет в имени файла */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        reportDate?: string | null;
+                        notifiedDate?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            reportId: string;
+                            label: string;
+                            created: number;
+                            merged: number;
+                            updated: number;
+                            skipped: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/scan-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Загруженные отчёты сканера с хостами */
+        get: {
+            parameters: {
+                query?: {
+                    includeArchived?: "true" | "false";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                label: string;
+                                fileName: string;
+                                department: string;
+                                reportDate: string;
+                                notifiedDate: string;
+                                rowsTotal: number;
+                                createdCount: number;
+                                mergedCount: number;
+                                hostsCount: number;
+                                createdBy: string;
+                                createdAt: string;
+                                archived: boolean;
+                                hosts: {
+                                    name: string;
+                                    ip: string;
+                                    os: string;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scan-reports/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отчёт сканера в архив */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scan-reports/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть отчёт из архива */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/automations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Правила «условие → действие» реестра */
+        get: {
+            parameters: {
+                query?: {
+                    includeArchived?: "true" | "false";
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                registerId: string;
+                                systemKey: string | null;
+                                condition: {
+                                    /** @enum {string} */
+                                    kind: "before";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                    days: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "overdue";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                    workdays?: number | null;
+                                    unlessFilledFieldId?: string | null;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "equals";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                    /** Format: uuid */
+                                    optionId: string;
+                                };
+                                action: {
+                                    /** @enum {string} */
+                                    eventType: "remind" | "notify" | "escalate";
+                                    recipients: ({
+                                        /** @enum {string} */
+                                        kind: "field";
+                                        /** Format: uuid */
+                                        fieldId: string;
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "label";
+                                        label: string;
+                                    })[];
+                                };
+                                enabled: boolean;
+                                archived: boolean;
+                                version: number;
+                                when: string;
+                                then: string;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Добавить правило */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        condition: {
+                            /** @enum {string} */
+                            kind: "before";
+                            /** Format: uuid */
+                            fieldId: string;
+                            days: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "overdue";
+                            /** Format: uuid */
+                            fieldId: string;
+                            workdays?: number | null;
+                            unlessFilledFieldId?: string | null;
+                        } | {
+                            /** @enum {string} */
+                            kind: "equals";
+                            /** Format: uuid */
+                            fieldId: string;
+                            /** Format: uuid */
+                            optionId: string;
+                        };
+                        action: {
+                            /** @enum {string} */
+                            eventType: "remind" | "notify" | "escalate";
+                            recipients: ({
+                                /** @enum {string} */
+                                kind: "field";
+                                /** Format: uuid */
+                                fieldId: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "label";
+                                label: string;
+                            })[];
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            registerId: string;
+                            systemKey: string | null;
+                            condition: {
+                                /** @enum {string} */
+                                kind: "before";
+                                /** Format: uuid */
+                                fieldId: string;
+                                days: number;
+                            } | {
+                                /** @enum {string} */
+                                kind: "overdue";
+                                /** Format: uuid */
+                                fieldId: string;
+                                workdays?: number | null;
+                                unlessFilledFieldId?: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "equals";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                            };
+                            action: {
+                                /** @enum {string} */
+                                eventType: "remind" | "notify" | "escalate";
+                                recipients: ({
+                                    /** @enum {string} */
+                                    kind: "field";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "label";
+                                    label: string;
+                                })[];
+                            };
+                            enabled: boolean;
+                            archived: boolean;
+                            version: number;
+                            when: string;
+                            then: string;
+                            createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-automations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить правило или включить/выключить (системное — только включить/выключить) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        condition?: {
+                            /** @enum {string} */
+                            kind: "before";
+                            /** Format: uuid */
+                            fieldId: string;
+                            days: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "overdue";
+                            /** Format: uuid */
+                            fieldId: string;
+                            workdays?: number | null;
+                            unlessFilledFieldId?: string | null;
+                        } | {
+                            /** @enum {string} */
+                            kind: "equals";
+                            /** Format: uuid */
+                            fieldId: string;
+                            /** Format: uuid */
+                            optionId: string;
+                        };
+                        action?: {
+                            /** @enum {string} */
+                            eventType: "remind" | "notify" | "escalate";
+                            recipients: ({
+                                /** @enum {string} */
+                                kind: "field";
+                                /** Format: uuid */
+                                fieldId: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "label";
+                                label: string;
+                            })[];
+                        };
+                        enabled?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            registerId: string;
+                            systemKey: string | null;
+                            condition: {
+                                /** @enum {string} */
+                                kind: "before";
+                                /** Format: uuid */
+                                fieldId: string;
+                                days: number;
+                            } | {
+                                /** @enum {string} */
+                                kind: "overdue";
+                                /** Format: uuid */
+                                fieldId: string;
+                                workdays?: number | null;
+                                unlessFilledFieldId?: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "equals";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                            };
+                            action: {
+                                /** @enum {string} */
+                                eventType: "remind" | "notify" | "escalate";
+                                recipients: ({
+                                    /** @enum {string} */
+                                    kind: "field";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "label";
+                                    label: string;
+                                })[];
+                            };
+                            enabled: boolean;
+                            archived: boolean;
+                            version: number;
+                            when: string;
+                            then: string;
+                            createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/register-automations/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Правило в архив */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            registerId: string;
+                            systemKey: string | null;
+                            condition: {
+                                /** @enum {string} */
+                                kind: "before";
+                                /** Format: uuid */
+                                fieldId: string;
+                                days: number;
+                            } | {
+                                /** @enum {string} */
+                                kind: "overdue";
+                                /** Format: uuid */
+                                fieldId: string;
+                                workdays?: number | null;
+                                unlessFilledFieldId?: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "equals";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                            };
+                            action: {
+                                /** @enum {string} */
+                                eventType: "remind" | "notify" | "escalate";
+                                recipients: ({
+                                    /** @enum {string} */
+                                    kind: "field";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "label";
+                                    label: string;
+                                })[];
+                            };
+                            enabled: boolean;
+                            archived: boolean;
+                            version: number;
+                            when: string;
+                            then: string;
+                            createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-automations/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть правило из архива */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            registerId: string;
+                            systemKey: string | null;
+                            condition: {
+                                /** @enum {string} */
+                                kind: "before";
+                                /** Format: uuid */
+                                fieldId: string;
+                                days: number;
+                            } | {
+                                /** @enum {string} */
+                                kind: "overdue";
+                                /** Format: uuid */
+                                fieldId: string;
+                                workdays?: number | null;
+                                unlessFilledFieldId?: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "equals";
+                                /** Format: uuid */
+                                fieldId: string;
+                                /** Format: uuid */
+                                optionId: string;
+                            };
+                            action: {
+                                /** @enum {string} */
+                                eventType: "remind" | "notify" | "escalate";
+                                recipients: ({
+                                    /** @enum {string} */
+                                    kind: "field";
+                                    /** Format: uuid */
+                                    fieldId: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "label";
+                                    label: string;
+                                })[];
+                            };
+                            enabled: boolean;
+                            archived: boolean;
+                            version: number;
+                            when: string;
+                            then: string;
+                            createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-automations/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить правило без событий */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/automations/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверить правила реестра сейчас (без ожидания часового прогона) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ran: boolean;
+                            today: string;
+                            rules: number;
+                            checked: number;
+                            created: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/automation-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** События автоматизаций реестра или записи */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                    status?: "new" | "processed";
+                    recordId?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                recordId: string;
+                                recordNumber: number;
+                                recordTitle: string;
+                                automationId: string;
+                                when: string;
+                                then: string;
+                                /** @enum {string} */
+                                eventType: "remind" | "notify" | "escalate";
+                                recipients: ({
+                                    /** @enum {string} */
+                                    kind: "user";
+                                    userId: string;
+                                    name: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "label";
+                                    label: string;
+                                })[];
+                                triggerKey: string;
+                                fireAt: string;
+                                /** @enum {string} */
+                                status: "new" | "processed";
+                                processedAt: string | null;
+                                processedBy: string | null;
+                                createdAt: string;
+                            }[];
+                            nextCursor: string | null;
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation-events/{id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отметить событие обработанным */
         post: {
             parameters: {
                 query?: never;

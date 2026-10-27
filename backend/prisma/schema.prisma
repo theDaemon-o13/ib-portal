@@ -35,8 +35,11 @@ model User {
   ownedRegisters  Register[]
   decisions       RegisterDecision[]
   registerImports RegisterImport[]
-  roles           UserRole[]         @relation("UserRoles")
-  assignedRoles   UserRole[]         @relation("UserRolesAssignedBy")
+  scanReports     ScanReport[]
+  automations     RegisterAutomation[]
+  processedEvents AutomationEvent[]
+  roles           UserRole[]           @relation("UserRoles")
+  assignedRoles   UserRole[]           @relation("UserRolesAssignedBy")
   sessions        Session[]
   auditEntries    AuditLog[]
 
@@ -268,7 +271,7 @@ model Register {
   name        String
   description String    @default("")
   ownerUserId String?   @map("owner_user_id") @db.Uuid
-  /// Резерв для системных реестров (реестр уязвимостей — этап 4).
+  /// Системный реестр: vulns — реестр уязвимостей (этап 4). Не архивируется.
   systemKey   String?   @unique @map("system_key")
   /// Следующий номер записи (колонка ID в Excel).
   nextNumber  Int       @default(1) @map("next_number")
@@ -277,10 +280,13 @@ model Register {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  owner   User?            @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
-  fields  RegisterField[]
-  records RegisterRecord[]
-  imports RegisterImport[]
+  owner       User?                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  fields      RegisterField[]
+  records     RegisterRecord[]
+  imports     RegisterImport[]
+  scanReports ScanReport[]
+  automations RegisterAutomation[]
+  events      AutomationEvent[]
 
   @@map("registers")
 }
@@ -298,8 +304,11 @@ model RegisterField {
   isTitle       Boolean   @default(false) @map("is_title")
   /// Поле статуса (один список в реестре); закрытые варианты — is_closed.
   isStatus      Boolean   @default(false) @map("is_status")
-  /// Только у вычисляемого поля: { fromFieldId, byFieldId, days: { optionId: N }, overrideFieldId }
+  /// Только у вычисляемого поля. kind: due_date (по умолчанию) | vuln_score — см. lib/register-values.ts
   calcRule      Json?     @map("calc_rule")
+  /// Системное поле: переименовать можно, удалить, архивировать и сменить тип — нет.
+  /// Уникален в пределах реестра (частичный индекс в SQL миграции).
+  systemKey     String?   @map("system_key")
   version       Int       @default(1)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -321,6 +330,8 @@ model RegisterFieldOption {
   sortOrder  Int       @default(0) @map("sort_order")
   /// Закрытый статус (для поля-статуса).
   isClosed   Boolean   @default(false) @map("is_closed")
+  /// Системное значение (например, «Есть, эксплуатируется» для множителя Кэ): не удаляется и не архивируется.
+  systemKey  String?   @map("system_key")
   version    Int       @default(1)
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -335,22 +346,25 @@ model RegisterFieldOption {
 }
 
 model RegisterRecord {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  registerId String    @map("register_id") @db.Uuid
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId     String    @map("register_id") @db.Uuid
   /// Номер записи в реестре — колонка ID при экспорте и импорте.
-  number     Int
+  number         Int
   /// { fieldId: значение }. Вычисляемые поля и решения здесь не хранятся.
-  values     Json      @default("{}")
+  values         Json      @default("{}")
   /// Отображаемые значения для поиска; пересчитываются при записи.
-  searchText String    @default("") @map("search_text")
-  version    Int       @default(1)
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  searchText     String    @default("") @map("search_text")
+  /// Поля, исправленные вручную: автоматический пересчёт их не перетирает (критичность уязвимости).
+  manualFieldIds String[]  @default([]) @map("manual_field_ids") @db.Uuid
+  version        Int       @default(1)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   register  Register           @relation(fields: [registerId], references: [id], onDelete: Restrict)
   decisions RegisterDecision[]
+  events    AutomationEvent[]
 
   @@unique([registerId, number])
   @@map("register_records")
@@ -383,6 +397,8 @@ model RegisterDecision {
 model RegisterImport {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   registerId String    @map("register_id") @db.Uuid
+  /// records — обычный импорт Excel; scan — отчёт сканера (CHECK в SQL миграции)
+  kind       String    @default("records")
   /// preview | applied | cancelled | expired
   status     String    @default("preview")
   fileName   String    @map("file_name")
@@ -395,9 +411,121 @@ model RegisterImport {
   appliedAt  DateTime? @map("applied_at") @db.Timestamptz(3)
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
 
-  register Register @relation(fields: [registerId], references: [id], onDelete: Restrict)
-  author   User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  register   Register    @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  author     User        @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  scanReport ScanReport?
 
   @@index([registerId, createdAt])
   @@map("register_imports")
+}
+
+// ---------------------------------------------------------------------------
+// Реестр уязвимостей (этап 4): отчёты сканера и их хосты.
+// ---------------------------------------------------------------------------
+
+/// Применённый отчёт сканера. Создаётся одной транзакцией с записями реестра.
+model ScanReport {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId   String    @map("register_id") @db.Uuid
+  importId     String    @unique @map("import_id") @db.Uuid
+  fileName     String    @map("file_name")
+  fileSha256   String    @map("file_sha256")
+  /// Дата отчёта: из имени файла (ГГГГ-ММ-ДД) или введена в предпросмотре.
+  reportDate   DateTime  @map("report_date") @db.Date
+  /// Дата передачи отчёта в ДИКТ — от неё считается срок п. 7.2.
+  notifiedDate DateTime  @map("notified_date") @db.Date
+  /// Ячейка A1 листа «Хосты».
+  department   String    @default("")
+  /// Значение поля «Отчёт сканирования»: «Отдел · 15.10.2026».
+  label        String
+  rowsTotal    Int       @map("rows_total")
+  createdCount Int       @map("created_count")
+  mergedCount  Int       @map("merged_count")
+  hostsCount   Int       @map("hosts_count")
+  createdBy    String    @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  register Register       @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  import   RegisterImport @relation(fields: [importId], references: [id], onDelete: Restrict)
+  author   User           @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  hosts    ScanHost[]
+
+  @@index([registerId, reportDate])
+  @@map("scan_reports")
+}
+
+model ScanHost {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId  String @map("report_id") @db.Uuid
+  sortOrder Int    @map("sort_order")
+  name      String
+  ip        String @default("")
+  os        String @default("")
+
+  report ScanReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+
+  @@index([reportId, sortOrder])
+  @@map("scan_hosts")
+}
+
+// ---------------------------------------------------------------------------
+// Автоматизации «условие → действие» (этап 4). До появления задач (этап 5) действие —
+// событие в automation_events; на этапе 5 события превращаются в задачи.
+// ---------------------------------------------------------------------------
+
+model RegisterAutomation {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId String    @map("register_id") @db.Uuid
+  /// Системное правило (п. 7.4): не удаляется, только выключается.
+  systemKey  String?   @map("system_key")
+  /// { kind: before | overdue | equals, ... } — см. modules/automations/conditions.ts
+  condition  Json
+  /// { eventType: remind | notify | escalate, recipients: [...] }
+  action     Json
+  enabled    Boolean   @default(true)
+  version    Int       @default(1)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  register Register          @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  author   User?             @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  events   AutomationEvent[]
+
+  @@index([registerId])
+  @@map("register_automations")
+}
+
+/// Событие автоматизации. Уникально по (правило, запись, trigger_key): повторный прогон дублей не создаёт.
+model AutomationEvent {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId   String    @map("register_id") @db.Uuid
+  recordId     String    @map("record_id") @db.Uuid
+  automationId String    @map("automation_id") @db.Uuid
+  /// remind | notify | escalate
+  eventType    String    @map("event_type")
+  /// Снимок получателей на момент события: [{ kind: user, userId, name } | { kind: label, label }]
+  recipients   Json
+  /// Что сработало: дата срока (before, overdue) или id значения (equals).
+  triggerKey   String    @map("trigger_key")
+  /// День срабатывания (по часовому поясу портала).
+  fireAt       DateTime  @map("fire_at") @db.Date
+  /// new | processed
+  status       String    @default("new")
+  processedAt  DateTime? @map("processed_at") @db.Timestamptz(3)
+  processedBy  String?   @map("processed_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  register   Register           @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  record     RegisterRecord     @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  automation RegisterAutomation @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  processor  User?              @relation(fields: [processedBy], references: [id], onDelete: Restrict)
+
+  @@unique([automationId, recordId, triggerKey])
+  @@index([registerId, status, createdAt])
+  @@index([recordId])
+  @@map("automation_events")
 }

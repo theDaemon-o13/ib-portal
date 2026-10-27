@@ -70,6 +70,15 @@ export async function listDays(db: Db, year: number): Promise<CalendarDayDto[]> 
   return rows.map(toDto);
 }
 
+/**
+ * Весь календарь (праздники и переносы — десятки строк в год): для сроков реестров,
+ * где даты записей разбросаны по годам.
+ */
+export async function loadFullWorkCalendar(db: Db): Promise<WorkCalendar> {
+  const [week, rows] = await Promise.all([getWorkWeek(db), db.workCalendarDay.findMany({ where: { deletedAt: null } })]);
+  return { weekendDays: week.weekendDays, days: new Map(rows.map((r) => [isoDate(r.day), r.kind as CalendarDayKind])) };
+}
+
 /** Календарь для расчёта рабочих дней (п. 7.4, разбор почты) на интервал дат. */
 export async function loadWorkCalendar(db: Db, from: Date, to: Date): Promise<WorkCalendar> {
   const [week, rows] = await Promise.all([

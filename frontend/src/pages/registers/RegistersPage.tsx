@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Navigate, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import type { Me } from '../../api/client';
 import { registersApi } from '../../api/registers';
+import { AutomationTab } from './AutomationTab';
 import { DashboardPreview } from './DashboardPreview';
 import { FieldsTab } from './FieldsTab';
 import { RecordsTab } from './RecordsTab';
@@ -58,6 +59,11 @@ export function RegistersPage() {
             <FieldsTab reg={reg} canManage={canManage && !reg.archived} />
           </div>
           <DashboardPreview registerId={reg.id} />
+        </div>
+      )}
+      {reg && tab === 'automation' && (
+        <div className="panel min0">
+          <AutomationTab key={reg.id} reg={reg} canManage={canManage && !reg.archived} />
         </div>
       )}
       {reg && tab === 'records' && (

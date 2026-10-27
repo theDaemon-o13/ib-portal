@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type MouseEvent } from 'react';
-import { registersApi, type CalcRule, type FieldType, type RegisterDetail, type RegisterField } from '../../api/registers';
+import { registersApi, type DueRule, type FieldType, type RegisterDetail, type RegisterField } from '../../api/registers';
 import { LockIcon } from '../../components/LockIcon';
 import { useAction } from '../settings/useAction';
 import { FieldDrawer } from './FieldDrawer';
@@ -14,7 +14,7 @@ const stop = (e: MouseEvent) => e.stopPropagation();
 
 export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: CalcRule | null }>({ label: '', type: 'text', options: '', role: '', rule: null });
+  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null }>({ label: '', type: 'text', options: '', role: '', rule: null });
 
   const invalidate = [rkeys.detail(reg.id), rkeys.records(reg.id), rkeys.list, rkeys.analytics(reg.id)];
   const setRole = useAction(({ f, role }: { f: RegisterField; role: string }) =>
@@ -68,6 +68,7 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
                       {f.isTitle && <span className="chip acc">Заголовок</span>}
                       {f.isStatus && <span className="chip info">Статус</span>}
                       {f.archived && <span className="chip">В архиве</span>}
+                      {f.systemKey && <span className="chip" title="Системное поле: переименовать можно, удалить и сменить тип — нет">Системное</span>}
                     </div>
                   </td>
                   <td>

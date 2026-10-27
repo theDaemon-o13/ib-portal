@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 
 type Tx = Prisma.TransactionClient;
 
-async function once(tx: Tx, key: string, fn: () => Promise<string>): Promise<void> {
+export async function once(tx: Tx, key: string, fn: () => Promise<string>): Promise<void> {
   if (await tx.seedMarker.findUnique({ where: { key } })) return;
   const summary = await fn();
   await tx.seedMarker.create({ data: { key } });

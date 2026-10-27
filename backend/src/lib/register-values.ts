@@ -1,9 +1,12 @@
-// Значения полей реестра: проверка ввода, отображение, вычисляемый срок, смена типа, разбор ячеек Excel.
-// Чистые функции без БД — правила этапа 3 проверяются модульными тестами.
+// Значения полей реестра: проверка ввода, отображение, вычисляемые поля, смена типа, разбор ячеек Excel.
+// Чистые функции без БД — правила этапов 3 и 4 проверяются модульными тестами.
 //
 // Хранение (register_records.values, ключ — id поля):
 //   text → строка; number → число; date → 'YYYY-MM-DD'; select → id варианта; user → id пользователя.
 //   Вычисляемое поле (calc) и решение другого отдела (decision) в values не хранятся никогда.
+
+import { vulnScore } from './vuln-score.js';
+import { onOrNextWorkingDay, parseIsoDate, isoDate, type WorkCalendar } from './working-days.js';
 
 export const FIELD_TYPES = ['text', 'select', 'number', 'date', 'user', 'calc', 'decision'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -32,13 +35,44 @@ export interface OptionDef {
   label: string;
   isClosed: boolean;
   archived: boolean;
+  /** Системное значение (множитель формулы, закрытый статус системного реестра). */
+  systemKey?: string | null;
 }
 
-export interface CalcRule {
+/**
+ * Срок: дата «от» + дни по значению списка. Правило без kind (этап 3) — тоже срок.
+ * overrideFieldId — дата, которая заменяет расчёт; если задан overrideWhenFilledFieldId,
+ * замена действует, только когда заполнено и это поле (п. 7.3: компенсирующие меры + срок ИБ).
+ */
+export interface DueDateRule {
+  kind?: 'due_date';
   fromFieldId: string;
   byFieldId: string;
   days: Record<string, number>;
   overrideFieldId: string | null;
+  overrideWhenFilledFieldId?: string | null;
+  /** Расчётный срок на нерабочий день переносится на ближайший рабочий (календарь РТ). */
+  shiftToWorkday?: boolean;
+}
+
+/** Оценка уязвимости: CVSS × Кэ × Ки (п. 7.1). Только у системного поля реестра уязвимостей. */
+export interface ScoreRule {
+  kind: 'vuln_score';
+  cvssFieldId: string;
+  exploitFieldId: string;
+  fixFieldId: string;
+}
+
+export type CalcRule = DueDateRule | ScoreRule;
+
+export function isScoreRule(rule: CalcRule): rule is ScoreRule {
+  return rule.kind === 'vuln_score';
+}
+
+/** Поля, на которые ссылается правило вычисления. */
+export function calcRuleFieldIds(rule: CalcRule): string[] {
+  if (isScoreRule(rule)) return [rule.cvssFieldId, rule.exploitFieldId, rule.fixFieldId];
+  return [rule.fromFieldId, rule.byFieldId, rule.overrideFieldId, rule.overrideWhenFilledFieldId ?? null].filter((x): x is string => !!x);
 }
 
 export interface FieldDef {
@@ -48,6 +82,8 @@ export interface FieldDef {
   options: OptionDef[];
   calcRule: CalcRule | null;
   archived: boolean;
+  /** Системное поле (реестр уязвимостей): не удаляется, не архивируется, тип не меняется. */
+  systemKey?: string | null;
 }
 
 export interface UserRef {
@@ -166,8 +202,10 @@ export function displayValue(field: FieldDef, v: StoredValue | undefined | null,
   switch (field.type) {
     case 'number':
       return typeof v === 'number' ? formatNumberRu(v) : String(v);
-    case 'date':
     case 'calc':
+      if (typeof v === 'number') return formatNumberRu(v);
+      return isIsoDate(v) ? formatDateRu(v) : v;
+    case 'date':
       return typeof v === 'string' && isIsoDate(v) ? formatDateRu(v) : String(v);
     case 'select':
     case 'decision':
@@ -182,20 +220,42 @@ export function displayValue(field: FieldDef, v: StoredValue | undefined | null,
   }
 }
 
-// ---------- вычисляемый срок ----------
+// ---------- вычисляемые поля ----------
+
+export interface CalcContext {
+  /** Поля реестра: для оценки уязвимости — системные ключи выбранных значений. */
+  fields?: readonly FieldDef[];
+  /** Производственный календарь: нужен правилу срока с переносом на рабочий день. */
+  calendar?: WorkCalendar | null;
+}
+
+const filled = (v: StoredValue | undefined) => v !== undefined && v !== null && String(v).trim() !== '';
 
 /**
- * Срок = дата «от» + дни по значению списка; если заполнена дата-переопределение — берётся она.
- * Только чтение: результат не сохраняется в values.
+ * Значение вычисляемого поля. Только чтение: результат не сохраняется в values.
+ *  срок — дата 'YYYY-MM-DD' или null; оценка — число или null.
  */
-export function calcValue(rule: CalcRule, values: Values): string | null {
+export function calcValue(rule: CalcRule, values: Values, ctx: CalcContext = {}): StoredValue | null {
+  if (isScoreRule(rule)) {
+    const cvss = values[rule.cvssFieldId];
+    const keyOf = (fieldId: string) => {
+      const f = ctx.fields?.find((x) => x.id === fieldId);
+      return f?.options.find((o) => o.id === values[fieldId])?.systemKey ?? null;
+    };
+    return vulnScore(typeof cvss === 'number' ? cvss : null, keyOf(rule.exploitFieldId), keyOf(rule.fixFieldId));
+  }
   const override = rule.overrideFieldId ? values[rule.overrideFieldId] : undefined;
-  if (typeof override === 'string' && isIsoDate(override)) return override;
+  const overrideAllowed = !rule.overrideWhenFilledFieldId || filled(values[rule.overrideWhenFilledFieldId]);
+  // Явная дата (решение ИБ по п. 7.3) не переносится: её выбрал человек.
+  if (overrideAllowed && typeof override === 'string' && isIsoDate(override)) return override;
   const from = values[rule.fromFieldId];
   const by = values[rule.byFieldId];
   if (typeof from !== 'string' || !isIsoDate(from) || typeof by !== 'string') return null;
   const days = rule.days[by];
-  return typeof days === 'number' ? addDays(from, days) : null;
+  if (typeof days !== 'number') return null;
+  const due = addDays(from, days);
+  if (rule.shiftToWorkday && ctx.calendar) return isoDate(onOrNextWorkingDay(parseIsoDate(due), ctx.calendar));
+  return due;
 }
 
 // ---------- смена типа поля ----------

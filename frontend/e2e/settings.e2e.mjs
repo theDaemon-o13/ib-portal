@@ -2,7 +2,7 @@
 // Chrome → Vite (прокси /api) → backend → PostgreSQL, с cookie сессии и заголовком Origin,
 // настоящими щелчками мыши и вводом с клавиатуры.
 //
-//   E2E_LOGIN=admin.dev E2E_PASSWORD=... npm run test:e2e
+//   npm run test:e2e   (логин и пароль — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
 // Нужно запущенное dev-окружение (deploy/docker-compose.dev.yml) и пользователь с ролью
 // «Супер-администратор». Тест создаёт свои значения с пометкой «E2E» и удаляет их; созданный им

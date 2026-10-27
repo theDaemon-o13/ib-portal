@@ -22,14 +22,23 @@ const Role = z.enum(ANALYTICS_ROLES);
 export const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export const IMPORT_BODY_LIMIT = 25 * 1024 * 1024;
 
+/** Правило срока (ввод): дата + дни по значению списка; замена датой — по желанию при заполненном поле; перенос на рабочий день. */
 const CalcRule = z.object({
   fromFieldId: z.string().uuid(),
   byFieldId: z.string().uuid(),
   days: z.record(z.string().uuid(), z.number().int().min(0).max(3650)),
   overrideFieldId: z.string().uuid().nullable(),
+  overrideWhenFilledFieldId: z.string().uuid().nullable().optional(),
+  shiftToWorkday: z.boolean().optional(),
 });
+/** Правило в ответе: срок или оценка уязвимости (только у системного поля). */
+const CalcRuleOut = z.union([
+  z.object({ kind: z.literal('vuln_score'), cvssFieldId: z.string(), exploitFieldId: z.string(), fixFieldId: z.string() }),
+  CalcRule.extend({ kind: z.literal('due_date').optional() }),
+]);
 const Option = z.object({
   id: z.string(), label: z.string(), isClosed: z.boolean(), archived: z.boolean(), sortOrder: z.number().int(), version: z.number().int(),
+  systemKey: z.string().nullable(),
 });
 const Field = z.object({
   id: z.string(),
@@ -39,9 +48,11 @@ const Field = z.object({
   analyticsRole: z.string().nullable(),
   isTitle: z.boolean(),
   isStatus: z.boolean(),
-  calcRule: CalcRule.nullable(),
+  calcRule: CalcRuleOut.nullable(),
   archived: z.boolean(),
   version: z.number().int(),
+  /** Системное поле: удалить, архивировать и сменить тип нельзя. */
+  systemKey: z.string().nullable(),
   options: z.array(Option),
 });
 export const RegisterDetail = z.object({
@@ -51,6 +62,8 @@ export const RegisterDetail = z.object({
   ownerUserId: z.string().nullable(),
   archived: z.boolean(),
   version: z.number().int(),
+  /** vulns — системный реестр уязвимостей. */
+  systemKey: z.string().nullable(),
   fields: z.array(Field),
 });
 const RegisterListItem = z.object({
@@ -72,10 +85,17 @@ export const RegisterRecord = z.object({
   number: z.number().int(),
   values: z.record(z.string(), z.union([z.string(), z.number()])),
   display: z.record(z.string(), z.string()),
-  calc: z.record(z.string(), z.string().nullable()),
+  calc: z.record(z.string(), z.union([z.string(), z.number()]).nullable()),
   decisions: z.record(z.string(), Decision.nullable()),
   closed: z.boolean(),
   archived: z.boolean(),
+  manualFieldIds: z.array(z.string()),
+  deadline: z.object({
+    date: z.string().nullable(),
+    daysLeft: z.number().int().nullable(),
+    state: z.enum(['overdue', 'soon', 'ok', 'closed', 'none']),
+  }).nullable(),
+  openEvents: z.number().int(),
   version: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -280,14 +300,18 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       tags: ['register-records'], summary: 'Записи реестра: поиск, сортировка, пагинация', params: IdParams,
       querystring: PageQuery.extend({
         q: z.string().max(200).optional(),
+        /** number, deadline (контроль сроков: просрочено → скоро → в срок → закрыто) или id поля. */
         sort: z.string().max(64).optional(),
         dir: z.enum(['asc', 'desc']).optional(),
         includeArchived: z.enum(['true', 'false']).optional(),
+        withEvents: z.enum(['true', 'false']).optional(),
       }),
       response: { 200: z.object({ items: z.array(RegisterRecord), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => {
-    const page = await records.listRecords(db, request.params.id, { ...request.query, includeArchived: request.query.includeArchived === 'true' });
+    const page = await records.listRecords(db, request.params.id, {
+      ...request.query, includeArchived: request.query.includeArchived === 'true', withEvents: request.query.withEvents === 'true',
+    });
     return { ...page, items: page.items.map(asRecord) };
   });
 
@@ -315,6 +339,14 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       body: Version.extend({ values: Values }), response: { 200: RegisterRecord, ...errors },
     },
   }, async (request) => asRecord(await records.updateRecord(db, actorOf(request), request.params.id, request.body)));
+
+  app.post('/register-records/:id/auto/:fieldId', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'], summary: 'Считать поле автоматически (снять ручную правку критичности)',
+      params: IdParams.extend({ fieldId: z.string().uuid() }), body: Version, response: { 200: RegisterRecord, ...errors },
+    },
+  }, async (request) => asRecord(await records.resetToAuto(db, actorOf(request), request.params.id, request.params.fieldId, request.body.version)));
 
   for (const [path, archived, summary] of [['archive', true, 'В архив'], ['restore', false, 'Вернуть из архива']] as const) {
     app.post(`/register-records/:id/${path}`, {

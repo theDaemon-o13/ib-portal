@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectCode, inTx, lastAudit, makeUser } from '../../test/db.js';
+import { expectCode, inTx, lastAudit, makeUser, must } from '../../test/db.js';
 import { makeRegister } from '../../test/registers-fixture.js';
 import { loadRegister } from './definition.js';
 import * as records from './records.service.js';
@@ -245,7 +245,15 @@ describe('записи', () => {
       const p1 = await records.listRecords(tx, x.reg.id, { limit: 2 });
       const p2 = await records.listRecords(tx, x.reg.id, { limit: 2, cursor: p1.nextCursor ?? undefined });
       expect([p1.items.length, p2.items.length, p2.nextCursor, p1.total]).toEqual([2, 1, null, 3]);
-      await expectCode(records.listRecords(tx, x.reg.id, { limit: 10, sort: x.f.due }), 'BAD_SORT');
+      // Этап 4: вычисляемый срок сортируется (в памяти); без срока — в конце.
+      const [alpha, beta] = (await records.listRecords(tx, x.reg.id, { limit: 10, q: 'альфа' })).items.concat(
+        (await records.listRecords(tx, x.reg.id, { limit: 10, q: 'бета' })).items,
+      );
+      await records.updateRecord(tx, x.actor, must(alpha).id, { version: must(alpha).version, values: { [x.f.found]: '2026-10-20' } }); // + 14 дн.
+      await records.updateRecord(tx, x.actor, must(beta).id, { version: must(beta).version, values: { [x.f.found]: '2026-10-01' } }); // + 30 дн.
+      expect(title(await records.listRecords(tx, x.reg.id, { limit: 10, sort: x.f.due, dir: 'asc' }))).toEqual(['Бета', 'Альфа', 'Гамма']);
+      expect(title(await records.listRecords(tx, x.reg.id, { limit: 10, sort: x.f.due, dir: 'desc' }))).toEqual(['Альфа', 'Бета', 'Гамма']);
+      await expectCode(records.listRecords(tx, x.reg.id, { limit: 10, sort: x.f.decision }), 'BAD_SORT');
     }));
 });
 

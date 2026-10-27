@@ -16,3 +16,5 @@ coverage/
 .DS_Store
 *.log
 deploy/scripts/.smoke/
+# учётная запись e2e (только dev), см. frontend/e2e
+frontend/.env.e2e

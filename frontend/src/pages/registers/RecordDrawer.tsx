@@ -2,17 +2,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Overlay } from '../../components/Overlay';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../../api/client';
-import { registersApi, type RegisterDetail, type RegisterField, type RegisterRecord } from '../../api/registers';
+import { registersApi, VULN_REGISTER_KEY, type RegisterDetail, type RegisterField, type RegisterRecord } from '../../api/registers';
 import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
-import { changedValues, describeRule, draftOf, formatDate, type Draft } from './logic';
+import { changedValues, deadlineChip, describeRule, draftOf, EVENT_TYPE_NAMES, formatCalc, formatDate, type Draft } from './logic';
 import { rkeys } from './keys';
 
 const LONG = /описан|коммент|мер|примечан/i;
 
-function FieldControl({ reg, f, rec, draft, setDraft, disabled }: {
+const VIA: Record<string, string> = {
+  import: ' · импорт Excel', type_change: ' · смена типа поля', scan_import: ' · отчёт сканера', auto: ' · пересчёт', automation: ' · автоматизация',
+};
+
+/** Критичность уязвимости: считается по Оценке, пока её не исправили вручную. */
+const isDerived = (reg: RegisterDetail, f: RegisterField) => reg.systemKey === VULN_REGISTER_KEY && f.systemKey === 'crit';
+
+function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, resetting }: {
   reg: RegisterDetail; f: RegisterField; rec: RegisterRecord | null; draft: Draft; setDraft: (d: Draft) => void; disabled: boolean;
+  onResetAuto: (fieldId: string) => void; resetting: boolean;
 }) {
   const users = useQuery({ queryKey: rkeys.userOptions, queryFn: settingsApi.userOptions, enabled: f.type === 'user' });
   const v = draft[f.id] ?? '';
@@ -23,7 +31,7 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled }: {
     case 'calc':
       control = (
         <div className="ro">
-          <b className="mono">{rec?.calc[f.id] ? formatDate(rec.calc[f.id]) : '—'}</b>
+          <b className="mono">{formatCalc(rec?.calc[f.id]) || '—'}</b>
           <small>Считается: {describeRule(reg, f)}. Только чтение.</small>
         </div>
       );
@@ -41,11 +49,31 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled }: {
     }
     case 'select': {
       const opts = f.options.filter((o) => !o.archived || o.id === v);
-      control = (
+      const select = (
         <select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
-          <option value="">—</option>
+          <option value="">{isDerived(reg, f) ? '— считать автоматически' : '—'}</option>
           {opts.map((o) => <option key={o.id} value={o.id}>{o.label}{o.archived ? ' (архив)' : ''}</option>)}
         </select>
+      );
+      if (!isDerived(reg, f)) {
+        control = select;
+        break;
+      }
+      const manual = !!rec?.manualFieldIds.includes(f.id);
+      control = (
+        <>
+          {select}
+          {manual ? (
+            <small className="row nowrap">
+              <span className="chip high">вручную</span> Пересчёт по Оценке её не меняет.
+              {!disabled && rec && (
+                <button className="btn ghost sm" type="button" disabled={resetting} onClick={() => onResetAuto(f.id)}>Считать автоматически</button>
+              )}
+            </small>
+          ) : (
+            <small>Считается по Оценке: ≥ 9,0 — критическая, ≥ 7,0 — высокая, ≥ 4,0 — средняя; нет CVSS — высокая. Выберите значение, чтобы поправить вручную.</small>
+          )}
+        </>
       );
       break;
     }
@@ -90,6 +118,11 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const rec = useQuery({ queryKey: rkeys.record(recordId ?? 'new'), queryFn: () => registersApi.record(recordId ?? ''), enabled: !isNew });
   const history = useQuery({ queryKey: rkeys.history(recordId ?? 'new'), queryFn: () => registersApi.history(recordId ?? ''), enabled: !isNew });
   const record = rec.data ?? null;
+  const events = useQuery({
+    queryKey: [...rkeys.events(reg.id), 'record', recordId ?? 'new'],
+    queryFn: () => registersApi.events(reg.id, { recordId: recordId ?? '' }),
+    enabled: !isNew,
+  });
   const [draft, setDraft] = useState<Draft>(() => draftOf(reg, null));
   const [original, setOriginal] = useState<Draft>(() => draftOf(reg, null));
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
@@ -117,6 +150,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
       qc.invalidateQueries({ queryKey: rkeys.records(reg.id) }),
       qc.invalidateQueries({ queryKey: rkeys.list }),
       recordId ? qc.invalidateQueries({ queryKey: rkeys.history(recordId) }) : Promise.resolve(),
+      qc.invalidateQueries({ queryKey: rkeys.events(reg.id) }),
     ]);
   };
   const onError = (e: unknown) => {
@@ -170,6 +204,28 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
     onError,
   });
 
+  const resetAuto = useMutation({
+    mutationFn: (fieldId: string) => registersApi.resetToAuto(record?.id ?? '', fieldId, record?.version ?? 0),
+    onSuccess: async (r) => {
+      qc.setQueryData(rkeys.record(r.id), r);
+      const d = draftOf(reg, r);
+      setDraft(d);
+      setOriginal(d);
+      setLoadedVersion(r.version);
+      await refresh();
+      toast('Критичность снова считается по Оценке');
+    },
+    onError,
+  });
+  const processEvent = useMutation({
+    mutationFn: (id: string) => registersApi.processEvent(id),
+    onSuccess: async () => {
+      await refresh();
+      toast('Событие обработано');
+    },
+    onError,
+  });
+
   /** Перечитать запись после конфликта: свежие данные, черновик заменяется. */
   const reload = async () => {
     setConflict(false);
@@ -196,6 +252,9 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
             <div className="eyebrow">{reg.name} · {isNew ? 'новая запись' : `запись #${record?.number ?? ''}`}</div>
             <b className="dr-title">{title}</b>
             {record?.closed && <div><span className="chip">Закрыта</span></div>}
+            {record && !record.closed && deadlineChip(record.deadline) && (
+              <div><span className={`chip ${deadlineChip(record.deadline)?.cls ?? ''}`}>{deadlineChip(record.deadline)?.text}</span></div>
+            )}
             {record?.archived && <div><span className="chip">В архиве</span></div>}
           </div>
           <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
@@ -212,7 +271,10 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
           )}
           {!isNew && rec.isPending ? <div className="hint">Загрузка…</div> : (
             <form className="recform" onSubmit={submit}>
-              {fields.map((f) => <FieldControl key={f.id} reg={reg} f={f} rec={record} draft={draft} setDraft={setDraft} disabled={readOnly} />)}
+              {fields.map((f) => (
+                <FieldControl key={f.id} reg={reg} f={f} rec={record} draft={draft} setDraft={setDraft} disabled={readOnly}
+                  onResetAuto={(id) => resetAuto.mutate(id)} resetting={resetAuto.isPending} />
+              ))}
               <div className="wide row">
                 {!readOnly && <button className="btn primary" type="submit" disabled={save.isPending || conflict}>{isNew ? 'Создать запись' : 'Сохранить'}</button>}
                 <button className="btn" type="button" onClick={onClose}>{readOnly ? 'Закрыть' : 'Отмена'}</button>
@@ -241,6 +303,26 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
               </div>
             </div>
           )}
+          {!isNew && (events.data?.items.length ?? 0) > 0 && (
+            <div>
+              <div className="eyebrow">События автоматизаций</div>
+              <div className="hist">
+                {events.data?.items.map((e) => (
+                  <div key={e.id} className={`hist-item ev ${e.status}`}>
+                    <div className="row nowrap">
+                      <span className={`chip ${e.eventType === 'escalate' ? 'crit' : e.eventType === 'notify' ? 'high' : 'info'}`}>{EVENT_TYPE_NAMES[e.eventType]}</span>
+                      <span>{formatDate(e.fireAt)}</span>
+                      {e.status === 'processed'
+                        ? <span className="hint">обработано{e.processedBy ? ` · ${e.processedBy}` : ''}</span>
+                        : canEdit && <button className="btn ghost sm" type="button" disabled={processEvent.isPending} onClick={() => processEvent.mutate(e.id)}>Обработано</button>}
+                    </div>
+                    <div className="m">{e.when} → кому: {e.recipients.map((r) => (r.kind === 'user' ? r.name : r.label)).join(', ')}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="hint">На этапе задач события станут задачами получателям.</div>
+            </div>
+          )}
           {!isNew && (
             <div>
               <div className="eyebrow">История изменений</div>
@@ -248,7 +330,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
               <div className="hist">
                 {history.data?.items.map((h) => (
                   <div key={h.id} className="hist-item">
-                    <div>{formatDateTime(h.at)} · {h.actor?.fullName ?? 'Система'}{h.via === 'import' ? ' · импорт Excel' : h.via === 'type_change' ? ' · смена типа поля' : ''}</div>
+                    <div>{formatDateTime(h.at)} · {h.actor?.fullName ?? 'Система'}{(h.via && VIA[h.via]) ?? ''}</div>
                     {h.changes.length > 0 ? (
                       <ul>{h.changes.map((c, i) => <li key={i}>«{c.label}»: {c.from || '—'} → {c.to || '—'}</li>)}</ul>
                     ) : <div className="m">{h.summary}</div>}

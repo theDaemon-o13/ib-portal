@@ -13,6 +13,9 @@ export type RegisterField = RegisterDetail['fields'][number];
 export type FieldOption = RegisterField['options'][number];
 export type FieldType = RegisterField['type'];
 export type CalcRule = NonNullable<RegisterField['calcRule']>;
+/** Правило срока — единственное, которое задаётся в конструкторе. Оценка уязвимости — только у системного поля. */
+export type DueRule = Exclude<CalcRule, { kind: 'vuln_score' }>;
+export type ScoreRule = Extract<CalcRule, { kind: 'vuln_score' }>;
 export type RecordPage = Res<'/api/v1/registers/{id}/records', 'get'>;
 export type RegisterRecord = RecordPage['items'][number];
 export type HistoryEntry = Res<'/api/v1/register-records/{id}/history', 'get'>['items'][number];
@@ -23,6 +26,22 @@ export type NewField = Body<'/api/v1/registers/{id}/fields', 'post'>;
 export type FieldPatch = Body<'/api/v1/register-fields/{id}', 'patch'>;
 export type RecordValues = Body<'/api/v1/registers/{id}/records', 'post'>['values'];
 export type Widget = Res<'/api/v1/registers/{id}/analytics', 'get'>['items'][number];
+export type Deadline = NonNullable<RegisterRecord['deadline']>;
+export type ScanPreview = Res<'/api/v1/registers/{id}/scan-imports', 'post', 201>;
+export type ScanResult = Res<'/api/v1/scan-imports/{id}/apply', 'post'>;
+export type ScanApply = Body<'/api/v1/scan-imports/{id}/apply', 'post'>;
+export type ScanReport = Res<'/api/v1/registers/{id}/scan-reports', 'get'>['items'][number];
+export type AutomationRule = Res<'/api/v1/registers/{id}/automations', 'get'>['items'][number];
+export type NewRule = Body<'/api/v1/registers/{id}/automations', 'post'>;
+export type RuleCondition = NewRule['condition'];
+export type RuleAction = NewRule['action'];
+export type RulePatch = Body<'/api/v1/register-automations/{id}', 'patch'>;
+export type EventPage = Res<'/api/v1/registers/{id}/automation-events', 'get'>;
+export type AutomationEvent = EventPage['items'][number];
+export type RunResult = Res<'/api/v1/registers/{id}/automations/run', 'post'>;
+
+/** Системный реестр уязвимостей: импорт отчёта сканера и формулы п. 7.1–7.4. */
+export const VULN_REGISTER_KEY = 'vulns';
 
 export const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -31,6 +50,7 @@ export interface RecordQuery {
   sort?: string;
   dir?: 'asc' | 'desc';
   includeArchived?: boolean;
+  withEvents?: boolean;
   cursor?: string;
 }
 
@@ -87,6 +107,7 @@ export const registersApi = {
   records: (registerId: string, q: RecordQuery) =>
     request<RecordPage>('GET', `/api/v1/registers/${registerId}/records${qs({
       q: q.q, sort: q.sort, dir: q.dir, cursor: q.cursor, limit: '100', includeArchived: q.includeArchived ? 'true' : undefined,
+      withEvents: q.withEvents ? 'true' : undefined,
     })}`),
   record: (id: string) => request<RegisterRecord>('GET', `/api/v1/register-records/${id}`),
   history: (id: string) => request<Res<'/api/v1/register-records/{id}/history', 'get'>>('GET', `/api/v1/register-records/${id}/history`),
@@ -95,6 +116,9 @@ export const registersApi = {
   archiveRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/archive`, { version }),
   restoreRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/restore`, { version }),
   deleteRecord: (id: string, version: number) => request<undefined>('POST', `/api/v1/register-records/${id}/delete`, { version }),
+  /** «Считать автоматически»: снять ручную правку (критичность уязвимости). */
+  resetToAuto: (id: string, fieldId: string, version: number) =>
+    request<RegisterRecord>('POST', `/api/v1/register-records/${id}/auto/${fieldId}`, { version }),
 
   /** Скачать Excel: файл формирует backend. */
   async exportFile(registerId: string): Promise<{ blob: Blob; fileName: string }> {
@@ -115,4 +139,28 @@ export const registersApi = {
   },
   applyImport: (id: string) => request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`),
   cancelImport: (id: string) => request<undefined>('POST', `/api/v1/register-imports/${id}/cancel`),
+
+  /** Отчёт сканера, шаг 1: предпросмотр. Отменяется тем же cancelImport. */
+  async previewScan(registerId: string, file: File): Promise<ScanPreview> {
+    const res = await fetch(`/api/v1/registers/${registerId}/scan-imports`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name) },
+      body: file,
+    });
+    if (!res.ok) throw await errorOf(res);
+    return (await res.json()) as ScanPreview;
+  },
+  applyScan: (id: string, body: ScanApply) => request<ScanResult>('POST', `/api/v1/scan-imports/${id}/apply`, body),
+  scanReports: (registerId: string) => request<Res<'/api/v1/registers/{id}/scan-reports', 'get'>>('GET', `/api/v1/registers/${registerId}/scan-reports`),
+
+  rules: (registerId: string) => request<Res<'/api/v1/registers/{id}/automations', 'get'>>('GET', `/api/v1/registers/${registerId}/automations`),
+  createRule: (registerId: string, body: NewRule) => request<AutomationRule>('POST', `/api/v1/registers/${registerId}/automations`, body),
+  updateRule: (id: string, body: RulePatch) => request<AutomationRule>('PATCH', `/api/v1/register-automations/${id}`, body),
+  archiveRule: (id: string, version: number) => request<AutomationRule>('POST', `/api/v1/register-automations/${id}/archive`, { version }),
+  deleteRule: (id: string, version: number) => request<undefined>('POST', `/api/v1/register-automations/${id}/delete`, { version }),
+  runRules: (registerId: string) => request<RunResult>('POST', `/api/v1/registers/${registerId}/automations/run`),
+  events: (registerId: string, q: { status?: 'new' | 'processed'; recordId?: string; cursor?: string }) =>
+    request<EventPage>('GET', `/api/v1/registers/${registerId}/automation-events${qs({ status: q.status, recordId: q.recordId, cursor: q.cursor, limit: '50' })}`),
+  processEvent: (id: string) => request<undefined>('POST', `/api/v1/automation-events/${id}/process`),
 };

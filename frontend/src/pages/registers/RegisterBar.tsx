@@ -10,7 +10,7 @@ export type RegTab = 'records' | 'fields' | 'automation';
 export const REG_TABS: { key: RegTab; title: string; disabled?: string }[] = [
   { key: 'records', title: 'Записи' },
   { key: 'fields', title: 'Поля' },
-  { key: 'automation', title: 'Автоматизация', disabled: 'Появится в следующем выпуске' },
+  { key: 'automation', title: 'Автоматизация' },
 ];
 
 /** Закрыть выпадающее окно по щелчку снаружи и по Escape. */
@@ -148,7 +148,7 @@ export function RegisterBar({ reg, owner, tab, canManage, onPick, onTab }: {
           // Неактивная вкладка — aria-disabled, а не disabled: у disabled браузер не показывает подсказку.
           <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} aria-disabled={t.disabled ? true : undefined}
             disabled={!reg} title={t.disabled} onClick={() => { if (!t.disabled) onTab(t.key); }}>
-            {t.title}
+            <span className="tab-label" data-label={t.title}>{t.title}</span>
           </button>
         ))}
       </div>
