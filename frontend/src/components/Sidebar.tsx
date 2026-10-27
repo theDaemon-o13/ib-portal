@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { authApi, type Me } from '../api/client';
+import { tasksApi, tkeys } from '../api/tasks';
 import { visibleNav } from '../nav';
 import { Brand } from './Brand';
 import { Icon } from './Icons';
@@ -14,6 +15,14 @@ function initials(fullName: string): string {
 export function Sidebar({ me }: { me: Me }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  // Уведомления пока только внутри портала: число просроченных задач отдела у пункта «Задачи».
+  const summary = useQuery({
+    queryKey: tkeys.summary,
+    queryFn: tasksApi.summary,
+    enabled: me.permissions.includes('ib.work'),
+    refetchInterval: 60_000,
+  });
+  const overdue = summary.data?.overdue ?? 0;
   const logout = useMutation({
     mutationFn: authApi.logout,
     onSettled: () => {
@@ -30,6 +39,9 @@ export function Sidebar({ me }: { me: Me }) {
           <NavLink key={item.path} to={item.path}>
             <Icon name={item.icon} />
             <span>{item.title}</span>
+            {item.path === '/tasks' && overdue > 0 && (
+              <span className="nav-n" title={`Просрочено задач: ${overdue}, из них мои: ${summary.data?.overdueMine ?? 0}`} aria-label={`просрочено задач: ${overdue}`}>{overdue}</span>
+            )}
           </NavLink>
         ))}
       </nav>

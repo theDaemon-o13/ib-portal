@@ -115,7 +115,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       tags: ['vulns'],
       summary: 'Отчёт сканера, шаг 2: применить одной транзакцией. Дата отчёта обязательна, если её нет в имени файла',
       params: IdParams,
-      body: z.object({ reportDate: IsoDate.nullable().optional(), notifiedDate: IsoDate.nullable().optional() }),
+      body: z.object({ reportDate: IsoDate.nullable().optional(), notifiedDate: IsoDate.nullable().optional(), systemId: z.string().uuid().nullable().optional() }),
       response: {
         200: z.object({
           reportId: z.string(), label: z.string(), created: z.number().int(), merged: z.number().int(), updated: z.number().int(), skipped: z.number().int(),

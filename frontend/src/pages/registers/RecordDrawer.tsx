@@ -7,6 +7,7 @@ import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { changedValues, deadlineChip, describeRule, draftOf, EVENT_TYPE_NAMES, formatCalc, formatDate, type Draft } from './logic';
+import { EventTasks } from './AutomationTab';
 import { rkeys } from './keys';
 
 const LONG = /описан|коммент|мер|примечан/i;
@@ -44,6 +45,17 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
           {d && <small>{d.documentTitle} № {d.documentNumber} от {formatDate(d.documentDate)} · {d.decidedBy}</small>}
           <small>Решение вносится только с документом-основанием — будет доступно, когда в портале появятся файлы.</small>
         </div>
+      );
+      break;
+    }
+    case 'catalog': {
+      // Значения — из справочника (правятся в настройках).
+      const opts = f.options.filter((o) => !o.archived || o.id === v);
+      control = (
+        <select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
+          <option value="">—</option>
+          {opts.map((o) => <option key={o.id} value={o.id}>{o.label}{o.archived ? ' (архив)' : ''}</option>)}
+        </select>
       );
       break;
     }
@@ -197,9 +209,11 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const remove = useMutation({
     mutationFn: () => registersApi.deleteRecord(record?.id ?? '', record?.version ?? 0),
     onSuccess: async () => {
-      await refresh();
-      toast(`Запись #${record?.number ?? ''} удалена`);
+      // Сначала закрыть и забыть удалённую запись: иначе история перечитывалась бы (404) с повторами.
       onClose();
+      if (recordId) for (const key of [rkeys.record(recordId), rkeys.history(recordId)]) qc.removeQueries({ queryKey: key });
+      toast(`Запись #${record?.number ?? ''} удалена`);
+      await Promise.all([qc.invalidateQueries({ queryKey: rkeys.records(reg.id) }), qc.invalidateQueries({ queryKey: rkeys.list })]);
     },
     onError,
   });
@@ -214,14 +228,6 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
       setLoadedVersion(r.version);
       await refresh();
       toast('Критичность снова считается по Оценке');
-    },
-    onError,
-  });
-  const processEvent = useMutation({
-    mutationFn: (id: string) => registersApi.processEvent(id),
-    onSuccess: async () => {
-      await refresh();
-      toast('Событие обработано');
     },
     onError,
   });
@@ -312,15 +318,13 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
                     <div className="row nowrap">
                       <span className={`chip ${e.eventType === 'escalate' ? 'crit' : e.eventType === 'notify' ? 'high' : 'info'}`}>{EVENT_TYPE_NAMES[e.eventType]}</span>
                       <span>{formatDate(e.fireAt)}</span>
-                      {e.status === 'processed'
-                        ? <span className="hint">обработано{e.processedBy ? ` · ${e.processedBy}` : ''}</span>
-                        : canEdit && <button className="btn ghost sm" type="button" disabled={processEvent.isPending} onClick={() => processEvent.mutate(e.id)}>Обработано</button>}
+                      <EventTasks e={e} />
                     </div>
                     <div className="m">{e.when} → кому: {e.recipients.map((r) => (r.kind === 'user' ? r.name : r.label)).join(', ')}</div>
                   </div>
                 ))}
               </div>
-              <div className="hint">На этапе задач события станут задачами получателям.</div>
+              <div className="hint">Каждое событие становится задачами получателям; повтор по открытой задаче — комментарий в ней.</div>
             </div>
           )}
           {!isNew && (

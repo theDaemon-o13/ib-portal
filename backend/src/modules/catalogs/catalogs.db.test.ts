@@ -21,11 +21,11 @@ afterEach(() => {
 });
 
 describe('справочники после seed', () => {
-  it('шесть справочников, системные и стартовые значения', () =>
+  it('семь справочников, системные и стартовые значения', () =>
     inTx(async (tx) => {
       const cats = await svc.listCatalogs(tx);
       expect(cats.map((c) => c.code)).toEqual([
-        'task_categories', 'task_statuses', 'task_priorities', 'mail_rules', 'systems', 'document_types',
+        'task_categories', 'task_statuses', 'task_priorities', 'mail_rules', 'systems', 'document_types', 'notify_recipients',
       ]);
       const categories = await svc.listItems(tx, 'task_categories', { includeArchived: false });
       expect(categories.map((c) => [c.value, c.isSystem])).toEqual([

@@ -210,6 +210,8 @@ export interface ApplyScanInput {
   reportDate?: string | null;
   /** Дата передачи отчёта в ДИКТ — от неё считается срок (п. 7.2). По умолчанию — дата отчёта. */
   notifiedDate?: string | null;
+  /** Система из справочника «Системы» для всех новых записей отчёта (этап 5): по ней находится владелец. */
+  systemId?: string | null;
 }
 
 function checkDate(v: string, what: string): string {
@@ -283,11 +285,14 @@ export async function applyScan(db: Db, actor: Actor, importId: string, input: A
     for (let n = 2; vf.report.options.some((o) => norm(o.label) === norm(label)); n++) label = `${base} (${n})`;
     const reportOption = await optionId('report', label);
 
+    const system = input.systemId ? vf.system.options.find((o) => o.id === input.systemId && !o.archived) : null;
+    if (input.systemId && !system) throw badRequest('BAD_SYSTEM', 'Нет такой системы в справочнике «Системы» (или она в архиве)');
+
     const statusOpen = optionByKey(vf.status, 'open');
     const noUsers = new Map();
     let number = payload.creates.length ? await nextNumbers(tx, reg.id, payload.creates.length) : 0;
     for (const c of payload.creates) {
-      const raw: Values = { [vf.cve.id]: c.cve, [vf.notified.id]: notifiedDate, [vf.status.id]: statusOpen };
+      const raw: Values = { [vf.cve.id]: c.cve, [vf.notified.id]: notifiedDate, [vf.status.id]: statusOpen, ...(system ? { [vf.system.id]: system.id } : {}) };
       const set = (f: FieldMeta, v: string | number | null) => {
         if (v !== null) raw[f.id] = v;
       };
@@ -351,7 +356,7 @@ export async function applyScan(db: Db, actor: Actor, importId: string, input: A
       action: 'register.scan.applied', entity: 'scan_report', entityId: report.id,
       summary: `«${reg.name}»: загружен отчёт сканера «${summary.fileName}» (${label}) — новых ${payload.creates.length}, дублей ${payload.merges.length}, обновлено «${vf.hits.label}» ${updated}, хостов ${payload.hosts.length}`,
       after: {
-        fileName: summary.fileName, sha256: imp.fileSha256, reportDate, notifiedDate, created: payload.creates.length,
+        fileName: summary.fileName, sha256: imp.fileSha256, reportDate, notifiedDate, system: system?.label ?? null, created: payload.creates.length,
         merged: payload.merges.length, updated, hosts: payload.hosts.length, newOptions: createdOptions,
       },
     });

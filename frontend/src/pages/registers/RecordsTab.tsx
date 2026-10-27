@@ -47,7 +47,7 @@ function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
     return (
       <span className="mono">
         {rec.number}
-        {rec.openEvents > 0 && <span className="ev-dot" title={`Необработанных событий: ${rec.openEvents}`} aria-label={`событий: ${rec.openEvents}`}>{rec.openEvents}</span>}
+        {rec.openTasks > 0 && <span className="ev-dot" title={`Открытых задач по записи: ${rec.openTasks}`} aria-label={`задач: ${rec.openTasks}`}>{rec.openTasks}</span>}
       </span>
     );
   }
@@ -60,6 +60,7 @@ function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
   const text = rec.display[f.id] ?? '';
   if (!text) return <span className="faint">—</span>;
   if (f.type === 'number' || f.type === 'date' || f.type === 'calc') return <span className="mono">{text}</span>;
+  if (f.type === 'catalog') return <span className="chip">{text}</span>;
   if (f.type === 'select' || f.type === 'decision') {
     const closed = f.isStatus && rec.closed;
     const tone = optionTone(f.options.find((o) => o.id === rec.values[f.id]));
@@ -107,7 +108,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   // Реестр со сроками открывается «срочное сначала», как в прототипе.
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' }>(deadline ? { key: DEADLINE_KEY, dir: 'asc' } : { key: 'number', dir: 'desc' });
   const [archived, setArchived] = useState(false);
-  const [withEvents, setWithEvents] = useState(false);
+  const [withTasks, setWithTasks] = useState(false);
   const [scanPreview, setScanPreview] = useState<ScanPreview | null>(null);
   const [pin, setPin] = useState(() => loadPin(reg.id));
   const [open, setOpen] = useState<string | null>(null);
@@ -124,8 +125,8 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   }, [qInput]);
 
   const query = useInfiniteQuery({
-    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, withEvents],
-    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, withEvents, cursor: pageParam }),
+    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, withTasks],
+    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, withTasks, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -221,7 +222,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           ))}
         </select>
         <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> С архивными</label>
-        <label className="check"><input type="checkbox" checked={withEvents} onChange={(e) => setWithEvents(e.target.checked)} /> С событиями</label>
+        <label className="check"><input type="checkbox" checked={withTasks} onChange={(e) => setWithTasks(e.target.checked)} /> С задачами</label>
         <span className="hint mono">{rows.length} из {total}</span>
         {canEdit && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
       </div>
@@ -248,7 +249,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           <tbody>
             {query.isPending && <tr><td colSpan={cols.length} className="hint">Загрузка…</td></tr>}
             {query.isError && <tr><td colSpan={cols.length} className="form-error">{query.error.message}</td></tr>}
-            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q || withEvents ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
+            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q || withTasks ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
             {rows.map((rec) => (
               <tr key={rec.id} className={`rec-row${rec.closed ? ' closed' : ''}${rec.archived ? ' archived' : ''}`} tabIndex={0}
                 title="Открыть карточку записи" onClick={() => setOpen(rec.id)}

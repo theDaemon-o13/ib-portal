@@ -61,12 +61,19 @@ export async function listUsers(db: Db, q: { limit: number; cursor?: string; sea
 }
 
 /** Для списков выбора ответственного: активные сотрудники ИБ. */
-export async function userOptions(db: Db) {
-  return db.user.findMany({
-    where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
-    select: { id: true, login: true, fullName: true },
-    orderBy: { fullName: 'asc' },
-  });
+const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+
+/**
+ * Активные пользователи для выбора. scope 'ib' — сотрудники ИБ (ответственные, участники меток);
+ * 'all' — все активные (владелец системы), с отметкой, есть ли у человека доступ к разделам ИБ.
+ */
+export async function userOptions(db: Db, scope: 'ib' | 'all' = 'ib') {
+  const [users, ib] = await Promise.all([
+    db.user.findMany({ where: { isActive: true, ...(scope === 'ib' ? IB_WORK : {}) }, select: { id: true, login: true, fullName: true }, orderBy: { fullName: 'asc' } }),
+    scope === 'ib' ? Promise.resolve(null) : db.user.findMany({ where: { isActive: true, ...IB_WORK }, select: { id: true } }),
+  ]);
+  const ibIds = ib ? new Set(ib.map((u) => u.id)) : null;
+  return users.map((u) => ({ ...u, ibWork: ibIds ? ibIds.has(u.id) : true }));
 }
 
 async function resolveRoles(db: Db, roleIds: readonly string[]) {

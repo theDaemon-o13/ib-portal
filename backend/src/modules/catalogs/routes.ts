@@ -27,9 +27,13 @@ export const CatalogItem = z.object({
   value: z.string(),
   color: z.enum(TONES).nullable(),
   isSystem: z.boolean(),
+  systemKey: z.string().nullable(),
   systemReason: z.string().nullable(),
   keywords: z.array(z.string()),
   owner: z.object({ id: z.string(), fullName: z.string(), isActive: z.boolean() }).nullable(),
+  /** «Получатели уведомлений»: участники (пользователи с ib.work) и адреса вне портала. */
+  members: z.array(z.object({ id: z.string(), fullName: z.string(), isActive: z.boolean() })),
+  emails: z.array(z.string()),
   sortOrder: z.number().int(),
   version: z.number().int(),
   archived: z.boolean(),
@@ -39,6 +43,8 @@ export const CatalogItem = z.object({
 
 const Value = z.string().trim().min(1).max(200);
 const Keywords = z.array(z.string().max(100)).max(50);
+const Members = z.array(z.string().uuid()).max(50);
+const Emails = z.array(z.string().max(254)).max(50);
 const Version = z.object({ version: z.number().int().positive() });
 const IdParams = z.object({ id: z.string().uuid() });
 
@@ -74,6 +80,8 @@ export const catalogRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
         color: z.enum(TONES).nullable().optional(),
         keywords: Keywords.optional(),
         ownerUserId: z.string().uuid().nullable().optional(),
+        memberIds: Members.optional(),
+        emails: Emails.optional(),
       }),
       response: { 201: CatalogItem, ...errors },
     },
@@ -86,13 +94,15 @@ export const catalogRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
     preHandler: requirePerm('settings.manage'),
     schema: {
       tags,
-      summary: 'Изменить значение (переименование, цвет, правило почты)',
+      summary: 'Изменить значение (переименование, цвет, правило почты, владелец системы, участники и e-mail метки)',
       params: IdParams,
       body: Version.extend({
         value: Value.optional(),
         color: z.enum(TONES).nullable().optional(),
         keywords: Keywords.optional(),
         ownerUserId: z.string().uuid().nullable().optional(),
+        memberIds: Members.optional(),
+        emails: Emails.optional(),
       }),
       response: { 200: CatalogItem, ...errors },
     },

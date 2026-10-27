@@ -88,6 +88,8 @@ async function openReg(reg, tabName) {
   await ui.goto(`/registers?run=${++navSeq}#${reg.id}/${tabName}`);
   await ui.waitFor(`location.hash === ${JSON.stringify(`#${reg.id}/${tabName}`)} && ${pickerTitle} === ${JSON.stringify(reg.name)} && ${TAB_CONTENT[tabName]}`,
     `реестр «${reg.name}», вкладка ${tabName}`);
+  // Замеры положения — после загрузки шрифтов: подмена шрифта меняет ширину вкладок.
+  await ui.evaluate('document.fonts.ready.then(() => true)');
 }
 
 const BASE_FIELDS = [
@@ -225,6 +227,7 @@ describe('Реестр', () => {
     await ui.waitFor(`location.hash === ${JSON.stringify(`#${base.id}/fields`)}`, 'вкладка «Поля»');
     await ui.evaluate('location.reload()');
     await ui.waitFor(`${pickerTitle} === ${JSON.stringify(base.name)} && ${TAB_CONTENT.fields}`, 'после обновления — тот же реестр и вкладка');
+    await ui.evaluate('document.fonts.ready.then(() => true)');
     assert.equal(await ui.evaluate(tabsRect), onFields, 'после обновления переключатель на том же месте');
   });
 });

@@ -35,6 +35,7 @@ export async function seedVulns(tx: Tx): Promise<void> {
           isTitle: f.isTitle ?? false,
           isStatus: f.isStatus ?? false,
           analyticsRole: f.analyticsRole ?? null,
+          catalogCode: f.catalogCode ?? null,
           options: f.options?.length
             ? { create: f.options.map((o, j) => ({ label: o.label, sortOrder: j + 1, isClosed: o.closed ?? false, systemKey: o.key ?? null })) }
             : undefined,
@@ -88,5 +89,24 @@ export async function seedVulns(tx: Tx): Promise<void> {
       await tx.registerAutomation.create({ data: { registerId: reg.id, systemKey: r.key, condition: r.condition, action: r.action } });
     }
     return `Системный «${reg.name}»: полей ${VULN_FIELDS.length}, правил автоматизации ${rules.length}`;
+  });
+
+  // Этап 5: поле «Система» в реестре, созданном на этапе 4 (в новом оно уже есть). Добавляется в конец.
+  await once(tx, 'system.register.vulns.v2.system-field', async () => {
+    const reg = await tx.register.findUnique({ where: { systemKey: VULN_REGISTER_KEY } });
+    if (!reg) return 'Реестра уязвимостей нет — поле «Система» не нужно';
+    if (await tx.registerField.findFirst({ where: { registerId: reg.id, systemKey: 'system', deletedAt: null } })) return 'Поле «Система» уже есть';
+    const spec = VULN_FIELDS.find((f) => f.key === 'system');
+    if (!spec) throw new Error('нет описания поля «Система»');
+    const max = await tx.registerField.aggregate({ where: { registerId: reg.id }, _max: { sortOrder: true } });
+    // Название свободно? Если администратор уже завёл своё «Система» — системное получает пометку.
+    const clash = await tx.registerField.findFirst({ where: { registerId: reg.id, deletedAt: null, label: { equals: spec.label, mode: 'insensitive' } } });
+    await tx.registerField.create({
+      data: {
+        registerId: reg.id, label: clash ? `${spec.label} (справочник)` : spec.label, type: 'catalog', catalogCode: spec.catalogCode ?? null,
+        systemKey: 'system', sortOrder: (max._max.sortOrder ?? 0) + 1, analyticsRole: spec.analyticsRole ?? null,
+      },
+    });
+    return `«${reg.name}»: добавлено поле «Система» (справочник «Системы»)`;
   });
 }

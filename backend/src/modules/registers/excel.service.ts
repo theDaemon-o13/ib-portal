@@ -41,12 +41,14 @@ const TYPE_HELP: Record<string, string> = {
   number: 'Число. Дробная часть — через запятую или точку.',
   date: 'Дата в формате ДД.ММ.ГГГГ или ячейка с датой Excel.',
   select: 'Одно из значений списка (см. колонку «Допустимые значения»).',
+  catalog: 'Одно из значений справочника (см. колонку «Допустимые значения»).',
   user: 'Сотрудник в виде «ФИО (логин)» — ищется по логину в скобках. Можно указать только ФИО, если такое имя у единственного сотрудника.',
   calc: 'Только для чтения: считается порталом, при импорте не меняется.',
   decision: 'Только для чтения: решение вносится на портале с документом-основанием.',
 };
 const TYPE_NAME: Record<string, string> = {
   text: 'Текст', number: 'Число', date: 'Дата', select: 'Список', user: 'Сотрудник', calc: 'Вычисляемое', decision: 'Решение другого отдела',
+  catalog: 'Значение справочника',
 };
 
 /** derived — колонка портала без поля («Дней до срока»): при импорте пропускается молча. */
@@ -144,7 +146,7 @@ export async function exportRegister(db: Db, registerId: string): Promise<{ file
       f.label,
       TYPE_NAME[f.type] ?? f.type,
       TYPE_HELP[f.type] ?? '',
-      f.type === 'select' ? f.options.filter((o) => !o.archived).map((o) => o.label).join('; ') : '',
+      f.type === 'select' || f.type === 'catalog' ? f.options.filter((o) => !o.archived).map((o) => o.label).join('; ') : '',
     ]);
   }
   help.addRow([]);
@@ -448,7 +450,7 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
       const f = reg.fields.find((x) => x.id === fieldId);
       if (!f || f.version !== version || f.archived) throw conflict('IMPORT_STALE', 'После предпросмотра изменились поля реестра. Повторите предпросмотр');
     }
-    const optionOk = (f: FieldMeta, v: StoredValue) => f.type !== 'select' || f.options.some((o) => o.id === v);
+    const optionOk = (f: FieldMeta, v: StoredValue) => (f.type !== 'select' && f.type !== 'catalog') || f.options.some((o) => o.id === v);
     const usersNeeded = new Set<string>();
 
     // Записи не должны были измениться после предпросмотра.

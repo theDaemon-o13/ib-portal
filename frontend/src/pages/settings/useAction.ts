@@ -42,6 +42,7 @@ export const keys = {
   templates: ['settings', 'templates'] as const,
   users: ['settings', 'users'] as const,
   userOptions: ['settings', 'userOptions'] as const,
+  allUserOptions: ['settings', 'userOptions', 'all'] as const,
   roles: ['settings', 'roles'] as const,
   permissions: ['settings', 'permissions'] as const,
   journal: ['settings', 'journal'] as const,

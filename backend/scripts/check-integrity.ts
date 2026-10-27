@@ -2,6 +2,7 @@
 //   npm run check:integrity
 // Ничего не меняет, только читает. Код выхода 1, если что-то не так.
 import { createPrisma } from '../src/lib/db.js';
+import { SYSTEM_ITEMS } from '../src/lib/catalogs.js';
 import { APPROVAL_PERMISSIONS, PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../src/lib/permissions.js';
 import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.js';
 
@@ -47,6 +48,20 @@ async function main() {
       FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE']) AS p`;
     check(ok[0]?.ok === true, `ibportal_app: SELECT, INSERT, UPDATE на ${table}`);
   }
+
+  // Этап 5: задачи и метки получателей.
+  for (const table of ['tasks', 'task_mail_sources', 'task_comments', 'automation_event_tasks', 'catalog_item_users']) {
+    const ok = await prisma.$queryRaw<{ ok: boolean }[]>`
+      SELECT bool_and(has_table_privilege('ibportal_app', ${`public.${table}`}, p)) AS ok
+      FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE']) AS p`;
+    check(ok[0]?.ok === true, `ibportal_app: SELECT, INSERT, UPDATE на ${table}`);
+  }
+  const seq = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT has_sequence_privilege('ibportal_app', pg_get_serial_sequence('public.tasks', 'number'), 'USAGE') AS ok`;
+  check(seq[0]?.ok === true, 'ibportal_app: USAGE на последовательность номеров задач');
+  const sysItems = await prisma.catalogItem.findMany({ where: { isSystem: true, deletedAt: null }, select: { catalogCode: true, systemKey: true } });
+  const missingItems = SYSTEM_ITEMS.filter((i) => !sysItems.some((x) => x.catalogCode === i.catalog && x.systemKey === i.key)).map((i) => i.value);
+  check(missingItems.length === 0, `системные значения справочников на месте (${SYSTEM_ITEMS.length})`, `нет: ${missingItems.join(', ')} — выполните seed`);
 
   // Системный реестр уязвимостей: все системные поля на месте (формулы и импорт ищут их по ключу).
   const vulns = await prisma.register.findUnique({

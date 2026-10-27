@@ -1,14 +1,19 @@
 // Справочники (CLAUDE.md, разделы 6 и 7, п. 10; docs/concept.md, раздел 9).
 // Сущности ссылаются на значения по id, поэтому переименование ничего не ломает.
 import type { Prisma } from '@prisma/client';
-import { systemItemWhy } from '../../lib/catalogs.js';
+import { RECIPIENTS_CATALOG, SYSTEM_OWNER_KEY, SYSTEMS_CATALOG, systemItemWhy } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import type { Tone } from '../../lib/tones.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
+import '../settings/usage-counters.js';
 import { catalogItemUsage } from '../settings/usage.js';
 
-const itemInclude = { owner: { select: { id: true, fullName: true, isActive: true } } } as const;
+const userBrief = { select: { id: true, fullName: true, isActive: true } } as const;
+const itemInclude = {
+  owner: userBrief,
+  members: { include: { user: userBrief }, orderBy: { user: { fullName: 'asc' } } },
+} as const;
 type ItemRow = Prisma.CatalogItemGetPayload<{ include: typeof itemInclude }>;
 
 export interface CatalogItemDto {
@@ -17,9 +22,14 @@ export interface CatalogItemDto {
   value: string;
   color: string | null;
   isSystem: boolean;
+  /** Ключ системного значения («system_owner» у метки «Владелец системы»…). */
+  systemKey: string | null;
   systemReason: string | null;
   keywords: string[];
   owner: { id: string; fullName: string; isActive: boolean } | null;
+  /** «Получатели уведомлений»: участники метки и адреса вне портала. */
+  members: { id: string; fullName: string; isActive: boolean }[];
+  emails: string[];
   sortOrder: number;
   version: number;
   archived: boolean;
@@ -33,9 +43,12 @@ function toDto(row: ItemRow, usage: number): CatalogItemDto {
     value: row.value,
     color: row.color,
     isSystem: row.isSystem,
+    systemKey: row.systemKey,
     systemReason: row.isSystem ? systemItemWhy(row.catalogCode, row.systemKey) : null,
     keywords: row.keywords,
     owner: row.owner,
+    members: row.members.map((m) => m.user),
+    emails: row.emails,
     sortOrder: row.sortOrder,
     version: row.version,
     archived: row.archivedAt !== null,
@@ -110,17 +123,49 @@ async function assertUnique(db: Db, code: string, value: string, exceptId?: stri
   if (clash) throw conflict('DUPLICATE', `«${value}» уже есть в справочнике`);
 }
 
+const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+
 /** Ответственный по правилу почты — активный сотрудник ИБ. */
 async function assertMailOwner(db: Db, userId: string) {
-  const user = await db.user.findFirst({
-    where: {
-      id: userId,
-      isActive: true,
-      roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } },
-    },
-    select: { id: true },
-  });
+  const user = await db.user.findFirst({ where: { id: userId, isActive: true, ...IB_WORK }, select: { id: true } });
   if (!user) throw badRequest('BAD_OWNER', 'Ответственным может быть только активный сотрудник ИБ');
+}
+
+/** Владелец системы — любой активный пользователь портала; без ib.work задачи ему не назначаются. */
+async function assertSystemOwner(db: Db, userId: string) {
+  const user = await db.user.findFirst({ where: { id: userId, isActive: true }, select: { id: true } });
+  if (!user) throw badRequest('BAD_OWNER', 'Владелец системы — активный пользователь портала');
+}
+
+const EMAIL_RE = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[^\s@<>(),;:"]+$/;
+const MAX_MEMBERS = 50;
+
+function normalizeEmails(raw: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const e of raw.map((x) => x.trim().toLowerCase()).filter(Boolean)) {
+    if (e.length > 254 || !EMAIL_RE.test(e)) throw badRequest('BAD_EMAIL', `«${e}» — не адрес e-mail`);
+    if (!out.includes(e)) out.push(e);
+  }
+  if (out.length > MAX_MEMBERS) throw badRequest('TOO_MANY', `Не больше ${MAX_MEMBERS} адресов`);
+  return out;
+}
+
+/**
+ * Участники метки — только активные пользователи с ib.work: им ставятся задачи.
+ * Остальных указывают e-mail (письма — этап 9).
+ */
+async function checkMembers(db: Db, ids: readonly string[]): Promise<string[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length > MAX_MEMBERS) throw badRequest('TOO_MANY', `Не больше ${MAX_MEMBERS} участников`);
+  const users = await db.user.findMany({ where: { id: { in: unique } }, select: { id: true, fullName: true, isActive: true } });
+  const ok = new Set((await db.user.findMany({ where: { id: { in: unique }, isActive: true, ...IB_WORK }, select: { id: true } })).map((u) => u.id));
+  const bad = unique.filter((id) => !ok.has(id));
+  if (bad.length) {
+    const names = bad.map((id) => users.find((u) => u.id === id)?.fullName ?? 'пользователь не найден');
+    throw badRequest('NOT_IB_USER',
+      `${names.join(', ')}: нет доступа к разделам ИБ — задачи такому участнику не назначить. Укажите его e-mail: письма придут, когда в портале появится почта`);
+  }
+  return unique;
 }
 
 export interface ItemInput {
@@ -128,13 +173,32 @@ export interface ItemInput {
   color?: Tone | null;
   keywords?: string[];
   ownerUserId?: string | null;
+  memberIds?: string[];
+  emails?: string[];
 }
 
-function validateShape(catalog: { kind: string; hasColor: boolean }, input: ItemInput) {
+function validateShape(catalog: { code: string; kind: string; hasColor: boolean }, input: ItemInput, systemKey: string | null = null) {
   if (input.color != null && !catalog.hasColor) throw badRequest('NO_COLOR', 'У значений этого справочника нет цвета');
-  if (catalog.kind !== 'mail_rules' && (input.keywords !== undefined || input.ownerUserId !== undefined)) {
-    throw badRequest('NOT_MAIL_RULE', 'Ключевые слова и ответственный есть только у правил разбора почты');
+  if (catalog.kind !== 'mail_rules' && input.keywords !== undefined) {
+    throw badRequest('NOT_MAIL_RULE', 'Ключевые слова есть только у правил разбора почты');
   }
+  if (catalog.kind !== 'mail_rules' && catalog.code !== SYSTEMS_CATALOG && input.ownerUserId !== undefined) {
+    throw badRequest('NOT_MAIL_RULE', 'Ответственный есть только у правил разбора почты и систем');
+  }
+  if (catalog.code !== RECIPIENTS_CATALOG && (input.memberIds !== undefined || input.emails !== undefined)) {
+    throw badRequest('NOT_RECIPIENTS', 'Участники и e-mail есть только у меток «Получатели уведомлений»');
+  }
+  if (systemKey === SYSTEM_OWNER_KEY && (input.memberIds?.length || input.emails?.length)) {
+    throw badRequest('SYSTEM_OWNER_LABEL', '«Владелец системы» берётся из справочника «Системы» — участников у метки нет');
+  }
+}
+
+const assertOwner = (db: Db, catalogCode: string, userId: string) =>
+  (catalogCode === SYSTEMS_CATALOG ? assertSystemOwner(db, userId) : assertMailOwner(db, userId));
+
+async function setMembers(db: Db, itemId: string, ids: readonly string[]) {
+  await db.catalogItemUser.deleteMany({ where: { itemId, userId: { notIn: [...ids] } } });
+  await db.catalogItemUser.createMany({ data: ids.map((userId) => ({ itemId, userId })), skipDuplicates: true });
 }
 
 export async function createItem(db: Db, actor: Actor, code: string, input: ItemInput & { value: string }) {
@@ -152,7 +216,9 @@ export async function createItem(db: Db, actor: Actor, code: string, input: Item
     if (catalog.kind === 'mail_rules' && keywords.length === 0) {
       throw badRequest('NO_KEYWORDS', 'Укажите хотя бы одно ключевое слово');
     }
-    if (input.ownerUserId) await assertMailOwner(tx, input.ownerUserId);
+    if (input.ownerUserId) await assertOwner(tx, code, input.ownerUserId);
+    const memberIds = input.memberIds ? await checkMembers(tx, input.memberIds) : [];
+    const emails = normalizeEmails(input.emails ?? []);
 
     const max = await tx.catalogItem.aggregate({ where: { catalogCode: code }, _max: { sortOrder: true } });
     const row = await tx.catalogItem.create({
@@ -162,25 +228,26 @@ export async function createItem(db: Db, actor: Actor, code: string, input: Item
         color: catalog.hasColor ? (input.color ?? 'muted') : null,
         keywords,
         ownerUserId: input.ownerUserId ?? null,
+        emails,
         sortOrder: (max._max.sortOrder ?? 0) + 1,
       },
-      include: itemInclude,
     });
+    if (memberIds.length) await setMembers(tx, row.id, memberIds);
     await auditSettings(tx, actor, {
       action: 'catalog.item.created',
       entity: 'catalog_item',
       entityId: row.id,
       summary: `«${catalog.name}»: добавлено «${value}»`,
-      after: { value, color: row.color, keywords, ownerUserId: row.ownerUserId },
+      after: { value, color: row.color, keywords, ownerUserId: row.ownerUserId, memberIds, emails },
     });
-    return toDto(row, 0);
+    return toDto(await getItem(tx, row.id), 0);
   });
 }
 
 export async function updateItem(db: Db, actor: Actor, id: string, input: ItemInput & { version: number }) {
   return withTx(db, async (tx) => {
     const item = await getItem(tx, id);
-    validateShape(item.catalog, input);
+    validateShape(item.catalog, input, item.systemKey);
 
     const data: Prisma.CatalogItemUncheckedUpdateManyInput = {};
     const changes: string[] = [];
@@ -193,6 +260,10 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
           throw conflict('SYSTEM_VALUE', 'Системное значение нельзя переименовать: на него опирается логика портала');
         }
         await assertUnique(tx, item.catalogCode, value, id);
+        // Правила автоматизаций ссылаются на метку по названию: переименование их бы отвязало.
+        if (item.catalogCode === RECIPIENTS_CATALOG && ((await catalogItemUsage.count(tx, [id])).get(id) ?? 0) > 0) {
+          throw conflict('LABEL_IN_USE', `Метка «${item.value}» используется в правилах автоматизаций — переименование отвяжет их. Добавьте новую метку и замените её в правилах`);
+        }
         data.value = value;
         changes.push(`переименовано «${item.value}» → «${value}»`);
       }
@@ -210,9 +281,25 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
       }
     }
     if (input.ownerUserId !== undefined && input.ownerUserId !== item.ownerUserId) {
-      if (input.ownerUserId) await assertMailOwner(tx, input.ownerUserId);
+      if (input.ownerUserId) await assertOwner(tx, item.catalogCode, input.ownerUserId);
       data.ownerUserId = input.ownerUserId;
-      changes.push(`ответственный «${item.value}»`);
+      changes.push(item.catalogCode === SYSTEMS_CATALOG ? `владелец «${item.value}»` : `ответственный «${item.value}»`);
+    }
+    let memberIds: string[] | null = null;
+    const membersBefore = item.members.map((m) => m.userId);
+    if (input.memberIds !== undefined) {
+      const next = await checkMembers(tx, input.memberIds);
+      if ([...next].sort().join('|') !== [...membersBefore].sort().join('|')) {
+        memberIds = next;
+        changes.push(`участники «${item.value}»`);
+      }
+    }
+    if (input.emails !== undefined) {
+      const emails = normalizeEmails(input.emails);
+      if (emails.join('|') !== item.emails.join('|')) {
+        data.emails = emails;
+        changes.push(`e-mail «${item.value}»`);
+      }
     }
 
     if (changes.length > 0) {
@@ -221,13 +308,14 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
         data: { ...data, version: { increment: 1 } },
       });
       await ensureVersioned(res.count, () => tx.catalogItem.findFirst({ where: { id, deletedAt: null } }), 'Значение справочника');
+      if (memberIds) await setMembers(tx, id, memberIds);
       await auditSettings(tx, actor, {
         action: 'catalog.item.updated',
         entity: 'catalog_item',
         entityId: id,
         summary: `«${item.catalog.name}»: ${changes.join(', ')}`,
-        before: { value: item.value, color: item.color, keywords: item.keywords, ownerUserId: item.ownerUserId },
-        after: { ...data },
+        before: { value: item.value, color: item.color, keywords: item.keywords, ownerUserId: item.ownerUserId, memberIds: membersBefore, emails: item.emails },
+        after: { ...data, ...(memberIds ? { memberIds } : {}) },
       });
     } else if (input.version !== item.version) {
       throw versionConflict();

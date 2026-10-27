@@ -91,7 +91,14 @@ after(async () => {
   // Уборка: всё, что создал прогон, — в архив, даже если тест упал на середине.
   if (ui && regId) {
     const page = await api(`/api/v1/registers/${regId}/records?sort=number&dir=desc&limit=200`).catch(() => ({ items: [] }));
-    for (const r of page.items.filter((x) => x.number > numberBefore && !x.archived)) {
+    const mine = page.items.filter((x) => x.number > numberBefore && !x.archived);
+    // Задачи, которые автоматизации поставили по записям прогона, — тоже в архив.
+    const ids = new Set(mine.map((r) => r.id));
+    const tasks = await api('/api/v1/tasks?archived=false').catch(() => ({ items: [] }));
+    for (const t of tasks.items.filter((x) => x.record && ids.has(x.record.id))) {
+      await post(`/api/v1/tasks/${t.id}/archive`, { version: t.version }).catch(() => undefined);
+    }
+    for (const r of mine) {
       await post(`/api/v1/register-records/${r.id}/archive`, { version: r.version }).catch(() => undefined);
     }
     if (reportId) await post(`/api/v1/scan-reports/${reportId}/archive`).catch(() => undefined);
@@ -162,7 +169,7 @@ describe('Реестр уязвимостей', () => {
     assert.deepEqual(states.map(rank), [...states.map(rank)].sort((a, b) => a - b), 'просрочено → скоро → в срок');
   });
 
-  it('карточка: оценка и критичность по п. 7.1, ручная критичность, «Считать автоматически», событие обработано', async () => {
+  it('карточка: оценка и критичность по п. 7.1, ручная критичность, «Считать автоматически», событие → задача', async () => {
     await ensureReport();
     await openTab('records');
     await ui.click(recRow('CVE-2024-21413'), 'строка CVE-2024-21413');
@@ -190,14 +197,17 @@ describe('Реестр уязвимостей', () => {
     assert.equal(auto.status, 200, auto.body);
     await ui.waitFor(`${crit}.value === ${JSON.stringify(critical)} && !${manualChip}`, 'критичность снова по Оценке');
 
-    // Срок 29.10 (15.10 + 14): после импорта правило «за 3 дня» или «просрочено» уже создало событие.
-    await ui.waitFor(`!!${drawer}.querySelector('.hist-item.ev.new')`, 'событие автоматизации в карточке');
-    m = ui.mark();
-    await ui.click($.button('Обработано', `${drawer}.querySelector('.hist-item.ev.new')`));
-    assert.equal((await ui.request(m, 'POST', '/process')).status, 204);
-    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Событие обработано'`, 'уведомление');
-    await ui.click($.button('Закрыть', drawer));
-    await ui.waitFor(`!${drawer}`, 'карточка закрыта');
+    // Срок 29.10 (15.10 + 14): после импорта правило «за 3 дня» или «просрочено» создало событие,
+    // и оно сразу стало задачами получателям (этап 5): в карточке — ссылки на задачи.
+    const ev = `${drawer}.querySelector('.hist-item.ev')`;
+    await ui.waitFor(`!!${ev}?.querySelector('a[href^="/tasks?task="]')`, 'событие автоматизации со ссылкой на задачу');
+    await ui.click(`${ev}.querySelector('a[href^="/tasks?task="]')`, 'ссылка на задачу');
+    await ui.waitFor(`location.pathname === '/tasks' && !!document.querySelector('aside.drawer[aria-label="Задача"] .dr-title')`, 'карточка задачи');
+    const card = `document.querySelector('aside.drawer[aria-label="Задача"]')`;
+    await ui.waitFor(`${card}.textContent.includes('CVE-2024-21413') && ${card}.textContent.includes('Реестр уязвимостей')`, 'задача связана с записью реестра');
+    assert.match(await ui.text(`${card}.querySelector('.eyebrow')`), /Реестр, автоматизация реестра/);
+    await ui.click($.button('Закрыть', card));
+    await ui.waitFor(`!${card}`, 'карточка задачи закрыта');
   });
 
   it('вкладка «Автоматизация»: системные правила п. 7.4, новое правило, «Проверить сейчас», журнал событий', async () => {

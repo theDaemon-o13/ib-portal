@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { registersApi, type AutomationRule, type RegisterDetail, type RuleAction, type RuleCondition } from '../../api/registers';
 import { settingsApi } from '../../api/settings';
 import { useAction } from '../settings/useAction';
@@ -9,8 +10,7 @@ import { EVENT_TYPE_NAMES, formatDate, isScoreRule } from './logic';
 type CondKind = RuleCondition['kind'];
 type Recipient = RuleAction['recipients'][number];
 
-/** Метки получателей до появления задач и почты (этапы 5 и 9). */
-const LABELS = ['Руководитель ДИКТ', 'Владелец системы', 'Начальник ИБ', 'Руководство Банка'];
+const RECIPIENTS = 'notify_recipients';
 
 const EVENT_TONE: Record<string, string> = { remind: 'info', notify: 'high', escalate: 'crit' };
 
@@ -22,6 +22,8 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   const users = live.filter((f) => f.type === 'user');
   const fillable = live.filter((f) => f.type !== 'calc' && f.type !== 'decision');
   const people = useQuery({ queryKey: rkeys.userOptions, queryFn: settingsApi.userOptions });
+  // Метки — из справочника «Получатели уведомлений»: за меткой стоят пользователи и e-mail.
+  const labels = useQuery({ queryKey: ['settings', 'items', RECIPIENTS, 'active'], queryFn: () => settingsApi.items(RECIPIENTS, false) });
 
   const [kind, setKind] = useState<CondKind>(dates.length ? 'before' : 'equals');
   const [fieldId, setFieldId] = useState('');
@@ -31,7 +33,6 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   const [unless, setUnless] = useState('');
   const [eventType, setEventType] = useState<RuleAction['eventType']>('remind');
   const [recipients, setRecipients] = useState<Recipient[]>(users[0] ? [{ kind: 'field', fieldId: users[0].id }] : []);
-  const [labelInput, setLabelInput] = useState('');
 
   const pool = kind === 'equals' ? selects : dates;
   const field = pool.find((f) => f.id === fieldId) ?? pool[0];
@@ -56,13 +57,15 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   }, {
     invalidate: [rkeys.rules(reg.id)],
     success: (r) => `Правило добавлено: ${r.when} → ${r.then}`,
-    onDone: () => setLabelInput(''),
   });
   const addRecipient = (r: Recipient) => {
-    const same = (x: Recipient) => (x.kind === 'field' && r.kind === 'field' ? x.fieldId === r.fieldId : x.kind === 'label' && r.kind === 'label' && x.label === r.label);
+    const same = (x: Recipient) => (x.kind === 'field' && r.kind === 'field' ? x.fieldId === r.fieldId
+      : x.kind === 'label' && r.kind === 'label' ? x.label === r.label
+        : x.kind === 'user' && r.kind === 'user' && x.userId === r.userId);
     if (!recipients.some(same)) setRecipients([...recipients, r]);
   };
-  const recipientName = (r: Recipient) => (r.kind === 'field' ? `${reg.fields.find((f) => f.id === r.fieldId)?.label ?? '?'} (из записи)` : r.label);
+  const recipientName = (r: Recipient) => (r.kind === 'field' ? `${reg.fields.find((f) => f.id === r.fieldId)?.label ?? '?'} (из записи)`
+    : r.kind === 'user' ? (r.name ?? 'сотрудник') : r.label);
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(undefined); };
 
   if (!dates.length && !selects.length) {
@@ -125,19 +128,21 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
         </div>
         <div className="row">
           {users.map((f) => <button key={f.id} type="button" className="btn sm" onClick={() => addRecipient({ kind: 'field', fieldId: f.id })}>+ {f.label}</button>)}
-          {LABELS.map((l) => <button key={l} type="button" className="btn sm" onClick={() => addRecipient({ kind: 'label', label: l })}>+ {l}</button>)}
+          {labels.data?.items.map((l) => (
+            <button key={l.id} type="button" className="btn sm" title={l.members.length || l.emails.length ? [...l.members.map((m) => m.fullName), ...l.emails].join(', ') : 'У метки пока нет участников — задача будет без ответственного'}
+              onClick={() => addRecipient({ kind: 'label', label: l.value })}>+ {l.value}</button>
+          ))}
           <select className="inp" value="" aria-label="Сотрудник-получатель"
-            onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'label', label: u.fullName }); }}>
+            onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'user', userId: u.id, name: u.fullName }); }}>
             <option value="">+ сотрудник…</option>
             {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
           </select>
-          <input className="inp" placeholder="Другой получатель" value={labelInput} onChange={(e) => setLabelInput(e.target.value)} aria-label="Другой получатель" />
-          <button type="button" className="btn sm" disabled={!labelInput.trim()} onClick={() => { addRecipient({ kind: 'label', label: labelInput.trim() }); setLabelInput(''); }}>Добавить</button>
         </div>
+        <div className="hint">Кто стоит за меткой — в «Настройки → Справочники → Получатели уведомлений». «Владелец системы» — из справочника «Системы» по полю «Система» записи.</div>
       </div>
       <div className="span-all row">
         <button className="btn primary" type="submit" disabled={create.isPending || recipients.length === 0 || !field}>Добавить правило</button>
-        <span className="hint">Пока нет задач, правило создаёт событие: оно видно в реестре и в карточке записи.</span>
+        <span className="hint">Сработавшее правило создаёт задачи получателям; если по той же записи задача ещё открыта — добавляет в неё комментарий.</span>
       </div>
     </form>
   );
@@ -174,9 +179,9 @@ function RuleRow({ reg, rule, canManage }: { reg: RegisterDetail; rule: Automati
   );
 }
 
-/** Журнал событий реестра: новые сверху; «Обработано» — в карточке записи. */
+/** Журнал событий реестра: новые сверху; каждое событие ведёт к своим задачам. */
 function EventLog({ reg }: { reg: RegisterDetail }) {
-  const [status, setStatus] = useState<'new' | 'processed' | ''>('new');
+  const [status, setStatus] = useState<'new' | 'processed' | ''>('');
   const events = useInfiniteQuery({
     queryKey: [...rkeys.events(reg.id), 'log', status],
     queryFn: ({ pageParam }) => registersApi.events(reg.id, { status: status || undefined, cursor: pageParam }),
@@ -190,15 +195,15 @@ function EventLog({ reg }: { reg: RegisterDetail }) {
       <div className="row">
         <div className="eyebrow">События</div>
         <select className="inp sm-inp" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} aria-label="Статус событий">
-          <option value="new">Новые</option>
-          <option value="processed">Обработанные</option>
           <option value="">Все</option>
+          <option value="new">Ждут задач</option>
+          <option value="processed">Стали задачами</option>
         </select>
         <span className="hint mono">{items.length} из {total}</span>
       </div>
       <div className="tbl-wrap">
         <table className="cat-tbl events-tbl">
-          <thead><tr><th>Когда</th><th>Запись</th><th>Событие</th><th>Кому</th><th>Статус</th></tr></thead>
+          <thead><tr><th>Когда</th><th>Запись</th><th>Событие</th><th>Кому</th><th>Задачи</th></tr></thead>
           <tbody>
             {events.isSuccess && items.length === 0 && <tr><td colSpan={5} className="hint">Событий нет</td></tr>}
             {items.map((e) => (
@@ -207,7 +212,7 @@ function EventLog({ reg }: { reg: RegisterDetail }) {
                 <td><span className="mono">#{e.recordNumber}</span> {e.recordTitle}</td>
                 <td><span className={`chip ${EVENT_TONE[e.eventType] ?? ''}`}>{EVENT_TYPE_NAMES[e.eventType]}</span> {e.when}</td>
                 <td>{e.recipients.map((r) => (r.kind === 'user' ? r.name : r.label)).join(', ')}</td>
-                <td>{e.status === 'new' ? <span className="chip acc">новое</span> : <span className="hint">обработано{e.processedBy ? ` · ${e.processedBy}` : ''}</span>}</td>
+                <td><EventTasks e={e} /></td>
               </tr>
             ))}
           </tbody>
@@ -218,11 +223,29 @@ function EventLog({ reg }: { reg: RegisterDetail }) {
   );
 }
 
+export function EventTasks({ e }: { e: { status: string; tasks: { id: string; number: number; action: string }[] } }) {
+  if (e.status === 'new') return <span className="chip acc">ждёт</span>;
+  if (!e.tasks.length) return <span className="hint">запись закрыта или в архиве</span>;
+  return (
+    <span className="row nowrap">
+      {e.tasks.map((t) => (
+        <Link key={t.id} to={`/tasks?task=${t.id}`} title={t.action === 'commented' ? 'Добавлен комментарий в открытую задачу' : 'Создана задача'}>
+          #{t.number}{t.action === 'commented' ? ' · комментарий' : ''}
+        </Link>
+      ))}
+    </span>
+  );
+}
+
 export function AutomationTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
   const rules = useQuery({ queryKey: rkeys.rules(reg.id), queryFn: () => registersApi.rules(reg.id) });
   const run = useAction(() => registersApi.runRules(reg.id), {
-    invalidate: [rkeys.events(reg.id), rkeys.records(reg.id)],
-    success: (r) => (r.ran ? (r.created ? `Создано событий: ${r.created}` : 'Новых событий нет') : 'Проверка уже идёт — попробуйте через минуту'),
+    invalidate: [rkeys.events(reg.id), rkeys.records(reg.id), ['tasks']],
+    success: (r) => (r.ran
+      ? (r.created || r.tasksCreated || r.tasksCommented
+        ? `Событий: ${r.created}, задач создано: ${r.tasksCreated}, дополнено комментарием: ${r.tasksCommented}`
+        : 'Новых событий нет')
+      : 'Проверка уже идёт — попробуйте через минуту'),
   });
   const items = rules.data?.items ?? [];
   return (

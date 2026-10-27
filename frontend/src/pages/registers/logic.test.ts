@@ -3,7 +3,7 @@ import type { RegisterDetail, RegisterRecord } from '../../api/registers';
 import { changedValues, deadlineChip, deadlineFieldOf, describeRule, draftOf, formatCalc, optionTone, pinOffsets, toApiValue, typeTargets, visibleColumns } from './logic';
 
 const field = (id: string, label: string, type: RegisterDetail['fields'][number]['type'], extra: Partial<RegisterDetail['fields'][number]> = {}) => ({
-  id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, calcRule: null, archived: false, version: 1, systemKey: null, options: [], ...extra,
+  id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, calcRule: null, archived: false, version: 1, systemKey: null, catalogCode: null, options: [], ...extra,
 });
 const reg: RegisterDetail = {
   id: 'r', name: 'Р', description: '', ownerUserId: null, archived: false, version: 1, systemKey: null,

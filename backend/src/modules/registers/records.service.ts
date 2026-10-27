@@ -48,6 +48,8 @@ export interface ListQuery {
   includeArchived?: boolean;
   /** Только записи с необработанными событиями автоматизаций. */
   withEvents?: boolean;
+  /** Только записи с открытыми задачами (этап 5). */
+  withTasks?: boolean;
 }
 
 /** Сортировка, которую нельзя выразить в SQL: вычисляемые поля и контроль сроков (календарь РТ). */
@@ -108,6 +110,8 @@ function orderExpr(reg: RegisterDef, sort: string | undefined): Prisma.Sql {
       return Prisma.sql`(SELECT o.sort_order FROM register_field_options o WHERE o.id::text = r."values" ->> ${key})`;
     case 'user':
       return Prisma.sql`(SELECT u.full_name FROM users u WHERE u.id::text = r."values" ->> ${key})`;
+    case 'catalog':
+      return Prisma.sql`(SELECT lower(c.value) FROM catalog_items c WHERE c.id::text = r."values" ->> ${key})`;
     default:
       return Prisma.sql`lower(r."values" ->> ${key})`;
   }
@@ -121,7 +125,8 @@ export async function listRecords(db: Db, registerId: string, q: ListQuery) {
   const where = Prisma.sql`r.register_id = ${registerId}::uuid AND r.deleted_at IS NULL
     ${q.includeArchived ? Prisma.empty : Prisma.sql`AND r.archived_at IS NULL`}
     ${search ? Prisma.sql`AND r.search_text LIKE ${`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}` : Prisma.empty}
-    ${q.withEvents ? Prisma.sql`AND EXISTS (SELECT 1 FROM automation_events e WHERE e.record_id = r.id AND e.status = 'new')` : Prisma.empty}`;
+    ${q.withEvents ? Prisma.sql`AND EXISTS (SELECT 1 FROM automation_events e WHERE e.record_id = r.id AND e.status = 'new')` : Prisma.empty}
+    ${q.withTasks ? Prisma.sql`AND EXISTS (SELECT 1 FROM tasks t WHERE t.record_id = r.id AND t.completed_at IS NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL)` : Prisma.empty}`;
   const ids = q.sort && sortsInMemory(reg, q.sort)
     ? (await idsSortedInMemory(db, reg, where, q.sort, q.dir ?? 'asc')).slice(offset, offset + q.limit + 1).map((id) => ({ id }))
     : await db.$queryRaw<{ id: string }[]>`

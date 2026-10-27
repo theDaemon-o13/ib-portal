@@ -150,6 +150,14 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
             )}
           </section>
 
+          {field.type === 'catalog' && (
+            <section className="fd-section">
+              <div className="eyebrow">Значения</div>
+              <div className="hint">Значения берутся из справочника и правятся в «Настройки → Справочники». Переименование значения ничего не ломает: записи ссылаются на него по id.</div>
+              <div className="cover">{field.options.filter((o) => !o.archived).map((o) => <span key={o.id} className="chip">{o.label}</span>)}</div>
+            </section>
+          )}
+
           {(field.type === 'select' || field.type === 'decision') && (
             <section className="fd-section">
               <div className="eyebrow">Значения списка</div>

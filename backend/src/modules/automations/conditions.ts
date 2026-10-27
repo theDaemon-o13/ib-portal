@@ -1,5 +1,5 @@
 // Автоматизации «условие → действие» (этап 4): чистые функции проверки условия без БД.
-// До появления задач (этап 5) действие — событие в automation_events.
+// Действие — событие в automation_events; с этапа 5 событие превращается в задачи получателям.
 import { workingDaysBetween, parseIsoDate, type WorkCalendar } from '../../lib/working-days.js';
 import { addDays, type StoredValue, type Values } from '../../lib/register-values.js';
 
@@ -24,7 +24,14 @@ export type Condition =
   /** Поле-список равно значению. */
   | { kind: 'equals'; fieldId: string; optionId: string };
 
-export type Recipient = { kind: 'field'; fieldId: string } | { kind: 'label'; label: string };
+/**
+ * Получатель правила: поле-сотрудник записи, метка справочника «Получатели уведомлений»
+ * или сотрудник портала (имя — на момент сохранения правила, для описания).
+ */
+export type Recipient =
+  | { kind: 'field'; fieldId: string }
+  | { kind: 'label'; label: string }
+  | { kind: 'user'; userId: string; name?: string };
 
 export interface Action {
   eventType: EventType;

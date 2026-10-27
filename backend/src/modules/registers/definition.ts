@@ -26,6 +26,8 @@ export interface FieldMeta extends FieldDef {
   isStatus: boolean;
   version: number;
   systemKey: string | null;
+  /** Поле «Значение справочника»: код справочника; варианты — его значения. */
+  catalogCode: string | null;
   options: (FieldDef['options'][number] & { sortOrder: number; version: number; systemKey: string | null })[];
 }
 
@@ -49,7 +51,10 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
       fields: {
         where: { deletedAt: null },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-        include: { options: { where: { deletedAt: null }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
+        include: {
+          options: { where: { deletedAt: null }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
+          catalog: { include: { items: { where: { deletedAt: null }, orderBy: [{ sortOrder: 'asc' }, { value: 'asc' }] } } },
+        },
       },
     },
   });
@@ -74,10 +79,16 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
       archived: f.archivedAt !== null,
       version: f.version,
       systemKey: f.systemKey,
-      options: f.options.map((o) => ({
-        id: o.id, label: o.label, isClosed: o.isClosed, archived: o.archivedAt !== null, sortOrder: o.sortOrder, version: o.version,
-        systemKey: o.systemKey,
-      })),
+      catalogCode: f.catalogCode,
+      // У поля «Значение справочника» варианты — значения справочника (правятся в настройках).
+      options: f.catalog
+        ? f.catalog.items.map((i) => ({
+          id: i.id, label: i.value, isClosed: false, archived: i.archivedAt !== null, sortOrder: i.sortOrder, version: i.version, systemKey: null,
+        }))
+        : f.options.map((o) => ({
+          id: o.id, label: o.label, isClosed: o.isClosed, archived: o.archivedAt !== null, sortOrder: o.sortOrder, version: o.version,
+          systemKey: o.systemKey,
+        })),
     })),
   };
 }
@@ -215,6 +226,8 @@ export interface RecordDto {
   deadline: { date: string | null; daysLeft: number | null; state: DeadlineState } | null;
   /** Необработанные события автоматизаций по записи. */
   openEvents: number;
+  /** Открытые задачи по записи (из событий автоматизаций, этап 5). */
+  openTasks: number;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -261,6 +274,12 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
     by: ['recordId'], where: { recordId: { in: rows.map((r) => r.id) }, status: 'new' }, _count: { _all: true },
   });
   const openEvents = new Map(events.map((e) => [e.recordId, e._count._all]));
+  const tasks = await db.task.groupBy({
+    by: ['recordId'],
+    where: { recordId: { in: rows.map((r) => r.id) }, completedAt: null, archivedAt: null, deletedAt: null },
+    _count: { _all: true },
+  });
+  const openTasks = new Map(tasks.map((t) => [t.recordId, t._count._all]));
   return rows.map((r, i) => {
     const values = valuesList[i] ?? {};
     const display: Record<string, string> = {};
@@ -292,6 +311,7 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
       manualFieldIds: r.manualFieldIds ?? [],
       deadline: deadline ? deadlineState(dateOf(reg, deadline, values, calendar), closed, today) : null,
       openEvents: openEvents.get(r.id) ?? 0,
+      openTasks: openTasks.get(r.id) ?? 0,
       version: r.version,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),

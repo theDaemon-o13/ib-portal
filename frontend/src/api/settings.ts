@@ -73,6 +73,8 @@ export const settingsApi = {
 
   users: (cursor?: string) => request<UserPage>('GET', `/api/v1/users?limit=100${cursor ? `&cursor=${enc(cursor)}` : ''}`),
   userOptions: () => request<Res<'/api/v1/users/options', 'get'>>('GET', '/api/v1/users/options'),
+  /** Все активные пользователи с отметкой ibWork — владелец системы, проверка участников меток. */
+  allUserOptions: () => request<Res<'/api/v1/users/options', 'get'>>('GET', '/api/v1/users/options?scope=all'),
   createUser: (body: Body<'/api/v1/users', 'post'>) => request<WithTemporaryPassword>('POST', '/api/v1/users', body),
   updateUser: (id: string, body: Body<'/api/v1/users/{id}', 'patch'>) => request<AdminUser>('PATCH', `/api/v1/users/${id}`, body),
   disableUser: (id: string, version: number) => request<AdminUser>('POST', `/api/v1/users/${id}/disable`, { version }),

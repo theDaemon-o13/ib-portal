@@ -13,6 +13,7 @@ import type { AuditWriter } from './modules/audit/audit.js';
 import type { AuthRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { automationRoutes } from './modules/automations/routes.js';
+import { taskRoutes } from './modules/tasks/routes.js';
 import { createAuthService } from './modules/auth/service.js';
 import { calendarRoutes } from './modules/calendar/routes.js';
 import { catalogRoutes } from './modules/catalogs/routes.js';
@@ -83,6 +84,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(taskRoutes, { prefix: '/api/v1', db: deps.db });
 
   if (deps.automationIntervalMin) installJobs(base, { db: deps.db, intervalMs: deps.automationIntervalMin * 60_000, now: deps.now });
 

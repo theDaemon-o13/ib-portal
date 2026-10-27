@@ -2,13 +2,14 @@
 // Чистые функции без БД — правила этапов 3 и 4 проверяются модульными тестами.
 //
 // Хранение (register_records.values, ключ — id поля):
-//   text → строка; number → число; date → 'YYYY-MM-DD'; select → id варианта; user → id пользователя.
+//   text → строка; number → число; date → 'YYYY-MM-DD'; select → id варианта; user → id пользователя;
+//   catalog → id значения справочника (варианты поля — значения справочника, переименование ничего не ломает).
 //   Вычисляемое поле (calc) и решение другого отдела (decision) в values не хранятся никогда.
 
 import { vulnScore } from './vuln-score.js';
 import { onOrNextWorkingDay, parseIsoDate, isoDate, type WorkCalendar } from './working-days.js';
 
-export const FIELD_TYPES = ['text', 'select', 'number', 'date', 'user', 'calc', 'decision'] as const;
+export const FIELD_TYPES = ['text', 'select', 'number', 'date', 'user', 'calc', 'decision', 'catalog'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 export const ANALYTICS_ROLES = ['dimension', 'metric', 'date', 'deadline'] as const;
@@ -20,6 +21,7 @@ export const ALLOWED_ROLES: Record<FieldType, readonly AnalyticsRole[]> = {
   select: ['dimension'],
   decision: ['dimension'],
   user: ['dimension'],
+  catalog: ['dimension'],
   number: ['metric'],
   date: ['date', 'deadline'],
   calc: ['deadline', 'date'],
@@ -172,7 +174,8 @@ export function normalizeInput(field: FieldDef, raw: unknown, ctx: InputContext)
     }
     case 'date':
       return typeof raw === 'string' && isIsoDate(raw) ? ok(raw) : fail('Ожидается дата');
-    case 'select': {
+    case 'select':
+    case 'catalog': {
       if (typeof raw !== 'string') return fail('Выберите значение из списка');
       const opt = field.options.find((o) => o.id === raw);
       if (!opt) return fail('Нет такого значения в списке');
@@ -209,6 +212,7 @@ export function displayValue(field: FieldDef, v: StoredValue | undefined | null,
       return typeof v === 'string' && isIsoDate(v) ? formatDateRu(v) : String(v);
     case 'select':
     case 'decision':
+    case 'catalog':
       return field.options.find((o) => o.id === v)?.label ?? '';
     case 'user': {
       const u = ctx.users.get(String(v));
@@ -273,8 +277,11 @@ export function typeChangeKind(from: FieldType, to: FieldType, hasData: boolean)
   if (from === 'calc' || to === 'calc' || from === 'decision' || to === 'decision') {
     return fail('Вычисляемое поле и решение другого отдела нельзя превратить в другой тип и наоборот');
   }
+  // Справочник выбирается при создании поля: превратить в «Значение справочника» другое поле нельзя.
+  if (to === 'catalog') return fail('Поле «Значение справочника» нельзя получить сменой типа — добавьте новое поле');
+  if (from === 'catalog' && to !== 'text') return fail('Поле «Значение справочника» можно перевести только в текст');
   if (!hasData) return ok('empty');
-  if (to === 'text' && ['number', 'date', 'select', 'user'].includes(from)) return ok('to_text');
+  if (to === 'text' && ['number', 'date', 'select', 'user', 'catalog'].includes(from)) return ok('to_text');
   if (from === 'text' && ['number', 'date', 'select'].includes(to)) return ok('from_text');
   return fail('Поле с данными можно перевести только в текст или из текста в число, дату или список');
 }
@@ -356,10 +363,11 @@ export function parseCell(field: FieldDef, cell: unknown, ctx: ImportContext): R
       const iso = typeof v === 'string' ? parseDateText(v) : null;
       return iso ? ok(iso) : fail(`«${String(v)}» — не дата. Формат: ДД.ММ.ГГГГ`);
     }
-    case 'select': {
+    case 'select':
+    case 'catalog': {
       const s = String(v).trim().toLowerCase();
       const opt = field.options.find((o) => !o.archived && o.label.trim().toLowerCase() === s);
-      return opt ? ok(opt.id) : fail(`«${String(v)}» — нет такого значения в списке «${field.label}»`);
+      return opt ? ok(opt.id) : fail(`«${String(v)}» — нет такого значения в ${field.type === 'catalog' ? 'справочнике' : 'списке'} «${field.label}»`);
     }
     case 'user': {
       const r = findUser(String(v), ctx.users);

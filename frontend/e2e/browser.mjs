@@ -126,6 +126,25 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await sleep(120);
     },
 
+    /** Перетащить мышью: нажать на from, провести через несколько точек к to, отпустить. */
+    async drag(fromExpr, toExpr, what = 'перетаскивание') {
+      await ui.waitFor(`!!(${fromExpr}) && !!(${toExpr})`, what);
+      const center = (expr) => evaluate(`(() => { const el = ${expr}; el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        const r = el.getBoundingClientRect();
+        const left = Math.max(r.left, 0), right = Math.min(r.right, innerWidth), top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight);
+        return { x: (left + right) / 2, y: (top + bottom) / 2 }; })()`);
+      const a = await center(fromExpr);
+      const b = await center(toExpr);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a.x, y: a.y });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a.x, y: a.y, button: 'left', buttons: 1, clickCount: 1 });
+      for (let i = 1; i <= 8; i++) {
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a.x + ((b.x - a.x) * i) / 8, y: a.y + ((b.y - a.y) * i) / 8, button: 'left', buttons: 1 });
+        await sleep(30);
+      }
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.x, y: b.y, button: 'left', buttons: 0, clickCount: 1 });
+      await sleep(150);
+    },
+
     /** Очистить поле и ввести текст с клавиатуры. */
     async type(expr, text, what = expr) {
       await ui.click(expr, what);

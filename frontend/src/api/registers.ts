@@ -52,7 +52,7 @@ export interface RecordQuery {
   sort?: string;
   dir?: 'asc' | 'desc';
   includeArchived?: boolean;
-  withEvents?: boolean;
+  withTasks?: boolean;
   cursor?: string;
 }
 
@@ -109,7 +109,7 @@ export const registersApi = {
   records: (registerId: string, q: RecordQuery) =>
     request<RecordPage>('GET', `/api/v1/registers/${registerId}/records${qs({
       q: q.q, sort: q.sort, dir: q.dir, cursor: q.cursor, limit: '100', includeArchived: q.includeArchived ? 'true' : undefined,
-      withEvents: q.withEvents ? 'true' : undefined,
+      withTasks: q.withTasks ? 'true' : undefined,
     })}`),
   record: (id: string) => request<RegisterRecord>('GET', `/api/v1/register-records/${id}`),
   history: (id: string) => request<Res<'/api/v1/register-records/{id}/history', 'get'>>('GET', `/api/v1/register-records/${id}/history`),

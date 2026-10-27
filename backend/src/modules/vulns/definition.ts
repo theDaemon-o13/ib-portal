@@ -9,7 +9,7 @@ export const VULN_REGISTER_KEY = 'vulns';
 
 export type VulnFieldKey =
   | 'cve' | 'pkg' | 'level' | 'cvss' | 'exploit' | 'vector' | 'fix' | 'fixVersion' | 'desc' | 'hits'
-  | 'report' | 'notified' | 'score' | 'crit' | 'due' | 'status' | 'comment' | 'measures' | 'newDue' | 'owner';
+  | 'report' | 'notified' | 'score' | 'crit' | 'due' | 'status' | 'comment' | 'measures' | 'newDue' | 'owner' | 'system';
 
 export interface VulnOptionSpec {
   label: string;
@@ -20,7 +20,9 @@ export interface VulnOptionSpec {
 export interface VulnFieldSpec {
   key: VulnFieldKey;
   label: string;
-  type: 'text' | 'select' | 'number' | 'date' | 'user' | 'calc';
+  type: 'text' | 'select' | 'number' | 'date' | 'user' | 'calc' | 'catalog';
+  /** Только у «Значения справочника». */
+  catalogCode?: string;
   isTitle?: boolean;
   isStatus?: boolean;
   analyticsRole?: 'dimension' | 'metric' | 'date' | 'deadline';
@@ -78,6 +80,8 @@ export const VULN_FIELDS: VulnFieldSpec[] = [
   { key: 'measures', label: 'Компенсирующие меры', type: 'text' },
   { key: 'newDue', label: 'Срок после пересмотра ИБ', type: 'date' },
   { key: 'owner', label: 'Ответственный', type: 'user', analyticsRole: 'dimension' },
+  // Этап 5: система из справочника «Системы» — от неё метка «Владелец системы» находит владельца.
+  { key: 'system', label: 'Система', type: 'catalog', catalogCode: 'systems', analyticsRole: 'dimension' },
 ];
 
 export { DUE_DAYS };

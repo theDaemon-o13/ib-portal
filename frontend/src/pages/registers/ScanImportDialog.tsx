@@ -1,7 +1,8 @@
 import { Overlay } from '../../components/Overlay';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { registersApi, type RegisterDetail, type ScanPreview } from '../../api/registers';
+import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
 import { rkeys } from './keys';
 import { formatDate } from './logic';
@@ -19,12 +20,15 @@ export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetai
   const [reportDate, setReportDate] = useState(s.reportDate ?? '');
   const [notifiedDate, setNotifiedDate] = useState(s.reportDate ?? '');
   const [notifiedTouched, setNotifiedTouched] = useState(false);
+  // Система отчёта: по ней метка «Владелец системы» находит, кому ставить задачи.
+  const [systemId, setSystemId] = useState('');
+  const systems = useQuery({ queryKey: ['settings', 'items', 'systems', 'active'], queryFn: () => settingsApi.items('systems', false) });
   const nothing = s.created + s.mergedChanged === 0;
   const dateMissing = !reportDate;
   const dateOrder = !!reportDate && !!notifiedDate && notifiedDate < reportDate;
 
   const apply = useMutation({
-    mutationFn: () => registersApi.applyScan(preview.id, { reportDate: reportDate || null, notifiedDate: notifiedDate || null }),
+    mutationFn: () => registersApi.applyScan(preview.id, { reportDate: reportDate || null, notifiedDate: notifiedDate || null, systemId: systemId || null }),
     onSuccess: async (r) => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: rkeys.records(reg.id) }),
@@ -73,6 +77,15 @@ export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetai
           <span className="hint">
             {s.reportDate ? `Дата отчёта взята из имени файла: ${formatDate(s.reportDate)}.` : 'В имени файла нет даты — укажите её.'} Срок устранения считается от передачи в ДИКТ.
           </span>
+        </div>
+        <div className="row scan-dates">
+          <label className="fd-label">Система
+            <select className="inp" value={systemId} onChange={(e) => setSystemId(e.target.value)} aria-label="Система отчёта">
+              <option value="">— не указана</option>
+              {systems.data?.items.map((i) => <option key={i.id} value={i.id}>{i.value}{i.owner ? ` · владелец ${i.owner.fullName}` : ''}</option>)}
+            </select>
+          </label>
+          <span className="hint">Ставится новым записям отчёта. По ней задачи «Владельцу системы» получает владелец из справочника «Системы».</span>
         </div>
         {dateMissing && <p className="form-error" role="alert">В имени файла нет даты отчёта. Укажите её — без даты отчёт не загрузить.</p>}
         {dateOrder && <p className="form-error" role="alert">Отчёт не мог быть передан в ДИКТ раньше, чем составлен.</p>}

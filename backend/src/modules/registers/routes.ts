@@ -53,6 +53,8 @@ const Field = z.object({
   version: z.number().int(),
   /** Системное поле: удалить, архивировать и сменить тип нельзя. */
   systemKey: z.string().nullable(),
+  /** Поле «Значение справочника»: код справочника; options — его значения (правятся в настройках). */
+  catalogCode: z.string().nullable(),
   options: z.array(Option),
 });
 export const RegisterDetail = z.object({
@@ -96,6 +98,8 @@ export const RegisterRecord = z.object({
     state: z.enum(['overdue', 'soon', 'ok', 'closed', 'none']),
   }).nullable(),
   openEvents: z.number().int(),
+  /** Открытые задачи по записи из событий автоматизаций. */
+  openTasks: z.number().int(),
   version: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -209,6 +213,8 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         options: z.array(z.string().max(200)).max(200).optional(),
         analyticsRole: Role.nullable().optional(),
         calcRule: CalcRule.optional(),
+        /** Только для типа «Значение справочника» (catalog): код справочника, например systems. */
+        catalogCode: z.string().max(64).optional(),
       }),
       response: { 200: RegisterDetail, ...errors },
     },
@@ -305,12 +311,13 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         dir: z.enum(['asc', 'desc']).optional(),
         includeArchived: z.enum(['true', 'false']).optional(),
         withEvents: z.enum(['true', 'false']).optional(),
+        withTasks: z.enum(['true', 'false']).optional(),
       }),
       response: { 200: z.object({ items: z.array(RegisterRecord), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => {
     const page = await records.listRecords(db, request.params.id, {
-      ...request.query, includeArchived: request.query.includeArchived === 'true', withEvents: request.query.withEvents === 'true',
+      ...request.query, includeArchived: request.query.includeArchived === 'true', withEvents: request.query.withEvents === 'true', withTasks: request.query.withTasks === 'true',
     });
     return { ...page, items: page.items.map(asRecord) };
   });

@@ -392,3 +392,53 @@ table.recs tr.archived td{color:var(--faint)}
   .recform{grid-template-columns:1fr}
   .imp-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* ---------- этап 5: задачи ---------- */
+.nav-n{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--crit);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
+.nav a[aria-current="page"] .nav-n{background:#fff;color:var(--crit)}
+.tasks-grid{display:grid;grid-template-columns:minmax(0,1fr) 304px;gap:12px;align-items:start}
+.board{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;min-width:0}
+.bar{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr) 34px;gap:10px;align-items:center;font-size:12.5px}
+.bar .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.bar .track{height:8px;background:var(--fill);border-radius:999px;overflow:hidden}
+.bar .fill{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.bar .n{text-align:right;color:var(--muted)}
+.board.is-dragging,.board.is-dragging *{cursor:grabbing!important;user-select:none}
+.col{background:var(--fill-2);border:1px solid var(--line);border-radius:var(--r-lg);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:260px;transition:background .15s,border-color .15s}
+.col.over{border-color:var(--accent);background:var(--accent-soft)}
+.col-h{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--fg);padding:4px 6px 6px}
+.col-h > :last-child{color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
+.col-empty{padding:6px;text-align:center}
+.card{background:var(--sheen),var(--glass-strong);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05);border-radius:var(--r-md);padding:11px 12px;display:grid;gap:8px;cursor:grab;font-size:13px;transition:box-shadow .15s;touch-action:none;user-select:none}
+.card:hover{box-shadow:inset 0 1px 0 var(--hl),0 8px 24px rgba(0,0,0,.10)}
+.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card.dragging{opacity:.75;pointer-events:none;position:relative;z-index:5;box-shadow:var(--shadow-lg);transition:none}
+.card.late{border-color:var(--crit-soft)}
+.card.arch{opacity:.8;cursor:pointer}
+.card-t{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.card .meta{display:flex;justify-content:space-between;gap:6px;align-items:center;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.card .av{width:22px;height:22px;font-size:9.5px}
+.late-t{color:var(--crit);font-weight:500}
+.gap6{gap:6px}
+.src-mail{color:var(--info)} .src-reg{color:var(--crit)}
+.tone-accent{color:var(--accent)} .tone-info{color:var(--info)} .tone-low{color:var(--low)} .tone-high{color:var(--high)}
+.tone-med{color:var(--med)} .tone-crit{color:var(--crit)} .tone-muted{color:var(--muted)}
+.quick{display:grid;grid-template-columns:minmax(0,2fr) 1fr 1fr 1fr auto;gap:8px;margin-bottom:12px}
+.arch-btn{margin-left:4px}
+.arch-note{margin-bottom:12px}
+.task-form{display:grid;gap:10px}
+.task-form label,.mail-draft label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+textarea.inp{min-height:90px;resize:vertical;font:inherit;line-height:1.45}
+textarea.mail-raw{min-height:150px}
+.cmt{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.cmt .av{width:24px;height:24px;font-size:9.5px}
+.cmt .who{font-size:12px;color:var(--muted)}
+.cmt .tx{white-space:pre-wrap;font-size:13px}
+.mailbox{border:0;border-radius:var(--r-md);background:var(--fill-2);padding:12px 14px;font-size:12.5px;display:grid;gap:4px}
+.mailbox pre{margin:0;white-space:pre-wrap;font:inherit;max-height:170px;overflow:auto}
+.why{font-size:11.5px;color:var(--accent)}
+.recipients{margin:6px 0 0;padding-left:18px;display:grid;gap:3px}
+.dr-actions{flex-wrap:wrap}
+@media (max-width:900px){.tasks-grid{grid-template-columns:1fr}.quick{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.fgrid{grid-template-columns:1fr}.quick{grid-template-columns:1fr}}

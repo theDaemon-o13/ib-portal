@@ -213,3 +213,23 @@ describe('ячейки Excel', () => {
     expect(parseDateText('1.2.2026')).toBe('2026-02-01');
   });
 });
+
+describe('поле «Значение справочника» (этап 5)', () => {
+  const sys = field('catalog', { options: [opt('abs', 'АБС'), opt('old', 'Старая', { archived: true })] });
+
+  it('ввод, отображение и Excel — по значениям справочника, архивное новым не выбрать', () => {
+    expect(normalizeInput(sys, 'abs', { assignableUsers: new Map(), current: undefined })).toEqual({ ok: true, value: 'abs' });
+    expect(normalizeInput(sys, 'old', { assignableUsers: new Map(), current: undefined }).ok).toBe(false);
+    expect(normalizeInput(sys, 'old', { assignableUsers: new Map(), current: 'old' })).toEqual({ ok: true, value: 'old' });
+    expect(displayValue(sys, 'abs', { users: new Map() })).toBe('АБС');
+    expect(parseCell(sys, ' абс ', { users })).toEqual({ ok: true, value: 'abs' });
+    expect(parseCell(sys, 'Нет такой', { users })).toEqual({ ok: false, error: '«Нет такой» — нет такого значения в справочнике «catalog»' });
+  });
+
+  it('смена типа: только «в текст»; в справочник ничего не превращается', () => {
+    expect(typeChangeKind('catalog', 'text', true)).toEqual({ ok: true, value: 'to_text' });
+    expect(typeChangeKind('catalog', 'select', false).ok).toBe(false);
+    expect(typeChangeKind('text', 'catalog', false).ok).toBe(false);
+    expect(typeChangeKind('select', 'catalog', true).ok).toBe(false);
+  });
+});

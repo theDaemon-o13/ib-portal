@@ -1,4 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent, type MouseEvent } from 'react';
+import { settingsApi } from '../../api/settings';
 import { registersApi, type DueRule, type FieldType, type RegisterDetail, type RegisterField } from '../../api/registers';
 import { LockIcon } from '../../components/LockIcon';
 import { useAction } from '../settings/useAction';
@@ -14,7 +16,12 @@ const stop = (e: MouseEvent) => e.stopPropagation();
 
 export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null }>({ label: '', type: 'text', options: '', role: '', rule: null });
+  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string }>(
+    { label: '', type: 'text', options: '', role: '', rule: null, catalogCode: '' });
+  // Для «Значения справочника» — обычные справочники значений (не статусы, правила почты и метки получателей).
+  const catalogs = useQuery({ queryKey: ['settings', 'catalogs'], queryFn: settingsApi.catalogs });
+  const fieldCatalogs = (catalogs.data?.items ?? []).filter((c) => c.kind === 'values' && c.code !== 'notify_recipients');
+  const catalogName = (code: string | null) => catalogs.data?.items.find((c) => c.code === code)?.name ?? code ?? '';
 
   const invalidate = [rkeys.detail(reg.id), rkeys.records(reg.id), rkeys.list, rkeys.analytics(reg.id)];
   const setRole = useAction(({ f, role }: { f: RegisterField; role: string }) =>
@@ -28,15 +35,17 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
     options: add.type === 'select' || add.type === 'decision' ? add.options.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
     analyticsRole: (add.role || null) as 'dimension' | 'metric' | 'date' | 'deadline' | null,
     calcRule: add.type === 'calc' ? (add.rule ?? undefined) : undefined,
+    catalogCode: add.type === 'catalog' ? add.catalogCode : undefined,
   }), {
     invalidate, success: () => `Поле «${add.label}» добавлено — оно уже есть в карточке записи`,
-    onDone: () => setAdd({ label: '', type: add.type, options: '', role: '', rule: null }),
+    onDone: () => setAdd({ label: '', type: add.type, options: '', role: '', rule: null, catalogCode: add.catalogCode }),
   });
 
   const fields = reg.fields;
   const summary = (f: RegisterField) => {
     if (f.type === 'calc') return describeRule(reg, f);
     if (f.type === 'user') return 'Справочник сотрудников';
+    if (f.type === 'catalog') return `Справочник «${catalogName(f.catalogCode)}» · значения правятся в настройках`;
     if (f.type === 'select' || f.type === 'decision') {
       const live = f.options.filter((o) => !o.archived);
       const text = live.map((o) => (o.isClosed ? `${o.label} (закрывает)` : o.label)).join(', ') || 'нет значений';
@@ -102,15 +111,27 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
         <form className="field-form add-field" onSubmit={submitAdd}>
           <label>Название поля<input className="inp" required placeholder="Например: Источник выявления" value={add.label} onChange={(e) => setAdd({ ...add, label: e.target.value })} /></label>
           <label>Тип
-            <select className="inp" value={add.type} onChange={(e) => setAdd({ ...add, type: e.target.value as FieldType, role: '', rule: null })}>
+            <select className="inp" value={add.type} onChange={(e) => {
+              const type = e.target.value as FieldType;
+              setAdd({ ...add, type, role: '', rule: null, catalogCode: type === 'catalog' ? (add.catalogCode || fieldCatalogs.find((c) => c.code === 'systems')?.code || '') : '' });
+            }}>
               {ALL_TYPES.map((t) => <option key={t} value={t}>{TYPE_NAMES[t]}</option>)}
             </select>
           </label>
+          {add.type === 'catalog' ? (
+            <label>Справочник
+              <select className="inp" required value={add.catalogCode} onChange={(e) => setAdd({ ...add, catalogCode: e.target.value })}>
+                <option value="">— выберите</option>
+                {fieldCatalogs.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </select>
+            </label>
+          ) : (
           <label>Значения списка (через запятую)
             <input className="inp" placeholder={add.type === 'decision' ? 'Ожидает решения, Принят, Отклонён' : 'Сканер, Пентест, Аудит, ДИКТ'}
               disabled={add.type !== 'select' && add.type !== 'decision'} required={add.type === 'select' || add.type === 'decision'}
               value={add.options} onChange={(e) => setAdd({ ...add, options: e.target.value })} />
           </label>
+          )}
           <label>Для аналитики
             <select className="inp" value={add.role} disabled={ALLOWED_ROLES[add.type].length === 0} onChange={(e) => setAdd({ ...add, role: e.target.value })}>
               {['', ...ALLOWED_ROLES[add.type]].map((r) => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}

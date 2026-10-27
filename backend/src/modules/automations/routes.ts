@@ -25,6 +25,7 @@ const ConditionSchema = z.discriminatedUnion('kind', [
 const RecipientSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('field'), fieldId: z.string().uuid() }),
   z.object({ kind: z.literal('label'), label: z.string().trim().min(1).max(100) }),
+  z.object({ kind: z.literal('user'), userId: z.string().uuid(), name: z.string().optional() }),
 ]);
 const ActionSchema = z.object({
   eventType: z.enum(EVENT_TYPES),
@@ -63,6 +64,7 @@ const Event = z.object({
   status: z.enum(['new', 'processed']),
   processedAt: z.string().nullable(),
   processedBy: z.string().nullable(),
+  tasks: z.array(z.object({ id: z.string(), number: z.number().int(), title: z.string(), action: z.enum(['created', 'commented']) })),
   createdAt: z.string(),
 });
 
@@ -128,7 +130,7 @@ export const automationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     preHandler: manage,
     schema: {
       tags: ['automations'], summary: 'Проверить правила реестра сейчас (без ожидания часового прогона)', params: IdParams,
-      response: { 200: z.object({ ran: z.boolean(), today: z.string(), rules: z.number().int(), checked: z.number().int(), created: z.number().int() }), ...errors },
+      response: { 200: z.object({ ran: z.boolean(), today: z.string(), rules: z.number().int(), checked: z.number().int(), created: z.number().int(), tasksCreated: z.number().int(), tasksCommented: z.number().int() }), ...errors },
     },
   }, async (request) => svc.runAutomations(db, { registerId: request.params.id }));
 

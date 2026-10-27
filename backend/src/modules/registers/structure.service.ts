@@ -1,5 +1,6 @@
 // Структура реестров (право registers.manage): реестры, поля, варианты списков, смена типа поля.
 import type { Prisma } from '@prisma/client';
+import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import {
@@ -32,7 +33,16 @@ import {
 
 const TYPE_NAMES: Record<FieldType, string> = {
   text: 'Текст', select: 'Список', number: 'Число', date: 'Дата', user: 'Сотрудник', calc: 'Вычисляемое', decision: 'Решение другого отдела',
+  catalog: 'Значение справочника',
 };
+
+/** Справочники для поля «Значение справочника»: обычные списки значений (не статусы, правила почты и метки). */
+async function assertFieldCatalog(db: Db, code: string | undefined) {
+  if (!code) throw badRequest('NO_CATALOG', 'Выберите справочник, из которого берутся значения');
+  const c = await db.catalog.findUnique({ where: { code } });
+  if (!c || c.kind !== 'values' || code === RECIPIENTS_CATALOG) throw badRequest('NO_CATALOG', 'Этот справочник нельзя выбрать для поля');
+  return c;
+}
 
 /** Системное поле (реестр уязвимостей): на нём держатся формулы, импорт сканера и автоматизации. */
 function assertNotSystemField(field: FieldMeta, what: string) {
@@ -232,6 +242,8 @@ export interface NewFieldInput {
   options?: string[];
   analyticsRole?: AnalyticsRole | null;
   calcRule?: DueDateRule;
+  /** Только для «Значения справочника». */
+  catalogCode?: string;
 }
 
 export async function addField(db: Db, actor: Actor, registerId: string, input: NewFieldInput) {
@@ -249,6 +261,8 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
     } else if (input.calcRule) {
       throw badRequest('BAD_CALC_RULE', 'Правило вычисления бывает только у вычисляемого поля');
     }
+    const catalog = input.type === 'catalog' ? await assertFieldCatalog(tx, input.catalogCode) : null;
+    if (!catalog && input.catalogCode) throw badRequest('NO_CATALOG', 'Справочник выбирается только у поля «Значение справочника»');
     const options = [...new Set((input.options ?? []).map(trimmed).filter(Boolean))];
     if (options.length && input.type !== 'select' && input.type !== 'decision') {
       throw badRequest('NO_OPTIONS', 'Значения списка бывают только у списка и решения другого отдела');
@@ -264,14 +278,15 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
         type: input.type,
         analyticsRole: input.analyticsRole ?? null,
         calcRule: (calcRule ?? undefined) as Prisma.InputJsonValue | undefined,
+        catalogCode: catalog?.code ?? null,
         sortOrder: (max._max.sortOrder ?? 0) + 1,
         options: options.length ? { create: options.map((l, i) => ({ label: l, sortOrder: i + 1 })) } : undefined,
       },
     });
     await auditSettings(tx, actor, {
       action: 'register.field.created', entity: 'register_field', entityId: f.id,
-      summary: `Реестр «${reg.name}»: добавлено поле «${label}» (${TYPE_NAMES[input.type]})${calcRule ? `, ${describeRule(await loadRegister(tx, registerId), calcRule)}` : ''}`,
-      after: { label, type: input.type, options, analyticsRole: input.analyticsRole ?? null },
+      summary: `Реестр «${reg.name}»: добавлено поле «${label}» (${TYPE_NAMES[input.type]}${catalog ? ` «${catalog.name}»` : ''})${calcRule ? `, ${describeRule(await loadRegister(tx, registerId), calcRule)}` : ''}`,
+      after: { label, type: input.type, options, analyticsRole: input.analyticsRole ?? null, catalogCode: catalog?.code ?? null },
     });
     return loadRegister(tx, registerId);
   });
@@ -500,7 +515,7 @@ export async function applyTypeChange(db: Db, actor: Actor, fieldId: string, inp
     const keepRole = field.analyticsRole && (ALLOWED_ROLES[to] as readonly string[]).includes(field.analyticsRole);
     const res = await tx.registerField.updateMany({
       where: { id: fieldId, version: input.version },
-      data: { type: to, analyticsRole: keepRole ? field.analyticsRole : null, isStatus: false, version: { increment: 1 } },
+      data: { type: to, analyticsRole: keepRole ? field.analyticsRole : null, isStatus: false, catalogCode: null, version: { increment: 1 } },
     });
     await ensureVersioned(res.count, () => tx.registerField.findFirst({ where: { id: fieldId, deletedAt: null } }), 'Поле');
     const after = await loadRegister(tx, reg.id);
@@ -553,6 +568,7 @@ export async function addOption(db: Db, actor: Actor, fieldId: string, input: { 
   return withTx(db, async (tx) => {
     const { reg, field } = await getField(tx, fieldId);
     assertNotArchived(reg);
+    if (field.type === 'catalog') throw badRequest('NO_OPTIONS', 'Значения поля «Значение справочника» правятся в настройках справочника');
     if (field.type !== 'select' && field.type !== 'decision') throw badRequest('NO_OPTIONS', 'Значения списка бывают только у списка и решения');
     const label = trimmed(input.label);
     if (!label) throw badRequest('EMPTY_LABEL', 'Укажите значение');

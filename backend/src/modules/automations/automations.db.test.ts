@@ -86,7 +86,7 @@ describe('правила п. 7.4 по расписанию', () => {
       expect((await tx.auditLog.findFirstOrThrow({ where: { action: 'automation.run' }, orderBy: { id: 'desc' } })).userId).toBeNull();
     }));
 
-  it('перенос срока даёт новое событие; выключенное правило молчит; событие отмечается обработанным', () =>
+  it('перенос срока даёт новое событие; выключенное правило молчит; события сразу становятся задачами', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
       const a = await vuln(tx, x, 'A', '2026-10-01', 'critical');
@@ -106,21 +106,17 @@ describe('правила п. 7.4 по расписанию', () => {
       await vuln(tx, x, 'SOON', '2026-11-03', 'high'); // срок 03.12
       expect((await svc.runAutomations(tx, { now: DEC_1, registerId: x.reg.id })).created).toBe(0);
 
-      // Обработано: статус, кто, история записи.
-      const list = await svc.listEvents(tx, x.reg.id, { status: 'new', recordId: a.id, limit: 10 });
+      // Этап 5: события сразу становятся задачами и отмечаются обработанными.
+      expect(await tx.automationEvent.count({ where: { registerId: x.reg.id, status: 'new' } })).toBe(0);
+      const list = await svc.listEvents(tx, x.reg.id, { recordId: a.id, limit: 10 });
       expect(list.total).toBe(3);
-      expect(list.items[0]).toMatchObject({ recordNumber: a.number, recordTitle: 'A', status: 'new' });
-      await svc.processEvent(tx, x.actor, must(list.items[0]).id);
-      await svc.processEvent(tx, x.actor, must(list.items[0]).id); // повторно — без ошибки и без второй записи в журнале
-      expect((await svc.listEvents(tx, x.reg.id, { status: 'new', recordId: a.id, limit: 10 })).total).toBe(2);
-      const done = must((await svc.listEvents(tx, x.reg.id, { status: 'processed', limit: 10 })).items[0]);
-      expect([done.status, done.processedBy !== null]).toEqual(['processed', true]);
-      const history = await records.recordHistory(tx, a.id);
-      expect(history.filter((h) => h.action === 'automation_event.processed')).toHaveLength(1);
-      expect((await records.getRecord(tx, a.id)).openEvents).toBe(2);
-      // Фильтр «С событиями»: SOON без событий (правило выключено) не попадает.
-      const withEvents = await records.listRecords(tx, x.reg.id, { limit: 10, withEvents: true });
-      expect(withEvents.items.map((r) => r.values[x.vf.cve.id])).toEqual(['A']);
+      expect(list.items[0]).toMatchObject({ recordNumber: a.number, recordTitle: 'A', status: 'processed' });
+      expect(list.items.every((e) => e.tasks.length > 0)).toBe(true);
+      expect((await svc.listEvents(tx, x.reg.id, { status: 'new', limit: 10 })).total).toBe(0);
+      expect((await records.getRecord(tx, a.id)).openTasks).toBeGreaterThan(0);
+      // Фильтр «С задачами»: SOON без событий (правило выключено) не попадает.
+      const withTasks = await records.listRecords(tx, x.reg.id, { limit: 10, withTasks: true });
+      expect(withTasks.items.map((r) => r.values[x.vf.cve.id])).toEqual(['A']);
       // Запись в архиве: из журнала реестра её события уходят, в карточке остаются.
       const fresh = await records.getRecord(tx, a.id);
       await records.setRecordArchived(tx, x.actor, a.id, fresh.version, true);
@@ -154,7 +150,7 @@ describe('правила любого реестра', () => {
       }), 'BAD_RULE');
       const ok = await svc.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'overdue', fieldId: x.f.due, workdays: 10, unlessFilledFieldId: x.f.score },
-        action: { eventType: 'escalate', recipients: [{ kind: 'label', label: 'Руководство' }] },
+        action: { eventType: 'escalate', recipients: [{ kind: 'label', label: 'Руководство Банка' }] },
       });
       expect(ok.when).toBe('«Срок устранения» просрочен на 10 раб. дн. и пусто «Баллы»');
       await svc.deleteRule(tx, x.actor, ok.id, ok.version);
@@ -205,10 +201,12 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       const applied = await app.inject({ method: 'POST', url: `/api/v1/scan-imports/${preview.id}/apply`, headers: { cookie: S }, payload: {} });
       expect(applied.statusCode).toBe(200);
       // Сроки отчёта 15.10 подходят (29.10) или уже прошли — события появились сразу после применения, без ожидания часа.
-      const events = await app.inject({ url: `${base}/automation-events?status=new&limit=5`, headers: { cookie: S } });
+      // …и сразу стали задачами (этап 5).
+      const events = await app.inject({ url: `${base}/automation-events?limit=5`, headers: { cookie: S } });
       expect(events.statusCode).toBe(200);
       expect((events.json() as { total: number }).total).toBeGreaterThan(0);
-      const ev = must((events.json() as { items: { id: string }[] }).items[0]);
+      const ev = must((events.json() as { items: { id: string; status: string; tasks: unknown[] }[] }).items[0]);
+      expect([ev.status, ev.tasks.length > 0]).toEqual(['processed', true]);
       expect((await app.inject({ method: 'POST', url: `/api/v1/automation-events/${ev.id}/process`, headers: { cookie: S } })).statusCode).toBe(204);
       const reports = await app.inject({ url: `${base}/scan-reports`, headers: { cookie: S } });
       expect((reports.json() as { items: { hostsCount: number }[] }).items[0]?.hostsCount).toBe(12);
@@ -216,7 +214,7 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       // Срочное — первым: самый ранний срок отчёта 15.10 — критические, 15.10 + 14 = 29.10.
       expect((recs.json() as { items: { deadline: { date: string; state: string } }[] }).items[0]?.deadline).toMatchObject({ date: '2026-10-29' });
 
-      const rule = { condition: { kind: 'before', fieldId: x.vf.due.id, days: 7 }, action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'ДИКТ' }] } };
+      const rule = { condition: { kind: 'before', fieldId: x.vf.due.id, days: 7 }, action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'Руководитель ДИКТ' }] } };
       expect((await app.inject({ url: `${base}/automations`, headers: { cookie: S } })).statusCode).toBe(200);
       expect((await app.inject({ method: 'POST', url: `${base}/automations`, headers: { cookie: S }, payload: rule })).statusCode).toBe(403);
       expect((await app.inject({ method: 'POST', url: `${base}/automations/run`, headers: { cookie: S } })).statusCode).toBe(403);

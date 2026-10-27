@@ -16,11 +16,19 @@ export const CATALOGS = [
   { code: 'task_statuses', name: 'Статусы задач', description: 'Колонки доски задач. Набор статусов фиксирован, названия можно менять', kind: 'statuses', hasColor: false },
   { code: 'task_priorities', name: 'Приоритеты задач', description: 'Карточка задачи, черновик задачи из письма', kind: 'values', hasColor: false },
   { code: 'mail_rules', name: 'Правила разбора почты', description: 'Почта → задача: ключевые слова определяют категорию письма и ответственного', kind: 'mail_rules', hasColor: false },
-  { code: 'systems', name: 'Системы', description: 'Реестр рисков ИБ (актив), формы подтверждения в доказательной базе', kind: 'values', hasColor: false },
+  { code: 'systems', name: 'Системы', description: 'Владелец системы, поле «Система» реестров, риски ИБ (актив), формы подтверждения', kind: 'values', hasColor: false },
   { code: 'document_types', name: 'Типы документов', description: 'Реестр внутренних документов ИБ', kind: 'values', hasColor: false },
+  { code: 'notify_recipients', name: 'Получатели уведомлений', description: 'Метки получателей событий автоматизаций: пользователи портала и e-mail', kind: 'values', hasColor: false },
 ] as const satisfies readonly CatalogDef[];
 
 export type CatalogCode = (typeof CATALOGS)[number]['code'];
+
+/** Справочник меток получателей: у значения — участники (пользователи с ib.work) и e-mail. */
+export const RECIPIENTS_CATALOG = 'notify_recipients';
+/** Справочник систем: у значения — владелец системы. */
+export const SYSTEMS_CATALOG = 'systems';
+/** Метка «Владелец системы»: участников нет, получатель — владелец системы записи. */
+export const SYSTEM_OWNER_KEY = 'system_owner';
 
 export const CATALOG_CODES = CATALOGS.map((c) => c.code) as [CatalogCode, ...CatalogCode[]];
 
@@ -43,6 +51,10 @@ export const SYSTEM_ITEMS: readonly SystemItemDef[] = [
   { catalog: 'task_statuses', key: 'done', value: 'Готово', why: 'статус участвует в маршруте задачи' },
   { catalog: 'task_priorities', key: 'normal', value: 'Обычный', why: 'приоритет по умолчанию' },
   { catalog: 'task_priorities', key: 'high', value: 'Высокий', why: 'ставится по слову «срочно» в письме' },
+  { catalog: 'notify_recipients', key: 'dikt_head', value: 'Руководитель ДИКТ', why: 'получатель системных правил реестра уязвимостей (п. 7.4)' },
+  { catalog: 'notify_recipients', key: 'system_owner', value: 'Владелец системы', why: 'получатель — владелец системы записи из справочника «Системы»' },
+  { catalog: 'notify_recipients', key: 'ib_head', value: 'Начальник ИБ', why: 'получатель эскалации по п. 7.4' },
+  { catalog: 'notify_recipients', key: 'bank_management', value: 'Руководство Банка', why: 'получатель эскалации по п. 7.4' },
 ];
 
 export function systemItemWhy(catalog: string, key: string | null): string | null {

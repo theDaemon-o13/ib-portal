@@ -530,6 +530,7 @@ export interface paths {
                                 value: string;
                                 color: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                                 isSystem: boolean;
+                                systemKey: string | null;
                                 systemReason: string | null;
                                 keywords: string[];
                                 owner: {
@@ -537,6 +538,12 @@ export interface paths {
                                     fullName: string;
                                     isActive: boolean;
                                 } | null;
+                                members: {
+                                    id: string;
+                                    fullName: string;
+                                    isActive: boolean;
+                                }[];
+                                emails: string[];
                                 sortOrder: number;
                                 version: number;
                                 archived: boolean;
@@ -650,6 +657,8 @@ export interface paths {
                         color?: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                         keywords?: string[];
                         ownerUserId?: string | null;
+                        memberIds?: string[];
+                        emails?: string[];
                     };
                 };
             };
@@ -666,6 +675,7 @@ export interface paths {
                             value: string;
                             color: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                             isSystem: boolean;
+                            systemKey: string | null;
                             systemReason: string | null;
                             keywords: string[];
                             owner: {
@@ -673,6 +683,12 @@ export interface paths {
                                 fullName: string;
                                 isActive: boolean;
                             } | null;
+                            members: {
+                                id: string;
+                                fullName: string;
+                                isActive: boolean;
+                            }[];
+                            emails: string[];
                             sortOrder: number;
                             version: number;
                             archived: boolean;
@@ -786,7 +802,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Изменить значение (переименование, цвет, правило почты) */
+        /** Изменить значение (переименование, цвет, правило почты, владелец системы, участники и e-mail метки) */
         patch: {
             parameters: {
                 query?: never;
@@ -804,6 +820,8 @@ export interface paths {
                         color?: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                         keywords?: string[];
                         ownerUserId?: string | null;
+                        memberIds?: string[];
+                        emails?: string[];
                     };
                 };
             };
@@ -820,6 +838,7 @@ export interface paths {
                             value: string;
                             color: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                             isSystem: boolean;
+                            systemKey: string | null;
                             systemReason: string | null;
                             keywords: string[];
                             owner: {
@@ -827,6 +846,12 @@ export interface paths {
                                 fullName: string;
                                 isActive: boolean;
                             } | null;
+                            members: {
+                                id: string;
+                                fullName: string;
+                                isActive: boolean;
+                            }[];
+                            emails: string[];
                             sortOrder: number;
                             version: number;
                             archived: boolean;
@@ -962,6 +987,7 @@ export interface paths {
                             value: string;
                             color: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                             isSystem: boolean;
+                            systemKey: string | null;
                             systemReason: string | null;
                             keywords: string[];
                             owner: {
@@ -969,6 +995,12 @@ export interface paths {
                                 fullName: string;
                                 isActive: boolean;
                             } | null;
+                            members: {
+                                id: string;
+                                fullName: string;
+                                isActive: boolean;
+                            }[];
+                            emails: string[];
                             sortOrder: number;
                             version: number;
                             archived: boolean;
@@ -1108,6 +1140,7 @@ export interface paths {
                             value: string;
                             color: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
                             isSystem: boolean;
+                            systemKey: string | null;
                             systemReason: string | null;
                             keywords: string[];
                             owner: {
@@ -1115,6 +1148,12 @@ export interface paths {
                                 fullName: string;
                                 isActive: boolean;
                             } | null;
+                            members: {
+                                id: string;
+                                fullName: string;
+                                isActive: boolean;
+                            }[];
+                            emails: string[];
                             sortOrder: number;
                             version: number;
                             archived: boolean;
@@ -3823,10 +3862,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Активные сотрудники ИБ для выбора ответственного */
+        /** Активные сотрудники ИБ для выбора ответственного; scope=all — все активные (владелец системы) */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    scope?: "ib" | "all";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3844,6 +3885,7 @@ export interface paths {
                                 id: string;
                                 login: string;
                                 fullName: string;
+                                ibWork: boolean;
                             }[];
                         };
                     };
@@ -5732,7 +5774,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -5760,6 +5802,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -5903,7 +5946,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -5931,6 +5974,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6075,7 +6119,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6103,6 +6147,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6389,7 +6434,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6417,6 +6462,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6568,7 +6614,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6596,6 +6642,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6726,7 +6773,7 @@ export interface paths {
                     "application/json": {
                         label: string;
                         /** @enum {string} */
-                        type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                        type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                         options?: string[];
                         analyticsRole?: ("dimension" | "metric" | "date" | "deadline") | null;
                         calcRule?: {
@@ -6741,6 +6788,7 @@ export interface paths {
                             overrideWhenFilledFieldId?: string | null;
                             shiftToWorkday?: boolean;
                         };
+                        catalogCode?: string;
                     };
                 };
             };
@@ -6763,7 +6811,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6791,6 +6839,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -6962,7 +7011,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -6990,6 +7039,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7138,7 +7188,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7166,6 +7216,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7317,7 +7368,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7345,6 +7396,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7496,7 +7548,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7524,6 +7576,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7675,7 +7728,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -7703,6 +7756,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -7832,7 +7886,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                     };
                 };
             };
@@ -7977,7 +8031,7 @@ export interface paths {
                     "application/json": {
                         version: number;
                         /** @enum {string} */
-                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                        to: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                     };
                 };
             };
@@ -8000,7 +8054,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8028,6 +8082,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8179,7 +8234,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8207,6 +8262,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8364,7 +8420,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8392,6 +8448,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8540,7 +8597,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8568,6 +8625,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8719,7 +8777,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8747,6 +8805,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -8898,7 +8957,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -8926,6 +8985,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -9077,7 +9137,7 @@ export interface paths {
                                 id: string;
                                 label: string;
                                 /** @enum {string} */
-                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision";
+                                type: "text" | "select" | "number" | "date" | "user" | "calc" | "decision" | "catalog";
                                 sortOrder: number;
                                 analyticsRole: string | null;
                                 isTitle: boolean;
@@ -9105,6 +9165,7 @@ export interface paths {
                                 archived: boolean;
                                 version: number;
                                 systemKey: string | null;
+                                catalogCode: string | null;
                                 options: {
                                     id: string;
                                     label: string;
@@ -9229,6 +9290,7 @@ export interface paths {
                     dir?: "asc" | "desc";
                     includeArchived?: "true" | "false";
                     withEvents?: "true" | "false";
+                    withTasks?: "true" | "false";
                 };
                 header?: never;
                 path: {
@@ -9279,6 +9341,7 @@ export interface paths {
                                     state: "overdue" | "soon" | "ok" | "closed" | "none";
                                 } | null;
                                 openEvents: number;
+                                openTasks: number;
                                 version: number;
                                 createdAt: string;
                                 updatedAt: string;
@@ -9436,6 +9499,7 @@ export interface paths {
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
                             openEvents: number;
+                            openTasks: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9594,6 +9658,7 @@ export interface paths {
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
                             openEvents: number;
+                            openTasks: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -9753,6 +9818,7 @@ export interface paths {
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
                             openEvents: number;
+                            openTasks: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10057,6 +10123,7 @@ export interface paths {
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
                             openEvents: number;
+                            openTasks: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10223,6 +10290,7 @@ export interface paths {
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
                             openEvents: number;
+                            openTasks: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -10389,6 +10457,7 @@ export interface paths {
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
                             openEvents: number;
+                            openTasks: number;
                             version: number;
                             createdAt: string;
                             updatedAt: string;
@@ -11797,6 +11866,7 @@ export interface paths {
                     "application/json": {
                         reportDate?: string | null;
                         notifiedDate?: string | null;
+                        systemId?: string | null;
                     };
                 };
             };
@@ -12363,6 +12433,12 @@ export interface paths {
                                         /** @enum {string} */
                                         kind: "label";
                                         label: string;
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "user";
+                                        /** Format: uuid */
+                                        userId: string;
+                                        name?: string;
                                     })[];
                                 };
                                 enabled: boolean;
@@ -12509,6 +12585,12 @@ export interface paths {
                                 /** @enum {string} */
                                 kind: "label";
                                 label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "user";
+                                /** Format: uuid */
+                                userId: string;
+                                name?: string;
                             })[];
                         };
                     };
@@ -12558,6 +12640,12 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "label";
                                     label: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "user";
+                                    /** Format: uuid */
+                                    userId: string;
+                                    name?: string;
                                 })[];
                             };
                             enabled: boolean;
@@ -12722,6 +12810,12 @@ export interface paths {
                                 /** @enum {string} */
                                 kind: "label";
                                 label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "user";
+                                /** Format: uuid */
+                                userId: string;
+                                name?: string;
                             })[];
                         };
                         enabled?: boolean;
@@ -12772,6 +12866,12 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "label";
                                     label: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "user";
+                                    /** Format: uuid */
+                                    userId: string;
+                                    name?: string;
                                 })[];
                             };
                             enabled: boolean;
@@ -12942,6 +13042,12 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "label";
                                     label: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "user";
+                                    /** Format: uuid */
+                                    userId: string;
+                                    name?: string;
                                 })[];
                             };
                             enabled: boolean;
@@ -13116,6 +13222,12 @@ export interface paths {
                                     /** @enum {string} */
                                     kind: "label";
                                     label: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "user";
+                                    /** Format: uuid */
+                                    userId: string;
+                                    name?: string;
                                 })[];
                             };
                             enabled: boolean;
@@ -13380,6 +13492,8 @@ export interface paths {
                             rules: number;
                             checked: number;
                             created: number;
+                            tasksCreated: number;
+                            tasksCommented: number;
                         };
                     };
                 };
@@ -13533,6 +13647,13 @@ export interface paths {
                                 status: "new" | "processed";
                                 processedAt: string | null;
                                 processedBy: string | null;
+                                tasks: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                    /** @enum {string} */
+                                    action: "created" | "commented";
+                                }[];
                                 createdAt: string;
                             }[];
                             nextCursor: string | null;
@@ -13750,6 +13871,1872 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Задачи на доске или в архиве (archived=true), с фильтром по категории */
+        get: {
+            parameters: {
+                query?: {
+                    archived?: "true" | "false";
+                    categoryId?: string;
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                description: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    color: string | null;
+                                    systemKey: string | null;
+                                };
+                                priority: {
+                                    id: string;
+                                    value: string;
+                                    color: string | null;
+                                    systemKey: string | null;
+                                };
+                                category: {
+                                    id: string;
+                                    value: string;
+                                    color: string | null;
+                                    systemKey: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                overdue: boolean;
+                                urgent: boolean;
+                                /** @enum {string} */
+                                source: "manual" | "mail" | "automation";
+                                record: {
+                                    id: string;
+                                    registerId: string;
+                                    number: number;
+                                } | null;
+                                automationId: string | null;
+                                recipientLabel: string | null;
+                                completedAt: string | null;
+                                createdBy: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                archived: boolean;
+                                commentCount: number;
+                                version: number;
+                            }[];
+                            nextCursor: string | null;
+                            total: number;
+                            categories: {
+                                categoryId: string;
+                                count: number;
+                            }[];
+                            archivedTotal: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Поставить задачу. С mail.raw — задача из письма (категория «Почта», письмо сохраняется) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        description?: string;
+                        /** Format: uuid */
+                        categoryId?: string;
+                        /** Format: uuid */
+                        priorityId?: string;
+                        assigneeId?: string | null;
+                        dueDate?: string | null;
+                        mail?: {
+                            raw: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                number: number;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Просроченные задачи: всего и мои (счётчик в меню) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            overdue: number;
+                            overdueMine: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/mail-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Почта → задача»: разобрать текст письма в черновик. Ничего не сохраняет */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        raw: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            from: string;
+                            subject: string;
+                            sent: string;
+                            body: string;
+                            title: string;
+                            dueDate: string;
+                            dueReason: string;
+                            urgent: boolean;
+                            priorityId: string;
+                            categoryId: string;
+                            rule: {
+                                id: string;
+                                label: string;
+                                hits: string[];
+                            } | null;
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            assigneeReason: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка задачи */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                registerName: string;
+                                number: number;
+                                title: string;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                            recipients: {
+                                label: string;
+                                emails: string[];
+                            }[];
+                            mail: {
+                                from: string;
+                                subject: string;
+                                sent: string;
+                                body: string;
+                                rule: {
+                                    id: string;
+                                    label: string;
+                                } | null;
+                                ruleHits: string[];
+                                dueReason: string;
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить задачу (и перетаскивание: statusId). Нужна version; 409 — задачу успели изменить */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        title?: string;
+                        description?: string;
+                        /** Format: uuid */
+                        statusId?: string;
+                        /** Format: uuid */
+                        priorityId?: string;
+                        /** Format: uuid */
+                        categoryId?: string;
+                        assigneeId?: string | null;
+                        dueDate?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                number: number;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** В архив */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                number: number;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть на доску */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                number: number;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить задачу (мягко, по праву «Задачи: удаление») */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Комментарии */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                body: string;
+                                author: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                automatic: boolean;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Добавить комментарий */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            body: string;
+                            author: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            automatic: boolean;
+                            createdAt: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История изменений из журнала аудита */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                at: string;
+                                actor: {
+                                    fullName: string;
+                                    login: string;
+                                } | null;
+                                action: string;
+                                summary: string;
+                                changes: {
+                                    label: string;
+                                    from: string;
+                                    to: string;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

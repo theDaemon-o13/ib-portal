@@ -15,6 +15,8 @@ import {
   type RegisterDef,
 } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, type Actor } from '../settings/common.js';
+import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
+import { tasksFromEvents } from '../tasks/from-events.js';
 import { EVENT_TYPE_NAMES, evaluate, type Action, type Condition, type EventType, type Recipient } from './conditions.js';
 
 export const MAX_RECIPIENTS = 6;
@@ -27,7 +29,26 @@ function liveField(reg: RegisterDef, id: string | null | undefined): FieldMeta |
   return id ? reg.fields.find((f) => f.id === id && !f.archived) : undefined;
 }
 
-export function validateRule(reg: RegisterDef, condition: Condition, action: Action): { condition: Condition; action: Action } {
+/** Что можно выбрать получателем: метки справочника и сотрудники с ib.work. */
+export interface RecipientChoices {
+  labels: readonly string[];
+  users: ReadonlyMap<string, string>;
+}
+
+export async function recipientChoices(db: Db): Promise<RecipientChoices> {
+  const [labels, users] = await Promise.all([
+    db.catalogItem.findMany({ where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null, archivedAt: null }, select: { value: true } }),
+    db.user.findMany({
+      where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
+      select: { id: true, fullName: true },
+    }),
+  ]);
+  return { labels: labels.map((l) => l.value), users: new Map(users.map((u) => [u.id, u.fullName])) };
+}
+
+export function validateRule(
+  reg: RegisterDef, condition: Condition, action: Action, choices: RecipientChoices,
+): { condition: Condition; action: Action } {
   let cond: Condition;
   const field = liveField(reg, condition.fieldId);
   switch (condition.kind) {
@@ -71,8 +92,14 @@ export function validateRule(reg: RegisterDef, condition: Condition, action: Act
       if (!f || f.type !== 'user') throw badRequest('BAD_RULE', 'Получатель из записи — только поле «Сотрудник»');
       return { kind: 'field', fieldId: f.id };
     }
-    const label = r.label.trim().replace(/\s+/g, ' ');
-    if (!label || label.length > 100) throw badRequest('BAD_RULE', 'Получатель — от 1 до 100 символов');
+    if (r.kind === 'user') {
+      const name = choices.users.get(r.userId);
+      if (!name) throw badRequest('BAD_RULE', 'Получатель-сотрудник — только активный пользователь с доступом к разделам ИБ');
+      return { kind: 'user', userId: r.userId, name };
+    }
+    // Метка — из справочника «Получатели уведомлений»: за ней стоят пользователи и e-mail.
+    const label = choices.labels.find((l) => l.toLowerCase() === r.label.trim().replace(/\s+/g, ' ').toLowerCase());
+    if (!label) throw badRequest('BAD_RULE', `Метки «${r.label}» нет в справочнике «Получатели уведомлений» — добавьте её в настройках`);
     return { kind: 'label', label };
   });
   return { condition: cond, action: { eventType: action.eventType, recipients } };
@@ -96,7 +123,7 @@ export function describeCondition(reg: RegisterDef, c: Condition): string {
 }
 
 export function describeAction(reg: RegisterDef, a: Action): string {
-  const who = a.recipients.map((r) => (r.kind === 'field' ? fieldName(reg, r.fieldId) : r.label)).join(', ');
+  const who = a.recipients.map((r) => (r.kind === 'field' ? fieldName(reg, r.fieldId) : r.kind === 'user' ? (r.name ?? 'сотрудник') : r.label)).join(', ');
   return `${EVENT_TYPE_NAMES[a.eventType]}: ${who}`;
 }
 
@@ -146,7 +173,7 @@ export async function createRule(db: Db, actor: Actor, registerId: string, input
   return withTx(db, async (tx) => {
     const reg = await loadRegister(tx, registerId);
     assertNotArchived(reg);
-    const v = validateRule(reg, input.condition, input.action);
+    const v = validateRule(reg, input.condition, input.action, await recipientChoices(tx));
     const r = await tx.registerAutomation.create({
       data: {
         registerId, createdBy: actor.id,
@@ -175,7 +202,7 @@ export async function updateRule(
     if (input.condition || input.action) {
       // Системные правила п. 7.4 заданы процедурой: их можно только выключить.
       if (rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не меняется — его можно только выключить');
-      const v = validateRule(reg, input.condition ?? before.condition, input.action ?? before.action);
+      const v = validateRule(reg, input.condition ?? before.condition, input.action ?? before.action, await recipientChoices(tx));
       data.condition = v.condition as unknown as Prisma.InputJsonValue;
       data.action = v.action as unknown as Prisma.InputJsonValue;
     }
@@ -256,6 +283,7 @@ export async function listEvents(
         record: { select: { number: true, values: true } },
         automation: true,
         processor: { select: { fullName: true } },
+        tasks: { include: { task: { select: { id: true, number: true, title: true, deletedAt: true } } } },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       skip: offset,
@@ -283,6 +311,8 @@ export async function listEvents(
         status: e.status as 'new' | 'processed',
         processedAt: e.processedAt?.toISOString() ?? null,
         processedBy: e.processor?.fullName ?? null,
+        /** Задачи, которые событие создало или прокомментировало (этап 5). */
+        tasks: e.tasks.filter((t) => !t.task.deletedAt).map((t) => ({ id: t.task.id, number: t.task.number, title: t.task.title, action: t.action as 'created' | 'commented' })),
         createdAt: e.createdAt.toISOString(),
       };
     }),
@@ -321,6 +351,9 @@ export interface RunResult {
   rules: number;
   checked: number;
   created: number;
+  /** Задачи из новых событий: создано и дополнено комментарием. */
+  tasksCreated: number;
+  tasksCommented: number;
 }
 
 /** Ключ advisory-блокировки: один прогон за раз, даже если backend запущен в нескольких экземплярах. */
@@ -334,7 +367,7 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
   const today = todayIso(opts.now ?? new Date());
   return withTx(db, async (tx) => {
     const [lock] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT pg_try_advisory_xact_lock(${RUN_LOCK}::bigint) AS ok`;
-    if (!lock?.ok) return { ran: false, today, rules: 0, checked: 0, created: 0 };
+    if (!lock?.ok) return { ran: false, today, rules: 0, checked: 0, created: 0, tasksCreated: 0, tasksCommented: 0 };
     const rules = await tx.registerAutomation.findMany({
       where: {
         enabled: true, archivedAt: null, deletedAt: null, register: { archivedAt: null },
@@ -375,6 +408,7 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
           if (!t) continue;
           const recipients: EventRecipient[] = action.recipients.map((x) => {
             if (x.kind === 'label') return { kind: 'label', label: x.label };
+            if (x.kind === 'user') return { kind: 'user', userId: x.userId, name: x.name ?? 'сотрудник' };
             const uid = values[x.fieldId];
             const u = typeof uid === 'string' ? users.get(uid) : undefined;
             return u ? { kind: 'user', userId: u.id, name: u.fullName } : { kind: 'label', label: `«${fieldName(reg, x.fieldId)}» не назначен` };
@@ -399,6 +433,14 @@ export async function runAutomations(db: Db, opts: { now?: Date; registerId?: st
         });
       }
     }
-    return { ran: true, today, rules: rules.length, checked, created };
+    // Новые события (и оставшиеся с прошлых прогонов) — сразу в задачи, в той же транзакции.
+    const tasks = await tasksFromEvents(tx, {
+      registerId: opts.registerId, today, calendar,
+      describe: (reg, r) => {
+        const dto = toRuleDto(reg, { ...(r as { condition: Prisma.JsonValue; action: Prisma.JsonValue }), id: '', registerId: reg.id, systemKey: null, enabled: true, version: 1, archivedAt: null, createdAt: new Date() });
+        return { when: dto.when, then: dto.then };
+      },
+    });
+    return { ran: true, today, rules: rules.length, checked, created, tasksCreated: tasks.created, tasksCommented: tasks.commented };
   });
 }

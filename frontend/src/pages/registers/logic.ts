@@ -9,6 +9,7 @@ export const TYPE_NAMES: Record<FieldType, string> = {
   user: 'Сотрудник',
   calc: 'Вычисляемое',
   decision: 'Решение другого отдела',
+  catalog: 'Значение справочника',
 };
 
 export const ROLE_NAMES: Record<string, string> = {
@@ -25,6 +26,7 @@ export const ALLOWED_ROLES: Record<FieldType, string[]> = {
   select: ['dimension'],
   decision: ['dimension'],
   user: ['dimension'],
+  catalog: ['dimension'],
   number: ['metric'],
   date: ['date', 'deadline'],
   calc: ['deadline', 'date'],
@@ -33,6 +35,8 @@ export const ALLOWED_ROLES: Record<FieldType, string[]> = {
 /** Безопасные смены типа: куда можно перевести поле (окончательно решает сервер с предпросмотром). */
 export function typeTargets(type: FieldType): FieldType[] {
   if (type === 'calc' || type === 'decision') return [];
+  // «Значение справочника» — только в текст; в него ничего не превращается.
+  if (type === 'catalog') return ['text'];
   if (type === 'text') return ['number', 'date', 'select', 'user'];
   return ['text', ...(['number', 'date', 'select', 'user'] as FieldType[]).filter((t) => t !== type)];
 }

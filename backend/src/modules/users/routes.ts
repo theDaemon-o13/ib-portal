@@ -46,10 +46,14 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher 
   app.get('/users/options', {
     preHandler: requirePerm('ib.work'),
     schema: {
-      tags, summary: 'Активные сотрудники ИБ для выбора ответственного',
-      response: { 200: z.object({ items: z.array(z.object({ id: z.string(), login: z.string(), fullName: z.string() })) }), ...errors },
+      tags, summary: 'Активные сотрудники ИБ для выбора ответственного; scope=all — все активные (владелец системы)',
+      querystring: z.object({ scope: z.enum(['ib', 'all']).optional() }),
+      response: {
+        200: z.object({ items: z.array(z.object({ id: z.string(), login: z.string(), fullName: z.string(), ibWork: z.boolean() })) }),
+        ...errors,
+      },
     },
-  }, async () => ({ items: await svc.userOptions(db) }));
+  }, async (request) => ({ items: await svc.userOptions(db, request.query.scope ?? 'ib') }));
 
   app.post('/users', {
     preHandler: manage,

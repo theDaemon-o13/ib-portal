@@ -6,6 +6,7 @@ import { LoginPage } from './pages/login/LoginPage';
 import { RegistersPage } from './pages/registers/RegistersPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { StubPage } from './pages/stub/StubPage';
+import { TasksPage } from './pages/tasks/TasksPage';
 
 export function App() {
   return (
@@ -17,6 +18,8 @@ export function App() {
         {NAV.map((item) =>
           item.path === '/settings' ? (
             <Route key={item.path} path="/settings/:tab?" element={<Section item={item}><SettingsPage /></Section>} />
+          ) : item.path === '/tasks' ? (
+            <Route key={item.path} path="/tasks" element={<Section item={item}><TasksPage /></Section>} />
           ) : item.path === '/registers' ? (
             <Route key={item.path} path="/registers/:registerId?/:tab?" element={<Section item={item}><RegistersPage /></Section>} />
           ) : (
