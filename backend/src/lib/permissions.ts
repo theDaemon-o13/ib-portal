@@ -26,6 +26,8 @@ export const PERMISSION_CODES: readonly PermissionCode[] = PERMISSIONS.map((p) =
 
 /** Права, которые нельзя снять с системной роли «Супер-администратор». */
 export const SUPER_ADMIN_LOCKED: readonly PermissionCode[] = ['settings.manage', 'users.manage'];
+/** Привилегированные права: с ними вход только с адресов ADMIN_ALLOWED_IPS, если список задан (ADR-0015). */
+export const ADMIN_PERMISSIONS: readonly PermissionCode[] = ['settings.manage', 'users.manage'];
 
 /**
  * Учётная запись настенного монитора: видит только /monitor. Право исключительное —

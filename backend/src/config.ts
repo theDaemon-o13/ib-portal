@@ -22,6 +22,9 @@ const EnvSchema = z.object({
   TRUSTED_PROXY_IPS: z.string().default('127.0.0.1,::1').superRefine(checkIpList),
   // Адреса настенных мониторов (IP и подсети через запятую). Пусто — вход киоска запрещён.
   MONITOR_ALLOWED_IPS: z.string().default('').superRefine(checkIpList),
+  // Адреса рабочих мест администраторов: вход с правами settings.manage или users.manage только с них.
+  // Пусто — без ограничения (ADR-0015).
+  ADMIN_ALLOWED_IPS: z.string().default('').superRefine(checkIpList),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   // Часовой пояс банка: «сегодня» для сроков и автоматизаций (lib/today.ts).
   APP_TZ: z.string().default('Asia/Dushanbe').refine((tz) => {

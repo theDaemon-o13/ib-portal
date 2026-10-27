@@ -38,6 +38,8 @@ services:
       TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.31.250.6}
       # Адреса настенных мониторов (IP и подсети через запятую). Пусто — вход учётной записи монитора запрещён.
       MONITOR_ALLOWED_IPS: ${MONITOR_ALLOWED_IPS:-}
+      # Рабочие места администраторов: вход с правами settings.manage или users.manage только с них. Пусто — без ограничения.
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
     volumes:
       - files:/data/files
     depends_on:

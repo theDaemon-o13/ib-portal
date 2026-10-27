@@ -9,7 +9,7 @@ import {
 } from '../../lib/password-policy.js';
 import type { IpList } from '../../lib/ip-list.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
-import { KIOSK_PERMISSION } from '../../lib/permissions.js';
+import { ADMIN_PERMISSIONS, KIOSK_PERMISSION } from '../../lib/permissions.js';
 import {
   SESSION_IDLE_MS,
   SESSION_MAX_AGE_MS,
@@ -28,6 +28,8 @@ export interface AuthServiceDeps {
   now?: () => Date;
   /** Адреса настенных мониторов (MONITOR_ALLOWED_IPS). Не задано или пусто — вход киоска запрещён. */
   kioskAllowedIps?: IpList;
+  /** Адреса рабочих мест администраторов (ADMIN_ALLOWED_IPS). Не задано или пусто — без ограничения (ADR-0015). */
+  adminAllowedIps?: IpList;
 }
 
 export interface ClientInfo {
@@ -50,8 +52,10 @@ export function normalizeLogin(login: string): string {
   return login.trim().toLowerCase();
 }
 
-export function createAuthService({ repo, audit, hasher, now = () => new Date(), kioskAllowedIps }: AuthServiceDeps) {
+export function createAuthService({ repo, audit, hasher, now = () => new Date(), kioskAllowedIps, adminAllowedIps }: AuthServiceDeps) {
   const kioskIpAllowed = (ip: string | null) => kioskAllowedIps?.has(ip) ?? false;
+  const isAdmin = (u: AuthUser) => ADMIN_PERMISSIONS.some((p) => u.permissions.has(p));
+  const adminIpAllowed = (ip: string | null) => !adminAllowedIps || adminAllowedIps.empty || adminAllowedIps.has(ip);
 
   // Хэш-заглушка: на несуществующий логин тратим столько же времени, сколько на настоящий.
   let dummyHash: Promise<string> | null = null;
@@ -129,6 +133,15 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       });
       throw invalidCredentials();
     }
+    // Администратор (settings.manage, users.manage) — только с рабочих мест из ADMIN_ALLOWED_IPS. Ответ тот же,
+    // что на неверный пароль: иначе с любого ПК можно проверять, верен ли пароль администратора (ADR-0015).
+    if (isAdmin(authUser) && !adminIpAllowed(client.ip)) {
+      await audit.write({
+        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
+        diff: { login, reason: 'admin_ip_denied' }, ip: client.ip,
+      });
+      throw invalidCredentials();
+    }
 
     const reset = registerSuccess();
     await repo.saveLockout(user.id, reset);
@@ -180,6 +193,16 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       await repo.revokeSession(sessionId, at);
       await audit.write({
         userId: session.userId, action: 'auth.kiosk_ip_denied', entity: 'session', entityId: sessionId.slice(0, 12),
+        diff: { reason: 'ip_not_allowed' }, ip: client.ip,
+      });
+      return null;
+    }
+    // Права читаются на каждом запросе: выданная уже вошедшему пользователю роль администратора с чужого адреса
+    // не открывает администрирование — сессия закрывается.
+    if (isAdmin(authUser) && !adminIpAllowed(client.ip)) {
+      await repo.revokeSession(sessionId, at);
+      await audit.write({
+        userId: session.userId, action: 'auth.admin_ip_denied', entity: 'session', entityId: sessionId.slice(0, 12),
         diff: { reason: 'ip_not_allowed' }, ip: client.ip,
       });
       return null;

@@ -22,6 +22,7 @@ const app = await buildApp({
   // Список, а не «доверять всем частным сетям»: иначе любой ПК в 10.x подставит свой X-Forwarded-For.
   trustProxy: parseIpList(config.TRUSTED_PROXY_IPS).entries.join(',') || false,
   kioskAllowedIps: parseIpList(config.MONITOR_ALLOWED_IPS),
+  adminAllowedIps: parseIpList(config.ADMIN_ALLOWED_IPS),
   automationIntervalMin: config.AUTOMATION_INTERVAL_MIN,
   logger: {
     level: config.LOG_LEVEL,

@@ -53,6 +53,8 @@ export interface AppDeps {
   files?: FileStore;
   /** Адреса настенных мониторов (MONITOR_ALLOWED_IPS); не задано — вход киоска запрещён. */
   kioskAllowedIps?: IpList;
+  /** Адреса рабочих мест администраторов (ADMIN_ALLOWED_IPS); не задано или пусто — без ограничения. */
+  adminAllowedIps?: IpList;
   /** Фоновая проверка автоматизаций, интервал в минутах; не задано или 0 — выключена (тесты). */
   automationIntervalMin?: number;
 }
@@ -83,7 +85,8 @@ export async function buildApp(deps: AppDeps) {
     transform: jsonSchemaTransform,
   });
 
-  const auth = createAuthService({ repo: deps.repo, audit: deps.audit, hasher: deps.hasher, now: deps.now, kioskAllowedIps: deps.kioskAllowedIps });
+  const auth = createAuthService({ repo: deps.repo, audit: deps.audit, hasher: deps.hasher, now: deps.now, kioskAllowedIps: deps.kioskAllowedIps,
+    adminAllowedIps: deps.adminAllowedIps });
   installAuth(base, auth);
 
   await app.register(healthRoutes, { prefix: '/api', ping: () => deps.repo.ping() });

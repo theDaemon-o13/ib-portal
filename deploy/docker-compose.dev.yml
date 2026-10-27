@@ -50,6 +50,8 @@ services:
       TRUSTED_PROXY_IPS: 172.31.251.6
       # В dev браузер виден с адреса шлюза сети front: 172.31.251.1. Пусто — вход монитора запрещён.
       MONITOR_ALLOWED_IPS: ${MONITOR_ALLOWED_IPS:-}
+      # Рабочие места администраторов (ADR-0015). Пусто — без ограничения; в dev браузер виден как 172.31.251.1.
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
       LOG_LEVEL: debug
     volumes:
       - ../backend:/app
