@@ -6,7 +6,7 @@ import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedDlp } from './dlp.js';
-import { seedRegisters } from './registers.js';
+import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
 import { seedSystemItems } from './system-items.js';
@@ -69,6 +69,7 @@ async function main() {
     await seedVulns(tx);
     await seedRisks(tx);
     await seedDlp(tx);
+    await seedCompareKeys(tx);
   });
   console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}, справочников ${CATALOGS.length}`);
 }

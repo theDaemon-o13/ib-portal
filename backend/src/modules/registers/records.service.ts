@@ -354,7 +354,10 @@ export const REASON_MAX = 1000;
  * Изменить запись. reason — причина изменения поля, которое при текущем статусе меняется только с причиной
  * (этап 8б: «Устройства» действующего разрешения); пишется в историю записи и журнал.
  */
-export async function updateRecord(db: Db, actor: Actor, id: string, input: { version: number; values: Record<string, unknown>; reason?: string | null }) {
+/** meta — источник правки для журнала (сравнение с реестром: via, файл и его sha256); история карточки показывает via. */
+export async function updateRecord(
+  db: Db, actor: Actor, id: string, input: { version: number; values: Record<string, unknown>; reason?: string | null }, meta?: Record<string, unknown>,
+) {
   return withTx(db, async (tx) => {
     const row = await getRecordRow(tx, id);
     const reg = await loadRegister(tx, row.registerId);
@@ -399,7 +402,7 @@ export async function updateRecord(db: Db, actor: Actor, id: string, input: { ve
     await auditSettings(tx, actor, {
       action: 'register_record.updated', entity: 'register_record', entityId: id,
       summary: `«${reg.name}», запись #${row.number}: ${changes.map((c) => `«${c.label}»`).join(', ') || 'без изменений значений'}${manualNote}${reasonNote}`,
-      after: { changes, ...(derived.length ? { derived } : {}), ...(needsReason && reason ? { reason } : {}) },
+      after: { changes, ...(derived.length ? { derived } : {}), ...(needsReason && reason ? { reason } : {}), ...(meta ?? {}) },
     });
     const title = reg.fields.find((f) => f.isTitle);
     if (title && changedIds.includes(title.id)) await recomputeBacklinkSearch(tx, reg, id);

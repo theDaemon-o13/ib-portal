@@ -117,7 +117,25 @@ export async function createRegister(db: Db, actor: Actor, input: { name: string
   });
 }
 
-export async function updateRegister(db: Db, actor: Actor, id: string, input: { version: number; name?: string; description?: string; ownerUserId?: string | null }) {
+/** Типы полей ключа сравнения и поля области (релиз 1.1.0). */
+export const COMPARE_KEY_TYPES: readonly FieldType[] = ['text', 'number', 'date', 'select', 'catalog', 'user'];
+export const COMPARE_SCOPE_TYPES: readonly FieldType[] = ['select', 'catalog'];
+
+function checkCompareFields(reg: RegisterDef, ids: string[], types: readonly FieldType[], max: number, what: string): string[] {
+  const uniq = [...new Set(ids)];
+  if (uniq.length > max) throw badRequest('BAD_COMPARE', `${what}: не больше ${max} полей`);
+  for (const id of uniq) {
+    const f = reg.fields.find((x) => x.id === id);
+    if (!f || f.archived) throw badRequest('BAD_COMPARE', `${what}: поле не найдено или в архиве. Обновите страницу`);
+    if (!types.includes(f.type)) throw badRequest('BAD_COMPARE', `${what}: поле «${f.label}» (${TYPE_NAMES[f.type]}) не подходит`);
+  }
+  return uniq;
+}
+
+export async function updateRegister(db: Db, actor: Actor, id: string, input: {
+  version: number; name?: string; description?: string; ownerUserId?: string | null;
+  compareKeyFieldIds?: string[]; compareScopeFieldIds?: string[];
+}) {
   return withTx(db, async (tx) => {
     const reg = await loadRegister(tx, id);
     const data: Prisma.RegisterUncheckedUpdateManyInput = {};
@@ -136,6 +154,21 @@ export async function updateRegister(db: Db, actor: Actor, id: string, input: { 
       data.ownerUserId = input.ownerUserId;
       changes.push('владелец');
     }
+    const label = (ids: string[]) => ids.map((fid) => `«${reg.fields.find((f) => f.id === fid)?.label ?? '?'}»`).join(' + ');
+    if (input.compareKeyFieldIds !== undefined) {
+      const ids = checkCompareFields(reg, input.compareKeyFieldIds, COMPARE_KEY_TYPES, 3, 'Ключ сравнения');
+      if (ids.join() !== reg.compareKeyFieldIds.join()) {
+        data.compareKeyFieldIds = ids;
+        changes.push(`ключ сравнения: ${ids.length ? label(ids) : 'по ID'}`);
+      }
+    }
+    if (input.compareScopeFieldIds !== undefined) {
+      const ids = checkCompareFields(reg, input.compareScopeFieldIds, COMPARE_SCOPE_TYPES, 5, 'Область сравнения');
+      if (ids.join() !== reg.compareScopeFieldIds.join()) {
+        data.compareScopeFieldIds = ids;
+        changes.push(`область сравнения: ${ids.length ? label(ids) : 'только весь реестр'}`);
+      }
+    }
     if (!changes.length) {
       if (input.version !== reg.version) throw versionConflict();
       return reg;
@@ -145,7 +178,8 @@ export async function updateRegister(db: Db, actor: Actor, id: string, input: { 
     await auditSettings(tx, actor, {
       action: 'register.updated', entity: 'register', entityId: id,
       summary: `Реестр «${reg.name}»: ${changes.join(', ')}`,
-      before: { name: reg.name, description: reg.description, ownerUserId: reg.ownerUserId }, after: { ...data },
+      before: { name: reg.name, description: reg.description, ownerUserId: reg.ownerUserId, compareKeyFieldIds: reg.compareKeyFieldIds, compareScopeFieldIds: reg.compareScopeFieldIds },
+      after: { ...data },
     });
     return loadRegister(tx, id);
   });
@@ -557,12 +591,20 @@ export async function moveField(db: Db, actor: Actor, fieldId: string, direction
   });
 }
 
+/** Поле из настроек сравнения (ключ или область) не уходит в архив, не удаляется и не меняет тип. */
+function assertNotCompareField(reg: RegisterDef, field: FieldMeta, what: string) {
+  if (reg.compareKeyFieldIds.includes(field.id) || reg.compareScopeFieldIds.includes(field.id)) {
+    throw conflict('COMPARE_FIELD', `Поле «${field.label}» используется в сравнении с реестром — нельзя ${what}: сначала уберите его из сравнения`);
+  }
+}
+
 /** Ограничения на архив и удаление: заголовок, статус, ссылки из правил вычисления. */
 async function assertDetachable(db: Db, reg: RegisterDef, field: FieldMeta, what: string) {
   assertNotSystemField(field, what);
   if (field.isTitle) throw conflict('TITLE_FIELD', `Поле-заголовок нельзя ${what}: сначала назначьте заголовком другое текстовое поле`);
   if (field.isStatus) throw conflict('STATUS_FIELD', `Поле статуса нельзя ${what}: сначала снимите признак статуса`);
   if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', `Ключ импорта нельзя ${what}: сначала снимите признак ключа`);
+  assertNotCompareField(reg, field, what);
   const deps = calcDependents(reg, field.id).filter((d) => d.id !== field.id);
   if (deps.length) throw conflict('CALC_DEPENDENCY', `Поле используется в правиле вычисления «${deps.map((d) => d.label).join('», «')}» — сначала измените правило`);
   const anchors = reg.fields.filter((f) => f.settings.date?.notAfterYearEndOfFieldId === field.id);
@@ -630,6 +672,7 @@ async function planTypeChange(tx: Db, reg: RegisterDef, field: FieldMeta, to: Fi
   if (field.isTitle) throw conflict('TITLE_FIELD', 'Тип поля-заголовка не меняется: заголовок всегда текстовый');
   if (field.isStatus) throw conflict('STATUS_FIELD', 'Тип поля статуса не меняется: сначала снимите признак статуса');
   if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', 'Тип ключа импорта не меняется: сначала снимите признак ключа');
+  assertNotCompareField(reg, field, 'менять тип');
   if (field.settings.lock || field.settings.date) throw conflict('FIELD_SETTINGS', 'У поля задана фиксация или ограничение даты — сначала снимите их');
   if (field.settings.text) throw conflict('FIELD_SETTINGS', 'Поле многострочное — сначала снимите признак «Многострочный текст»');
   if (reg.fields.some((f) => f.settings.date?.notAfterYearEndOfFieldId === field.id)) throw conflict('DATE_DEPENDENCY', 'По полю проверяется другая дата — сначала снимите ограничение');

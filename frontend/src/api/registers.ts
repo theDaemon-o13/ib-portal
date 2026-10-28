@@ -76,6 +76,11 @@ export interface RecordQuery {
   filter?: RecordFilterParams;
 }
 
+/** Сравнение с реестром (релиз 1.1.0). */
+export type CompareResult = Res<'/api/v1/register-imports/{id}/compare', 'post'>;
+export type CompareScope = Body<'/api/v1/registers/{id}/records/compare-status/preview', 'post'>['scope'];
+export type CompareStatusPreview = Res<'/api/v1/registers/{id}/records/compare-status/preview', 'post'>;
+export type CompareStatusChange = { recordId: string; optionId: string };
 export type BulkSelection = Body<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>['selection'];
 export type BulkPreview = Res<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>;
 export type BulkResult = Res<'/api/v1/registers/{id}/records/bulk-delete/apply', 'post'>;
@@ -202,6 +207,21 @@ export const registersApi = {
     return (await res.json()) as FilePreview;
   },
   applyImport: (id: string) => request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`),
+  /** Сравнение: тот же файл, что в предпросмотре импорта; область — обязательно. Записи не меняются. */
+  async compare(importId: string, file: File, scope: CompareScope): Promise<CompareResult> {
+    const q = 'all' in scope ? 'scope=all' : `scopeField=${scope.fieldId}&scopeValues=${scope.values.join(',')}`;
+    const res = await fetch(`/api/v1/register-imports/${importId}/compare?${q}`, {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': XLSX_TYPE }, body: file,
+    });
+    if (!res.ok) throw await errorOf(res);
+    return (await res.json()) as CompareResult;
+  },
+  compareStatusPreview: (registerId: string, body: { importId: string; scope: CompareScope; changes: CompareStatusChange[]; reason?: string | null }) =>
+    request<CompareStatusPreview>('POST', `/api/v1/registers/${registerId}/records/compare-status/preview`, body),
+  compareStatusApply: (registerId: string, body: {
+    importId: string; scope: CompareScope; changes: CompareStatusChange[]; reason?: string | null;
+    expected: { willChange: number }; acknowledgeIncompleteScan: boolean;
+  }) => request<{ changed: number; skipped: number }>('POST', `/api/v1/registers/${registerId}/records/compare-status/apply`, body),
   cancelImport: (id: string) => request<undefined>('POST', `/api/v1/register-imports/${id}/cancel`),
 
   applyScan: (id: string, body: ScanApply) => request<ScanResult>('POST', `/api/v1/scan-imports/${id}/apply`, body),

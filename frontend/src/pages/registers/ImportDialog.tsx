@@ -3,12 +3,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { registersApi, type ImportPreview, type RegisterDetail } from '../../api/registers';
 import { useToast } from '../../components/Toast';
+import { CompareDialog } from './CompareDialog';
 import { rkeys } from './keys';
 
 const MATCH_NAMES = { add: 'новая запись', update: 'обновление', unchanged: 'без изменений', error: 'ошибка — не применяется' } as const;
 
 /** Импорт Excel, шаг 1 → 2: предпросмотр (ничего не изменено), затем применение одной транзакцией. */
-export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; preview: ImportPreview; onClose: () => void }) {
+export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDetail; preview: ImportPreview; file: File | null; onClose: () => void }) {
+  // «Сравнение» (релиз 1.1.0): поверх окна импорта; Escape закрывает только его.
+  const [comparing, setComparing] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
   const s = preview.summary;
@@ -36,7 +39,7 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
     onClose();
   };
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !apply.isPending) void cancel(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !apply.isPending && !comparing) void cancel(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   });
@@ -123,12 +126,15 @@ export function ImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; p
         )}
         <div className="row end">
           <button className="btn" type="button" onClick={() => void cancel()} disabled={apply.isPending}>Отмена</button>
+          {file && <button className="btn" type="button" onClick={() => setComparing(true)} disabled={apply.isPending}
+            title="Какие открытые записи реестра есть в реестре, но нет в этом файле">Сравнение</button>}
           <button className="btn primary" type="button" onClick={() => apply.mutate()} disabled={nothing || apply.isPending}>
             {nothing ? 'Нечего применять' : `Применить: +${s.added}, изменить ${s.updated}`}
           </button>
         </div>
       </div>
     </div>
+    {comparing && file && <CompareDialog reg={reg} importId={preview.id} file={file} onClose={() => setComparing(false)} />}
     </Overlay>
   );
 }

@@ -20,7 +20,7 @@ const TEXT_MAX_MULTILINE = 20_000;
 
 const VIA: Record<string, string> = {
   import: ' · импорт Excel', type_change: ' · смена типа поля', scan_import: ' · отчёт сканера', auto: ' · пересчёт', automation: ' · автоматизация',
-  files: ' · файлы',
+  files: ' · файлы', compare: ' · сравнение с файлом (статус по отчёту)',
 };
 
 /** Критичность уязвимости: считается по Оценке, пока её не исправили вручную. */

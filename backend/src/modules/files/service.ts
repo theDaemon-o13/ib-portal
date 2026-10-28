@@ -40,14 +40,14 @@ export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName
 // ---------------------------------------------------------------- ссылки и доступ
 
 export interface FileRef {
-  kind: 'evidence' | 'decision' | 'document_pdf' | 'record';
+  kind: 'evidence' | 'decision' | 'document_pdf' | 'record' | 'compare';
   id: string;
   label: string;
 }
 
 /** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
 export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
-  const [links, decisions, versions, records] = await Promise.all([
+  const [links, decisions, versions, records, compares] = await Promise.all([
     db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
     db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
     db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
@@ -55,12 +55,18 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
       where: { fileId, removedAt: null },
       select: { field: { select: { label: true } }, record: { select: { id: true, number: true, register: { select: { name: true } } } } },
     }),
+    // Сравнение с реестром (релиз 1.1.0): файл — доказательство, по какому отчёту меняли статусы.
+    db.registerImport.findMany({ where: { fileId }, select: { id: true, createdAt: true, register: { select: { id: true, name: true } } } }),
   ]);
   return [
     ...records.map((r) => ({ kind: 'record' as const, id: r.record.id, label: `«${r.record.register.name}», запись #${r.record.number}: ${r.field.label}` })),
     ...links.map((l) => ({ kind: 'evidence' as const, id: l.evidence.id, label: `Доказательство #${l.evidence.number} «${l.evidence.title}»` })),
     ...decisions.map((d) => ({ kind: 'decision' as const, id: d.id, label: `Решение: ${d.documentTitle} № ${d.documentNumber}` })),
     ...versions.map((v) => ({ kind: 'document_pdf' as const, id: v.documentId, versionId: v.id, label: `PDF версии ${v.no} «${v.title}»` })),
+    ...compares.map((c) => ({
+      kind: 'compare' as const, id: c.register.id,
+      label: `Сравнение с реестром «${c.register.name}» от ${c.createdAt.toISOString().slice(0, 10).split('-').reverse().join('.')}`,
+    })),
   ];
 }
 

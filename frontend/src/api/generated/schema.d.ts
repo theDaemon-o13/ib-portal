@@ -5790,6 +5790,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -6012,6 +6014,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -6200,7 +6204,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Переименовать реестр, описание, владелец */
+        /** Переименовать реестр, описание, владелец, настройки сравнения */
         patch: {
             parameters: {
                 query?: never;
@@ -6217,6 +6221,8 @@ export interface paths {
                         name?: string;
                         description?: string;
                         ownerUserId?: string | null;
+                        compareKeyFieldIds?: string[];
+                        compareScopeFieldIds?: string[];
                     };
                 };
             };
@@ -6235,6 +6241,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -6617,6 +6625,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -6847,6 +6857,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -7129,6 +7141,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -7413,6 +7427,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -7640,6 +7656,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -7870,6 +7888,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -8100,6 +8120,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -8330,6 +8352,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -8723,6 +8747,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -8953,6 +8979,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -9189,6 +9217,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -9416,6 +9446,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -9646,6 +9678,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -9876,6 +9910,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -10106,6 +10142,8 @@ export interface paths {
                             archived: boolean;
                             version: number;
                             systemKey: string | null;
+                            compareKeyFieldIds: string[];
+                            compareScopeFieldIds: string[];
                             fields: {
                                 id: string;
                                 label: string;
@@ -14166,6 +14204,543 @@ export interface paths {
                                 tasks: number;
                                 links: number;
                             };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/register-imports/{id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сравнение с реестром: открытые записи области, которых нет в файле (тот же файл, что в предпросмотре импорта). Записи не меняются */
+        post: {
+            parameters: {
+                query?: {
+                    scope?: "all";
+                    scopeField?: string;
+                    scopeValues?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            importId: string;
+                            file: {
+                                id: string;
+                                name: string;
+                                sha256: string;
+                            };
+                            /** @enum {string} */
+                            format: "records" | "scan";
+                            key: {
+                                id: string;
+                                label: string;
+                            }[];
+                            scope: {
+                                /** @enum {boolean} */
+                                all: true;
+                                label: string;
+                            } | {
+                                fieldId: string;
+                                label: string;
+                                values: {
+                                    id: string;
+                                    label: string;
+                                }[];
+                            };
+                            missing: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                key: string;
+                                statusId: string | null;
+                            }[];
+                            noKey: number;
+                            outOfScopeRows: number;
+                            badKeyRows: number;
+                            incompleteScan: {
+                                previousReport: string;
+                                missingHosts: string[];
+                            } | null;
+                            status: {
+                                fieldId: string;
+                                options: {
+                                    id: string;
+                                    label: string;
+                                    isClosed: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/records/compare-status/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Статус записям, которых нет в файле: предпросмотр */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                        scope: {
+                            /** @enum {boolean} */
+                            all: true;
+                        } | {
+                            /** Format: uuid */
+                            fieldId: string;
+                            values: string[];
+                        };
+                        changes: {
+                            /** Format: uuid */
+                            recordId: string;
+                            /** Format: uuid */
+                            optionId: string;
+                        }[];
+                        reason?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            total: number;
+                            willChange: number;
+                            skipped: {
+                                number: number | null;
+                                reason: string;
+                            }[];
+                            incompleteScan: {
+                                previousReport: string;
+                                missingHosts: string[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/records/compare-status/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Статус записям, которых нет в файле: применить (пакетами, с журналом и ссылкой на файл) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                        scope: {
+                            /** @enum {boolean} */
+                            all: true;
+                        } | {
+                            /** Format: uuid */
+                            fieldId: string;
+                            values: string[];
+                        };
+                        changes: {
+                            /** Format: uuid */
+                            recordId: string;
+                            /** Format: uuid */
+                            optionId: string;
+                        }[];
+                        reason?: string | null;
+                        expected: {
+                            willChange: number;
+                        };
+                        acknowledgeIncompleteScan?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            changed: number;
+                            skipped: number;
                         };
                     };
                 };
@@ -23739,7 +24314,7 @@ export interface paths {
                             deleted: boolean;
                             refs: {
                                 /** @enum {string} */
-                                kind: "evidence" | "decision" | "document_pdf" | "record";
+                                kind: "evidence" | "decision" | "document_pdf" | "record" | "compare";
                                 id: string;
                                 label: string;
                             }[];

@@ -330,6 +330,75 @@ describe('Импорт из Excel одной кнопкой', () => {
     await cancel(dialog);
   });
 
+  it('«Сравнение»: нет в файле, неполный скан; статус с подтверждением и ссылкой на файл отчёта', async () => {
+    await ensureReport();
+    // Открытая запись из образца и отчёт, к которому она относится. На dev отчёт загружался не раз: совпавшие
+    // «CVE + пакет» сливаются с открытыми записями прошлых загрузок, поэтому область — отчёт самой записи.
+    const regDetail = await api(`/api/v1/registers/${regId}`);
+    const fld = (key) => regDetail.fields.find((f) => f.systemKey === key);
+    const open = (await api(`/api/v1/registers/${regId}/records?q=cve-&limit=100`)).items;
+    const mine = open.find((r) => r.values[fld('cve').id] !== 'CVE-2024-21413' && r.values[fld('report').id]);
+    assert.ok(mine, 'есть открытая запись из отчёта');
+    const label = fld('report').options.find((o) => o.id === mine.values[fld('report').id]).label;
+    const cve = mine.values[fld('cve').id];
+    const pkg = fld('pkg').options.find((o) => o.id === mine.values[fld('pkg').id]).label;
+    // Новый отчёт: без этой уязвимости и без первого хоста.
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(SAMPLE);
+    let host = '';
+    for (const ws of wb.worksheets) {
+      const drop = [];
+      ws.eachRow((row, n) => {
+        const cells = row.values.map((v) => String(v ?? ''));
+        if (cells.includes(cve) && cells.includes(pkg)) drop.push(n);
+        const h = cells.find((v) => /^HOST-\d+$/.test(v));
+        if (h && !host) { host = h; drop.push(n); }
+      });
+      for (const n of drop.reverse()) ws.spliceRows(n, 1);
+    }
+    assert.ok(host, 'в образце есть хост');
+    const file = join(tmp, 'scan-report-sample-2026-10-22.xlsx');
+    await wb.xlsx.writeFile(file);
+
+    const prev = await upload(file);
+    assert.equal(prev.status, 201, prev.body);
+    await ui.waitFor(`!!${dialog}?.querySelector('.imp-kpis')`, 'окно предпросмотра отчёта');
+    await ui.click($.button('Сравнение', dialog), '«Сравнение»');
+    const cmp = `document.querySelector('.compare-dialog')`;
+    await ui.waitFor(`${cmp}?.textContent.includes('CVE / БДУ + Пакет')`, 'окно сравнения с ключом');
+    await ui.click(`[...${cmp}.querySelectorAll('label.check')].find((l) => l.textContent.trim() === 'Отчёт сканирования')?.querySelector('input')`, 'область «Отчёт сканирования»');
+    await ui.click(`[...${cmp}.querySelectorAll('.scope-values label')].find((l) => l.textContent.trim() === ${JSON.stringify(label)})?.querySelector('input')`, 'отчёт');
+    let m = ui.mark();
+    await ui.click($.button('Сравнить', cmp));
+    assert.equal((await ui.request(m, 'POST', '/compare')).status, 200);
+    const row = `[...${cmp}.querySelectorAll('.compare-tbl tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(cve)}))`;
+    await ui.waitFor(`!!${row}`, 'отсутствующая уязвимость в списке');
+    assert.match(await ui.text(`${cmp}.querySelector('[data-testid=incomplete-scan]')`), new RegExp(host));
+    const fixed = await ui.evaluate(`[...${row}.querySelector('select').options].find((o) => o.textContent === 'Устранена').value`);
+    await ui.select(`${row}.querySelector('select')`, fixed);
+    await ui.click(startsWith('Проставить статус (1)', cmp), '«Проставить статус»');
+    await ui.waitFor(`${cmp}?.querySelector('[data-testid=compare-preview]')?.textContent.includes('Изменится статус: 1 запись')`, 'предпросмотр');
+    assert.equal(await ui.evaluate(`[...${cmp}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Подтвердить').disabled`), true, 'без галочки неполного скана — нельзя');
+    await ui.click(`[...${cmp}.querySelectorAll('label.check')].find((l) => l.textContent.includes('не все хосты'))?.querySelector('input')`, 'галочка неполного скана');
+    m = ui.mark();
+    await ui.click($.button('Подтвердить', cmp));
+    const applied = await ui.request(m, 'POST', '/compare-status/apply');
+    assert.equal(applied.status, 200, applied.body);
+    await ui.waitFor(`!${cmp}`, 'окно сравнения закрыто');
+    await cancel(dialog);
+
+    // Запись закрыта; в журнале правки — файл отчёта. Вернуть статус для остальных тестов.
+    const list = await api(`/api/v1/registers/${regId}/records?q=${encodeURIComponent(cve.toLowerCase())}&includeArchived=true&limit=10`);
+    const rec = list.items.find((r) => Object.values(r.values).includes(cve));
+    const reg = await api(`/api/v1/registers/${regId}`);
+    const status = reg.fields.find((f) => f.systemKey === 'status');
+    assert.equal(rec.values[status.id], fixed);
+    const history = await api(`/api/v1/register-records/${rec.id}/history`);
+    assert.ok(JSON.stringify(history).includes('scan-report-sample-2026-10-22.xlsx') || history.items.some((h) => h.via === 'compare'), 'в истории — сравнение с файлом');
+    await api(`/api/v1/register-records/${rec.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: rec.version, values: { [status.id]: status.options.find((o) => o.systemKey === 'open').id } }) });
+  });
+
   it('выгрузка реестра через ту же кнопку — обычный импорт по колонке ID', async () => {
     await openTab('records');
     const b64 = await ui.evaluate(`fetch('/api/v1/registers/${regId}/export').then((r) => r.arrayBuffer())

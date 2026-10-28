@@ -59,6 +59,9 @@ export interface RegisterDef {
   systemKey: string | null;
   /** Все неудалённые поля, включая архивные, по порядку. */
   fields: FieldMeta[];
+  /** Сравнение с реестром (релиз 1.1.0): поля ключа по порядку (пусто — по колонке ID) и поля области. */
+  compareKeyFieldIds: string[];
+  compareScopeFieldIds: string[];
 }
 
 export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
@@ -84,6 +87,8 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
     archived: r.archivedAt !== null,
     version: r.version,
     systemKey: r.systemKey,
+    compareKeyFieldIds: r.compareKeyFieldIds ?? [],
+    compareScopeFieldIds: r.compareScopeFieldIds ?? [],
     fields: r.fields.map((f) => ({
       id: f.id,
       label: f.label,

@@ -309,6 +309,9 @@ model Register {
   systemKey   String?   @unique @map("system_key")
   /// Следующий номер записи (колонка ID в Excel).
   nextNumber  Int       @default(1) @map("next_number")
+  /// Сравнение с реестром (релиз 1.1.0): поля ключа по порядку (пусто — по ID) и поля, по которым выбирается область.
+  compareKeyFieldIds   String[] @default([]) @map("compare_key_field_ids") @db.Uuid
+  compareScopeFieldIds String[] @default([]) @map("compare_scope_field_ids") @db.Uuid
   version     Int       @default(1)
   archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -475,8 +478,11 @@ model RegisterImport {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   appliedAt  DateTime? @map("applied_at") @db.Timestamptz(3)
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Файл, по которому сравнивали с реестром (релиз 1.1.0): хранится как доказательство, держит файл от уборки.
+  fileId     String?   @map("file_id") @db.Uuid
 
   register   Register    @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  file       File?       @relation(fields: [fileId], references: [id], onDelete: Restrict)
   author     User        @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   scanReport ScanReport?
 
@@ -881,6 +887,7 @@ model File {
   versions      DocumentVersion[]
   evidenceLinks EvidenceFile[]
   recordLinks   RegisterRecordFile[]
+  imports       RegisterImport[]
   text          FileText?
 
   @@index([uploadedBy, uploadedAt])

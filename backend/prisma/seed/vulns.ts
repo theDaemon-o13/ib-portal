@@ -149,4 +149,28 @@ export async function seedVulns(tx: Tx): Promise<void> {
     }
     return done.length ? `«${reg.name}»: многострочный текст — ${done.join(', ')}` : `«${reg.name}»: многострочные поля уже настроены`;
   });
+
+  // Релиз 1.1.0, задача 4: сравнение отчёта сканера с реестром — ключ «CVE / БДУ + Пакет» (не уникален: закрытые
+  // записи с той же парой бывают), область — «Система» или «Отчёт сканирования». Поля — по системному ключу.
+  await once(tx, 'system.register.vulns.v4.compare', async () => {
+    const reg = await tx.register.findUnique({ where: { systemKey: VULN_REGISTER_KEY } });
+    if (!reg) return 'Реестра уязвимостей нет — настройки сравнения не нужны';
+    if (reg.compareKeyFieldIds.length) return `«${reg.name}»: ключ сравнения уже задан`;
+    const fields = await tx.registerField.findMany({ where: { registerId: reg.id, deletedAt: null, archivedAt: null, systemKey: { in: ['cve', 'pkg', 'system', 'report'] } } });
+    const id = (key: string) => fields.find((f) => f.systemKey === key)?.id;
+    const keyIds = [id('cve'), id('pkg')].filter((x): x is string => !!x);
+    const scopeIds = [id('system'), id('report')].filter((x): x is string => !!x);
+    if (keyIds.length < 2) return `«${reg.name}»: нет полей «CVE / БДУ» и «Пакет» — ключ сравнения не задан`;
+    await tx.register.update({ where: { id: reg.id }, data: { compareKeyFieldIds: keyIds, compareScopeFieldIds: scopeIds, version: { increment: 1 } } });
+    await tx.auditLog.create({
+      data: {
+        userId: null, action: 'register.updated', entity: 'register', entityId: reg.id,
+        diff: {
+          summary: `Seed 1.1.0: «${reg.name}» — ключ сравнения «CVE / БДУ + Пакет», область — «Система» или «Отчёт сканирования»`,
+          before: { compareKeyFieldIds: [], compareScopeFieldIds: [] }, after: { compareKeyFieldIds: keyIds, compareScopeFieldIds: scopeIds },
+        },
+      },
+    });
+    return `«${reg.name}»: настройки сравнения с реестром`;
+  });
 }

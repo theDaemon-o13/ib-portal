@@ -6,7 +6,7 @@ const field = (id: string, label: string, type: RegisterDetail['fields'][number]
   id, label, type, sortOrder: 0, analyticsRole: null, isTitle: false, isStatus: false, isImportKey: false, calcRule: null, archived: false, version: 1, systemKey: null, catalogCode: null, linkRegisterId: null, settings: {}, options: [], ...extra,
 });
 const reg: RegisterDetail = {
-  id: 'r', name: 'Р', description: '', ownerUserId: null, archived: false, version: 1, systemKey: null,
+  id: 'r', name: 'Р', description: '', ownerUserId: null, archived: false, version: 1, systemKey: null, compareKeyFieldIds: [], compareScopeFieldIds: [],
   fields: [
     field('lvl', 'Уровень', 'select', { options: [{ id: 'h', label: 'Высокий', isClosed: false, archived: false, sortOrder: 1, version: 1, systemKey: null }] }),
     field('t', 'Название', 'text', { isTitle: true }),

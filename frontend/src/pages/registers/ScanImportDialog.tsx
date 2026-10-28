@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { registersApi, type RegisterDetail, type ScanPreview } from '../../api/registers';
 import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
+import { CompareDialog } from './CompareDialog';
 import { rkeys } from './keys';
 import { formatDate } from './logic';
 
@@ -13,7 +14,9 @@ const SHOW = 50;
  * Отчёт сканера, шаг 1 → 2: предпросмотр (ничего не изменено), затем применение одной транзакцией.
  * Дата отчёта — из имени файла или вводится здесь; от даты передачи в ДИКТ считается срок (п. 7.2).
  */
-export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetail; preview: ScanPreview; onClose: () => void }) {
+export function ScanImportDialog({ reg, preview, file, onClose }: { reg: RegisterDetail; preview: ScanPreview; file: File | null; onClose: () => void }) {
+  // «Сравнение» (релиз 1.1.0): поверх окна импорта; Escape закрывает только его.
+  const [comparing, setComparing] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
   const s = preview.summary;
@@ -51,7 +54,7 @@ export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetai
     onClose();
   };
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !apply.isPending) void cancel(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !apply.isPending && !comparing) void cancel(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   });
@@ -149,12 +152,15 @@ export function ScanImportDialog({ reg, preview, onClose }: { reg: RegisterDetai
         )}
         <div className="row end">
           <button className="btn" type="button" onClick={() => void cancel()} disabled={apply.isPending}>Отмена</button>
+          {file && <button className="btn" type="button" onClick={() => setComparing(true)} disabled={apply.isPending}
+            title="Какие открытые записи реестра есть в реестре, но нет в этом файле">Сравнение</button>}
           <button className="btn primary" type="button" onClick={() => apply.mutate()} disabled={dateMissing || dateOrder || apply.isPending}>
             {nothing ? 'Сохранить отчёт без новых записей' : `Загрузить: новых ${s.created}${s.mergedChanged ? `, обновить ${s.mergedChanged}` : ''}`}
           </button>
         </div>
       </div>
     </div>
+    {comparing && file && <CompareDialog reg={reg} importId={preview.id} file={file} onClose={() => setComparing(false)} />}
     </Overlay>
   );
 }

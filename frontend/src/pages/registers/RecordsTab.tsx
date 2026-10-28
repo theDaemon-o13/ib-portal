@@ -157,6 +157,8 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     }
   };
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  // Файл импорта — для «Сравнения» (тот же файл, что в предпросмотре).
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [zipOpen, setZipOpen] = useState(false);
   const hasFiles = reg.fields.some((f) => f.type === 'file' && !f.archived);
   const [busy, setBusy] = useState(false);
@@ -244,6 +246,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     setBusy(true);
     try {
       const p = await registersApi.previewFile(reg.id, file);
+      setImportFile(file);
       if (p.format === 'scan') setScanPreview(p.scan);
       else setPreview(p.records);
     } catch (err) {
@@ -365,8 +368,8 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
         <div className="panel-b"><button className="btn sm" type="button" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>Показать ещё</button></div>
       )}
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
-      {preview && <ImportDialog reg={reg} preview={preview} onClose={() => setPreview(null)} />}
-      {scanPreview && <ScanImportDialog reg={reg} preview={scanPreview} onClose={() => setScanPreview(null)} />}
+      {preview && <ImportDialog reg={reg} preview={preview} file={importFile} onClose={() => setPreview(null)} />}
+      {scanPreview && <ScanImportDialog reg={reg} preview={scanPreview} file={importFile} onClose={() => setScanPreview(null)} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
       {bulk && <BulkDialog reg={reg} mode={bulk.mode} selection={bulk.selection} onClose={() => setBulk(null)} onDone={() => { setBulk(null); setPicked(NOTHING); }} />}
     </>

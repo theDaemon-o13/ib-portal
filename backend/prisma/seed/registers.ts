@@ -88,3 +88,28 @@ export async function seedRegisters(tx: Tx): Promise<void> {
     return `«${reg.name}» — системный реестр (KPI «Инциденты за 30 дней»), поле «${date.label}» — системное`;
   });
 }
+
+/**
+ * Релиз 1.1.0, задача 4: ключ импорта — ключ сравнения по умолчанию. Миграция register_compare_settings
+ * переносит его в существующей базе; при установке с нуля реестры с ключом импорта (устройства DLP) создаёт
+ * seed после миграций — тот же перенос здесь. Однократно; заданный ключ сравнения не трогается.
+ */
+export async function seedCompareKeys(tx: Tx): Promise<void> {
+  await once(tx, 'registers.compare-key-from-import-key.v1', async () => {
+    const keys = await tx.registerField.findMany({ where: { isImportKey: true, deletedAt: null }, select: { id: true, registerId: true } });
+    const done: string[] = [];
+    for (const k of keys) {
+      const reg = await tx.register.findUnique({ where: { id: k.registerId }, select: { name: true, compareKeyFieldIds: true } });
+      if (!reg || reg.compareKeyFieldIds.length) continue;
+      await tx.register.update({ where: { id: k.registerId }, data: { compareKeyFieldIds: [k.id], version: { increment: 1 } } });
+      await tx.auditLog.create({
+        data: {
+          userId: null, action: 'register.updated', entity: 'register', entityId: k.registerId,
+          diff: { summary: `Seed 1.1.0: «${reg.name}» — ключ сравнения = ключ импорта`, before: { compareKeyFieldIds: [] }, after: { compareKeyFieldIds: [k.id] } },
+        },
+      });
+      done.push(`«${reg.name}»`);
+    }
+    return done.length ? `Ключ сравнения из ключа импорта: ${done.join(', ')}` : 'Ключ сравнения: переносить нечего';
+  });
+}

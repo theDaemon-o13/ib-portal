@@ -297,9 +297,9 @@ interface ImportPayload {
 const MAX_ISSUES = 500;
 const MAX_MISSING = 2000;
 
-type ColMap = Map<number, { kind: ColKind; field?: FieldMeta }>;
+export type ColMap = Map<number, { kind: ColKind; field?: FieldMeta }>;
 
-function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDef, warnings: string[]): { cols: ColMap; matchBy: 'id' | 'key' } {
+export function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDef, warnings: string[]): { cols: ColMap; matchBy: 'id' | 'key' } {
   const cols: ColMap = new Map();
   const headerRow = ws.getRow(1);
   const headers: string[] = [];

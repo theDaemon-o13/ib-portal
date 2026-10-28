@@ -4,6 +4,7 @@ import { settingsApi } from '../../api/settings';
 import { registersApi, type BasisRule, type DueRule, type FieldType, type RegisterDetail, type RegisterField } from '../../api/registers';
 import { LockIcon } from '../../components/LockIcon';
 import { useAction } from '../settings/useAction';
+import { CompareSettings } from './CompareSettings';
 import { FieldDrawer } from './FieldDrawer';
 import { BasisRuleEditor, CalcRuleEditor } from './FieldEditors';
 import { ALLOWED_ROLES, describeRule, ROLE_NAMES, TYPE_NAMES } from './logic';
@@ -169,6 +170,7 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
           {add.type === 'calc' && add.calcKind === 'basis' && <div className="span-all"><BasisRuleEditor reg={reg} value={add.basis} onChange={(basis) => setAdd({ ...add, basis })} /></div>}
         </form>
       )}
+      {canManage && <CompareSettings key={reg.version} reg={reg} />}
       {canManage && (
         <div className="panel-b">
           <div className="hint">Щелчок по полю открывает его настройки: название, тип, значения списка, заголовок и статус, архив и удаление. Значения записей хранятся по полю, а не по названию: переименование ничего не ломает.</div>

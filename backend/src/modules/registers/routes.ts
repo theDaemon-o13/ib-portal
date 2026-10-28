@@ -11,6 +11,7 @@ import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import { registerAnalytics } from './analytics.service.js';
 import * as bulk from './bulk.service.js';
+import * as compare from './compare.service.js';
 import * as decisions from './decisions.service.js';
 import * as recordFiles from './record-files.service.js';
 import * as excel from './excel.service.js';
@@ -101,6 +102,9 @@ export const RegisterDetail = z.object({
   version: z.number().int(),
   /** vulns — системный реестр уязвимостей. */
   systemKey: z.string().nullable(),
+  /** Сравнение с реестром: ключ (пусто — по ID) и поля области. */
+  compareKeyFieldIds: z.array(z.string()),
+  compareScopeFieldIds: z.array(z.string()),
   fields: z.array(Field),
 });
 const RegisterListItem = z.object({
@@ -254,8 +258,12 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   app.patch('/registers/:id', {
     preHandler: manage,
     schema: {
-      tags: ['registers'], summary: 'Переименовать реестр, описание, владелец', params: IdParams,
-      body: Version.extend({ name: Label.optional(), description: z.string().trim().max(500).optional(), ownerUserId: z.string().uuid().nullable().optional() }),
+      tags: ['registers'], summary: 'Переименовать реестр, описание, владелец, настройки сравнения', params: IdParams,
+      body: Version.extend({
+        name: Label.optional(), description: z.string().trim().max(500).optional(), ownerUserId: z.string().uuid().nullable().optional(),
+        compareKeyFieldIds: z.array(z.string().uuid()).max(3).optional(),
+        compareScopeFieldIds: z.array(z.string().uuid()).max(5).optional(),
+      }),
       response: { 200: RegisterDetail, ...errors },
     },
   }, async (request) => asDetail(await structure.updateRegister(db, actorOf(request), request.params.id, request.body)));
@@ -610,6 +618,89 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       response: { 200: BulkResult, ...errors },
     },
   }, async (request) => bulk.deleteAllRecords(db, actorOf(request), request.params.id, request.body.confirmName, request.body.expected));
+
+  // ------------------------------------------------------------ сравнение с реестром (релиз 1.1.0, ADR-0017)
+  const ScopeOut = z.union([
+    z.object({ all: z.literal(true), label: z.string() }),
+    z.object({ fieldId: z.string(), label: z.string(), values: z.array(z.object({ id: z.string(), label: z.string() })) }),
+  ]);
+  const IncompleteScan = z.object({ previousReport: z.string(), missingHosts: z.array(z.string()) }).nullable();
+  const CompareResult = z.object({
+    importId: z.string(),
+    file: z.object({ id: z.string(), name: z.string(), sha256: z.string() }),
+    format: z.enum(['records', 'scan']),
+    key: z.array(z.object({ id: z.string(), label: z.string() })),
+    scope: ScopeOut,
+    missing: z.array(z.object({ id: z.string(), number: z.number().int(), title: z.string(), key: z.string(), statusId: z.string().nullable() })),
+    noKey: z.number().int(), outOfScopeRows: z.number().int(), badKeyRows: z.number().int(),
+    incompleteScan: IncompleteScan,
+    status: z.object({ fieldId: z.string(), options: z.array(z.object({ id: z.string(), label: z.string(), isClosed: z.boolean() })) }).nullable(),
+  });
+  const ScopeIn = z.union([
+    z.object({ all: z.literal(true) }),
+    z.object({ fieldId: z.string().uuid(), values: z.array(z.string().uuid()).min(1).max(200) }),
+  ]);
+  const StatusChanges = z.array(z.object({ recordId: z.string().uuid(), optionId: z.string().uuid() })).min(1).max(bulk.BULK_MAX_IDS);
+  const StatusPreview = z.object({
+    total: z.number().int(), willChange: z.number().int(),
+    skipped: z.array(z.object({ number: z.number().int().nullable(), reason: z.string() })), incompleteScan: IncompleteScan,
+  });
+  const scopeOf = (q: { scope?: string; scopeField?: string; scopeValues?: string }): compare.CompareScope => {
+    if (q.scope === 'all') return { all: true };
+    const values = (q.scopeValues ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+    if (!q.scopeField || !values.length) throw badRequest('BAD_SCOPE', 'Выберите область сравнения: значения поля или «Весь реестр»');
+    return { fieldId: q.scopeField, values };
+  };
+  const sameRegister = async (registerId: string, importId: string) => {
+    const imp = await db.registerImport.findUnique({ where: { id: importId }, select: { registerId: true } });
+    if (!imp || imp.registerId !== registerId) throw badRequest('BAD_IMPORT', 'Импорт относится к другому реестру');
+  };
+
+  app.post('/register-imports/:id/compare', {
+    preHandler: edit,
+    bodyLimit: IMPORT_BODY_LIMIT,
+    schema: {
+      tags: ['register-excel'],
+      summary: 'Сравнение с реестром: открытые записи области, которых нет в файле (тот же файл, что в предпросмотре импорта). Записи не меняются',
+      params: IdParams,
+      querystring: z.object({ scope: z.enum(['all']).optional(), scopeField: z.string().uuid().optional(), scopeValues: z.string().max(8000).optional() }),
+      body: z.any(),
+      response: { 200: CompareResult, ...errors },
+    },
+  }, async (request) => {
+    if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
+    return compare.compareWithRegister(db, store, actorOf(request), request.params.id, request.body, scopeOf(request.query));
+  });
+
+  app.post('/registers/:id/records/compare-status/preview', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'], summary: 'Статус записям, которых нет в файле: предпросмотр', params: IdParams,
+      body: z.object({ importId: z.string().uuid(), scope: ScopeIn, changes: StatusChanges, reason: z.string().max(1000).nullable().optional() }),
+      response: { 200: StatusPreview, ...errors },
+    },
+  }, async (request) => {
+    await sameRegister(request.params.id, request.body.importId);
+    return compare.previewCompareStatus(db, store, request.body.importId, request.body.scope, request.body.changes, request.body.reason ?? null);
+  });
+
+  app.post('/registers/:id/records/compare-status/apply', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'], summary: 'Статус записям, которых нет в файле: применить (пакетами, с журналом и ссылкой на файл)', params: IdParams,
+      body: z.object({
+        importId: z.string().uuid(), scope: ScopeIn, changes: StatusChanges, reason: z.string().max(1000).nullable().optional(),
+        expected: z.object({ willChange: z.number().int() }), acknowledgeIncompleteScan: z.boolean().optional(),
+      }),
+      response: { 200: z.object({ changed: z.number().int(), skipped: z.number().int() }), ...errors },
+    },
+  }, async (request) => {
+    await sameRegister(request.params.id, request.body.importId);
+    const b = request.body;
+    return compare.applyCompareStatus(db, store, actorOf(request), b.importId, b.scope, b.changes, {
+      expected: b.expected, reason: b.reason ?? null, acknowledgeIncompleteScan: !!b.acknowledgeIncompleteScan,
+    });
+  });
 
   // ------------------------------------------------------------ Excel
   app.get('/registers/:id/export', {
