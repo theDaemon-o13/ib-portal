@@ -320,7 +320,10 @@ describe('Пользователи', () => {
     await ui.click($.button('Добавить', form));
     const created = await ui.request(m, 'POST', '/api/v1/users');
     assert.equal(created.status, 201);
-    await ui.waitFor(`document.querySelector('[role=dialog] .temp-pass code')?.textContent.length === 16`, 'окно с временным паролем');
+    // Пароль скрыт по умолчанию; «Показать» открывает его.
+    await ui.waitFor(`!!document.querySelector('[role=dialog] .temp-pass code.masked')`, 'окно со скрытым временным паролем');
+    await ui.click($.button('Показать', `document.querySelector('[role=dialog]')`), '«Показать»');
+    await ui.waitFor(`document.querySelector('[role=dialog] .temp-pass code:not(.masked)')?.textContent.length === 16`, 'временный пароль виден');
     await ui.click($.button('Готово'));
     await ui.waitFor(`!document.querySelector('[role=dialog]')`, 'окно закрыто');
     await revealRow(login);

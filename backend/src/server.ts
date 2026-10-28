@@ -3,6 +3,7 @@ import { loadConfig } from './config.js';
 import { createPrisma } from './lib/db.js';
 import { diskFileStore } from './lib/file-store.js';
 import { parseIpList } from './lib/ip-list.js';
+import { LOG_REDACT } from './lib/log-redact.js';
 import { argon2Hasher } from './lib/passwords.js';
 import { prismaAuditWriter } from './modules/audit/audit.js';
 import { prismaAuthRepository } from './modules/auth/repository.prisma.js';
@@ -28,7 +29,7 @@ const app = await buildApp({
   automationIntervalMin: config.AUTOMATION_INTERVAL_MIN,
   logger: {
     level: config.LOG_LEVEL,
-    redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+    redact: LOG_REDACT,
     ...(config.NODE_ENV === 'development' ? { transport: { target: 'pino-pretty' } } : {}),
   },
 });

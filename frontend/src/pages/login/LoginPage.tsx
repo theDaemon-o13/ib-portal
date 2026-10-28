@@ -2,11 +2,21 @@ import { useMutation } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, authApi } from '../../api/client';
+import { loadRememberedLogin, saveRememberedLogin } from '../../auth/remembered-login';
 import { useMe, useSetMe } from '../../auth/useMe';
 import { PortalCredit } from '../../components/AboutPortal';
 import { Brand } from '../../components/Brand';
+import { PasswordInput } from '../../components/PasswordInput';
 import { ThemeSwitch } from '../../components/ThemeSwitch';
 import { homePath, safeReturnPath } from '../../nav';
+
+const storage = (): Storage | undefined => {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
+};
 
 function errorText(e: unknown): string {
   if (e instanceof ApiError && e.code === 'ACCOUNT_LOCKED') {
@@ -23,12 +33,15 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from;
-  const [login, setLogin] = useState('');
+  const [remembered] = useState(() => loadRememberedLogin(storage()));
+  const [login, setLogin] = useState(remembered);
+  const [remember, setRemember] = useState(remembered !== '');
   const [password, setPassword] = useState('');
 
   const mutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: ({ user }) => {
+      saveRememberedLogin(storage(), user.login, remember);
       setMe(user);
       if (user.mustChangePassword) navigate('/change-password', { replace: true });
       else navigate(safeReturnPath(from) ?? homePath(user.permissions), { replace: true });
@@ -53,13 +66,14 @@ export function LoginPage() {
           <h1>Вход</h1>
           <label>
             Логин
-            <input className="inp" name="username" autoComplete="username" autoFocus required
+            <input className="inp" name="username" autoComplete="username" autoFocus={!remembered} required
               value={login} onChange={(e) => setLogin(e.target.value)} />
           </label>
-          <label>
-            Пароль
-            <input className="inp" type="password" name="password" autoComplete="current-password" required
-              value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput label="Пароль" name="password" autoComplete="current-password" autoFocus={!!remembered} required
+            value={password} onChange={(e) => setPassword(e.target.value)} />
+          <label className="check">
+            <input type="checkbox" name="remember-login" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            Запомнить логин
           </label>
           {mutation.isError && <p className="form-error" role="alert">{errorText(mutation.error)}</p>}
           <button className="btn primary" type="submit" disabled={mutation.isPending || !login || !password}>

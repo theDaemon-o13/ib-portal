@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { authApi, type Me } from '../../api/client';
 import { useSetMe } from '../../auth/useMe';
 import { Brand } from '../../components/Brand';
+import { PasswordInput } from '../../components/PasswordInput';
 import { homePath } from '../../nav';
 
 // Подсказки повторяют политику backend; окончательно проверяет сервер (включая повтор последних 5 паролей).
@@ -62,26 +63,19 @@ export function ChangePasswordPage({ me }: { me: Me }) {
             me.mustChangePassword && <p className="hint">Перед началом работы задайте собственный пароль.</p>
           )}
         </div>
-        <label>
-          Текущий пароль
-          <input className="inp" type="password" autoComplete="current-password" autoFocus
-            value={current} onChange={(e) => setCurrent(e.target.value)} />
-        </label>
-        <label>
-          Новый пароль
-          <input className="inp" type="password" autoComplete="new-password"
-            value={next} onChange={(e) => setNext(e.target.value)} />
-        </label>
+        {/* Скрытый логин: менеджер паролей браузера понимает, к какой учётной записи сохранить новый пароль. */}
+        <input type="text" name="username" autoComplete="username" value={me.login} readOnly hidden />
+        <PasswordInput label="Текущий пароль" autoComplete="current-password" autoFocus
+          value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <PasswordInput label="Новый пароль" autoComplete="new-password"
+          value={next} onChange={(e) => setNext(e.target.value)} />
         <ul className="rules">
           {checks.map((c) => (
             <li key={c.text} className={c.ok ? 'ok' : undefined}>{c.text}</li>
           ))}
         </ul>
-        <label>
-          Повторите новый пароль
-          <input className="inp" type="password" autoComplete="new-password"
-            value={repeat} onChange={(e) => setRepeat(e.target.value)} />
-        </label>
+        <PasswordInput label="Повторите новый пароль" autoComplete="new-password"
+          value={repeat} onChange={(e) => setRepeat(e.target.value)} />
         {mismatch && <p className="form-error">Пароли не совпадают</p>}
         {mutation.isError && <p className="form-error" role="alert">{mutation.error.message}</p>}
         <button className="btn primary" type="submit"
