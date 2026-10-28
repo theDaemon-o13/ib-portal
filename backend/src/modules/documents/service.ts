@@ -367,9 +367,19 @@ function cleanEdition(v: string) {
   if (t.length > EDITION_MAX) throw badRequest('TOO_LONG', `Редакция — не длиннее ${EDITION_MAX} символов`);
   return t;
 }
-function cleanUrl(v: string) {
+/** Настройки документов из .env: префикс ссылок OnlyOffice (ONLYOFFICE_URL_PREFIX, ADR-0010). */
+export interface DocPolicy {
+  urlPrefix?: string;
+}
+
+function cleanUrl(v: string, policy: DocPolicy) {
   const t = v.trim();
-  if (!isDocUrl(t)) throw badRequest('BAD_URL', 'Ссылка на файл в OnlyOffice — адрес, который начинается с http:// или https://');
+  const prefix = policy.urlPrefix ?? '';
+  if (!isDocUrl(t, prefix)) {
+    throw badRequest('BAD_URL', prefix
+      ? `Ссылка на файл в OnlyOffice должна начинаться с ${prefix}`
+      : 'Ссылка на файл в OnlyOffice — адрес, который начинается с http:// или https://');
+  }
   return t;
 }
 function cleanNote(v: string) {
@@ -411,10 +421,10 @@ export interface NewDocumentInput {
 }
 
 /** Создать документ (право docs.manage проверяет маршрут): версия 1, черновик на этапе «Автор». */
-export async function createDocument(db: Db, actor: Actor, input: NewDocumentInput): Promise<string> {
+export async function createDocument(db: Db, actor: Actor, input: NewDocumentInput, policy: DocPolicy = {}): Promise<string> {
   return withTx(db, async (tx) => {
     const title = cleanTitle(input.title);
-    const onlyofficeUrl = cleanUrl(input.onlyofficeUrl);
+    const onlyofficeUrl = cleanUrl(input.onlyofficeUrl, policy);
     const edition = cleanEdition(input.edition ?? '');
     const changeNote = cleanNote(input.changeNote ?? '');
     const reviewMonths = cleanMonths(input.reviewMonths ?? DEFAULT_REVIEW_MONTHS);
@@ -457,7 +467,7 @@ interface Change { label: string; from: string; to: string }
  * владельцем или docs.manage; тип, владелец и цикл пересмотра — docs.manage.
  * Утверждённую версию не правят: для этого создаётся новая версия (revise).
  */
-export async function updateDocument(db: Db, actor: Actor, id: string, input: DocumentPatch) {
+export async function updateDocument(db: Db, actor: Actor, id: string, input: DocumentPatch, policy: DocPolicy = {}) {
   return withTx(db, async (tx) => {
     const a = await accessOf(tx, actor.id);
     const d = await getRow(tx, id);
@@ -480,7 +490,7 @@ export async function updateDocument(db: Db, actor: Actor, id: string, input: Do
         if (v !== w.edition) { data.edition = v; changes.push({ label: 'Редакция', from: w.edition || '—', to: v || '—' }); }
       }
       if (input.onlyofficeUrl !== undefined) {
-        const v = cleanUrl(input.onlyofficeUrl);
+        const v = cleanUrl(input.onlyofficeUrl, policy);
         if (v !== w.onlyofficeUrl) { data.onlyofficeUrl = v; changes.push({ label: 'Ссылка OnlyOffice', from: w.onlyofficeUrl, to: v }); }
       }
       if (input.changeNote !== undefined) {
@@ -765,7 +775,7 @@ export interface ReviseInput {
  * Новая версия утверждённого документа (правка или пересмотр без изменений): копия действующей версии
  * на этапе «Автор». Утверждённые версии остаются в истории без изменений.
  */
-export async function reviseDocument(db: Db, actor: Actor, id: string, input: ReviseInput) {
+export async function reviseDocument(db: Db, actor: Actor, id: string, input: ReviseInput, policy: DocPolicy = {}) {
   return withTx(db, async (tx) => {
     const a = await accessOf(tx, actor.id);
     const d = await getRow(tx, id);
@@ -782,7 +792,7 @@ export async function reviseDocument(db: Db, actor: Actor, id: string, input: Re
         documentId: id, no,
         title: input.title !== undefined ? cleanTitle(input.title) : base.title,
         edition: input.edition !== undefined ? cleanEdition(input.edition) : base.edition,
-        onlyofficeUrl: input.onlyofficeUrl !== undefined ? cleanUrl(input.onlyofficeUrl) : base.onlyofficeUrl,
+        onlyofficeUrl: input.onlyofficeUrl !== undefined ? cleanUrl(input.onlyofficeUrl, policy) : base.onlyofficeUrl,
         changeNote: cleanNote(input.changeNote ?? ''),
         createdBy: actor.id,
       },

@@ -306,6 +306,18 @@ describe('документы: неизменность истории и утв�
         expect(await sqlError(tx, `DELETE FROM document_approvals WHERE document_id = '${id}'`)).toMatch(/только пополняется/);
         expect(await sqlError(tx, `UPDATE document_versions SET title = 'подмена' WHERE id = '${v1.id}'`)).toMatch(/утверждённая версия не меняется/);
         expect(await sqlError(tx, `DELETE FROM document_versions WHERE id = '${v1.id}'`)).toMatch(/версии не удаляются/);
+        // «Утверждение только с PDF» — и для владельца схемы, и при вставке готовой утверждённой версии.
+        const draft = await x.create('Без PDF');
+        const dv = must((await tx.document.findUniqueOrThrow({ where: { id: draft } })).workingVersionId);
+        expect(await sqlError(tx, `UPDATE document_versions SET approved_at = now() WHERE id = '${dv}'`)).toMatch(/только с итоговым PDF/);
+        expect(await sqlError(tx, `INSERT INTO document_versions (id, document_id, no, title, edition, onlyoffice_url, change_note, created_by, approved_at)
+          SELECT gen_random_uuid(), document_id, 99, title, edition, onlyoffice_url, '', created_by, now() FROM document_versions WHERE id = '${dv}'`)).toMatch(/только с итоговым PDF/);
+        // Обнулить PDF у утверждённой версии нельзя: запрещает guard, а без него — и эта проверка.
+        expect(await sqlError(tx, `UPDATE document_versions SET pdf_file_id = NULL WHERE id = '${v1.id}'`)).toMatch(/утверждённая версия не меняется/);
+        await tx.$executeRawUnsafe('ALTER TABLE document_versions DISABLE TRIGGER document_versions_guard');
+        expect(await sqlError(tx, `UPDATE document_versions SET pdf_file_id = NULL WHERE id = '${v1.id}'`)).toMatch(/только с итоговым PDF/);
+        await tx.$executeRawUnsafe('ALTER TABLE document_versions ENABLE TRIGGER document_versions_guard');
+        expect((await tx.documentVersion.findUniqueOrThrow({ where: { id: v1.id } })).pdfFileId).toBe(v1.pdfFileId);
       });
     } finally {
       await owner.$disconnect();
@@ -526,18 +538,34 @@ describe('документы: итоговый PDF (этап 7)', () => {
       await expectCode(act(tx, svc.approveDocument, x.head, id), 'PDF_REQUIRED');
       expect((await tx.documentApproval.count({ where: { documentId: id, decision: 'approved' } }))).toBe(0);
 
-      // Утверждённая до этапа 7 версия без PDF: признак в карточке и списке версий.
-      const old = await x.create('Старая политика');
-      const od = await tx.document.findUniqueOrThrow({ where: { id: old } });
-      const vid = must(od.workingVersionId);
-      await tx.documentVersion.update({ where: { id: vid }, data: { stage: 3, approvedAt: new Date() } });
-      await tx.document.update({ where: { id: old }, data: { approvedVersionId: vid, workingVersionId: null, reviewDue: new Date('2027-10-27T00:00:00Z') } });
-      const card = await view(tx, x.owner, old);
-      expect(card.current.textFrozen).toBe(false);
-      expect(card.versions[0]?.textFrozen).toBe(false);
-      // Задним числом PDF не прикладывается: утверждённая версия не меняется.
-      await expectCode(svc.attachPdf(tx, await x.as(x.owner), old, { version: card.version, stage: 3, fileId: (await makeFileRow(tx, x.owner.id)).id }), 'DOC_APPROVED');
+      // И в БД (триггер document_versions_require_pdf): утвердить версию без PDF нельзя и SQL-запросом.
+      expect(await sqlError(tx, `UPDATE document_versions SET approved_at = now() WHERE id = '${must(d.workingVersionId)}'`)).toMatch(/только с итоговым PDF/);
     }));
+
+  it('утверждённая до этапа 7 версия без PDF — «текст не зафиксирован», PDF задним числом не прикладывается', async () => {
+    // Такие версии остались с этапов 6–7; сейчас их не создать — триггер. Состояние воспроизводится
+    // под владельцем схемы с выключенными на время транзакции триггерами (транзакция откатывается).
+    const owner = createPrisma(testDbConfig().ownerUrl);
+    try {
+      await inOwnerTx(owner, async (tx) => {
+        const x = await fixture(tx);
+        const old = await x.create('Старая политика');
+        const od = await tx.document.findUniqueOrThrow({ where: { id: old } });
+        const vid = must(od.workingVersionId);
+        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        await tx.documentVersion.update({ where: { id: vid }, data: { stage: 3, approvedAt: new Date() } });
+        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = origin');
+        await tx.document.update({ where: { id: old }, data: { approvedVersionId: vid, workingVersionId: null, reviewDue: new Date('2027-10-27T00:00:00Z') } });
+        const card = await view(tx, x.owner, old);
+        expect(card.current.textFrozen).toBe(false);
+        expect(card.versions[0]?.textFrozen).toBe(false);
+        // Задним числом PDF не прикладывается: утверждённая версия не меняется.
+        await expectCode(svc.attachPdf(tx, await x.as(x.owner), old, { version: card.version, stage: 3, fileId: (await makeFileRow(tx, x.owner.id)).id }), 'DOC_APPROVED');
+      });
+    } finally {
+      await owner.$disconnect();
+    }
+  });
 
   it('замена PDF во время согласования возвращает маршрут к началу; прежний PDF без ссылок помечается удалённым', () =>
     inTx(async (tx) => {

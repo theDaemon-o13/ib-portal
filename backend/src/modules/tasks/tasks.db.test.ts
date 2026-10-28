@@ -153,14 +153,14 @@ describe('события автоматизаций → задачи', () => {
       const x = await vulnRegister(tx);
       const duty = await makeUser(tx, ['ib_staff'], { fullName: 'Дежурный Первый' });
       const custom = await catalogs.createItem(tx, x.actor, RECIPIENTS_CATALOG, { value: 'Дежурный ДИКТ', memberIds: [duty.id], emails: ['duty@example.tj'] });
-      // Старый клиент присылает название — сохраняется id метки.
+      // В правиле хранится только id метки (ADR-0009, «сужение» 1.0.0); название в ответе — из справочника.
       const rule = await automations.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'overdue', fieldId: x.vf.due.id },
-        action: { eventType: 'notify', recipients: [{ kind: 'label', label: 'дежурный дикт' }] },
+        action: { eventType: 'notify', recipients: [{ kind: 'label', itemId: custom.id }] },
       });
       expect(rule.action.recipients).toEqual([{ kind: 'label', itemId: custom.id, label: 'Дежурный ДИКТ', missing: false }]);
       const stored = await tx.registerAutomation.findUniqueOrThrow({ where: { id: rule.id } });
-      expect((stored.action as { recipients: unknown[] }).recipients).toEqual([{ kind: 'label', itemId: custom.id, label: 'Дежурный ДИКТ' }]);
+      expect((stored.action as { recipients: unknown[] }).recipients).toEqual([{ kind: 'label', itemId: custom.id }]);
 
       // Переименование метки, которая используется в правиле, — можно; правило показывает новое название и ставит задачи её участникам.
       const renamed = await catalogs.updateItem(tx, x.actor, custom.id, { version: custom.version, value: 'Дежурная смена ДИКТ' });
@@ -178,7 +178,7 @@ describe('события автоматизаций → задачи', () => {
       await expectCode(catalogs.archiveItem(tx, x.actor, sysLabel.id, sysLabel.version), 'SYSTEM_VALUE');
 
       await expectCode(automations.createRule(tx, x.actor, x.reg.id, {
-        condition: { kind: 'before', fieldId: x.vf.due.id, days: 1 }, action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'Нет такой' }] },
+        condition: { kind: 'before', fieldId: x.vf.due.id, days: 1 }, action: { eventType: 'remind', recipients: [{ kind: 'label', itemId: '00000000-0000-4000-8000-000000000000' }] },
       }), 'BAD_RULE');
       const outsider = await makeUser(tx, ['legal']);
       await expectCode(automations.createRule(tx, x.actor, x.reg.id, {
@@ -203,44 +203,29 @@ describe('события автоматизаций → задачи', () => {
     }));
 });
 
-describe('перенос текстовых меток в правилах на id (миграция rule_recipient_ids)', () => {
-  it('найденная метка получает id; ненайденная — «получатель не найден», правило работает; повторный перенос ничего не ломает', () =>
+describe('метка, не найденная при переносе на id (itemId: null)', () => {
+  it('в «Автоматизации» — «получатель не найден»; правило работает: по найденной метке — задача участнику, по ненайденной — без ответственного', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
       const dikt = await makeUser(tx, ['ib_staff'], { fullName: 'ДИКТ Старый' });
       await setLabel(tx, x, 'Руководитель ДИКТ', { memberIds: [dikt.id] });
-      // Правило в формате этапов 4–5: метки — только по названию.
+      const diktItem = await label(tx, 'Руководитель ДИКТ');
+      // Так правило этапов 4–5 выглядит после миграций rule_recipient_ids и narrow_rule_recipient_labels.
       const legacy = await tx.registerAutomation.create({
         data: {
           registerId: x.reg.id, createdBy: x.actor.id,
           condition: { kind: 'overdue', fieldId: x.vf.due.id },
-          action: { eventType: 'notify', recipients: [{ kind: 'label', label: ' руководитель  дикт ' }, { kind: 'label', label: 'Удалённая метка' }, { kind: 'field', fieldId: x.vf.owner.id }] },
+          action: { eventType: 'notify', recipients: [{ kind: 'label', itemId: diktItem.id }, { kind: 'label', itemId: null }, { kind: 'field', fieldId: x.vf.owner.id }] },
         },
       });
-      const [first] = await tx.$queryRaw<{ n: number }[]>`SELECT link_recipient_labels() AS n`;
-      expect(first?.n).toBeGreaterThanOrEqual(1);
-      const diktItem = await label(tx, 'Руководитель ДИКТ');
-      const moved = await tx.registerAutomation.findUniqueOrThrow({ where: { id: legacy.id } });
-      expect((moved.action as { recipients: unknown[] }).recipients).toEqual([
-        { kind: 'label', label: ' руководитель  дикт ', itemId: diktItem.id },
-        { kind: 'label', label: 'Удалённая метка', itemId: null },
-        { kind: 'field', fieldId: x.vf.owner.id },
-      ]);
-      expect(moved.version).toBe(legacy.version);
-      // Повторный вызов (seed) не трогает привязанные метки.
-      await tx.$queryRaw`SELECT link_recipient_labels()`;
-      expect((await tx.registerAutomation.findUniqueOrThrow({ where: { id: legacy.id } })).action).toEqual(moved.action);
-
-      // В «Автоматизации» видно «получатель не найден»; правило срабатывает: по найденной метке — задача участнику,
-      // по ненайденной — задача без ответственного.
       const dto = must((await automations.listRules(tx, x.reg.id, { includeArchived: false })).find((r) => r.id === legacy.id));
       expect(dto.recipientMissing).toBe(true);
-      expect(dto.then).toBe('Уведомить: Руководитель ДИКТ, Удалённая метка (получатель не найден), Ответственный');
+      expect(dto.then).toBe('Уведомить: Руководитель ДИКТ, метка (получатель не найден), Ответственный');
       const a = await vuln(tx, x, 'L');
       await automations.runAutomations(tx, { now: DEC_1, registerId: x.reg.id });
       const ta = (await tasksOf(tx, a.id)).filter((t) => t.automationId === legacy.id);
       expect(ta.map((t) => t.who ?? `не назначен: ${t.recipientLabel}`).sort()).toEqual([
-        'ДИКТ Старый', 'не назначен: «Удалённая метка»: получатель не найден, «Ответственный» не назначен',
+        'ДИКТ Старый', 'не назначен: «метка»: получатель не найден, «Ответственный» не назначен',
       ]);
     }));
 });

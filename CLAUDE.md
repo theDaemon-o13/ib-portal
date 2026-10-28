@@ -368,6 +368,7 @@ services:
       TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.31.250.6}   # кому верить в X-Forwarded-For: nginx (ADR-0012)
       MONITOR_ALLOWED_IPS: ${MONITOR_ALLOWED_IPS:-}           # адреса настенных мониторов; пусто — вход монитора запрещён
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}               # рабочие места администраторов; пусто — без ограничения (ADR-0015)
+      ONLYOFFICE_URL_PREFIX: ${ONLYOFFICE_URL_PREFIX:-}       # сервер OnlyOffice банка; пусто — любая ссылка http(s) (ADR-0010)
     volumes:
       - files:/data/files
     depends_on:

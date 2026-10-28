@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addMonthsIso, docStatus, isDocUrl } from './status.js';
+import { addMonthsIso, checkDocUrlPrefix, docStatus, isDocUrl } from './status.js';
 
 describe('статус документа', () => {
   const today = '2026-10-27';
@@ -39,5 +39,27 @@ describe('ссылка OnlyOffice', () => {
     expect(isDocUrl('file:///etc/passwd')).toBe(false);
     expect(isDocUrl('https://office.local/a b')).toBe(false);
     expect(isDocUrl('office.local/doc')).toBe(false);
+  });
+
+  it('ONLYOFFICE_URL_PREFIX: тот же протокол, сервер и порт, путь с префикса', () => {
+    const P = 'https://office.example.local/products/';
+    expect(isDocUrl('https://office.example.local/products/files/doceditor.aspx?fileid=7', P)).toBe(true);
+    expect(isDocUrl('https://OFFICE.example.local/products/x', P)).toBe(true);
+    expect(isDocUrl('http://office.example.local/products/x', P)).toBe(false);
+    expect(isDocUrl('https://office.example.local:8443/products/x', P)).toBe(false);
+    expect(isDocUrl('https://office.example.local/other/x', P)).toBe(false);
+    expect(isDocUrl('https://office.example.local.evil.tj/products/x', P)).toBe(false);
+    expect(isDocUrl('https://office.example.local@evil.tj/products/x', P)).toBe(false);
+    expect(isDocUrl('https://user@office.example.local/products/x', P)).toBe(false);
+    // Пустой префикс — как раньше, любая http(s).
+    expect(isDocUrl('http://10.0.0.5/x', '')).toBe(true);
+  });
+
+  it('префикс из .env проверяется при старте', () => {
+    expect(checkDocUrlPrefix('')).toBeNull();
+    expect(checkDocUrlPrefix('https://office.example.local/')).toBeNull();
+    expect(checkDocUrlPrefix('ftp://office.example.local/')).toMatch(/http/);
+    expect(checkDocUrlPrefix('https://office.example.local/?a=1')).toMatch(/параметров/);
+    expect(checkDocUrlPrefix('office.example.local')).toMatch(/адрес/);
   });
 });

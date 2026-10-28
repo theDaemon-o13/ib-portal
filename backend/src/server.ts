@@ -23,6 +23,7 @@ const app = await buildApp({
   trustProxy: parseIpList(config.TRUSTED_PROXY_IPS).entries.join(',') || false,
   kioskAllowedIps: parseIpList(config.MONITOR_ALLOWED_IPS),
   adminAllowedIps: parseIpList(config.ADMIN_ALLOWED_IPS),
+  docUrlPrefix: config.ONLYOFFICE_URL_PREFIX,
   automationIntervalMin: config.AUTOMATION_INTERVAL_MIN,
   logger: {
     level: config.LOG_LEVEL,

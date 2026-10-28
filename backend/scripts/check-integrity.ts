@@ -93,9 +93,10 @@ async function main() {
     WHERE tgrelid IN ('public.document_approvals'::regclass, 'public.document_versions'::regclass) AND NOT tgisinternal`;
   const docTriggerNames = docTriggers.map((t) => t.tgname);
   check(
-    ['document_approvals_no_update_delete', 'document_approvals_no_truncate', 'document_versions_guard', 'document_versions_no_truncate']
+    ['document_approvals_no_update_delete', 'document_approvals_no_truncate', 'document_versions_guard', 'document_versions_no_truncate',
+      'document_versions_require_pdf']
       .every((n) => docTriggerNames.includes(n)),
-    'триггеры неизменности истории и версий документов на месте',
+    'триггеры неизменности истории и версий документов и «утверждение только с PDF» на месте',
   );
 
   const sysItems = await prisma.catalogItem.findMany({ where: { isSystem: true, deletedAt: null }, select: { catalogCode: true, systemKey: true } });

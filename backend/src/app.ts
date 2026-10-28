@@ -55,6 +55,8 @@ export interface AppDeps {
   kioskAllowedIps?: IpList;
   /** Адреса рабочих мест администраторов (ADMIN_ALLOWED_IPS); не задано или пусто — без ограничения. */
   adminAllowedIps?: IpList;
+  /** Префикс ссылок на файлы OnlyOffice (ONLYOFFICE_URL_PREFIX); пусто — любая ссылка http(s). */
+  docUrlPrefix?: string;
   /** Фоновая проверка автоматизаций, интервал в минутах; не задано или 0 — выключена (тесты). */
   automationIntervalMin?: number;
 }
@@ -101,7 +103,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(taskRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db, docUrlPrefix: deps.docUrlPrefix ?? '' });
   await app.register(fileRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(searchRoutes, { prefix: '/api/v1', db: deps.db });

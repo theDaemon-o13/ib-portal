@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parseIpList } from './lib/ip-list.js';
+import { checkDocUrlPrefix } from './modules/documents/status.js';
 
 /** Список IP и подсетей: ошибка в .env видна при старте, а не при первом входе. */
 function checkIpList(v: string, ctx: z.RefinementCtx): void {
@@ -25,6 +26,12 @@ const EnvSchema = z.object({
   // Адреса рабочих мест администраторов: вход с правами settings.manage или users.manage только с них.
   // Пусто — без ограничения (ADR-0015).
   ADMIN_ALLOWED_IPS: z.string().default('').superRefine(checkIpList),
+  // Ссылки на файлы документов — только на сервер OnlyOffice банка, например https://onlyoffice.bank.local/.
+  // Пусто — любая ссылка http(s) (ADR-0010).
+  ONLYOFFICE_URL_PREFIX: z.string().trim().default('').superRefine((v, ctx) => {
+    const problem = checkDocUrlPrefix(v);
+    if (problem) ctx.addIssue({ code: 'custom', message: problem });
+  }),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   // Часовой пояс банка: «сегодня» для сроков и автоматизаций (lib/today.ts).
   APP_TZ: z.string().default('Asia/Dushanbe').refine((tz) => {

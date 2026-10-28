@@ -40,8 +40,8 @@ export type Condition =
  */
 export type Recipient =
   | { kind: 'field'; fieldId: string }
-  /** Метка по id значения справочника (ADR-0005); label — название на момент сохранения, для старых версий. */
-  | { kind: 'label'; itemId?: string | null; label?: string }
+  /** Метка по id значения справочника (ADR-0005); название — из справочника. null — метка не найдена при переносе. */
+  | { kind: 'label'; itemId: string | null }
   | { kind: 'user'; userId: string; name?: string };
 
 /** Действие «задача»: событие → задачи получателям. title — свой заголовок задачи ({год} — следующий год). */

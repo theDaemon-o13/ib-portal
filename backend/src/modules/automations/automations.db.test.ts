@@ -24,6 +24,11 @@ async function vuln(tx: Tx, x: VulnFixture, cve: string, notified: string, crit:
   });
 }
 
+/** Метка справочника «Получатели уведомлений» по названию — правило ссылается на неё по id. */
+async function labelId(tx: Tx, value: string) {
+  return (await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: 'notify_recipients', value, deletedAt: null } })).id;
+}
+
 async function eventsOf(tx: Tx, x: VulnFixture) {
   const rows = await tx.automationEvent.findMany({
     where: { registerId: x.reg.id },
@@ -134,7 +139,7 @@ describe('правила любого реестра', () => {
       const owner = await makeUser(tx, ['ib_staff'], { fullName: 'Нигина Получатель' });
       const rule = await svc.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'equals', fieldId: x.f.status, optionId: x.opt('status', 'В работе') },
-        action: { eventType: 'notify', recipients: [{ kind: 'field', fieldId: x.f.owner }, { kind: 'label', label: '  Начальник   ИБ ' }] },
+        action: { eventType: 'notify', recipients: [{ kind: 'field', fieldId: x.f.owner }, { kind: 'label', itemId: await labelId(tx, 'Начальник ИБ') }] },
       });
       expect([rule.when, rule.then]).toEqual(['«Статус» = «В работе»', 'Уведомить: Ответственный, Начальник ИБ']);
       const r1 = await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: 'Первая', [x.f.status]: x.opt('status', 'В работе'), [x.f.owner]: owner.id } });
@@ -145,14 +150,14 @@ describe('правила любого реестра', () => {
 
       // Проверка: условие по полю не того типа, получатель — не сотрудник.
       await expectCode(svc.createRule(tx, x.actor, x.reg.id, {
-        condition: { kind: 'before', fieldId: x.f.title, days: 3 }, action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'ДИКТ' }] },
+        condition: { kind: 'before', fieldId: x.f.title, days: 3 }, action: { eventType: 'remind', recipients: [{ kind: 'label', itemId: '00000000-0000-4000-8000-000000000000' }] },
       }), 'BAD_RULE');
       await expectCode(svc.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'overdue', fieldId: x.f.due, workdays: 10 }, action: { eventType: 'escalate', recipients: [{ kind: 'field', fieldId: x.f.title }] },
       }), 'BAD_RULE');
       const ok = await svc.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'overdue', fieldId: x.f.due, workdays: 10, unlessFilledFieldId: x.f.score },
-        action: { eventType: 'escalate', recipients: [{ kind: 'label', label: 'Руководство Банка' }] },
+        action: { eventType: 'escalate', recipients: [{ kind: 'label', itemId: await labelId(tx, 'Руководство Банка') }] },
       });
       expect(ok.when).toBe('«Срок устранения» просрочен на 10 раб. дн. и пусто «Баллы»');
       await svc.deleteRule(tx, x.actor, ok.id, ok.version);
@@ -209,14 +214,15 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       expect((events.json() as { total: number }).total).toBeGreaterThan(0);
       const ev = must((events.json() as { items: { id: string; status: string; tasks: unknown[] }[] }).items[0]);
       expect([ev.status, ev.tasks.length > 0]).toEqual(['processed', true]);
-      expect((await app.inject({ method: 'POST', url: `/api/v1/automation-events/${ev.id}/process`, headers: { cookie: S } })).statusCode).toBe(204);
+      // Ручная отметка «обработано» (наследие этапа 5) убрана в 1.0.0: событие закрывается своими задачами.
+      expect((await app.inject({ method: 'POST', url: `/api/v1/automation-events/${ev.id}/process`, headers: { cookie: S } })).statusCode).toBe(404);
       const reports = await app.inject({ url: `${base}/scan-reports`, headers: { cookie: S } });
       expect((reports.json() as { items: { hostsCount: number }[] }).items[0]?.hostsCount).toBe(12);
       const recs = await app.inject({ url: `${base}/records?sort=deadline&limit=1`, headers: { cookie: S } });
       // Срочное — первым: самый ранний срок отчёта 15.10 — критические, 15.10 + 14 = 29.10.
       expect((recs.json() as { items: { deadline: { date: string; state: string } }[] }).items[0]?.deadline).toMatchObject({ date: '2026-10-29' });
 
-      const rule = { condition: { kind: 'before', fieldId: x.vf.due.id, days: 7 }, action: { eventType: 'remind', recipients: [{ kind: 'label', label: 'Руководитель ДИКТ' }] } };
+      const rule = { condition: { kind: 'before', fieldId: x.vf.due.id, days: 7 }, action: { eventType: 'remind', recipients: [{ kind: 'label', itemId: await labelId(tx, 'Руководитель ДИКТ') }] } };
       expect((await app.inject({ url: `${base}/automations`, headers: { cookie: S } })).statusCode).toBe(200);
       expect((await app.inject({ method: 'POST', url: `${base}/automations`, headers: { cookie: S }, payload: rule })).statusCode).toBe(403);
       expect((await app.inject({ method: 'POST', url: `${base}/automations/run`, headers: { cookie: S } })).statusCode).toBe(403);

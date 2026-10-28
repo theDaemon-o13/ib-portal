@@ -65,7 +65,7 @@ export async function seedDlp(tx: Tx): Promise<void> {
       const max = await tx.catalogItem.aggregate({ where: { catalogCode: 'notify_recipients' }, _max: { sortOrder: true } });
       label = await tx.catalogItem.create({ data: { catalogCode: 'notify_recipients', value: DLP_LABEL, sortOrder: (max._max.sortOrder ?? 0) + 1 } });
     }
-    const recipients = [{ kind: 'label', itemId: label.id, label: label.value }];
+    const recipients = [{ kind: 'label', itemId: label.id }];
 
     // 1. Устройства (без полей основания: им нужен реестр разрешений).
     const dev = await createRegister(tx, DEVICES_NAME,

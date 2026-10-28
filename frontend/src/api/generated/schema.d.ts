@@ -10258,7 +10258,6 @@ export interface paths {
                     sort?: string;
                     dir?: "asc" | "desc";
                     includeArchived?: "true" | "false";
-                    withEvents?: "true" | "false";
                     withTasks?: "true" | "false";
                 };
                 header?: never;
@@ -10311,7 +10310,6 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "overdue" | "soon" | "ok" | "closed" | "none";
                                 } | null;
-                                openEvents: number;
                                 openTasks: number;
                                 files: {
                                     [key: string]: {
@@ -10536,7 +10534,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -10762,7 +10759,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -10990,7 +10986,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -11382,7 +11377,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -11617,7 +11611,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -12013,7 +12006,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -12247,7 +12239,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -12481,7 +12472,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -12876,7 +12866,6 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "overdue" | "soon" | "ok" | "closed" | "none";
                             } | null;
-                            openEvents: number;
                             openTasks: number;
                             files: {
                                 [key: string]: {
@@ -15292,8 +15281,7 @@ export interface paths {
                                 /** @enum {string} */
                                 kind: "label";
                                 /** Format: uuid */
-                                itemId?: string;
-                                label?: string;
+                                itemId: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "user";
@@ -15564,8 +15552,7 @@ export interface paths {
                                 /** @enum {string} */
                                 kind: "label";
                                 /** Format: uuid */
-                                itemId?: string;
-                                label?: string;
+                                itemId: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "user";
@@ -16586,127 +16573,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/automation-events/{id}/process": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Отметить событие обработанным */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Default Response */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;

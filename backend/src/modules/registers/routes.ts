@@ -134,7 +134,6 @@ export const RegisterRecord = z.object({
     daysLeft: z.number().int().nullable(),
     state: z.enum(['overdue', 'soon', 'ok', 'closed', 'none']),
   }).nullable(),
-  openEvents: z.number().int(),
   /** Открытые задачи по записи из событий автоматизаций. */
   openTasks: z.number().int(),
   /** Поле «Файл»: действующие файлы (sha256, дата загрузки). */
@@ -379,7 +378,6 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
         sort: z.string().max(64).optional(),
         dir: z.enum(['asc', 'desc']).optional(),
         includeArchived: z.enum(['true', 'false']).optional(),
-        withEvents: z.enum(['true', 'false']).optional(),
         withTasks: z.enum(['true', 'false']).optional(),
       }),
       response: { 200: z.object({ items: z.array(RegisterRecord), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
@@ -388,7 +386,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     const { state, deadline, f, date, from, to, ...rest } = request.query;
     const filter = parseRecordFilter(await loadRegister(db, request.params.id), { state, deadline, f, date, from, to });
     const page = await records.listRecords(db, request.params.id, {
-      ...rest, includeArchived: rest.includeArchived === 'true', withEvents: rest.withEvents === 'true', withTasks: rest.withTasks === 'true', filter,
+      ...rest, includeArchived: rest.includeArchived === 'true', withTasks: rest.withTasks === 'true', filter,
     });
     return { ...page, items: page.items.map(asRecord) };
   });

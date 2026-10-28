@@ -159,15 +159,13 @@ export function validateRule(
       if (!name) throw badRequest('BAD_RULE', 'Получатель-сотрудник — только активный пользователь с доступом к разделам ИБ');
       return { kind: 'user', userId: r.userId, name };
     }
-    // Метка — значение справочника «Получатели уведомлений» по id; название — только снимок для описания.
-    // Старые клиенты присылают название — оно сопоставляется со справочником.
-    const byName = (r.label ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const item = r.itemId ? choices.labels.find((l) => l.id === r.itemId) : choices.labels.find((l) => l.value.toLowerCase() === byName);
-    if (!item) throw badRequest('BAD_RULE', `Метки «${r.label ?? r.itemId ?? ''}» нет в справочнике «Получатели уведомлений» — добавьте её в настройках`);
+    // Метка — значение справочника «Получатели уведомлений» по id (ADR-0005); название берётся из справочника.
+    const item = r.itemId ? choices.labels.find((l) => l.id === r.itemId) : undefined;
+    if (!item) throw badRequest('BAD_RULE', 'Такой метки нет в справочнике «Получатели уведомлений» — выберите метку из списка или добавьте её в настройках');
     // Архивную метку новым правилам не выбрать; в правиле, где она уже была, она остаётся.
     const kept = before?.recipients.some((x) => x.kind === 'label' && x.itemId === item.id);
     if (item.archived && !kept) throw badRequest('BAD_RULE', `Метка «${item.value}» в архиве — выберите другую`);
-    return { kind: 'label', itemId: item.id, label: item.value };
+    return { kind: 'label', itemId: item.id };
   });
   const title = action.title?.trim().replace(/\s+/g, ' ');
   return { condition: cond, action: { eventType: action.eventType, recipients, ...(title ? { title: title.slice(0, 200) } : {}) } };
@@ -198,11 +196,11 @@ export function describeCondition(reg: RegisterDef, c: Condition): string {
 }
 
 /** Получатель-метка: актуальное название по id; без id или удалённая — «получатель не найден». */
-export function resolveLabel(r: { itemId?: string | null; label?: string }, labels: LabelNames): { itemId: string | null; label: string; missing: boolean } {
+export function resolveLabel(r: { itemId: string | null }, labels: LabelNames): { itemId: string | null; label: string; missing: boolean } {
   const name = r.itemId ? labels.get(r.itemId) : undefined;
   return name !== undefined
-    ? { itemId: r.itemId ?? null, label: name, missing: false }
-    : { itemId: r.itemId ?? null, label: r.label ?? '', missing: true };
+    ? { itemId: r.itemId, label: name, missing: false }
+    : { itemId: r.itemId, label: '', missing: true };
 }
 
 export function describeAction(reg: RegisterDef, a: Action, labels: LabelNames): string {
@@ -424,30 +422,6 @@ export async function listEvents(
     nextCursor: rows.length > q.limit ? String(offset + q.limit) : null,
     total,
   };
-}
-
-/** Событие обработано: на этапе 5 так же закроется созданная из него задача. Пишется в историю записи. */
-export async function processEvent(db: Db, actor: Actor, id: string) {
-  await withTx(db, async (tx) => {
-    const row = await tx.automationEvent.findUnique({ where: { id, documentId: null, evidenceId: null }, include: { automation: true, record: { select: { number: true } } } });
-    // Сводное событие по реестру (без записи) обрабатывается вместе с задачей — вручную его не отмечают.
-    if (!row || row.recordId === null) throw notFound('Событие');
-    const e = registerEvent(row);
-    if (e.status === 'processed') return;
-    const reg = await loadRegister(tx, e.registerId);
-    const labels = await loadLabels(tx);
-    const res = await tx.automationEvent.updateMany({
-      where: { id, status: 'new' },
-      data: { status: 'processed', processedAt: new Date(), processedBy: actor.id },
-    });
-    if (res.count === 0) return;
-    const rule = toRuleDto(reg, e.automation, labels);
-    await auditSettings(tx, actor, {
-      action: 'automation_event.processed', entity: 'register_record', entityId: e.recordId,
-      summary: `«${reg.name}», запись #${e.record.number}: событие «${rule.when} → ${rule.then}» обработано`,
-      after: { eventId: id, via: 'automation' },
-    });
-  });
 }
 
 // ---------------------------------------------------------------- прогон

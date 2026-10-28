@@ -28,9 +28,8 @@ const ConditionSchema = z.discriminatedUnion('kind', [
 ]);
 const RecipientSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('field'), fieldId: z.string().uuid() }),
-  /** Метка — по id значения справочника «Получатели уведомлений»; название принимается для совместимости. */
-  z.object({ kind: z.literal('label'), itemId: z.string().uuid().optional(), label: z.string().trim().min(1).max(100).optional() })
-    .refine((r) => r.itemId || r.label, 'Укажите метку получателя'),
+  /** Метка — по id значения справочника «Получатели уведомлений» (название, если прислано, не используется). */
+  z.object({ kind: z.literal('label'), itemId: z.string().uuid() }),
   z.object({ kind: z.literal('user'), userId: z.string().uuid(), name: z.string().optional() }),
 ]);
 /** «Установить значение» (этап 8б): поле-список получает значение, если сейчас у него одно из fromOptionIds. */
@@ -104,7 +103,6 @@ const Event = z.object({
 
 const view = requirePerm('ib.work');
 const manage = requirePerm('registers.manage');
-const edit = requirePerm('records.edit');
 
 type RuleOut = z.infer<typeof Rule>;
 const asRule = (r: unknown) => r as RuleOut;
@@ -177,11 +175,4 @@ export const automationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     },
   }, async (request) => svc.listEvents(db, request.params.id, request.query));
 
-  app.post('/automation-events/:id/process', {
-    preHandler: edit,
-    schema: { tags: ['automations'], summary: 'Отметить событие обработанным', params: IdParams, response: { 204: z.null(), ...errors } },
-  }, async (request, reply) => {
-    await svc.processEvent(db, actorOf(request), request.params.id);
-    return reply.status(204).send(null);
-  });
 };

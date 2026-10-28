@@ -53,8 +53,6 @@ export interface ListQuery {
   sort?: string;
   dir?: 'asc' | 'desc';
   includeArchived?: boolean;
-  /** Только записи с необработанными событиями автоматизаций. */
-  withEvents?: boolean;
   /** Только записи с открытыми задачами (этап 5). */
   withTasks?: boolean;
   /** Фильтр по состоянию, срокам, значению поля, дате (этап 8, ссылки дашборда). */
@@ -140,7 +138,6 @@ export async function listRecords(db: Db, registerId: string, q: ListQuery) {
   const filter = q.filter ?? {};
   const where = Prisma.sql`${baseSql(registerId, q.includeArchived)} ${filterSql(reg, filter)}
     ${search ? Prisma.sql`AND r.search_text LIKE ${`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}` : Prisma.empty}
-    ${q.withEvents ? Prisma.sql`AND EXISTS (SELECT 1 FROM automation_events e WHERE e.record_id = r.id AND e.status = 'new')` : Prisma.empty}
     ${q.withTasks ? Prisma.sql`AND EXISTS (SELECT 1 FROM tasks t WHERE t.record_id = r.id AND t.completed_at IS NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL)` : Prisma.empty}`;
   // Сроки и вычисляемые даты фильтруются в памяти (как и сортируются): тот же код, что у countRecords.
   const keep = await filterInMemory(db, reg, filter);

@@ -72,7 +72,7 @@ export async function seedVulns(tx: Tx): Promise<void> {
     const label = async (key: string) => {
       const item = await tx.catalogItem.findUnique({ where: { catalogCode_systemKey: { catalogCode: 'notify_recipients', systemKey: key } } });
       if (!item) throw new Error(`нет системной метки ${key}`);
-      return { kind: 'label', itemId: item.id, label: item.value };
+      return { kind: 'label', itemId: item.id };
     };
     const dikt = await label('dikt_head');
     const owner = await label('system_owner');

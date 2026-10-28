@@ -73,9 +73,8 @@ export async function tasksFromEvents(
     where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null },
     select: { id: true, value: true, systemKey: true, members: { select: { userId: true } } },
   });
-  // Метка — по id (ADR-0005); события до перехода на id несут только название.
-  const labelOf = (r: { label: string; itemId?: string | null }) =>
-    (r.itemId !== undefined ? labels.find((x) => x.id === r.itemId) : labels.find((x) => x.value.toLowerCase() === r.label.toLowerCase()));
+  // Метка — только по id (ADR-0005); событие без id (до перехода на id) — «получатель не найден», задача без ответственного.
+  const labelOf = (r: { itemId?: string | null }) => (r.itemId ? labels.find((x) => x.id === r.itemId) : undefined);
   const registers = new Map<string, RegisterDef>();
   const work = (n: number) => isoDate(addWorkingDays(parseIsoDate(opts.today), n, opts.calendar));
   const now = new Date();

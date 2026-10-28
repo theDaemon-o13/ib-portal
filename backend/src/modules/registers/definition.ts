@@ -298,8 +298,6 @@ export interface RecordDto {
   manualFieldIds: string[];
   /** Контроль сроков; null — в реестре нет поля с ролью «срок». */
   deadline: { date: string | null; daysLeft: number | null; state: DeadlineState } | null;
-  /** Необработанные события автоматизаций по записи. */
-  openEvents: number;
   /** Открытые задачи по записи (из событий автоматизаций, этап 5). */
   openTasks: number;
   /** Поле «Файл»: действующие файлы (этап 8б). */
@@ -359,10 +357,6 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
   const labels = linkLabels(refs);
   const files = reg.fields.some((f) => f.type === 'file') ? await loadRecordFiles(db, ids) : new Map<string, Map<string, FileLinkDto[]>>();
   const basisSources = reg.fields.some((f) => isBasisRule(f.calcRule)) ? await loadBasisSources(db, reg, ids) : new Map();
-  const events = await db.automationEvent.groupBy({
-    by: ['recordId'], where: { recordId: { in: rows.map((r) => r.id) }, status: 'new' }, _count: { _all: true },
-  });
-  const openEvents = new Map(events.map((e) => [e.recordId, e._count._all]));
   const tasks = await db.task.groupBy({
     by: ['recordId'],
     where: { recordId: { in: rows.map((r) => r.id) }, completedAt: null, archivedAt: null, deletedAt: null },
@@ -416,7 +410,6 @@ export async function toRecordDtos(db: Db, reg: RegisterDef, rows: RecordRow[]):
       archived: r.archivedAt !== null,
       manualFieldIds: r.manualFieldIds ?? [],
       deadline: deadline ? deadlineState(dateOf(reg, deadline, values, calendar), closed, today) : null,
-      openEvents: openEvents.get(r.id) ?? 0,
       openTasks: openTasks.get(r.id) ?? 0,
       files: fileMap,
       links: linkMap,

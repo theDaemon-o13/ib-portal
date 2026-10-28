@@ -62,13 +62,33 @@ export function addMonthsIso(iso: string, months: number): string {
   return `${String(ny).padStart(4, '0')}-${String(nm + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
 }
 
-/** Ссылка на файл в OnlyOffice: только http(s), без пробелов. Интеграции с API OnlyOffice пока нет (ADR-0010). */
-export function isDocUrl(v: string): boolean {
+/**
+ * Ссылка на файл в OnlyOffice: только http(s), без пробелов (ADR-0010). Если задан prefix (ONLYOFFICE_URL_PREFIX) —
+ * тот же протокол и сервер (с портом), путь начинается с пути префикса. Сравниваются разобранные адреса, а не
+ * строки: «https://oo.bank.tj.evil/» и «https://oo.bank.tj@evil/» префиксу «https://oo.bank.tj/» не подходят.
+ */
+export function isDocUrl(v: string, prefix = ''): boolean {
   if (v.length > 2000 || /\s/.test(v)) return false;
   try {
     const u = new URL(v);
-    return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.length > 0;
+    if (!((u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.length > 0)) return false;
+    if (!prefix) return true;
+    const p = new URL(prefix);
+    return u.protocol === p.protocol && u.host === p.host && !u.username && !u.password && u.pathname.startsWith(p.pathname);
   } catch {
     return false;
+  }
+}
+
+/** Префикс ссылок OnlyOffice из .env: пусто или адрес http(s) без логина, параметров и якоря (проверка при старте). */
+export function checkDocUrlPrefix(prefix: string): string | null {
+  if (!prefix) return null;
+  try {
+    const p = new URL(prefix);
+    if (p.protocol !== 'http:' && p.protocol !== 'https:') return 'адрес должен начинаться с http:// или https://';
+    if (p.username || p.password || p.search || p.hash) return 'без логина, параметров (?) и якоря (#)';
+    return null;
+  } catch {
+    return 'не похоже на адрес, пример: https://onlyoffice.bank.local/';
   }
 }

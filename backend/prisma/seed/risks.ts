@@ -50,7 +50,7 @@ export async function seedRisks(tx: Tx): Promise<void> {
       },
       {
         condition: { kind: 'overdue', fieldId: ids.reviewDue },
-        action: { eventType: 'notify', recipients: [{ kind: 'field', fieldId: ids.owner }, { kind: 'label', itemId: ibHead.id, label: ibHead.value }] },
+        action: { eventType: 'notify', recipients: [{ kind: 'field', fieldId: ids.owner }, { kind: 'label', itemId: ibHead.id }] },
       },
     ];
     for (const r of rules) await tx.registerAutomation.create({ data: { registerId: reg.id, condition: r.condition, action: r.action } });

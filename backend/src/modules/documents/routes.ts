@@ -76,7 +76,8 @@ const Result = z.object({ document: DocDetail.nullable() });
 // этапы маршрута — по правам docs.approve.*, автор — владелец или docs.manage (CLAUDE.md, правило 8).
 const anyUser = requireAuth();
 
-export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: string }> = async (app, { db, docUrlPrefix = '' }) => {
+  const policy: svc.DocPolicy = { urlPrefix: docUrlPrefix };
   const access = (request: Parameters<typeof actorOf>[0]) => svc.accessOf(db, actorOf(request).id);
   const detail = async (request: Parameters<typeof actorOf>[0], id: string) =>
     (await svc.getDocument(db, await access(request), id)) as DetailOut;
@@ -134,7 +135,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       response: { 201: Result, ...errors },
     },
   }, async (request, reply) => {
-    const id = await svc.createDocument(db, actorOf(request), request.body);
+    const id = await svc.createDocument(db, actorOf(request), request.body, policy);
     return reply.status(201).send(await result(request, id));
   });
 
@@ -161,7 +162,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
-    await svc.updateDocument(db, actorOf(request), request.params.id, request.body);
+    await svc.updateDocument(db, actorOf(request), request.params.id, request.body, policy);
     return result(request, request.params.id);
   });
 
@@ -213,7 +214,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
-    await svc.reviseDocument(db, actorOf(request), request.params.id, request.body);
+    await svc.reviseDocument(db, actorOf(request), request.params.id, request.body, policy);
     return result(request, request.params.id);
   });
 

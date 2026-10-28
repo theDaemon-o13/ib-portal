@@ -27923,18 +27923,6 @@
               ]
             },
             "in": "query",
-            "name": "withEvents",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
-            },
-            "in": "query",
             "name": "withTasks",
             "required": false
           },
@@ -28135,11 +28123,6 @@
                                 "type": "null"
                               }
                             ]
-                          },
-                          "openEvents": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
                           },
                           "openTasks": {
                             "type": "integer",
@@ -28384,7 +28367,6 @@
                           "archived",
                           "manualFieldIds",
                           "deadline",
-                          "openEvents",
                           "openTasks",
                           "files",
                           "links",
@@ -28900,11 +28882,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -29148,7 +29125,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -29600,11 +29576,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -29848,7 +29819,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -30361,11 +30331,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -30609,7 +30574,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -31463,11 +31427,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -31711,7 +31670,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -32193,11 +32151,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -32441,7 +32394,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -33307,11 +33259,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -33555,7 +33502,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -34027,11 +33973,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -34275,7 +34216,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -34747,11 +34687,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -34995,7 +34930,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -35522,11 +35456,6 @@
                         }
                       ]
                     },
-                    "openEvents": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "openTasks": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -35770,7 +35699,6 @@
                     "archived",
                     "manualFieldIds",
                     "deadline",
-                    "openEvents",
                     "openTasks",
                     "files",
                     "links",
@@ -42157,15 +42085,11 @@
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                    },
-                                    "label": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "maxLength": 100
                                     }
                                   },
                                   "required": [
-                                    "kind"
+                                    "kind",
+                                    "itemId"
                                   ]
                                 },
                                 {
@@ -43073,15 +42997,11 @@
                                       "type": "string",
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                    },
-                                    "label": {
-                                      "type": "string",
-                                      "minLength": 1,
-                                      "maxLength": 100
                                     }
                                   },
                                   "required": [
-                                    "kind"
+                                    "kind",
+                                    "itemId"
                                   ]
                                 },
                                 {
@@ -45760,226 +45680,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "type": "object",
-                          "propertyNames": {
-                            "type": "string"
-                          },
-                          "additionalProperties": {}
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "type": "object",
-                          "propertyNames": {
-                            "type": "string"
-                          },
-                          "additionalProperties": {}
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "type": "object",
-                          "propertyNames": {
-                            "type": "string"
-                          },
-                          "additionalProperties": {}
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "type": "object",
-                          "propertyNames": {
-                            "type": "string"
-                          },
-                          "additionalProperties": {}
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "details": {
-                          "type": "object",
-                          "propertyNames": {
-                            "type": "string"
-                          },
-                          "additionalProperties": {}
-                        }
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/automation-events/{id}/process": {
-      "post": {
-        "summary": "Отметить событие обработанным",
-        "tags": [
-          "automations"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Default Response"
           },
           "400": {
             "description": "Default Response",

@@ -89,7 +89,7 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
     if (!recipients.some(same)) setRecipients([...recipients, r]);
   };
   const recipientName = (r: Recipient) => (r.kind === 'field' ? `${reg.fields.find((f) => f.id === r.fieldId)?.label ?? '?'} (из записи)`
-    : r.kind === 'user' ? (r.name ?? 'сотрудник') : (r.label ?? ''));
+    : r.kind === 'user' ? (r.name ?? 'сотрудник') : (labels.data?.items.find((l) => l.id === r.itemId)?.value ?? 'метка'));
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(undefined); };
 
@@ -204,7 +204,7 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
               {kind !== 'yearly' && users.map((f) => <button key={f.id} type="button" className="btn sm" onClick={() => addRecipient({ kind: 'field', fieldId: f.id })}>+ {f.label}</button>)}
               {labels.data?.items.map((l) => (
                 <button key={l.id} type="button" className="btn sm" title={l.members.length || l.emails.length ? [...l.members.map((m) => m.fullName), ...l.emails].join(', ') : 'У метки пока нет участников — задача будет без ответственного'}
-                  onClick={() => addRecipient({ kind: 'label', itemId: l.id, label: l.value })}>+ {l.value}</button>
+                  onClick={() => addRecipient({ kind: 'label', itemId: l.id })}>+ {l.value}</button>
               ))}
               <select className="inp" value="" aria-label="Сотрудник-получатель"
                 onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'user', userId: u.id, name: u.fullName }); }}>

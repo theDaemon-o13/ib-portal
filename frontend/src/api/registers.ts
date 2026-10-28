@@ -190,5 +190,4 @@ export const registersApi = {
   runRules: (registerId: string) => request<RunResult>('POST', `/api/v1/registers/${registerId}/automations/run`),
   events: (registerId: string, q: { status?: 'new' | 'processed'; recordId?: string; cursor?: string }) =>
     request<EventPage>('GET', `/api/v1/registers/${registerId}/automation-events${qs({ status: q.status, recordId: q.recordId, cursor: q.cursor, limit: '50' })}`),
-  processEvent: (id: string) => request<undefined>('POST', `/api/v1/automation-events/${id}/process`),
 };
