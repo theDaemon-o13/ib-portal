@@ -109,7 +109,8 @@ describe('Разрешения на доступ', () => {
     assert.equal(attach.status, 200, attach.body);
     await ui.waitFor(`${block('Документ-основание')}?.textContent.includes('sha256')`, 'sha256 приложенного файла');
     assert.match(await ui.evaluate(`${block('Документ-основание')}.querySelector('.sha').textContent`), /^[0-9a-f]{64}$/);
-    assert.ok(await ui.evaluate(`!!${$.button('Отвязать', block('Документ-основание'))}`), 'до «Действует» документ можно отвязать');
+    // Кнопки файла дорисовываются после перечитывания записи — ждём, а не проверяем сразу.
+    await ui.waitFor(`!!${$.button('Отвязать', block('Документ-основание'))}`, 'до «Действует» документ можно отвязать');
 
     await ui.select(cardInput('Статус'), option(perm, 'Статус', 'Действует'));
     const req = await save();

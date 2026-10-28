@@ -63,7 +63,8 @@ cd /srv/ibportal/deploy
 cp /srv/ibportal/releases/ibportal-{{VERSION}}/docker-compose*.yml .
 cp /srv/ibportal/releases/ibportal-{{VERSION}}/scripts/*.sh scripts/
 
-# 5. Новая версия, миграции, перезапуск backend и frontend (db не перезапускается)
+# 5. Новая версия, миграции, перезапуск backend и frontend. db на шаге migrate перезапускается с образом
+#    новой версии (несколько секунд, данные — в томе)
 sed -i 's/^VERSION=.*/VERSION={{VERSION}}/' .env
 docker compose --profile tools run --rm migrate
 docker compose up -d backend frontend

@@ -491,7 +491,7 @@ cp /srv/ibportal/releases/ibportal-0.3.0/scripts/*.sh scripts/
 # новые переменные из RELEASE.md — в .env
 sed -i 's/^VERSION=.*/VERSION=0.3.0/' .env
 docker compose --profile tools run --rm migrate
-docker compose up -d backend frontend   # db не перезапускаем без необходимости
+docker compose up -d backend frontend   # db уже перезапущена с новым образом на шаге migrate
 ./scripts/smoke.sh --after              # health, вход, количество записей до и после
 ```
 
