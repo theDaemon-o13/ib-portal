@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AutoTextarea } from '../../components/AutoTextarea';
 import { Overlay } from '../../components/Overlay';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../../api/client';
@@ -13,6 +14,9 @@ import { DecisionBlock } from './DecisionBlock';
 import { rkeys } from './keys';
 
 const LONG = /описан|коммент|мер|примечан/i;
+// Лимиты — как на backend (lib/field-settings.ts).
+const TEXT_MAX = 4000;
+const TEXT_MAX_MULTILINE = 20_000;
 
 const VIA: Record<string, string> = {
   import: ' · импорт Excel', type_change: ' · смена типа поля', scan_import: ' · отчёт сканера', auto: ' · пересчёт', automation: ' · автоматизация',
@@ -125,11 +129,14 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
       control = <input id={id} className="inp" type="date" value={v} disabled={disabled} onChange={(e) => set(e.target.value)} />;
       break;
     default:
-      control = LONG.test(f.label)
-        ? <textarea id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)} />
-        : <input id={id} className="inp" value={v} disabled={disabled} required={f.isTitle} onChange={(e) => set(e.target.value)} />;
+      control = f.settings.text?.multiline
+        ? <AutoTextarea id={id} value={v} disabled={disabled} maxLength={TEXT_MAX_MULTILINE} onChange={(e) => set(e.target.value)} />
+        : LONG.test(f.label)
+          ? <textarea id={id} className="inp" value={v} disabled={disabled} maxLength={TEXT_MAX} onChange={(e) => set(e.target.value)} />
+          : <input id={id} className="inp" value={v} disabled={disabled} maxLength={TEXT_MAX} required={f.isTitle} onChange={(e) => set(e.target.value)} />;
   }
-  const wide = f.isTitle || f.type === 'decision' || f.type === 'calc' || f.type === 'file' || f.type === 'link' || (f.type === 'text' && LONG.test(f.label));
+  const wide = f.isTitle || f.type === 'decision' || f.type === 'calc' || f.type === 'file' || f.type === 'link'
+    || (f.type === 'text' && (!!f.settings.text?.multiline || LONG.test(f.label)));
   const lockNote = lockedNow
     ? <small className="row nowrap"><span className="chip">зафиксировано</span> Статус «{rec ? rec.display[reg.fields.find((x) => x.isStatus)?.id ?? ''] : ''}» — изменить можно только новой записью</small>
     : rec?.locked[f.id] === 'reason' && f.type !== 'file' ? <small>При этом статусе меняется только с причиной — её спросят при сохранении.</small> : null;

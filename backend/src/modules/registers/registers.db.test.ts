@@ -106,6 +106,48 @@ describe('поля', () => {
     }));
 });
 
+describe('многострочный текст (релиз 1.1.0)', () => {
+  it('seed: у реестра уязвимостей многострочные только «Комментарий ДИКТ» и «Компенсирующие меры», с записью в журнале', () =>
+    inTx(async (tx) => {
+      const vulns = await tx.register.findUniqueOrThrow({ where: { systemKey: 'vulns' } });
+      const reg = await loadRegister(tx, vulns.id);
+      const multi = reg.fields.filter((f) => f.settings.text?.multiline).map((f) => f.systemKey).sort();
+      expect(multi).toEqual(['comment', 'measures']);
+      for (const f of reg.fields.filter((x) => x.settings.text?.multiline)) {
+        const entry = await tx.auditLog.findFirst({ where: { entity: 'register_field', entityId: f.id, action: 'register.field.updated', userId: null } });
+        expect(entry?.diff).toMatchObject({ after: { settings: { text: { multiline: true } } } });
+      }
+      expect(await tx.seedMarker.findUnique({ where: { key: 'system.register.vulns.v3.multiline-text' } })).not.toBeNull();
+    }));
+
+  it('флаг только у текста; лимит 20 000; снять нельзя, пока есть длинные значения; тип не меняется', () =>
+    inTx(async (tx) => {
+      const x = await makeRegister(tx);
+      await expectCode(structure.addField(tx, x.actor, x.reg.id, { label: 'Число', type: 'number', settings: { text: { multiline: true } } }), 'BAD_SETTINGS');
+      const reg = await structure.addField(tx, x.actor, x.reg.id, { label: 'Описание', type: 'text', settings: { text: { multiline: true } } });
+      const note = must(reg.fields.find((f) => f.label === 'Описание'));
+      expect(note.settings).toEqual({ text: { multiline: true } });
+      const plain = must((await structure.addField(tx, x.actor, x.reg.id, { label: 'Кратко', type: 'text' })).fields.find((f) => f.label === 'Кратко'));
+
+      const long = 'Шаг проверки.\n'.repeat(400); // 5600 символов
+      await expectCode(records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: 'А', [plain.id]: long } }), 'INVALID_VALUES');
+      await expectCode(records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: 'А', [note.id]: 'я'.repeat(20_001) } }), 'INVALID_VALUES');
+      const rec = await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: 'А', [note.id]: long } });
+      expect(rec.values[note.id]).toBe(long.trim());
+
+      await expectCode(structure.updateField(tx, x.actor, note.id, { version: note.version, settings: null }), 'TEXT_TOO_LONG');
+      await expectCode(structure.previewTypeChange(tx, note.id, 'number'), 'FIELD_SETTINGS');
+
+      // Значение сокращено — флаг снимается, в журнале «было / стало».
+      await records.updateRecord(tx, x.actor, rec.id, { version: rec.version, values: { [note.id]: 'Коротко' } });
+      const off = await structure.updateField(tx, x.actor, note.id, { version: note.version, settings: null });
+      expect(off.fields.find((f) => f.id === note.id)?.settings).toEqual({});
+      const audit = await lastAudit(tx);
+      expect(audit).toMatchObject({ action: 'register.field.updated', entityId: note.id });
+      expect(audit.diff).toMatchObject({ before: { settings: { text: { multiline: true } } }, after: { settings: null } });
+    }));
+});
+
 describe('смена типа поля', () => {
   it('А: поле без данных — любой допустимый тип', () =>
     inTx(async (tx) => {

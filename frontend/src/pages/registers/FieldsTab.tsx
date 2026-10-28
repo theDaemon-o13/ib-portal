@@ -16,8 +16,8 @@ const stop = (e: MouseEvent) => e.stopPropagation();
 
 export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string; linkRegisterId: string; basis: BasisRule | null; calcKind: 'due' | 'basis' }>(
-    { label: '', type: 'text', options: '', role: '', rule: null, catalogCode: '', linkRegisterId: '', basis: null, calcKind: 'due' });
+  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string; linkRegisterId: string; basis: BasisRule | null; calcKind: 'due' | 'basis'; multiline: boolean }>(
+    { label: '', type: 'text', options: '', role: '', rule: null, catalogCode: '', linkRegisterId: '', basis: null, calcKind: 'due', multiline: false });
   const regs = useQuery({ queryKey: rkeys.listWith(false), queryFn: () => registersApi.list(false) });
   const regName = (id: string | null) => regs.data?.items.find((r) => r.id === id)?.name ?? 'реестр';
   // Для «Значения справочника» — обычные справочники значений (не статусы, правила почты и метки получателей).
@@ -39,9 +39,10 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
     calcRule: add.type === 'calc' ? ((add.calcKind === 'basis' ? add.basis : add.rule) ?? undefined) : undefined,
     catalogCode: add.type === 'catalog' ? add.catalogCode : undefined,
     linkRegisterId: add.type === 'link' ? add.linkRegisterId : undefined,
+    settings: add.type === 'text' && add.multiline ? { text: { multiline: true } } : undefined,
   }), {
     invalidate, success: () => `Поле «${add.label}» добавлено — оно уже есть в карточке записи`,
-    onDone: () => setAdd({ ...add, label: '', options: '', role: '', rule: null, basis: null }),
+    onDone: () => setAdd({ ...add, label: '', options: '', role: '', rule: null, basis: null, multiline: false }),
   });
 
   const fields = reg.fields;
@@ -89,6 +90,7 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
                     <span className="type">{TYPE_NAMES[f.type]}</span>
                     {(f.type === 'calc' || f.type === 'decision') && <span className="lock" title="Только для чтения в форме и при импорте"> <LockIcon /></span>}
                     {f.settings.lock && <span className="chip" title={f.settings.lock.mode === 'reason' ? 'При фиксирующих статусах меняется только с причиной' : 'При фиксирующих статусах не меняется'}>{f.settings.lock.mode === 'reason' ? 'с причиной' : 'фиксируется'}</span>}
+                    {f.settings.text?.multiline && <span className="chip" title="Многострочный текст: в карточке от 6 строк, до 20 000 символов">многострочный</span>}
                   </td>
                   <td className="hint values-cell">{summary(f)}</td>
                   <td onClick={stop}>
@@ -144,6 +146,11 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
                 <option value="">— выберите</option>
                 {fieldCatalogs.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
+            </label>
+          ) : add.type === 'text' ? (
+            <label className="check add-multiline" title="В карточке — поле от 6 строк, до 20 000 символов вместо 4000">
+              <input type="checkbox" checked={add.multiline} onChange={(e) => setAdd({ ...add, multiline: e.target.checked })} />
+              Многострочный текст
             </label>
           ) : (
           <label>Значения списка (через запятую)

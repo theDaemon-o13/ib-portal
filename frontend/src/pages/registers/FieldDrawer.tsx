@@ -195,9 +195,9 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
 
           {field.type !== 'calc' && field.type !== 'decision' && !field.isStatus && (
             <section className="fd-section grid-gap">
-              <div className="eyebrow">Фиксация и ограничения</div>
+              <div className="eyebrow">{field.type === 'text' ? 'Вид и ограничения' : 'Фиксация и ограничения'}</div>
               <SettingsEditor reg={reg} field={field} pending={patch.isPending}
-                onSave={(settings) => patch.mutate({ body: { settings }, ok: settings ? 'Настройки поля сохранены' : 'Фиксация и ограничения сняты' })} />
+                onSave={(settings) => patch.mutate({ body: { settings }, ok: settings ? 'Настройки поля сохранены' : 'Настройки поля сняты' })} />
             </section>
           )}
 

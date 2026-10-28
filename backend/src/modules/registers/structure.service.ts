@@ -18,7 +18,7 @@ import {
   type StoredValue,
   type Values,
 } from '../../lib/register-values.js';
-import { compactSettings, LOCK_MODES, type FieldSettings } from '../../lib/field-settings.js';
+import { compactSettings, LOCK_MODES, TEXT_MAX, TEXT_MAX_MULTILINE, type FieldSettings } from '../../lib/field-settings.js';
 import { isBasisRule, type BasisRule } from '../../lib/link-basis.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import {
@@ -319,6 +319,18 @@ async function validateSettings(db: Db, reg: RegisterDef, field: { id: string | 
     }
     out.date = { notAfterYearEndOfFieldId: anchorId ?? null, defaultEndOfYear: !!input.date.defaultEndOfYear };
   }
+  if (input.text?.multiline) {
+    if (field.type !== 'text') throw badRequest('BAD_SETTINGS', 'Многострочным бывает только текстовое поле');
+    out.text = { multiline: true };
+  }
+  // Снять «Многострочный текст» нельзя, пока есть значения длиннее обычного лимита: они бы не прошли проверку.
+  if (field.id && field.settings?.text?.multiline && !out.text) {
+    const rows = await db.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM register_records
+      WHERE register_id = ${reg.id}::uuid AND deleted_at IS NULL AND char_length("values" ->> ${field.id}) > ${TEXT_MAX}`;
+    const n = Number(rows[0]?.n ?? 0);
+    if (n > 0) throw conflict('TEXT_TOO_LONG', `Записей с текстом длиннее ${TEXT_MAX} символов: ${n}. Сократите их или оставьте поле многострочным`);
+  }
   // Ослабление фиксации: статусы, которые больше не фиксируют (или фиксируют только «с причиной»).
   const before = field.settings?.lock;
   if (before && field.id) {
@@ -344,6 +356,7 @@ function describeSettings(reg: RegisterDef, s: FieldSettings | null): string {
   if (s.lock) parts.push(`${s.lock.mode === 'reason' ? 'изменение с причиной' : 'фиксируется'} при статусах ${s.lock.statusOptionIds.map((id) => `«${STATUS_NAME(reg, id)}»`).join(', ')}`);
   if (s.date?.notAfterYearEndOfFieldId) parts.push(`не позже 31.12 года «${reg.fields.find((f) => f.id === s.date?.notAfterYearEndOfFieldId)?.label ?? '?'}»`);
   if (s.date?.defaultEndOfYear) parts.push('по умолчанию 31.12 текущего года');
+  if (s.text?.multiline) parts.push(`многострочный текст (до ${TEXT_MAX_MULTILINE} символов)`);
   return parts.join('; ');
 }
 
@@ -618,6 +631,7 @@ async function planTypeChange(tx: Db, reg: RegisterDef, field: FieldMeta, to: Fi
   if (field.isStatus) throw conflict('STATUS_FIELD', 'Тип поля статуса не меняется: сначала снимите признак статуса');
   if (field.isImportKey) throw conflict('IMPORT_KEY_FIELD', 'Тип ключа импорта не меняется: сначала снимите признак ключа');
   if (field.settings.lock || field.settings.date) throw conflict('FIELD_SETTINGS', 'У поля задана фиксация или ограничение даты — сначала снимите их');
+  if (field.settings.text) throw conflict('FIELD_SETTINGS', 'Поле многострочное — сначала снимите признак «Многострочный текст»');
   if (reg.fields.some((f) => f.settings.date?.notAfterYearEndOfFieldId === field.id)) throw conflict('DATE_DEPENDENCY', 'По полю проверяется другая дата — сначала снимите ограничение');
   if ((await basisDependents(tx, field.id)).length) throw conflict('CALC_DEPENDENCY', 'Поле используется в статусе основания — сначала измените правило');
   if (calcDependents(reg, field.id).some((d) => d.id !== field.id)) {

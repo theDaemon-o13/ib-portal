@@ -81,7 +81,8 @@ function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
       </span>
     );
   }
-  return <span title={text}>{text}</span>;
+  // Подсказка с полным текстом; многострочный бывает до 20 000 символов — в подсказке первая тысяча.
+  return <span title={text.length > 1000 ? `${text.slice(0, 1000)}…` : text}>{text}</span>;
 }
 
 /** Загруженные отчёты сканера: отдел · дата · хостов · уязвимостей, внутри — хосты. */

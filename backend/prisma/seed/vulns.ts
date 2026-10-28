@@ -1,6 +1,7 @@
 // Однократно: системный «Реестр уязвимостей» и правила п. 7.4 (отметка в seed_markers).
 // Удалённое или изменённое администратором seed не восстанавливает.
 import type { Prisma } from '../../src/generated/prisma/client.js';
+import { compactSettings, readSettings, TEXT_MAX_MULTILINE } from '../../src/lib/field-settings.js';
 import { CRIT_KEYS } from '../../src/lib/vuln-score.js';
 import { DUE_DAYS, VULN_FIELDS, VULN_REGISTER_KEY, type VulnFieldKey } from '../../src/modules/vulns/definition.js';
 import { once } from './registers.js';
@@ -118,5 +119,34 @@ export async function seedVulns(tx: Tx): Promise<void> {
       },
     });
     return `«${reg.name}»: добавлено поле «Система» (справочник «Системы»)`;
+  });
+
+  // Релиз 1.1.0: «Комментарий ДИКТ» и «Компенсирующие меры» — многострочный текст (до 20 000 символов).
+  // Поля ищутся по системному ключу, не по названию; значения записей не меняются. Снять флаг можно в конструкторе.
+  await once(tx, 'system.register.vulns.v3.multiline-text', async () => {
+    const reg = await tx.register.findUnique({ where: { systemKey: VULN_REGISTER_KEY } });
+    if (!reg) return 'Реестра уязвимостей нет — многострочные поля не нужны';
+    const fields = await tx.registerField.findMany({
+      where: { registerId: reg.id, systemKey: { in: ['comment', 'measures'] }, type: 'text', deletedAt: null },
+    });
+    const done: string[] = [];
+    for (const f of fields) {
+      const before = readSettings(f.settings);
+      if (before.text?.multiline) continue;
+      const after = compactSettings({ ...before, text: { multiline: true } });
+      await tx.registerField.update({ where: { id: f.id }, data: { settings: after as Prisma.InputJsonValue, version: { increment: 1 } } });
+      await tx.auditLog.create({
+        data: {
+          userId: null, action: 'register.field.updated', entity: 'register_field', entityId: f.id,
+          diff: {
+            summary: `Seed 1.1.0: реестр «${reg.name}», поле «${f.label}»: многострочный текст (до ${TEXT_MAX_MULTILINE} символов)`,
+            before: { settings: compactSettings(before) },
+            after: { settings: after },
+          } as Prisma.InputJsonValue,
+        },
+      });
+      done.push(`«${f.label}»`);
+    }
+    return done.length ? `«${reg.name}»: многострочный текст — ${done.join(', ')}` : `«${reg.name}»: многострочные поля уже настроены`;
   });
 }

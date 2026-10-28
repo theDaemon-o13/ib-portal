@@ -210,6 +210,38 @@ describe('Реестр уязвимостей', () => {
     await ui.waitFor(`!${card}`, 'карточка задачи закрыта');
   });
 
+  it('«Компенсирующие меры» — многострочное поле: от 6 строк, растёт с текстом, больше 4000 символов с переносами', async () => {
+    await ensureReport();
+    await openTab('records');
+    await ui.click(recRow('CVE-2024-21413'), 'строка CVE-2024-21413');
+    await ui.waitFor(`!!${drawer}?.querySelector('.recform')`, 'карточка записи');
+    const area = `${cardField('Компенсирующие меры')}?.querySelector('textarea')`;
+    await ui.waitFor(`!!${area}`, 'многострочное поле');
+    assert.equal(await ui.evaluate(`${area}.rows`), 6);
+    assert.equal(await ui.evaluate(`${area}.maxLength`), 20000);
+    const before = await ui.evaluate(`${area}.value`);
+    const h0 = await ui.evaluate(`${area}.clientHeight`);
+
+    const text = Array.from({ length: 250 }, (_, i) => `Шаг ${i + 1}: сегментация сети, правило межсетевого экрана`).join('\n');
+    assert.ok(text.length > 4000 && text.length < 20000);
+    await ui.type(area, text, '«Компенсирующие меры»');
+    assert.ok(await ui.evaluate(`${area}.clientHeight`) > h0, 'поле выросло вместе с текстом');
+    let m = ui.mark();
+    await ui.click($.button('Сохранить', drawer));
+    const saved = await ui.request(m, 'PATCH', '/register-records/');
+    assert.equal(saved.status, 200, saved.body);
+    const rec = await ui.response(saved);
+    assert.equal(Object.values(rec.values).find((v) => typeof v === 'string' && v.startsWith('Шаг 1:')), text, 'текст с переносами сохранён целиком');
+
+    // Вернуть как было: следующие тесты считают сроки по п. 7.3 без компенсирующих мер.
+    await ui.waitFor(`${area}.value === ${JSON.stringify(text)}`, 'значение в форме');
+    await ui.type(area, before, '«Компенсирующие меры»');
+    m = ui.mark();
+    await ui.click($.button('Сохранить', drawer));
+    assert.equal((await ui.request(m, 'PATCH', '/register-records/')).status, 200);
+    await ui.click($.button('Закрыть', drawer));
+  });
+
   it('вкладка «Автоматизация»: системные правила п. 7.4, новое правило, «Проверить сейчас», журнал событий', async () => {
     await openTab('records');
     await ui.click(tab('Автоматизация'));

@@ -8,6 +8,7 @@
 //   Вычисляемое поле (calc), решение другого отдела (decision) и файлы (file — таблица register_record_files)
 //   в values не хранятся никогда.
 
+import { TEXT_MAX, textLimit, type FieldSettings } from './field-settings.js';
 import { basisOf, isBasisRule, BASIS_STATE_NAMES, type BasisRule, type SourceRecord } from './link-basis.js';
 import { vulnScore } from './vuln-score.js';
 import { onOrNextWorkingDay, parseIsoDate, isoDate, type WorkCalendar } from './working-days.js';
@@ -32,7 +33,7 @@ export const ALLOWED_ROLES: Record<FieldType, readonly AnalyticsRole[]> = {
   link: [],
 };
 
-export const TEXT_MAX = 4000;
+export { TEXT_MAX };
 
 export type StoredValue = string | number | string[];
 export type Values = Record<string, StoredValue>;
@@ -102,6 +103,8 @@ export interface FieldDef {
   archived: boolean;
   /** Системное поле (реестр уязвимостей): не удаляется, не архивируется, тип не меняется. */
   systemKey?: string | null;
+  /** Настройки поля; для текста — многострочность и лимит (lib/field-settings.ts). */
+  settings?: FieldSettings;
 }
 
 export interface UserRef {
@@ -183,7 +186,8 @@ export function normalizeInput(field: FieldDef, raw: unknown, ctx: InputContext)
     case 'text': {
       if (typeof raw !== 'string') return fail('Ожидается текст');
       const v = raw.trim();
-      if (v.length > TEXT_MAX) return fail(`Не длиннее ${TEXT_MAX} символов`);
+      const max = textLimit(field.settings);
+      if (v.length > max) return fail(`Не длиннее ${max} символов`);
       return ok(v === '' ? null : v);
     }
     case 'number': {
@@ -411,7 +415,8 @@ export function parseCell(field: FieldDef, cell: unknown, ctx: ImportContext): R
   switch (field.type) {
     case 'text': {
       const s = v instanceof Date ? formatDateRu(v.toISOString().slice(0, 10)) : String(v).trim();
-      return s.length > TEXT_MAX ? fail(`Не длиннее ${TEXT_MAX} символов`) : ok(s);
+      const max = textLimit(field.settings);
+      return s.length > max ? fail(`Не длиннее ${max} символов`) : ok(s);
     }
     case 'number': {
       const n = typeof v === 'number' ? v : v instanceof Date ? null : parseNumberText(v);

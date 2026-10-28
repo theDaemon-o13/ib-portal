@@ -13655,6 +13655,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -14367,6 +14376,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -15122,6 +15140,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -16215,6 +16242,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -16951,6 +16987,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -17567,6 +17612,14 @@
                             "type": "boolean"
                           }
                         }
+                      },
+                      "text": {
+                        "type": "object",
+                        "properties": {
+                          "multiline": {
+                            "type": "boolean"
+                          }
+                        }
                       }
                     }
                   }
@@ -17961,6 +18014,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -18565,6 +18627,14 @@
                                 "type": "boolean"
                               }
                             }
+                          },
+                          "text": {
+                            "type": "object",
+                            "properties": {
+                              "multiline": {
+                                "type": "boolean"
+                              }
+                            }
                           }
                         }
                       },
@@ -18963,6 +19033,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -19705,6 +19784,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -20437,6 +20525,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -21177,6 +21274,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -21909,6 +22015,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -23036,6 +23151,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -23768,6 +23892,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -24516,6 +24649,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -25250,6 +25392,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -25990,6 +26141,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -26726,6 +26886,15 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
                               }
                             },
                             "additionalProperties": false
@@ -27458,6 +27627,15 @@
                                     ]
                                   },
                                   "defaultEndOfYear": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "multiline": {
                                     "type": "boolean"
                                   }
                                 },
@@ -28659,7 +28837,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "maxLength": 4000
+                          "maxLength": 20000
                         },
                         {
                           "type": "number"
@@ -30096,7 +30274,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "maxLength": 4000
+                          "maxLength": 20000
                         },
                         {
                           "type": "number"

@@ -5,6 +5,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import ExcelJS from 'exceljs';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
+import { textLimit } from '../../lib/field-settings.js';
 import {
   cellPrimitive,
   displayValue,
@@ -159,6 +160,14 @@ export async function exportRegister(db: Db, registerId: string, opts: ExportOpt
   const header = ws.getRow(1);
   header.font = { bold: true };
   header.alignment = { vertical: 'middle', wrapText: true };
+  // Многострочный текст — широкая колонка с переносом строк.
+  cols.forEach((c, i) => {
+    if (c.field?.settings.text?.multiline) {
+      const col = ws.getColumn(i + 1);
+      col.width = 60;
+      col.alignment = { wrapText: true, vertical: 'top' };
+    }
+  });
   const grey = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFEFF4' } } as const;
 
   for (const [i, rec] of dtos.entries()) {
@@ -210,7 +219,9 @@ export async function exportRegister(db: Db, registerId: string, opts: ExportOpt
       f.label,
       TYPE_NAME[f.type] ?? f.type,
       TYPE_HELP[f.type] ?? '',
-      f.type === 'select' || f.type === 'catalog' ? f.options.filter((o) => !o.archived).map((o) => o.label).join('; ') : '',
+      f.type === 'select' || f.type === 'catalog'
+        ? f.options.filter((o) => !o.archived).map((o) => o.label).join('; ')
+        : f.type === 'text' ? `До ${textLimit(f.settings)} символов${f.settings.text?.multiline ? ', можно с переносами строк' : ''}` : '',
     ]);
   }
   help.addRow([]);

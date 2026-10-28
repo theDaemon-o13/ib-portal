@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import type { FileStore } from '../../lib/file-store.js';
 import { badRequest } from '../../lib/errors.js';
+import { TEXT_MAX_MULTILINE } from '../../lib/field-settings.js';
 import { PageQuery } from '../../lib/pagination.js';
 import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
 import { ErrorResponse } from '../../plugins/errors.js';
@@ -61,6 +62,8 @@ const CalcRuleOut = z.union([
 const FieldSettings = z.object({
   lock: z.object({ statusOptionIds: z.array(z.string().uuid()).max(50), mode: z.enum(['locked', 'reason']) }).optional(),
   date: z.object({ notAfterYearEndOfFieldId: z.string().uuid().nullable().optional(), defaultEndOfYear: z.boolean().optional() }).optional(),
+  /** Многострочный текст (релиз 1.1.0): лимит 20 000 символов вместо 4000. */
+  text: z.object({ multiline: z.boolean().optional() }).optional(),
 });
 const Option = z.object({
   id: z.string(), label: z.string(), isClosed: z.boolean(), archived: z.boolean(), sortOrder: z.number().int(), version: z.number().int(),
@@ -401,7 +404,8 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     schema: { tags: ['register-records'], summary: 'История изменений записи', params: IdParams, response: { 200: z.object({ items: z.array(HistoryEntry) }), ...errors } },
   }, async (request) => ({ items: await records.recordHistory(db, request.params.id) }));
 
-  const Values = z.record(z.string().uuid(), z.union([z.string().max(4000), z.number(), z.array(z.string().uuid()).max(200), z.null()]));
+  // Длина — до лимита многострочного поля; лимит конкретного поля проверяет normalizeInput.
+  const Values = z.record(z.string().uuid(), z.union([z.string().max(TEXT_MAX_MULTILINE), z.number(), z.array(z.string().uuid()).max(200), z.null()]));
 
   app.post('/registers/:id/records', {
     preHandler: edit,

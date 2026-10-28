@@ -204,6 +204,7 @@ select.inp{appearance:auto}
 .field-form.rounded{border-radius:var(--r-md);border-top:0}
 .field-form label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
 .field-form > .btn{justify-self:start}
+.field-form label.check{display:flex;height:36px;color:var(--fg)}
 .cat-add{grid-template-columns:minmax(0,1.4fr) auto}
 .cat-add.with-color{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto}
 .cat-add.with-mail{grid-template-columns:minmax(0,1.2fr) minmax(0,1.6fr) minmax(0,1fr) auto}
@@ -450,6 +451,7 @@ table.recs tr.archived td{color:var(--faint)}
 .task-form label,.mail-draft label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 textarea.inp{min-height:90px;resize:vertical;font:inherit;line-height:1.45}
+textarea.inp.auto-grow{min-height:calc(6 * 1.45em + 18px);max-height:70vh;overflow-y:auto}
 textarea.mail-raw{min-height:150px}
 .cmt{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .cmt .av{width:24px;height:24px;font-size:9.5px}

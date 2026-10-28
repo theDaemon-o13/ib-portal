@@ -28,6 +28,27 @@ const users: UserRef[] = [
   { id: 'u5', login: 'old.user', fullName: 'Уволен', isActive: false },
 ];
 
+describe('длина текста: обычное и многострочное поле (релиз 1.1.0)', () => {
+  const plain = field('text');
+  const multi = field('text', { settings: { text: { multiline: true } } });
+  const ctx = { assignableUsers: new Map<string, UserRef>() };
+  const ictx = { users };
+
+  it('форма: 4000 у обычного, 20 000 у многострочного; переносы строк сохраняются', () => {
+    expect(normalizeInput(plain, 'а'.repeat(4000), ctx).ok).toBe(true);
+    expect(normalizeInput(plain, 'а'.repeat(4001), ctx)).toEqual({ ok: false, error: 'Не длиннее 4000 символов' });
+    expect(normalizeInput(multi, 'а'.repeat(20_000), ctx).ok).toBe(true);
+    expect(normalizeInput(multi, 'а'.repeat(20_001), ctx)).toEqual({ ok: false, error: 'Не длиннее 20000 символов' });
+    expect(normalizeInput(multi, 'строка 1\nстрока 2', ctx)).toEqual({ ok: true, value: 'строка 1\nстрока 2' });
+  });
+
+  it('импорт Excel — та же проверка, что и в форме', () => {
+    expect(parseCell(plain, 'б'.repeat(4001), ictx)).toEqual({ ok: false, error: 'Не длиннее 4000 символов' });
+    expect(parseCell(multi, 'б'.repeat(20_000), ictx).ok).toBe(true);
+    expect(parseCell(multi, 'б'.repeat(20_001), ictx)).toEqual({ ok: false, error: 'Не длиннее 20000 символов' });
+  });
+});
+
 describe('ввод из формы', () => {
   const sel = field('select', { options: [opt('o1', 'Высокий'), opt('o2', 'Старый', { archived: true })] });
   const ctx = { assignableUsers: new Map(users.filter((u) => u.isActive).map((u) => [u.id, u])) };

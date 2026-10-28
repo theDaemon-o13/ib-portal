@@ -5852,6 +5852,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -6070,6 +6073,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -6290,6 +6296,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -6670,6 +6679,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -6897,6 +6909,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -7092,6 +7107,9 @@ export interface paths {
                                 notAfterYearEndOfFieldId?: string | null;
                                 defaultEndOfYear?: boolean;
                             };
+                            text?: {
+                                multiline?: boolean;
+                            };
                         };
                     };
                 };
@@ -7172,6 +7190,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -7370,6 +7391,9 @@ export interface paths {
                                 notAfterYearEndOfFieldId?: string | null;
                                 defaultEndOfYear?: boolean;
                             };
+                            text?: {
+                                multiline?: boolean;
+                            };
                         } | null;
                     };
                 };
@@ -7450,6 +7474,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -7674,6 +7701,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -7902,6 +7932,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -8129,6 +8162,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -8355,6 +8391,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -8746,6 +8785,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -8972,6 +9014,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -9206,6 +9251,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -9429,6 +9477,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {
@@ -9657,6 +9708,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -9884,6 +9938,9 @@ export interface paths {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
                                     };
+                                    text?: {
+                                        multiline?: boolean;
+                                    };
                                 };
                                 options: {
                                     id: string;
@@ -10110,6 +10167,9 @@ export interface paths {
                                     date?: {
                                         notAfterYearEndOfFieldId?: string | null;
                                         defaultEndOfYear?: boolean;
+                                    };
+                                    text?: {
+                                        multiline?: boolean;
                                     };
                                 };
                                 options: {

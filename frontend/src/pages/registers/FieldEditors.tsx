@@ -244,14 +244,16 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
   const [mode, setMode] = useState<'locked' | 'reason'>(field.settings.lock?.mode ?? 'locked');
   const [anchor, setAnchor] = useState(field.settings.date?.notAfterYearEndOfFieldId ?? '');
   const [endOfYear, setEndOfYear] = useState(!!field.settings.date?.defaultEndOfYear);
+  const [multiline, setMultiline] = useState(!!field.settings.text?.multiline);
   const lockable = field.type !== 'calc' && field.type !== 'decision' && !field.isStatus && !!status;
   const dates = reg.fields.filter((f) => !f.archived && f.type === 'date' && f.id !== field.id);
   const toggle = (id: string) => setLockIds(lockIds.includes(id) ? lockIds.filter((x) => x !== id) : [...lockIds, id]);
   const settings: FieldSettings = {
     ...(lockIds.length ? { lock: { statusOptionIds: lockIds, mode } } : {}),
     ...(field.type === 'date' && (anchor || endOfYear) ? { date: { notAfterYearEndOfFieldId: anchor || null, defaultEndOfYear: endOfYear } } : {}),
+    ...(field.type === 'text' && multiline ? { text: { multiline: true } } : {}),
   };
-  if (!lockable && field.type !== 'date') return <div className="hint">{status ? 'Это поле не фиксируется.' : 'Фиксация задаётся по значениям поля статуса — в реестре его нет.'}</div>;
+  if (!lockable && field.type !== 'date' && field.type !== 'text') return <div className="hint">{status ? 'Это поле не фиксируется.' : 'Фиксация задаётся по значениям поля статуса — в реестре его нет.'}</div>;
   return (
     <div className="grid-gap">
       {lockable && (
@@ -282,9 +284,15 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
           <label className="check"><input type="checkbox" checked={endOfYear} onChange={(e) => setEndOfYear(e.target.checked)} />По умолчанию — 31.12 текущего года</label>
         </>
       )}
+      {field.type === 'text' && (
+        <label className="check">
+          <input type="checkbox" checked={multiline} onChange={(e) => setMultiline(e.target.checked)} />
+          Многострочный текст — в карточке поле от 6 строк, до 20 000 символов вместо 4000
+        </label>
+      )}
       <div className="row">
         <button className="btn primary sm" type="button" disabled={pending} onClick={() => onSave(Object.keys(settings).length ? settings : null)}>Сохранить</button>
-        <span className="hint">Пока статус записи фиксирующий, запись не удаляется, а статус меняется только на другой фиксирующий.</span>
+        {lockable && <span className="hint">Пока статус записи фиксирующий, запись не удаляется, а статус меняется только на другой фиксирующий.</span>}
       </div>
     </div>
   );
