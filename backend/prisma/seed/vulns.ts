@@ -4,6 +4,9 @@ import type { Prisma } from '../../src/generated/prisma/client.js';
 import { compactSettings, readSettings, TEXT_MAX_MULTILINE } from '../../src/lib/field-settings.js';
 import { CRIT_KEYS } from '../../src/lib/vuln-score.js';
 import { DUE_DAYS, VULN_FIELDS, VULN_REGISTER_KEY, type VulnFieldKey } from '../../src/modules/vulns/definition.js';
+import type { Values } from '../../src/lib/register-values.js';
+import { loadRegister, loadUsers, searchTextOf, userIdsIn } from '../../src/modules/registers/definition.js';
+import { deptKey } from '../../src/modules/vulns/scan-parser.js';
 import { once } from './registers.js';
 
 type Tx = Prisma.TransactionClient;
@@ -173,4 +176,86 @@ export async function seedVulns(tx: Tx): Promise<void> {
     });
     return `«${reg.name}»: настройки сравнения с реестром`;
   });
+
+  // Релиз 1.1.0, этап Б.2: поле «Отдел» (из ячейки A1 листа «Хосты»). Дубли отчётов и «Обнаружений» — в пределах
+  // отдела, область сравнения по умолчанию — отдел и система. Отдел заполняется у записей, загруженных из отчётов
+  // (по названию отчёта в scan_reports); записи без отчёта остаются без отдела. Журнал — по каждой записи и сводный.
+  await once(tx, 'system.register.vulns.v5.department', () => seedVulnDepartments(tx));
+}
+
+/** Шаг seed v5 (отдельно — для теста заполнения у записей, загруженных до 1.1.0). Повторный вызов ничего не меняет. */
+export async function seedVulnDepartments(tx: Tx): Promise<string> {
+  const row = await tx.register.findUnique({ where: { systemKey: VULN_REGISTER_KEY } });
+  if (!row) return 'Реестра уязвимостей нет — поле «Отдел» не нужно';
+  let field = await tx.registerField.findFirst({ where: { registerId: row.id, systemKey: 'department', deletedAt: null } });
+  if (!field) {
+    const spec = VULN_FIELDS.find((f) => f.key === 'department');
+    if (!spec) throw new Error('нет описания поля «Отдел»');
+    const max = await tx.registerField.aggregate({ where: { registerId: row.id }, _max: { sortOrder: true } });
+    const clash = await tx.registerField.findFirst({ where: { registerId: row.id, deletedAt: null, label: { equals: spec.label, mode: 'insensitive' } } });
+    field = await tx.registerField.create({
+      data: {
+        registerId: row.id, label: clash ? `${spec.label} (отчёт)` : spec.label, type: 'select', systemKey: 'department',
+        sortOrder: (max._max.sortOrder ?? 0) + 1, analyticsRole: spec.analyticsRole ?? null,
+      },
+    });
+  }
+  // Значения — отделы загруженных отчётов: одно на отдел (без регистра, пробелов, «ё»), подпись — как в отчёте.
+  const reports = await tx.scanReport.findMany({ where: { registerId: row.id }, select: { label: true, department: true }, orderBy: { createdAt: 'asc' } });
+  const existing = await tx.registerFieldOption.findMany({ where: { fieldId: field.id, deletedAt: null } });
+  const byKey = new Map(existing.map((o) => [deptKey(o.label), o.id]));
+  let options = 0;
+  for (const r of reports) {
+    const k = deptKey(r.department);
+    if (!k || byKey.has(k)) continue;
+    const o = await tx.registerFieldOption.create({ data: { fieldId: field.id, label: r.department.trim().slice(0, 200), sortOrder: byKey.size + 1 } });
+    byKey.set(k, o.id);
+    options++;
+  }
+  const deptOfReport = new Map(reports.map((r) => [r.label, byKey.get(deptKey(r.department)) ?? null]));
+
+  const reg = await loadRegister(tx, row.id);
+  const reportField = reg.fields.find((f) => f.systemKey === 'report');
+  const deptField = reg.fields.find((f) => f.id === field.id);
+  if (!reportField || !deptField) throw new Error('нет полей «Отчёт сканирования» или «Отдел»');
+  const rows = await tx.registerRecord.findMany({ where: { registerId: row.id, deletedAt: null }, select: { id: true, number: true, values: true }, orderBy: { number: 'asc' } });
+  let filled = 0;
+  for (const r of rows) {
+    const values = r.values as Values;
+    if (values[deptField.id] !== undefined) continue;
+    const reportLabel = reportField.options.find((o) => o.id === values[reportField.id])?.label;
+    const deptId = reportLabel ? deptOfReport.get(reportLabel) : null;
+    if (!deptId) continue;
+    const after: Values = { ...values, [deptField.id]: deptId };
+    const users = await loadUsers(tx, userIdsIn(reg, [after]));
+    await tx.registerRecord.update({
+      where: { id: r.id },
+      data: { values: after as Prisma.InputJsonValue, searchText: searchTextOf(reg, r.number, after, users), version: { increment: 1 } },
+    });
+    const deptLabel = deptField.options.find((o) => o.id === deptId)?.label ?? '';
+    await tx.auditLog.create({
+      data: {
+        userId: null, action: 'register_record.updated', entity: 'register_record', entityId: r.id,
+        diff: {
+          summary: `«${reg.name}», запись #${r.number}: «${deptField.label}» — «${deptLabel}» по отчёту «${reportLabel}» (обновление 1.1.0)`,
+          after: { changes: [{ fieldId: deptField.id, label: deptField.label, from: '', to: deptLabel }], via: 'seed' },
+        } as Prisma.InputJsonValue,
+      },
+    });
+    filled++;
+  }
+
+  const system = reg.fields.find((f) => f.systemKey === 'system' && !f.archived);
+  const scope = [deptField.id, ...(system ? [system.id] : []), reportField.id];
+  await tx.register.update({ where: { id: row.id }, data: { compareScopeFieldIds: scope, version: { increment: 1 } } });
+  await tx.auditLog.create({
+    data: {
+      userId: null, action: 'register.updated', entity: 'register', entityId: row.id,
+      diff: {
+        summary: `Seed 1.1.0: «${reg.name}» — поле «${deptField.label}»: значений ${options}, заполнено у записей ${filled}; область сравнения — отдел, система, отчёт`,
+        before: { compareScopeFieldIds: reg.compareScopeFieldIds }, after: { fieldId: deptField.id, options, filled, compareScopeFieldIds: scope },
+      } as Prisma.InputJsonValue,
+    },
+  });
+  return `«${reg.name}»: поле «${deptField.label}» — значений ${options}, заполнено у записей ${filled}`;
 }

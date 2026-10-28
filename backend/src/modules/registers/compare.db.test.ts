@@ -14,6 +14,7 @@ import { SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister } from '../../t
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import { sweepOrphanFiles } from '../files/links.js';
+import { seedVulnDepartments } from '../../../prisma/seed/vulns.js';
 import * as scan from '../vulns/scan-import.service.js';
 import { parseScanReport } from '../vulns/scan-parser.js';
 import * as compare from './compare.service.js';
@@ -47,11 +48,11 @@ async function firstHost(): Promise<string> {
 }
 
 describe('настройки сравнения', () => {
-  it('seed: реестр уязвимостей — ключ «CVE / БДУ + Пакет», область «Система» и «Отчёт сканирования»; DLP — ключ импорта', () =>
+  it('seed: реестр уязвимостей — ключ «CVE / БДУ + Пакет», область «Отдел», «Система», «Отчёт сканирования»; DLP — ключ импорта', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
       expect(x.reg.compareKeyFieldIds).toEqual([x.vf.cve.id, x.vf.pkg.id]);
-      expect(x.reg.compareScopeFieldIds).toEqual([x.vf.system.id, x.vf.report.id]);
+      expect(x.reg.compareScopeFieldIds).toEqual([x.vf.department.id, x.vf.system.id, x.vf.report.id]);
       const keys = await tx.registerField.findMany({ where: { isImportKey: true, deletedAt: null } });
       for (const k of keys) {
         expect((await tx.register.findUniqueOrThrow({ where: { id: k.registerId } })).compareKeyFieldIds).toEqual([k.id]);
@@ -163,6 +164,54 @@ describe('сравнение отчёта сканера', () => {
       const again = await compare.previewCompareStatus(tx, store, p.id, scope, changes, null);
       expect(again.willChange).toBe(0);
       expect(again.skipped[0]?.reason).toContain('нашлась в файле, закрыта');
+    }));
+});
+
+describe('этап Б.2: отдел, подсказка, область по умолчанию', () => {
+  it('seed заполняет «Отдел» у записей, загруженных до 1.1.0, по отчёту; журнал по записи и сводный; повторно — ничего', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      const first = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
+      await scan.applyScan(tx, x.actor, first.id, {});
+      await x.reload();
+      const deptId = x.vf.department.id;
+      // Как до 1.1.0: у записей нет отдела.
+      await tx.$executeRaw`UPDATE register_records SET "values" = "values" - ${deptId} WHERE register_id = ${x.reg.id}::uuid`;
+      const manual = await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.vf.cve.id]: 'CVE-2026-11111' } });
+      expect(await seedVulnDepartments(tx)).toContain('заполнено у записей 90');
+      const rows = await tx.registerRecord.findMany({ where: { registerId: x.reg.id, deletedAt: null } });
+      expect(rows.filter((r) => (r.values as Values)[deptId] !== undefined)).toHaveLength(90);
+      expect((rows.find((r) => r.id === manual.id)?.values as Values)[deptId]).toBeUndefined();
+      const one = must(rows.find((r) => r.id !== manual.id));
+      const h = await records.recordHistory(tx, one.id);
+      expect(h[0]?.summary).toContain('«Отдел» — «Отдел платёжных карт» по отчёту');
+      expect(await seedVulnDepartments(tx)).toContain('заполнено у записей 0');
+    }));
+
+  it('подсказка «нет в этом отчёте» и сравнение по умолчанию — отдел и система; без системы — «все системы»', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      const sys = must(await tx.catalogItem.findFirst({ where: { catalogCode: 'systems', deletedAt: null, archivedAt: null } }));
+      const first = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
+      await scan.applyScan(tx, x.actor, first.id, { systemId: sys.id });
+      await x.reload();
+      const victim = must((await tx.registerRecord.findMany({ where: { registerId: x.reg.id, deletedAt: null }, orderBy: { number: 'asc' } }))[0]);
+      const buffer = await reportWithout(String((victim.values as Values)[x.vf.cve.id]), 'нет такого хоста');
+      const p = await scan.previewScan(tx, x.actor, x.reg.id, buffer, 'scan-report-sample-2026-11-15.xlsx');
+
+      const all = await compare.notInReport(tx, p.id, null);
+      expect(all).toMatchObject({ count: 1, label: 'отдел «Отдел платёжных карт», все системы' });
+      const withSys = await compare.notInReport(tx, p.id, sys.id);
+      expect(withSys).toMatchObject({ count: 1, label: `отдел «Отдел платёжных карт», система «${sys.value}»` });
+      const other = must(await tx.catalogItem.findFirst({ where: { catalogCode: 'systems', deletedAt: null, id: { not: sys.id } } }));
+      expect((await compare.notInReport(tx, p.id, other.id)).count).toBe(0);
+
+      const c = await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, must(withSys.scope));
+      expect(c.missing.map((m) => m.id)).toEqual([victim.id]);
+      expect(c.scope.label).toBe(`отдел «Отдел платёжных карт», система «${sys.value}»`);
+      // Прежний вид области (одно условие) по-прежнему принимается.
+      const legacy = await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, { fieldId: x.vf.department.id, values: [must(x.vf.department.options[0]).id] });
+      expect(legacy.missing.map((m) => m.id)).toEqual([victim.id]);
     }));
 });
 

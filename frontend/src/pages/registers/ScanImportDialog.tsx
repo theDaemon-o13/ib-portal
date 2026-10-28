@@ -25,6 +25,8 @@ export function ScanImportDialog({ reg, preview, file, onClose }: { reg: Registe
   const [notifiedTouched, setNotifiedTouched] = useState(false);
   // Система отчёта: по ней метка «Владелец системы» находит, кому ставить задачи.
   const [systemId, setSystemId] = useState('');
+  // Подсказка (этап Б.2): открытые записи отдела отчёта и выбранной системы, которых нет в отчёте.
+  const hint = useQuery({ queryKey: ['registers', 'not-in-report', preview.id, systemId], queryFn: () => registersApi.notInReport(preview.id, systemId) });
   const systems = useQuery({ queryKey: ['settings', 'items', 'systems', 'active'], queryFn: () => settingsApi.items('systems', false) });
   const nothing = s.created + s.mergedChanged === 0;
   const dateMissing = !reportDate;
@@ -92,6 +94,11 @@ export function ScanImportDialog({ reg, preview, file, onClose }: { reg: Registe
         </div>
         {dateMissing && <p className="form-error" role="alert">В имени файла нет даты отчёта. Укажите её — без даты отчёт не загрузить.</p>}
         {dateOrder && <p className="form-error" role="alert">Отчёт не мог быть передан в ДИКТ раньше, чем составлен.</p>}
+        {hint.data && hint.data.count > 0 && (
+          <div className="note" data-testid="not-in-report">
+            {hint.data.count === 1 ? '1 запись' : `${hint.data.count} ${hint.data.count % 10 >= 2 && hint.data.count % 10 <= 4 && (hint.data.count % 100 < 12 || hint.data.count % 100 > 14) ? 'записи' : 'записей'}`} нет в этом отчёте ({hint.data.label}) — нажмите «Сравнение».
+          </div>
+        )}
         <div className="imp-kpis">
           <div><b className="mono">{s.created}</b><span>новых</span></div>
           <div><b className="mono">{s.merged}</b><span>уже в реестре</span></div>
@@ -160,7 +167,7 @@ export function ScanImportDialog({ reg, preview, file, onClose }: { reg: Registe
         </div>
       </div>
     </div>
-    {comparing && file && <CompareDialog reg={reg} importId={preview.id} file={file} onClose={() => setComparing(false)} />}
+    {comparing && file && <CompareDialog reg={reg} importId={preview.id} file={file} defaultScope={hint.data?.scope ?? null} defaultLabel={hint.data?.label ?? null} onClose={() => setComparing(false)} />}
     </Overlay>
   );
 }

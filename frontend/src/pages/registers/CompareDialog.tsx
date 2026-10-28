@@ -16,7 +16,12 @@ type Step = 'scope' | 'result' | 'confirm';
  * в файле. Ключ — из настроек реестра, область — обязательно. Статус — свой у строки или один у отмеченных;
  * дальше предпросмотр → подтверждение (при неполном скане — галочкой) → журнал со ссылкой на файл.
  */
-export function CompareDialog({ reg, importId, file, onClose }: { reg: RegisterDetail; importId: string; file: File; onClose: () => void }) {
+export function CompareDialog({ reg, importId, file, defaultScope = null, defaultLabel = null, onClose }: {
+  reg: RegisterDetail; importId: string; file: File;
+  /** Отчёт сканера (этап Б.2): область по умолчанию — отдел отчёта и выбранная система. */
+  defaultScope?: { conditions: { fieldId: string; values: string[] }[] } | null; defaultLabel?: string | null;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
   const toast = useToast();
   const scopeFields = reg.fields.filter((f) => reg.compareScopeFieldIds.includes(f.id) && !f.archived);
@@ -24,7 +29,7 @@ export function CompareDialog({ reg, importId, file, onClose }: { reg: RegisterD
     ? reg.compareKeyFieldIds.map((id) => reg.fields.find((f) => f.id === id)?.label ?? '?').join(' + ')
     : 'ID записи';
   const [step, setStep] = useState<Step>('scope');
-  const [scopeField, setScopeField] = useState<string>(scopeFields[0]?.id ?? 'all');
+  const [scopeField, setScopeField] = useState<string>(defaultScope ? 'default' : scopeFields[0]?.id ?? 'all');
   const [scopeValues, setScopeValues] = useState<ReadonlySet<string>>(new Set());
   const [result, setResult] = useState<CompareResult | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
@@ -44,7 +49,9 @@ export function CompareDialog({ reg, importId, file, onClose }: { reg: RegisterD
   }, [busy, onClose]);
 
   const field = scopeFields.find((f) => f.id === scopeField);
-  const scope: CompareScope | null = scopeField === 'all' ? { all: true } : scopeValues.size ? { fieldId: scopeField, values: [...scopeValues] } : null;
+  const scope: CompareScope | null = scopeField === 'all' ? { all: true }
+    : scopeField === 'default' ? defaultScope
+      : scopeValues.size ? { conditions: [{ fieldId: scopeField, values: [...scopeValues] }] } : null;
   const current = useMemo(() => new Map((result?.missing ?? []).map((m) => [m.id, m.statusId])), [result]);
   const changes = changesOf(choices, current);
   const statusLabel = (id: string | null) => result?.status?.options.find((o) => o.id === id)?.label ?? '—';
@@ -106,8 +113,13 @@ export function CompareDialog({ reg, importId, file, onClose }: { reg: RegisterD
             <>
               <div className="grid-gap" role="radiogroup" aria-label="Область сравнения">
                 <b>Область сравнения</b>
+                {defaultScope && (
+                  <label className="check"><input type="radio" name="scope" checked={scopeField === 'default'} onChange={() => setScopeField('default')} /> Записи реестра: {defaultLabel}</label>
+                )}
                 {scopeFields.map((f) => (
-                  <label key={f.id} className="check"><input type="radio" name="scope" checked={scopeField === f.id} onChange={() => { setScopeField(f.id); setScopeValues(new Set()); }} /> {f.label}</label>
+                  <label key={f.id} className="check"><input type="radio" name="scope" checked={scopeField === f.id} onChange={() => { setScopeField(f.id); setScopeValues(new Set()); }} />
+                    {' '}{f.systemKey === 'report' ? 'Конкретный прошлый отчёт' : f.label}
+                  </label>
                 ))}
                 <label className="check"><input type="radio" name="scope" checked={scopeField === 'all'} onChange={() => setScopeField('all')} /> Весь реестр</label>
               </div>
@@ -132,7 +144,7 @@ export function CompareDialog({ reg, importId, file, onClose }: { reg: RegisterD
           {step === 'result' && result && (
             <>
               <div className="hint" data-testid="compare-summary">
-                Область: {'values' in result.scope ? `${result.scope.label} — ${result.scope.values.map((v) => v.label).join(', ')}` : result.scope.label}.
+                Сравнить с записями реестра: {result.scope.label}.
                 {' '}Нет в файле: <b>{result.missing.length}</b>.
                 {result.noKey > 0 && ` Без ключа (не сопоставлены): ${result.noKey}.`}
                 {result.outOfScopeRows > 0 && ` Строк файла вне области: ${result.outOfScopeRows}.`}

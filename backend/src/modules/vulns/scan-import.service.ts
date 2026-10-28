@@ -14,7 +14,7 @@ import { nextNumbers } from '../registers/records.service.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { CRIT_LABELS, isVulnRegister, optionByKey, vulnFields, type VulnFields } from './definition.js';
 import { applyDerived } from './derive.js';
-import { dupKey, parseScanReport, SCAN_HEADERS, type ScanHostRow, type ScanIssue, type ScanRow } from './scan-parser.js';
+import { deptKey, dupKey, parseScanReport, SCAN_HEADERS, type ScanHostRow, type ScanIssue, type ScanRow } from './scan-parser.js';
 
 const MAX_LIST = 500;
 
@@ -67,7 +67,18 @@ function findOption(vf: VulnFields, key: keyof VulnFields, label: string): Field
 }
 
 /** Открытые записи реестра по ключу «CVE + пакет» (закрытые, архивные и удалённые не считаются). */
-async function openByKey(db: Db, reg: RegisterDef, vf: VulnFields, exceptIds: readonly string[] = []) {
+/** Значение поля «Отдел» для отдела отчёта: сравнение без регистра, пробелов и «ё» (deptKey). */
+export function departmentOption(vf: VulnFields, department: string) {
+  const k = deptKey(department);
+  return k ? vf.department.options.find((o) => deptKey(o.label) === k) : undefined;
+}
+
+/**
+ * Открытые записи отдела по «CVE + пакет» (релиз 1.1.0: дубли — по «CVE + пакет + отдел»). Отчёт одного
+ * отдела не сливается с записями другого; записи без отдела (заведены вручную) в дублях не участвуют.
+ */
+async function openByKey(db: Db, reg: RegisterDef, vf: VulnFields, departmentId: string | null, exceptIds: readonly string[] = []) {
+  if (!departmentId) return new Map<string, { id: string; number: number; version: number; values: Values }>();
   const rows = await db.registerRecord.findMany({
     where: { registerId: reg.id, deletedAt: null, archivedAt: null, ...(exceptIds.length ? { id: { notIn: [...exceptIds] } } : {}) },
     select: { id: true, number: true, version: true, values: true },
@@ -76,7 +87,7 @@ async function openByKey(db: Db, reg: RegisterDef, vf: VulnFields, exceptIds: re
   const map = new Map<string, { id: string; number: number; version: number; values: Values }>();
   for (const r of rows) {
     const values = r.values as Values;
-    if (isClosed(reg, values)) continue;
+    if (isClosed(reg, values) || values[vf.department.id] !== departmentId) continue;
     const cve = values[vf.cve.id];
     const pkg = vf.pkg.options.find((o) => o.id === values[vf.pkg.id])?.label;
     if (typeof cve !== 'string' || !pkg) continue;
@@ -113,7 +124,8 @@ export async function previewScan(db: Db, actor: Actor, registerId: string, buff
     if (r.hits !== null && (first.hits === null || r.hits > first.hits)) first.hits = r.hits;
   }
 
-  const open = await openByKey(db, reg, vf);
+  const dept = departmentOption(vf, parsed.department);
+  const open = await openByKey(db, reg, vf, dept?.id ?? null);
   const payload: ScanPayload = {
     creates: [], merges: [], hosts: parsed.hosts, department: parsed.department,
     fieldVersions: Object.fromEntries(reg.fields.map((f) => [f.id, f.version])),
@@ -141,7 +153,8 @@ export async function previewScan(db: Db, actor: Actor, registerId: string, buff
     if (rec) {
       const before = rec.values[vf.hits.id];
       const hitsBefore = typeof before === 'number' ? before : null;
-      const hitsAfter = r.hits === null ? hitsBefore : Math.max(hitsBefore ?? 0, r.hits);
+      // Повторный отчёт того же отдела: «Обнаружений» — из нового отчёта (14 → 3 — обновление); пусто — прежнее.
+      const hitsAfter = r.hits === null ? hitsBefore : r.hits;
       summary.merged++;
       if (hitsAfter !== hitsBefore) summary.mergedChanged++;
       payload.merges.push({ row: r.row, recordId: rec.id, number: rec.number, version: rec.version, hits: hitsAfter });
@@ -170,6 +183,7 @@ export async function previewScan(db: Db, actor: Actor, registerId: string, buff
     .map((k) => ({ key: k, label: vf.crit.options.find((o) => o.systemKey === k)?.label ?? CRIT_LABELS[k], count: critCounts.get(k) ?? 0 }));
   summary.newOptions = [...newLabels.entries()].map(([k, set]) => ({ field: vf[k].label, values: [...set] }));
   if (!parsed.reportDate) summary.warnings.push('В имени файла нет даты отчёта (ГГГГ-ММ-ДД) — укажите её перед применением');
+  if (!parsed.department.trim()) summary.warnings.push('В листе «Хосты» нет отдела (ячейка A1): записи не сопоставятся с прошлыми отчётами — все строки будут новыми, без отдела');
   if (summary.errorRows > summary.errors.length) summary.warnings.push(`Показаны первые ${summary.errors.length} ошибок`);
 
   const sha256 = createHash('sha256').update(buffer).digest('hex');
@@ -260,7 +274,7 @@ export async function applyScan(db: Db, actor: Actor, importId: string, input: A
       throw conflict('IMPORT_STALE', `После предпросмотра изменились записи (${stale.map((s) => s.number).slice(0, 10).join(', ')}${stale.length > 10 ? '…' : ''}). Повторите предпросмотр`);
     }
     // Новые записи: пока смотрели предпросмотр, такую же пару «CVE + пакет» могли завести вручную.
-    const openNow = await openByKey(tx, reg, vf, mergeIds);
+    const openNow = await openByKey(tx, reg, vf, departmentOption(vf, payload.department)?.id ?? null, mergeIds);
     const appeared = payload.creates.filter((c) => openNow.has(dupKey(c.cve, c.pkg)));
     if (appeared.length) {
       throw conflict('IMPORT_STALE', `После предпросмотра появились записи с теми же «CVE + пакет» (${appeared.slice(0, 5).map((c) => c.cve).join(', ')}). Повторите предпросмотр`);
@@ -284,6 +298,8 @@ export async function applyScan(db: Db, actor: Actor, importId: string, input: A
     let label = base;
     for (let n = 2; vf.report.options.some((o) => norm(o.label) === norm(label)); n++) label = `${base} (${n})`;
     const reportOption = await optionId('report', label);
+    // Отдел — значение поля «Отдел» как написано в отчёте; уже есть такое (без регистра, пробелов, «ё») — оно.
+    const departmentId = payload.department.trim() ? departmentOption(vf, payload.department)?.id ?? await optionId('department', payload.department.trim()) : null;
 
     const system = input.systemId ? vf.system.options.find((o) => o.id === input.systemId && !o.archived) : null;
     if (input.systemId && !system) throw badRequest('BAD_SYSTEM', 'Нет такой системы в справочнике «Системы» (или она в архиве)');
@@ -292,7 +308,10 @@ export async function applyScan(db: Db, actor: Actor, importId: string, input: A
     const noUsers = new Map();
     let number = payload.creates.length ? await nextNumbers(tx, reg.id, payload.creates.length) : 0;
     for (const c of payload.creates) {
-      const raw: Values = { [vf.cve.id]: c.cve, [vf.notified.id]: notifiedDate, [vf.status.id]: statusOpen, ...(system ? { [vf.system.id]: system.id } : {}) };
+      const raw: Values = {
+        [vf.cve.id]: c.cve, [vf.notified.id]: notifiedDate, [vf.status.id]: statusOpen,
+        ...(system ? { [vf.system.id]: system.id } : {}), ...(departmentId ? { [vf.department.id]: departmentId } : {}),
+      };
       const set = (f: FieldMeta, v: string | number | null) => {
         if (v !== null) raw[f.id] = v;
       };

@@ -22,7 +22,12 @@ const ExcelJS = createRequire(new URL('../../backend/package.json', import.meta.
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
 const PASSWORD = process.env.E2E_PASSWORD;
-const SAMPLE = fileURLToPath(new URL('../../backend/test/fixtures/scan-report-sample-2026-10-15.xlsx', import.meta.url));
+const SAMPLE_SRC = fileURLToPath(new URL('../../backend/test/fixtures/scan-report-sample-2026-10-15.xlsx', import.meta.url));
+// Свой отдел в ячейке A1 листа «Хосты» (этап Б.2: дубли — по отделу): записи прогона не сливаются с записями
+// отчётов, которые загружали на стенд вручную, и тест их не меняет.
+const DEPT = `E2E-${Date.now().toString(36)} отдел`;
+/** Образец с отделом прогона — создаётся в before(). */
+let SAMPLE = '';
 
 let ui;
 let tmp;
@@ -71,6 +76,11 @@ async function ensureReport() {
 before(async () => {
   assert.ok(LOGIN && PASSWORD, 'Задайте E2E_LOGIN и E2E_PASSWORD (пользователь с ролью «Супер-администратор»)');
   tmp = mkdtempSync(join(tmpdir(), 'ibportal-e2e-scan-'));
+  const sampleBook = new ExcelJS.Workbook();
+  await sampleBook.xlsx.readFile(SAMPLE_SRC);
+  sampleBook.worksheets.find((w) => w.name.trim().toLowerCase() === 'хосты').getCell('A1').value = DEPT;
+  SAMPLE = join(tmp, basename(SAMPLE_SRC));
+  await sampleBook.xlsx.writeFile(SAMPLE);
   ui = await launchBrowser({ baseUrl: BASE });
   await ui.goto('/login');
   await ui.type(`document.querySelector('input[name=username]')`, LOGIN);
@@ -330,19 +340,18 @@ describe('Импорт из Excel одной кнопкой', () => {
     await cancel(dialog);
   });
 
-  it('«Сравнение»: нет в файле, неполный скан; статус с подтверждением и ссылкой на файл отчёта', async () => {
+  it('«Сравнение»: подсказка «нет в этом отчёте», область по умолчанию — отдел; неполный скан; статус с подтверждением; фильтр «Отдел»', async () => {
     await ensureReport();
-    // Открытая запись из образца и отчёт, к которому она относится. На dev отчёт загружался не раз: совпавшие
-    // «CVE + пакет» сливаются с открытыми записями прошлых загрузок, поэтому область — отчёт самой записи.
     const regDetail = await api(`/api/v1/registers/${regId}`);
     const fld = (key) => regDetail.fields.find((f) => f.systemKey === key);
-    const open = (await api(`/api/v1/registers/${regId}/records?q=cve-&limit=100`)).items;
-    const mine = open.find((r) => r.values[fld('cve').id] !== 'CVE-2024-21413' && r.values[fld('report').id]);
-    assert.ok(mine, 'есть открытая запись из отчёта');
-    const label = fld('report').options.find((o) => o.id === mine.values[fld('report').id]).label;
+    const deptOpt = fld('department').options.find((o) => o.label === DEPT);
+    assert.ok(deptOpt, 'отдел прогона — значение поля «Отдел»');
+    const mine = (await api(`/api/v1/registers/${regId}/records?f=${fld('department').id}:${deptOpt.id}&limit=100`)).items
+      .find((r) => r.values[fld('cve').id] !== 'CVE-2024-21413');
+    assert.ok(mine, 'запись прогона');
     const cve = mine.values[fld('cve').id];
     const pkg = fld('pkg').options.find((o) => o.id === mine.values[fld('pkg').id]).label;
-    // Новый отчёт: без этой уязвимости и без первого хоста.
+    // Повторный отчёт того же отдела: без этой уязвимости и без первого хоста.
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(SAMPLE);
     let host = '';
@@ -357,22 +366,24 @@ describe('Импорт из Excel одной кнопкой', () => {
       for (const n of drop.reverse()) ws.spliceRows(n, 1);
     }
     assert.ok(host, 'в образце есть хост');
-    const file = join(tmp, 'scan-report-sample-2026-10-22.xlsx');
+    const file = join(tmp, 'scan-report-sample-2026-11-15.xlsx');
     await wb.xlsx.writeFile(file);
 
     const prev = await upload(file);
     assert.equal(prev.status, 201, prev.body);
     await ui.waitFor(`!!${dialog}?.querySelector('.imp-kpis')`, 'окно предпросмотра отчёта');
+    await ui.waitFor(`${dialog}.querySelector('[data-testid=not-in-report]')?.textContent.startsWith('1 запись нет в этом отчёте')`, 'подсказка «нет в этом отчёте»');
+    assert.match(await ui.text(`${dialog}.querySelector('[data-testid=not-in-report]')`), new RegExp(`отдел «${DEPT}», все системы`));
     await ui.click($.button('Сравнение', dialog), '«Сравнение»');
     const cmp = `document.querySelector('.compare-dialog')`;
     await ui.waitFor(`${cmp}?.textContent.includes('CVE / БДУ + Пакет')`, 'окно сравнения с ключом');
-    await ui.click(`[...${cmp}.querySelectorAll('label.check')].find((l) => l.textContent.trim() === 'Отчёт сканирования')?.querySelector('input')`, 'область «Отчёт сканирования»');
-    await ui.click(`[...${cmp}.querySelectorAll('.scope-values label')].find((l) => l.textContent.trim() === ${JSON.stringify(label)})?.querySelector('input')`, 'отчёт');
+    assert.equal(await ui.evaluate(`[...${cmp}.querySelectorAll('label.check')].find((l) => l.textContent.includes('Записи реестра: отдел'))?.querySelector('input').checked`), true, 'по умолчанию — отдел отчёта');
     let m = ui.mark();
     await ui.click($.button('Сравнить', cmp));
     assert.equal((await ui.request(m, 'POST', '/compare')).status, 200);
+    await ui.waitFor(`${cmp}.querySelector('[data-testid=compare-summary]')?.textContent.includes('Сравнить с записями реестра: отдел «${DEPT}»')`, 'подпись области');
     const row = `[...${cmp}.querySelectorAll('.compare-tbl tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(cve)}))`;
-    await ui.waitFor(`!!${row}`, 'отсутствующая уязвимость в списке');
+    await ui.waitFor(`!!${row} && ${cmp}.querySelectorAll('.compare-tbl tbody tr').length === 1`, 'нет в файле — одна запись прогона');
     assert.match(await ui.text(`${cmp}.querySelector('[data-testid=incomplete-scan]')`), new RegExp(host));
     const fixed = await ui.evaluate(`[...${row}.querySelector('select').options].find((o) => o.textContent === 'Устранена').value`);
     await ui.select(`${row}.querySelector('select')`, fixed);
@@ -387,16 +398,16 @@ describe('Импорт из Excel одной кнопкой', () => {
     await ui.waitFor(`!${cmp}`, 'окно сравнения закрыто');
     await cancel(dialog);
 
-    // Запись закрыта; в журнале правки — файл отчёта. Вернуть статус для остальных тестов.
-    const list = await api(`/api/v1/registers/${regId}/records?q=${encodeURIComponent(cve.toLowerCase())}&includeArchived=true&limit=10`);
-    const rec = list.items.find((r) => Object.values(r.values).includes(cve));
-    const reg = await api(`/api/v1/registers/${regId}`);
-    const status = reg.fields.find((f) => f.systemKey === 'status');
-    assert.equal(rec.values[status.id], fixed);
-    const history = await api(`/api/v1/register-records/${rec.id}/history`);
-    assert.ok(JSON.stringify(history).includes('scan-report-sample-2026-10-22.xlsx') || history.items.some((h) => h.via === 'compare'), 'в истории — сравнение с файлом');
-    await api(`/api/v1/register-records/${rec.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ version: rec.version, values: { [status.id]: status.options.find((o) => o.systemKey === 'open').id } }) });
+    const after = await api(`/api/v1/register-records/${mine.id}`);
+    assert.equal(after.values[fld('status').id], fixed);
+    const history = await api(`/api/v1/register-records/${mine.id}/history`);
+    assert.ok(history.items.some((h) => h.via === 'compare'), 'в истории — сравнение с файлом');
+
+    // Фильтр «Отдел» в таблице реестра.
+    await openTab('records');
+    await ui.select(`document.querySelector('select[aria-label="Фильтр: поле"]')`, fld('department').id);
+    await ui.select(`document.querySelector('select[aria-label="Фильтр: значение"]')`, deptOpt.id);
+    await ui.waitFor(`location.search.includes('f=') && document.querySelector('[data-testid=record-filter]')?.textContent.includes(${JSON.stringify(DEPT)})`, 'фильтр «Отдел»');
   });
 
   it('выгрузка реестра через ту же кнопку — обычный импорт по колонке ID', async () => {

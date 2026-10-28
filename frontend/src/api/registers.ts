@@ -81,6 +81,7 @@ export type CompareResult = Res<'/api/v1/register-imports/{id}/compare', 'post'>
 export type CompareScope = Body<'/api/v1/registers/{id}/records/compare-status/preview', 'post'>['scope'];
 export type CompareStatusPreview = Res<'/api/v1/registers/{id}/records/compare-status/preview', 'post'>;
 export type CompareStatusChange = { recordId: string; optionId: string };
+export type NotInReport = Res<'/api/v1/register-imports/{id}/not-in-file', 'get'>;
 export type BulkSelection = Body<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>['selection'];
 export type BulkPreview = Res<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>;
 export type BulkResult = Res<'/api/v1/registers/{id}/records/bulk-delete/apply', 'post'>;
@@ -209,13 +210,18 @@ export const registersApi = {
   applyImport: (id: string) => request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`),
   /** Сравнение: тот же файл, что в предпросмотре импорта; область — обязательно. Записи не меняются. */
   async compare(importId: string, file: File, scope: CompareScope): Promise<CompareResult> {
-    const q = 'all' in scope ? 'scope=all' : `scopeField=${scope.fieldId}&scopeValues=${scope.values.join(',')}`;
+    const q = 'all' in scope ? 'scope=all'
+      : 'conditions' in scope ? `conditions=${encodeURIComponent(JSON.stringify(scope.conditions))}`
+        : `scopeField=${scope.fieldId}&scopeValues=${scope.values.join(',')}`;
     const res = await fetch(`/api/v1/register-imports/${importId}/compare?${q}`, {
       method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': XLSX_TYPE }, body: file,
     });
     if (!res.ok) throw await errorOf(res);
     return (await res.json()) as CompareResult;
   },
+  /** Отчёт сканера: сколько открытых записей отдела (и системы) нет в этом отчёте — подсказка в окне импорта. */
+  notInReport: (importId: string, systemId: string) =>
+    request<NotInReport>('GET', `/api/v1/register-imports/${importId}/not-in-file${systemId ? `?systemId=${systemId}` : ''}`),
   compareStatusPreview: (registerId: string, body: { importId: string; scope: CompareScope; changes: CompareStatusChange[]; reason?: string | null }) =>
     request<CompareStatusPreview>('POST', `/api/v1/registers/${registerId}/records/compare-status/preview`, body),
   compareStatusApply: (registerId: string, body: {

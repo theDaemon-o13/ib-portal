@@ -62,6 +62,11 @@ export interface ParsedScan {
 }
 
 export const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+/**
+ * Отдел для сравнения (релиз 1.1.0): без регистра и лишних пробелов, «ё» = «е». Только для сравнения —
+ * хранится и показывается так, как написано в отчёте.
+ */
+export const deptKey = (s: string) => norm(s).replace(/ё/g, 'е');
 
 function text(cell: unknown): string | null {
   const v = cellPrimitive(cell);

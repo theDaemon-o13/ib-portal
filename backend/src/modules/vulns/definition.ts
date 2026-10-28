@@ -9,7 +9,7 @@ export const VULN_REGISTER_KEY = 'vulns';
 
 export type VulnFieldKey =
   | 'cve' | 'pkg' | 'level' | 'cvss' | 'exploit' | 'vector' | 'fix' | 'fixVersion' | 'desc' | 'hits'
-  | 'report' | 'notified' | 'score' | 'crit' | 'due' | 'status' | 'comment' | 'measures' | 'newDue' | 'owner' | 'system';
+  | 'report' | 'notified' | 'score' | 'crit' | 'due' | 'status' | 'comment' | 'measures' | 'newDue' | 'owner' | 'system' | 'department';
 
 export interface VulnOptionSpec {
   label: string;
@@ -82,6 +82,8 @@ export const VULN_FIELDS: VulnFieldSpec[] = [
   { key: 'owner', label: 'Ответственный', type: 'user', analyticsRole: 'dimension' },
   // Этап 5: система из справочника «Системы» — от неё метка «Владелец системы» находит владельца.
   { key: 'system', label: 'Система', type: 'catalog', catalogCode: 'systems', analyticsRole: 'dimension' },
+  // Релиз 1.1.0: отдел из листа «Хосты» (A1). Дубли и «Обнаружений» — только в пределах отдела.
+  { key: 'department', label: 'Отдел', type: 'select', analyticsRole: 'dimension', options: [] },
 ];
 
 export { DUE_DAYS };

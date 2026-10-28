@@ -11,7 +11,7 @@ import type { FileStore } from '../../lib/file-store.js';
 import { parseCell, type StoredValue, type Values } from '../../lib/register-values.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { uploadFile } from '../files/service.js';
-import { norm as scanNorm, parseScanReport } from '../vulns/scan-parser.js';
+import { deptKey, norm as scanNorm, parseScanReport } from '../vulns/scan-parser.js';
 import { assertNotArchived, isClosed, loadRegister, normalizeImportKeys, type FieldMeta, type RegisterDef } from './definition.js';
 import { mapColumns, openRegisterSheet, readFileRows } from './excel.service.js';
 import { lockErrors } from './record-rules.js';
@@ -19,8 +19,20 @@ import { updateRecord } from './records.service.js';
 
 export const COMPARE_BATCH = 200;
 
-/** Область: весь реестр (явный выбор) или значения поля-списка / справочника из настроек реестра. */
-export type CompareScope = { all: true } | { fieldId: string; values: string[] };
+/**
+ * Область: весь реестр (явный выбор) или условия по полям из настроек реестра — все должны выполняться
+ * (по умолчанию для отчёта сканера: отдел и система, этап Б.2). Прежний вид { fieldId, values } — одно условие.
+ */
+export type ScopeCondition = { fieldId: string; values: string[] };
+export type CompareScope = { all: true } | { conditions: ScopeCondition[] } | ScopeCondition;
+
+const conditionsOf = (scope: CompareScope): ScopeCondition[] | null =>
+  'all' in scope ? null : 'conditions' in scope ? scope.conditions : [scope];
+
+/** «отдел «Отдел платёжных карт», система «АБС»» — подпись области на экране сравнения и в журнале. */
+export function scopeLabel(fields: { label: string; values: string[] }[]): string {
+  return fields.map((c) => `${c.label.charAt(0).toLowerCase()}${c.label.slice(1)} ${c.values.map((v) => `«${v}»`).join(', ')}`).join(', ');
+}
 
 export interface MissingRecord {
   id: string;
@@ -37,7 +49,7 @@ export interface CompareResult {
   format: 'records' | 'scan';
   /** Поля ключа по порядку; пусто — по колонке ID. */
   key: { id: string; label: string }[];
-  scope: { all: true; label: string } | { fieldId: string; label: string; values: { id: string; label: string }[] };
+  scope: { all: true; label: string } | { conditions: { fieldId: string; label: string; values: { id: string; label: string }[] }[]; label: string };
   /** Открытые записи области с заполненным ключом, которых нет в файле. */
   missing: MissingRecord[];
   /** Открытые записи области с пустым ключом — не сопоставляются, без действий. */
@@ -88,16 +100,18 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
   const keyFields = reg.compareKeyFieldIds.map((id) => reg.fields.find((f) => f.id === id && !f.archived)).filter((f): f is FieldMeta => !!f);
   const byId = keyFields.length === 0;
   // Область: проверка по настройкам реестра.
-  let scopeField: FieldMeta | undefined;
-  let scopeValues = new Set<string>();
-  if (!('all' in scope)) {
-    if (!reg.compareScopeFieldIds.includes(scope.fieldId)) throw badRequest('BAD_SCOPE', 'Область выбирается по полям из настроек сравнения реестра');
-    scopeField = reg.fields.find((f) => f.id === scope.fieldId && !f.archived);
-    if (!scopeField) throw badRequest('BAD_SCOPE', 'Поле области не найдено. Обновите страницу');
-    if (!scope.values.length) throw badRequest('BAD_SCOPE', 'Выберите значения области или «Весь реестр»');
-    scopeValues = new Set(scope.values);
-  }
-  const inScope = (values: Values) => !scopeField || scopeValues.has(String(values[scopeField.id] ?? ''));
+  const conds = conditionsOf(scope);
+  if (conds && !conds.length) throw badRequest('BAD_SCOPE', 'Выберите область сравнения или «Весь реестр»');
+  const where = (conds ?? []).map((c) => {
+    if (!reg.compareScopeFieldIds.includes(c.fieldId)) throw badRequest('BAD_SCOPE', 'Область выбирается по полям из настроек сравнения реестра');
+    const field = reg.fields.find((f) => f.id === c.fieldId && !f.archived);
+    if (!field) throw badRequest('BAD_SCOPE', 'Поле области не найдено. Обновите страницу');
+    if (!c.values.length) throw badRequest('BAD_SCOPE', `Выберите значения «${field.label}» или «Весь реестр»`);
+    return { field, values: new Set(c.values) };
+  });
+  const inScope = (values: Values) => where.every((w) => w.values.has(String(values[w.field.id] ?? '')));
+  // Отчёт, выбранный в области (одно значение «Отчёт сканирования»), — для «неполного скана».
+  const reportCond = where.find((w) => w.field.systemKey === 'report' && w.values.size === 1);
 
   // Строки файла → значения полей ключа и области.
   const fileRows: { values: Map<string, StoredValue | null>; number: number | null; badKey: boolean }[] = [];
@@ -108,14 +122,14 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
     const parsed = await parseScanReport(buffer, file.name);
     for (const r of parsed.rows) {
       const values = new Map<string, StoredValue | null>();
-      for (const f of [...keyFields, ...(scopeField ? [scopeField] : [])]) {
+      for (const f of [...keyFields, ...where.map((w) => w.field)]) {
         const col = f.systemKey as keyof typeof r | null | undefined;
         const raw = col && col in r ? r[col] : null;
         values.set(f.id, storedFromText(f, raw === null || raw === undefined ? null : String(raw)));
       }
       fileRows.push({ values, number: null, badKey: keyFields.some((f) => values.get(f.id) == null) });
     }
-    incompleteScan = await scanCoverage(db, reg, parsed.department, parsed.hosts.map((h) => h.name), scopeField, scopeValues);
+    incompleteScan = await scanCoverage(db, reg, parsed.department, parsed.hosts.map((h) => h.name), reportCond?.field, reportCond?.values ?? new Set());
   } else {
     const { wb, ws } = await openRegisterSheet(buffer);
     const { cols } = mapColumns(wb, ws, reg, []);
@@ -151,12 +165,9 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
   let outOfScopeRows = 0;
   let badKeyRows = 0;
   for (const r of fileRows) {
-    if (scopeField && r.values.has(scopeField.id)) {
-      const v = r.values.get(scopeField.id);
-      if (v != null && !scopeValues.has(String(v))) {
-        outOfScopeRows++;
-        continue;
-      }
+    if (where.some((w) => r.values.has(w.field.id) && r.values.get(w.field.id) != null && !w.values.has(String(r.values.get(w.field.id))))) {
+      outOfScopeRows++;
+      continue;
     }
     if (r.badKey) {
       badKeyRows++;
@@ -192,8 +203,14 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
   return {
     importId: imp.id, file, format,
     key: keyFields.map((f) => ({ id: f.id, label: f.label })),
-    scope: scopeField
-      ? { fieldId: scopeField.id, label: scopeField.label, values: [...scopeValues].map((id) => ({ id, label: scopeField?.options.find((o) => o.id === id)?.label ?? '?' })) }
+    scope: where.length
+      ? (() => {
+        const conditions = where.map((w) => ({
+          fieldId: w.field.id, label: w.field.label,
+          values: [...w.values].map((id) => ({ id, label: w.field.options.find((o) => o.id === id)?.label ?? '?' })),
+        }));
+        return { conditions, label: scopeLabel(conditions.map((c) => ({ label: c.label, values: c.values.map((v) => v.label) }))) };
+      })()
       : { all: true, label: 'Весь реестр' },
     missing, noKey, outOfScopeRows, badKeyRows, incompleteScan,
     status: st ? { fieldId: st.id, options: st.options.filter((o) => !o.archived).map((o) => ({ id: o.id, label: o.label, isClosed: o.isClosed })) } : null,
@@ -249,7 +266,7 @@ export async function compareWithRegister(db: Db, store: FileStore, actor: Actor
   const c = await compute(db, reg, imp, buffer, file, scope);
   await auditSettings(db, actor, {
     action: 'register.compare.run', entity: 'register', entityId: reg.id,
-    summary: `«${reg.name}»: сравнение с файлом «${file.name}» (${c.scope.label}${'values' in c.scope ? `: ${c.scope.values.map((v) => v.label).join(', ')}` : ''}) — нет в файле ${c.missing.length}${c.incompleteScan ? `; неполный скан: нет хостов ${c.incompleteScan.missingHosts.length}` : ''}`,
+    summary: `«${reg.name}»: сравнение с файлом «${file.name}» (${c.scope.label}) — нет в файле ${c.missing.length}${c.incompleteScan ? `; неполный скан: нет хостов ${c.incompleteScan.missingHosts.length}` : ''}`,
     after: { importId, fileId: file.id, sha256, key: c.key.map((k) => k.id), scope, missing: c.missing.length, noKey: c.noKey, incompleteScan: c.incompleteScan },
   });
   return toResult(c);
@@ -343,4 +360,39 @@ export async function applyCompareStatus(
     },
   });
   return { changed, skipped: p.skipped.length };
+}
+
+// ---------------------------------------------------------------- подсказка в окне отчёта сканера (этап Б.2)
+
+export interface NotInReport {
+  /** Область по умолчанию: отдел отчёта и выбранная система; null — отдела нет в реестре или в отчёте. */
+  scope: { conditions: ScopeCondition[] } | null;
+  label: string;
+  count: number;
+}
+
+/**
+ * «N записей нет в этом отчёте — нажмите «Сравнение»»: открытые записи отдела отчёта (и выбранной системы),
+ * которые не совпали ни с одной строкой отчёта. Файл не читается: совпадения уже посчитаны в предпросмотре.
+ */
+export async function notInReport(db: Db, importId: string, systemId: string | null): Promise<NotInReport> {
+  const imp = await loadImport(db, importId);
+  if (imp.kind !== 'scan') throw badRequest('NOT_SCAN', 'Подсказка — только для отчёта сканера');
+  const reg = await loadRegister(db, imp.registerId);
+  const payload = imp.payload as { department?: string; merges?: { recordId: string }[] };
+  const dept = reg.fields.find((f) => f.systemKey === 'department' && !f.archived);
+  const system = reg.fields.find((f) => f.systemKey === 'system' && !f.archived);
+  const department = (payload.department ?? '').trim();
+  const option = dept && department ? dept.options.find((o) => deptKey(o.label) === deptKey(department)) : undefined;
+  const sys = systemId && system ? system.options.find((o) => o.id === systemId) : undefined;
+  const label = `${department ? `отдел «${department}»` : 'отдел не указан в отчёте'}, ${sys ? `система «${sys.label}»` : 'все системы'}`;
+  if (!dept || !option) return { scope: null, label, count: 0 };
+  const conditions: ScopeCondition[] = [{ fieldId: dept.id, values: [option.id] }, ...(sys && system ? [{ fieldId: system.id, values: [sys.id] }] : [])];
+  const matched = new Set((payload.merges ?? []).map((m) => m.recordId));
+  const rows = await db.registerRecord.findMany({ where: { registerId: reg.id, deletedAt: null, archivedAt: null }, select: { id: true, values: true } });
+  const count = rows.filter((r) => {
+    const v = r.values as Values;
+    return !isClosed(reg, v) && conditions.every((c) => c.values.includes(String(v[c.fieldId] ?? ''))) && !matched.has(r.id);
+  }).length;
+  return { scope: { conditions }, label, count };
 }

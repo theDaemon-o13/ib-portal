@@ -147,7 +147,7 @@ describe('импорт отчёта сканера по образцу', () => {
       expect(await tx.registerRecord.count({ where: { registerId: x.reg.id } })).toBe(90);
     }));
 
-  it('дубли «CVE + пакет»: внутри файла и с открытой записью — «Обнаружений» по максимуму; закрытая запись дублем не считается', () =>
+  it('дубли «CVE + пакет + отдел»: повторный отчёт — «Обнаружений» из нового отчёта, внутри файла — максимум; закрытая запись дублем не считается', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
       await importSample(tx, x);
@@ -160,18 +160,21 @@ describe('импорт отчёта сканера по образцу', () => {
       const wb = await sampleBook();
       const { ws, col, rowOf } = sheet(wb);
       rowOf('CVE-2025-6218').getCell(col('Обнаружений')).value = 20;
-      rowOf('CVE-2023-40477').getCell(col('Обнаружений')).value = 3; // было 11 — максимум остаётся 11
+      rowOf('CVE-2023-40477').getCell(col('Обнаружений')).value = 3; // было 11 — повторный отчёт того же отдела: 3 (релиз 1.1.0)
+      rowOf('CVE-2023-44487').getCell(col('Обнаружений')).value = null; // пусто — прежнее значение
       // Та же пара в файле дважды (регистр и пробелы не важны) — берётся максимум.
       ws.addRow(['rarlab  winrar', 'cve-2025-6218', 'Важная', 7.8, 'Есть, эксплуатируется', 'Локально', '7.12', 'дубль', 25]);
       ws.addRow(['Пакет без CVE', null, 'Важная', 5, 'Нет', 'Локально', '1.0', 'ошибка', 1]);
       const { preview, applied } = await importSample(tx, x, await toBuffer(wb), 'повтор 2026-10-22.xlsx');
       const s = preview.summary;
-      expect([s.created, s.merged, s.mergedChanged, s.inFileDuplicates, s.errorRows]).toEqual([1, 89, 1, 1, 1]);
+      expect([s.created, s.merged, s.mergedChanged, s.inFileDuplicates, s.errorRows]).toEqual([1, 89, 2, 1, 1]);
       expect(s.duplicates.find((d) => d.cve === 'CVE-2025-6218')).toMatchObject({ number: winrar.number, hitsBefore: 11, hitsAfter: 25 });
-      expect(s.duplicates.find((d) => d.cve === 'CVE-2023-40477')).toMatchObject({ hitsBefore: 11, hitsAfter: 11 });
+      expect(s.duplicates.find((d) => d.cve === 'CVE-2023-40477')).toMatchObject({ hitsBefore: 11, hitsAfter: 3 });
+      const h44487 = s.duplicates.find((d) => d.cve === 'CVE-2023-44487');
+      expect(h44487?.hitsAfter).toBe(h44487?.hitsBefore);
       expect(s.items.map((i) => i.cve)).toEqual(['CVE-2025-0411']);
       expect(s.errors[0]).toMatchObject({ field: 'CVE', message: expect.stringContaining('CVE или БДУ') });
-      expect([applied.created, applied.updated]).toEqual([1, 1]);
+      expect([applied.created, applied.updated]).toEqual([1, 2]);
       const after = await byCve(tx, x, 'CVE-2025-6218');
       expect([after.values[x.vf.hits.id], after.version]).toEqual([25, winrar.version + 1]);
       const history = await records.recordHistory(tx, winrar.id);
@@ -179,6 +182,33 @@ describe('импорт отчёта сканера по образцу', () => {
       const zips = (await recordsOf(tx, x)).filter((r) => r.values[x.vf.cve.id] === 'CVE-2025-0411');
       expect(zips).toHaveLength(2);
       expect(zips[1]?.values[x.vf.notified.id]).toBe('2026-10-22');
+    }));
+
+  it('отдел из A1: в записи; отчёт другого отдела не сливается и не меняет «Обнаружений»; «ё» = «е», хранится как в отчёте', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      await importSample(tx, x);
+      await x.reload();
+      const a = await byCve(tx, x, 'CVE-2025-6218');
+      const deptA = must(x.vf.department.options.find((o) => o.id === a.values[x.vf.department.id]));
+      expect(deptA.label).toBe('Отдел платёжных карт');
+
+      // Тот же отдел, написанный иначе (регистр, пробелы, «е» вместо «ё»), — тот же отдел: всё — дубли.
+      const same = await sampleBook();
+      must(same.getWorksheet('Хосты')).getCell('A1').value = '  отдел   ПЛАТЕЖНЫХ карт ';
+      const p1 = await scan.previewScan(tx, x.actor, x.reg.id, await toBuffer(same), 'повтор 2026-10-22.xlsx');
+      expect([p1.summary.created, p1.summary.merged]).toEqual([0, 90]);
+
+      // Другой отдел: ни одного дубля, «Обнаружений» отдела А не меняется.
+      const other = await sampleBook();
+      must(other.getWorksheet('Хосты')).getCell('A1').value = 'Отдел кредитования';
+      sheet(other).rowOf('CVE-2025-6218').getCell(sheet(other).col('Обнаружений')).value = 1;
+      const { preview, applied } = await importSample(tx, x, await toBuffer(other), 'кредиты 2026-10-22.xlsx');
+      expect([preview.summary.created, preview.summary.merged]).toEqual([90, 0]);
+      expect(applied.created).toBe(90);
+      expect((await records.getRecord(tx, a.id)).values[x.vf.hits.id]).toBe(a.values[x.vf.hits.id]);
+      await x.reload();
+      expect(x.vf.department.options.map((o) => o.label)).toEqual(['Отдел платёжных карт', 'Отдел кредитования']);
     }));
 
   it('изменения после предпросмотра: дубль правили или пару завели вручную — не применяется ничего', () =>
@@ -198,9 +228,13 @@ describe('импорт отчёта сканера по образцу', () => {
       const p2 = await scan.previewScan(tx, x.actor, x.reg.id, await toBuffer(wb), SAMPLE_NAME);
       expect(p2.summary.created).toBe(1);
       const pkg = must((await structure.addOption(tx, x.actor, x.vf.pkg.id, { label: 'Новый пакет' })).fields.find((f) => f.id === x.vf.pkg.id));
-      await records.createRecord(tx, x.actor, x.reg.id, {
-        values: { [x.vf.cve.id]: 'CVE-2026-99999', [x.vf.pkg.id]: must(pkg.options.find((o) => o.label === 'Новый пакет')).id },
-      });
+      const pkgId = must(pkg.options.find((o) => o.label === 'Новый пакет')).id;
+      // Запись без отдела в дублях отчётов не участвует (этап Б.2) — она не мешает.
+      const manual = await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.vf.cve.id]: 'CVE-2026-99999', [x.vf.pkg.id]: pkgId } });
+      // С отделом отчёта — уже дубль: применение не проходит.
+      await x.reload();
+      const dept = must(x.vf.department.options[0]).id;
+      await records.updateRecord(tx, x.actor, manual.id, { version: manual.version, values: { [x.vf.department.id]: dept } });
       await expectCode(scan.applyScan(tx, x.actor, p2.id, {}), 'IMPORT_STALE');
       expect(await tx.registerRecord.count({ where: { registerId: x.reg.id } })).toBe(91);
     }));

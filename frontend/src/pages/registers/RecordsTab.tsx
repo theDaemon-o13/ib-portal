@@ -142,6 +142,16 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     const search = next.toString();
     navigate({ pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }, { replace: true });
   };
+  // Фильтр по полю-измерению (релиз 1.1.0: например, «Отдел» в реестре уязвимостей) — тот же параметр f, что у ссылок дашборда.
+  const dims = reg.fields.filter((f) => !f.archived && f.analyticsRole === 'dimension' && (f.type === 'select' || f.type === 'catalog'));
+  const [dimField, setDimField] = useState('');
+  const setFieldFilter = (fieldId: string, optionId: string) => {
+    const next = new URLSearchParams(params);
+    for (const k of FILTER_PARAMS) next.delete(k);
+    if (optionId) next.set('f', `${fieldId}:${optionId}`);
+    const search = next.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }, { replace: true });
+  };
   const [open, setOpenState] = useState<string | null>(() => params.get('record'));
   // Переход по ссылке на запись этого же реестра (связь, обратная связь, поиск) — открыть её карточку.
   const linked = params.get('record');
@@ -292,6 +302,20 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
         </button>
         {!archiveView && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> С архивными</label>}
         <label className="check"><input type="checkbox" checked={withTasks} onChange={(e) => setWithTasks(e.target.checked)} /> С задачами</label>
+        {dims.length > 0 && filterParts.length === 0 && (
+          <span className="row nowrap field-filter">
+            <select className="inp sm-inp" value={dimField} onChange={(e) => setDimField(e.target.value)} aria-label="Фильтр: поле">
+              <option value="">Фильтр по полю…</option>
+              {dims.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+            {dimField && (
+              <select className="inp sm-inp" value="" onChange={(e) => setFieldFilter(dimField, e.target.value)} aria-label="Фильтр: значение">
+                <option value="">— значение</option>
+                {dims.find((f) => f.id === dimField)?.options.filter((o) => !o.archived).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            )}
+          </span>
+        )}
         {filterParts.length > 0 && (
           <span className="chip acc rec-filter" data-testid="record-filter">
             Фильтр: {filterParts.join(' · ')}

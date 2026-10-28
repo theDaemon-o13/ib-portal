@@ -622,7 +622,10 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   // ------------------------------------------------------------ сравнение с реестром (релиз 1.1.0, ADR-0017)
   const ScopeOut = z.union([
     z.object({ all: z.literal(true), label: z.string() }),
-    z.object({ fieldId: z.string(), label: z.string(), values: z.array(z.object({ id: z.string(), label: z.string() })) }),
+    z.object({
+      label: z.string(),
+      conditions: z.array(z.object({ fieldId: z.string(), label: z.string(), values: z.array(z.object({ id: z.string(), label: z.string() })) })),
+    }),
   ]);
   const IncompleteScan = z.object({ previousReport: z.string(), missingHosts: z.array(z.string()) }).nullable();
   const CompareResult = z.object({
@@ -636,17 +639,31 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     incompleteScan: IncompleteScan,
     status: z.object({ fieldId: z.string(), options: z.array(z.object({ id: z.string(), label: z.string(), isClosed: z.boolean() })) }).nullable(),
   });
+  const Condition = z.object({ fieldId: z.string().uuid(), values: z.array(z.string().uuid()).min(1).max(200) });
+  /** Весь реестр, условия по полям (все выполняются — этап Б.2) или одно условие (вид задачи 4). */
   const ScopeIn = z.union([
     z.object({ all: z.literal(true) }),
-    z.object({ fieldId: z.string().uuid(), values: z.array(z.string().uuid()).min(1).max(200) }),
+    z.object({ conditions: z.array(Condition).min(1).max(5) }),
+    Condition,
   ]);
   const StatusChanges = z.array(z.object({ recordId: z.string().uuid(), optionId: z.string().uuid() })).min(1).max(bulk.BULK_MAX_IDS);
   const StatusPreview = z.object({
     total: z.number().int(), willChange: z.number().int(),
     skipped: z.array(z.object({ number: z.number().int().nullable(), reason: z.string() })), incompleteScan: IncompleteScan,
   });
-  const scopeOf = (q: { scope?: string; scopeField?: string; scopeValues?: string }): compare.CompareScope => {
+  const scopeOf = (q: { scope?: string; scopeField?: string; scopeValues?: string; conditions?: string }): compare.CompareScope => {
     if (q.scope === 'all') return { all: true };
+    if (q.conditions) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(q.conditions);
+      } catch {
+        throw badRequest('BAD_SCOPE', 'Область сравнения задана неверно');
+      }
+      const r = z.array(Condition).min(1).max(5).safeParse(parsed);
+      if (!r.success) throw badRequest('BAD_SCOPE', 'Область сравнения задана неверно');
+      return { conditions: r.data };
+    }
     const values = (q.scopeValues ?? '').split(',').map((v) => v.trim()).filter(Boolean);
     if (!q.scopeField || !values.length) throw badRequest('BAD_SCOPE', 'Выберите область сравнения: значения поля или «Весь реестр»');
     return { fieldId: q.scopeField, values };
@@ -663,7 +680,11 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       tags: ['register-excel'],
       summary: 'Сравнение с реестром: открытые записи области, которых нет в файле (тот же файл, что в предпросмотре импорта). Записи не меняются',
       params: IdParams,
-      querystring: z.object({ scope: z.enum(['all']).optional(), scopeField: z.string().uuid().optional(), scopeValues: z.string().max(8000).optional() }),
+      querystring: z.object({
+        scope: z.enum(['all']).optional(), scopeField: z.string().uuid().optional(), scopeValues: z.string().max(8000).optional(),
+        /** Условия области JSON: [{ fieldId, values }] — все выполняются (этап Б.2). */
+        conditions: z.string().max(20000).optional(),
+      }),
       body: z.any(),
       response: { 200: CompareResult, ...errors },
     },
@@ -671,6 +692,16 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
     return compare.compareWithRegister(db, store, actorOf(request), request.params.id, request.body, scopeOf(request.query));
   });
+
+  app.get('/register-imports/:id/not-in-file', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-excel'],
+      summary: 'Отчёт сканера: сколько открытых записей отдела (и выбранной системы) нет в этом отчёте — подсказка «нажмите «Сравнение»»',
+      params: IdParams, querystring: z.object({ systemId: z.string().uuid().optional() }),
+      response: { 200: z.object({ scope: z.object({ conditions: z.array(Condition) }).nullable(), label: z.string(), count: z.number().int() }), ...errors },
+    },
+  }, async (request) => compare.notInReport(db, request.params.id, request.query.systemId ?? null));
 
   app.post('/registers/:id/records/compare-status/preview', {
     preHandler: edit,
