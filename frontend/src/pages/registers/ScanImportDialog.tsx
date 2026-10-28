@@ -14,7 +14,11 @@ const SHOW = 50;
  * Отчёт сканера, шаг 1 → 2: предпросмотр (ничего не изменено), затем применение одной транзакцией.
  * Дата отчёта — из имени файла или вводится здесь; от даты передачи в ДИКТ считается срок (п. 7.2).
  */
-export function ScanImportDialog({ reg, preview, file, onClose }: { reg: RegisterDetail; preview: ScanPreview; file: File | null; onClose: () => void }) {
+export function ScanImportDialog({ reg, preview, file, onClose, onReplace }: {
+  reg: RegisterDetail; preview: ScanPreview; file: File | null; onClose: () => void;
+  /** Новый предпросмотр того же файла — с отделом, выбранным в окне. */
+  onReplace: (p: ScanPreview) => void;
+}) {
   // «Сравнение» (релиз 1.1.0): поверх окна импорта; Escape закрывает только его.
   const [comparing, setComparing] = useState(false);
   const qc = useQueryClient();
@@ -25,6 +29,29 @@ export function ScanImportDialog({ reg, preview, file, onClose }: { reg: Registe
   const [notifiedTouched, setNotifiedTouched] = useState(false);
   // Система отчёта: по ней метка «Владелец системы» находит, кому ставить задачи.
   const [systemId, setSystemId] = useState('');
+  // В A1 листа «Хосты» нет отдела: без него дубли не найти — отдел выбирают из известных или вводят новый.
+  const departments = reg.fields.find((f) => f.systemKey === 'department')?.options.filter((o) => !o.archived) ?? [];
+  const [deptChoice, setDeptChoice] = useState(departments[0]?.label ?? '');
+  const [deptNew, setDeptNew] = useState('');
+  const [deptBusy, setDeptBusy] = useState(false);
+  const [deptError, setDeptError] = useState<string | null>(null);
+  const deptMissing = preview.summary.departmentMissing;
+  const chosenDept = deptChoice === '__new' ? deptNew.trim() : deptChoice;
+  const applyDepartment = async () => {
+    if (!file || !chosenDept) return;
+    setDeptBusy(true);
+    setDeptError(null);
+    try {
+      const p = await registersApi.previewFile(reg.id, file, chosenDept);
+      if (p.format !== 'scan') throw new Error('Файл не распознан как отчёт сканера');
+      void registersApi.cancelImport(preview.id).catch(() => undefined);
+      onReplace(p.scan);
+    } catch (e) {
+      setDeptError(e instanceof Error ? e.message : 'Не удалось пересчитать предпросмотр');
+    } finally {
+      setDeptBusy(false);
+    }
+  };
   // Подсказка (этап Б.2): открытые записи отдела отчёта и выбранной системы, которых нет в отчёте.
   const hint = useQuery({ queryKey: ['registers', 'not-in-report', preview.id, systemId], queryFn: () => registersApi.notInReport(preview.id, systemId) });
   const systems = useQuery({ queryKey: ['settings', 'items', 'systems', 'active'], queryFn: () => settingsApi.items('systems', false) });
@@ -99,6 +126,25 @@ export function ScanImportDialog({ reg, preview, file, onClose }: { reg: Registe
             {hint.data.count === 1 ? '1 запись' : `${hint.data.count} ${hint.data.count % 10 >= 2 && hint.data.count % 10 <= 4 && (hint.data.count % 100 < 12 || hint.data.count % 100 > 14) ? 'записи' : 'записей'}`} нет в этом отчёте ({hint.data.label}) — нажмите «Сравнение».
           </div>
         )}
+        {deptMissing && (
+          <div className="note crit-note grid-gap" data-testid="department-missing">
+            <b>В отчёте не указан отдел (ячейка A1 листа «Хосты»).</b>
+            <span>Без отдела портал не найдёт прошлые записи — каждая загрузка создала бы их заново. Выберите отдел — предпросмотр пересчитается.</span>
+            <div className="row">
+              <select className="inp sm-inp" value={deptChoice} onChange={(e) => setDeptChoice(e.target.value)} aria-label="Отдел отчёта">
+                {departments.map((o) => <option key={o.id} value={o.label}>{o.label}</option>)}
+                <option value="__new">Другой отдел…</option>
+              </select>
+              {deptChoice === '__new' && (
+                <input className="inp sm-inp" value={deptNew} maxLength={200} onChange={(e) => setDeptNew(e.target.value)} placeholder="Название отдела" aria-label="Новый отдел" />
+              )}
+              <button className="btn sm primary" type="button" disabled={!chosenDept || !file || deptBusy} onClick={() => void applyDepartment()}>
+                {deptBusy ? 'Пересчитываем…' : 'Указать отдел'}
+              </button>
+            </div>
+            {deptError && <span className="form-error">{deptError}</span>}
+          </div>
+        )}
         <div className="imp-kpis">
           <div><b className="mono">{s.created}</b><span>новых</span></div>
           <div><b className="mono">{s.merged}</b><span>уже в реестре</span></div>
@@ -159,9 +205,9 @@ export function ScanImportDialog({ reg, preview, file, onClose }: { reg: Registe
         )}
         <div className="row end">
           <button className="btn" type="button" onClick={() => void cancel()} disabled={apply.isPending}>Отмена</button>
-          {file && <button className="btn" type="button" onClick={() => setComparing(true)} disabled={apply.isPending}
-            title="Какие открытые записи реестра есть в реестре, но нет в этом файле">Сравнение</button>}
-          <button className="btn primary" type="button" onClick={() => apply.mutate()} disabled={dateMissing || dateOrder || apply.isPending}>
+          {file && <button className="btn" type="button" onClick={() => setComparing(true)} disabled={apply.isPending || deptMissing}
+            title={deptMissing ? 'Сначала укажите отдел отчёта' : 'Какие открытые записи реестра есть в реестре, но нет в этом файле'}>Сравнение</button>}
+          <button className="btn primary" type="button" onClick={() => apply.mutate()} disabled={deptMissing || dateMissing || dateOrder || apply.isPending}>
             {nothing ? 'Сохранить отчёт без новых записей' : `Загрузить: новых ${s.created}${s.mergedChanged ? `, обновить ${s.mergedChanged}` : ''}`}
           </button>
         </div>

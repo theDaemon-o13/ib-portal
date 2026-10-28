@@ -211,6 +211,31 @@ describe('импорт отчёта сканера по образцу', () => {
       expect(x.vf.department.options.map((o) => o.label)).toEqual(['Отдел платёжных карт', 'Отдел кредитования']);
     }));
 
+  it('отчёт без отдела в A1: без выбора отдела не загружается; с выбранным отделом повторная загрузка дублей не создаёт', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      await importSample(tx, x);
+      const noDept = await sampleBook();
+      must(noDept.getWorksheet('Хосты')).getCell('A1').value = null;
+      const buffer = await toBuffer(noDept);
+
+      const bare = await scan.previewScan(tx, x.actor, x.reg.id, buffer, 'без отдела 2026-11-15.xlsx');
+      expect([bare.summary.department, bare.summary.departmentMissing]).toEqual(['', true]);
+      await expectCode(scan.applyScan(tx, x.actor, bare.id, {}), 'DEPARTMENT_REQUIRED');
+
+      // Выбран известный отдел (регистр и «е» не важны) — все строки отчёта совпадают с записями этого отдела.
+      for (const round of [1, 2]) {
+        const p = await scan.previewScan(tx, x.actor, x.reg.id, buffer, `без отдела 2026-11-1${round}.xlsx`, 'отдел платежных карт');
+        expect([p.summary.departmentMissing, p.summary.created, p.summary.merged]).toEqual([false, 0, 90]);
+        expect(p.summary.warnings.join(' ')).toContain('В отчёте не указан отдел');
+        await scan.applyScan(tx, x.actor, p.id, {});
+      }
+      expect(await tx.registerRecord.count({ where: { registerId: x.reg.id, deletedAt: null } })).toBe(90);
+      // Отдел из A1 важнее выбранного в окне.
+      const withA1 = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME, 'Другой отдел');
+      expect(withA1.summary.department).toBe('Отдел платёжных карт');
+    }));
+
   it('изменения после предпросмотра: дубль правили или пару завели вручную — не применяется ничего', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);

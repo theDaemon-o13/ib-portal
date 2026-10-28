@@ -410,6 +410,30 @@ describe('Импорт из Excel одной кнопкой', () => {
     await ui.waitFor(`location.search.includes('f=') && document.querySelector('[data-testid=record-filter]')?.textContent.includes(${JSON.stringify(DEPT)})`, 'фильтр «Отдел»');
   });
 
+  it('отчёт без отдела в A1: «Загрузить» и «Сравнение» недоступны, пока отдел не выбран; с отделом — дублей нет', async () => {
+    await ensureReport();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(SAMPLE);
+    wb.worksheets.find((w) => w.name.trim().toLowerCase() === 'хосты').getCell('A1').value = null;
+    const file = join(tmp, 'scan-report-sample-2026-11-20.xlsx');
+    await wb.xlsx.writeFile(file);
+    const prev = await upload(file);
+    assert.equal(prev.status, 201, prev.body);
+    await ui.waitFor(`!!${dialog}?.querySelector('[data-testid=department-missing]')`, 'подсказка «не указан отдел»');
+    const load = `[...${dialog}.querySelectorAll('button.primary')].find((b) => /^(Загрузить|Сохранить отчёт)/.test(b.textContent.trim()))`;
+    assert.equal(await ui.evaluate(`${load}.disabled`), true, 'без отдела загрузить нельзя');
+    assert.equal(await ui.evaluate(`[...${dialog}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Сравнение').disabled`), true, 'без отдела сравнить нельзя');
+    await ui.select(`${dialog}.querySelector('select[aria-label="Отдел отчёта"]')`, DEPT);
+    const m = ui.mark();
+    await ui.click($.button('Указать отдел', dialog), '«Указать отдел»');
+    assert.equal((await ui.request(m, 'POST', '/file-imports')).status, 201);
+    await ui.waitFor(`!${dialog}?.querySelector('[data-testid=department-missing]') && ${load}?.disabled === false`, 'предпросмотр с отделом');
+    // Строки совпали с записями отдела прогона (новые — только закрытые в предыдущем тесте): полного набора дублей нет.
+    const [created, merged] = await ui.evaluate(`[...${dialog}.querySelectorAll('.imp-kpis b')].slice(0, 2).map((b) => Number(b.textContent))`);
+    assert.ok(created <= 1 && merged >= 89, `новых ${created}, уже в реестре ${merged}`);
+    await cancel(dialog);
+  });
+
   it('выгрузка реестра через ту же кнопку — обычный импорт по колонке ID', async () => {
     await openTab('records');
     const b64 = await ui.evaluate(`fetch('/api/v1/registers/${regId}/export').then((r) => r.arrayBuffer())

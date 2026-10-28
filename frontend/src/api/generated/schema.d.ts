@@ -15797,6 +15797,7 @@ export interface paths {
                                     fileName: string;
                                     sheet: string;
                                     department: string;
+                                    departmentMissing: boolean;
                                     reportDate: string | null;
                                     rows: number;
                                     created: number;
@@ -16028,6 +16029,7 @@ export interface paths {
                                 fileName: string;
                                 sheet: string;
                                 department: string;
+                                departmentMissing: boolean;
                                 reportDate: string | null;
                                 rows: number;
                                 created: number;
@@ -16204,6 +16206,7 @@ export interface paths {
                                 fileName: string;
                                 sheet: string;
                                 department: string;
+                                departmentMissing: boolean;
                                 reportDate: string | null;
                                 rows: number;
                                 created: number;

@@ -43201,6 +43201,9 @@
                                 "department": {
                                   "type": "string"
                                 },
+                                "departmentMissing": {
+                                  "type": "boolean"
+                                },
                                 "reportDate": {
                                   "type": [
                                     "string",
@@ -43449,6 +43452,7 @@
                                 "fileName",
                                 "sheet",
                                 "department",
+                                "departmentMissing",
                                 "reportDate",
                                 "rows",
                                 "created",
@@ -44001,6 +44005,9 @@
                         "department": {
                           "type": "string"
                         },
+                        "departmentMissing": {
+                          "type": "boolean"
+                        },
                         "reportDate": {
                           "type": [
                             "string",
@@ -44249,6 +44256,7 @@
                         "fileName",
                         "sheet",
                         "department",
+                        "departmentMissing",
                         "reportDate",
                         "rows",
                         "created",
@@ -44524,6 +44532,9 @@
                         "department": {
                           "type": "string"
                         },
+                        "departmentMissing": {
+                          "type": "boolean"
+                        },
                         "reportDate": {
                           "type": [
                             "string",
@@ -44772,6 +44783,7 @@
                         "fileName",
                         "sheet",
                         "department",
+                        "departmentMissing",
                         "reportDate",
                         "rows",
                         "created",

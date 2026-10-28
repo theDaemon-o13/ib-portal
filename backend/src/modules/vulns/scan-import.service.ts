@@ -29,7 +29,10 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 export interface ScanSummary {
   fileName: string;
   sheet: string;
+  /** Отдел отчёта: из A1 листа «Хосты» или выбранный в окне импорта (если A1 пуст). */
   department: string;
+  /** В A1 отдела нет: его выбирают в окне, до этого «Загрузить» и «Сравнение» недоступны. */
+  departmentMissing: boolean;
   reportDate: string | null;
   rows: number;
   created: number;
@@ -106,9 +109,15 @@ async function vulnRegister(db: Db, registerId: string) {
 
 // ---------------------------------------------------------------- предпросмотр
 
-export async function previewScan(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string) {
+/**
+ * department — отдел, выбранный в окне импорта, когда в A1 листа «Хосты» его нет: без отдела дубли не найти,
+ * и каждая повторная загрузка создала бы полный набор записей заново. Отдел из A1 важнее выбранного.
+ */
+export async function previewScan(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string, department?: string | null) {
   const { reg, vf } = await vulnRegister(db, registerId);
   const parsed = await parseScanReport(buffer, fileName);
+  const fromFile = parsed.department.trim();
+  if (!fromFile && department?.trim()) parsed.department = department.trim().slice(0, 200);
 
   // Дубли внутри файла: первая строка остаётся, «Обнаружений» — максимум.
   const unique = new Map<string, ScanRow>();
@@ -131,7 +140,7 @@ export async function previewScan(db: Db, actor: Actor, registerId: string, buff
     fieldVersions: Object.fromEntries(reg.fields.map((f) => [f.id, f.version])),
   };
   const summary: ScanSummary = {
-    fileName, sheet: parsed.sheet, department: parsed.department, reportDate: parsed.reportDate,
+    fileName, sheet: parsed.sheet, department: parsed.department, departmentMissing: !parsed.department.trim(), reportDate: parsed.reportDate,
     rows: parsed.rows.length + new Set(parsed.errors.map((e) => e.row)).size,
     created: 0, merged: 0, mergedChanged: 0, inFileDuplicates,
     errorRows: new Set(parsed.errors.map((e) => e.row)).size,
@@ -183,7 +192,7 @@ export async function previewScan(db: Db, actor: Actor, registerId: string, buff
     .map((k) => ({ key: k, label: vf.crit.options.find((o) => o.systemKey === k)?.label ?? CRIT_LABELS[k], count: critCounts.get(k) ?? 0 }));
   summary.newOptions = [...newLabels.entries()].map(([k, set]) => ({ field: vf[k].label, values: [...set] }));
   if (!parsed.reportDate) summary.warnings.push('В имени файла нет даты отчёта (ГГГГ-ММ-ДД) — укажите её перед применением');
-  if (!parsed.department.trim()) summary.warnings.push('В листе «Хосты» нет отдела (ячейка A1): записи не сопоставятся с прошлыми отчётами — все строки будут новыми, без отдела');
+  if (!fromFile && parsed.department.trim()) summary.warnings.push(`В отчёте не указан отдел (ячейка A1 листа «Хосты») — выбран «${parsed.department}»`);
   if (summary.errorRows > summary.errors.length) summary.warnings.push(`Показаны первые ${summary.errors.length} ошибок`);
 
   const sha256 = createHash('sha256').update(buffer).digest('hex');
@@ -247,6 +256,9 @@ export async function applyScan(db: Db, actor: Actor, importId: string, input: A
     }
     const summary = imp.summary as unknown as ScanSummary;
     const payload = imp.payload as unknown as ScanPayload;
+    if (!payload.department?.trim()) {
+      throw badRequest('DEPARTMENT_REQUIRED', 'В отчёте не указан отдел (ячейка A1 листа «Хосты»). Выберите отдел в окне импорта');
+    }
     const rawReport = input.reportDate ?? summary.reportDate;
     if (!rawReport) throw badRequest('REPORT_DATE_REQUIRED', 'Укажите дату отчёта: в имени файла её нет');
     const reportDate = checkDate(rawReport, 'Дата отчёта');

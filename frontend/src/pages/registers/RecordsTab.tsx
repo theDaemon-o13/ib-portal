@@ -393,7 +393,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       )}
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
       {preview && <ImportDialog reg={reg} preview={preview} file={importFile} onClose={() => setPreview(null)} />}
-      {scanPreview && <ScanImportDialog reg={reg} preview={scanPreview} file={importFile} onClose={() => setScanPreview(null)} />}
+      {scanPreview && <ScanImportDialog key={scanPreview.id} reg={reg} preview={scanPreview} file={importFile} onClose={() => setScanPreview(null)} onReplace={setScanPreview} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
       {bulk && <BulkDialog reg={reg} mode={bulk.mode} selection={bulk.selection} onClose={() => setBulk(null)} onDone={() => { setBulk(null); setPicked(NOTHING); }} />}
     </>

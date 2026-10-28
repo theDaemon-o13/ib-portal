@@ -96,7 +96,7 @@ interface Computed extends CompareResult {
   values: Map<string, { version: number; values: Values }>;
 }
 
-async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string }, buffer: Buffer, file: CompareResult['file'], scope: CompareScope): Promise<Computed> {
+async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string; payload: unknown }, buffer: Buffer, file: CompareResult['file'], scope: CompareScope): Promise<Computed> {
   const keyFields = reg.compareKeyFieldIds.map((id) => reg.fields.find((f) => f.id === id && !f.archived)).filter((f): f is FieldMeta => !!f);
   const byId = keyFields.length === 0;
   // Область: проверка по настройкам реестра.
@@ -129,7 +129,9 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
       }
       fileRows.push({ values, number: null, badKey: keyFields.some((f) => values.get(f.id) == null) });
     }
-    incompleteScan = await scanCoverage(db, reg, parsed.department, parsed.hosts.map((h) => h.name), reportCond?.field, reportCond?.values ?? new Set());
+    // Отдел — как в предпросмотре: из A1 или выбранный в окне импорта.
+    const department = (imp.payload as { department?: string }).department ?? parsed.department;
+    incompleteScan = await scanCoverage(db, reg, department, parsed.hosts.map((h) => h.name), reportCond?.field, reportCond?.values ?? new Set());
   } else {
     const { wb, ws } = await openRegisterSheet(buffer);
     const { cols } = mapColumns(wb, ws, reg, []);
@@ -256,6 +258,9 @@ export async function compareWithRegister(db: Db, store: FileStore, actor: Actor
   assertNotArchived(reg);
   const sha256 = createHash('sha256').update(buffer).digest('hex');
   if (sha256 !== imp.fileSha256) throw badRequest('FILE_MISMATCH', 'Это не тот файл, что в предпросмотре импорта. Загрузите его снова');
+  if (imp.kind === 'scan' && !(imp.payload as { department?: string }).department?.trim()) {
+    throw badRequest('DEPARTMENT_REQUIRED', 'В отчёте не указан отдел (ячейка A1 листа «Хосты»). Выберите отдел в окне импорта');
+  }
   // Файл — доказательство: в хранилище один раз на предпросмотр импорта.
   let file = imp.file && imp.file.sha256 === sha256 && !imp.file.deletedAt ? { id: imp.file.id, name: imp.file.originalName, sha256 } : null;
   if (!file) {

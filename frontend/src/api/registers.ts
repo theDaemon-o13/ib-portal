@@ -197,11 +197,15 @@ export const registersApi = {
    * Импорт из Excel, шаг 1: файл уходит телом запроса как есть, backend сам определяет,
    * отчёт сканера это или выгрузка реестра, и возвращает соответствующий предпросмотр.
    */
-  async previewFile(registerId: string, file: File): Promise<FilePreview> {
+  /** department — отдел, выбранный в окне, если в отчёте сканера его нет (ячейка A1 листа «Хосты»). */
+  async previewFile(registerId: string, file: File, department?: string): Promise<FilePreview> {
     const res = await fetch(`/api/v1/registers/${registerId}/file-imports`, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name) },
+      headers: {
+        'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name),
+        ...(department ? { 'X-Department': encodeURIComponent(department) } : {}),
+      },
       body: file,
     });
     if (!res.ok) throw await errorOf(res);

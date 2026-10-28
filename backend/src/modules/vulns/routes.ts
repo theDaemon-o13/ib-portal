@@ -22,6 +22,7 @@ const ScanSummary = z.object({
   fileName: z.string(),
   sheet: z.string(),
   department: z.string(),
+  departmentMissing: z.boolean(),
   reportDate: z.string().nullable(),
   rows: z.number().int(),
   created: z.number().int(),
@@ -51,6 +52,11 @@ const ScanReport = z.object({
 });
 
 const view = requirePerm('ib.work');
+
+/** Отдел, выбранный в окне импорта (заголовок X-Department, URL-кодирование), — когда в A1 листа «Хосты» его нет. */
+function departmentOf(raw: unknown): string | null {
+  return typeof raw === 'string' && raw ? fileNameOf(raw, '').slice(0, 200) : null;
+}
 
 function fileNameOf(raw: unknown, fallback: string): string {
   if (typeof raw !== 'string' || !raw) return fallback;
@@ -87,7 +93,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       if (!isVulnRegister(reg)) {
         throw badRequest('NOT_VULN_REGISTER', 'Файл распознан как отчёт сканера — его загружают в «Реестр уязвимостей»');
       }
-      return reply.status(201).send({ format, scan: await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileName) });
+      return reply.status(201).send({ format, scan: await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileName, departmentOf(request.headers['x-department'])) });
     }
     return reply.status(201).send({ format, records: await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName) });
   });
@@ -102,7 +108,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     },
   }, async (request, reply) => {
     if (!Buffer.isBuffer(request.body)) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
-    return reply.status(201).send(await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileNameOf(request.headers['x-file-name'], 'scan.xlsx')));
+    return reply.status(201).send(await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileNameOf(request.headers['x-file-name'], 'scan.xlsx'), departmentOf(request.headers['x-department'])));
   });
 
   app.get('/scan-imports/:id', {
