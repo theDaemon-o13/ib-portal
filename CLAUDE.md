@@ -503,7 +503,7 @@ docker compose up -d backend frontend   # db не перезапускаем б�
 ### Резервные копии
 
 - `backup.sh` пишет в том `ibportal_backups`:
-  - `pg_dump -Fc` базы (и проверяет, что дамп читается `pg_restore --list`);
+  - `pg_dump -Fc` базы (и проверяет, что дамп читается `pg_restore` целиком);
   - архив тома файлов;
   - `manifest.txt` с версией и `SHA256SUMS`.
   - Имя копии: `<дата>_<время>_<версия>`.

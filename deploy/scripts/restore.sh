@@ -62,7 +62,8 @@ info "восстановление файлов"
 HELPER_FILES_MODE="" helper "find /data/files -mindepth 1 -delete && tar -C /data/files -xzf '$DIR/files.tar.gz'"
 
 info "проверка целостности: права ролей, триггеры аудита, права и роли портала"
-compose --profile tools run --rm -T migrate node dist/scripts/check-integrity.js \
+# В одноразовом контейнере backend: у него есть том файлов (проверка «файлы на месте»), у migrate — нет.
+compose run --rm -T --no-deps backend node dist/scripts/check-integrity.js \
   || die "проверка целостности не пройдена: сервисы не поднимать, обратиться к разработчику"
 
 cat <<MSG

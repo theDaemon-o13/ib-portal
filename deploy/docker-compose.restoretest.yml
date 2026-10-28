@@ -1,0 +1,10 @@
+# Ежемесячная проверка восстановления (docs/runbook/deploy.md, «Проверка восстановления»): отдельный проект
+# ibportal-restoretest в /srv/ibportal/restoretest со своими томами и портом — рабочие тома не трогаются.
+# Подключается через .env проверки: COMPOSE_FILE=docker-compose.yml:docker-compose.restoretest.yml
+# Нужен Docker Compose 2.24 или новее (!override).
+services:
+  frontend:
+    ports: !override ["127.0.0.1:8444:8443"]
+volumes:
+  pgdata: { external: true, name: ibportal_restoretest_pgdata }
+  files:  { external: true, name: ibportal_restoretest_files }

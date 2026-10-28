@@ -102,7 +102,8 @@ docker save "${IMAGES[@]/%/:$VERSION}" | gzip -6 > "$OUT/ibportal-images-$VERSIO
 cp deploy/docker-compose.yml "$OUT/"
 cp deploy/.env.example "$OUT/"
 cp CHANGELOG.md "$OUT/"
-cp deploy/scripts/_common.sh deploy/scripts/backup.sh deploy/scripts/restore.sh deploy/scripts/smoke.sh "$OUT/scripts/"
+cp deploy/docker-compose.restoretest.yml "$OUT/"
+cp deploy/scripts/_common.sh deploy/scripts/backup.sh deploy/scripts/restore.sh deploy/scripts/restore-test.sh deploy/scripts/smoke.sh "$OUT/scripts/"
 chmod +x "$OUT"/scripts/*.sh
 
 # 4. RELEASE.md из шаблона

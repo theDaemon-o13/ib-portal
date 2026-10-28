@@ -26,12 +26,18 @@ DIR="/backups/$NAME"
 info "копия $NAME"
 
 helper "mkdir '$DIR'"
+# Неудавшаяся копия переименовывается в failed_<имя>: её не покажет restore.sh и не посчитает ротация
+# (не удаляется — разбирает администратор).
+DONE=0
+trap '[ "$DONE" = 1 ] || { helper "mv \"$DIR\" \"/backups/failed_$NAME\"" 2>/dev/null && echo "Неполная копия оставлена как failed_$NAME" >&2; }' EXIT
 
 info "дамп базы"
 compose exec -T db sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   | helper_in "cat > '$DIR/db.dump'"
 helper "test -s '$DIR/db.dump'" || die "дамп пустой"
-helper "cat '$DIR/db.dump'" | compose exec -T db pg_restore --list >/dev/null \
+# Дамп читается целиком (pg_restore разбирает все данные в /dev/null). Не --list: он читает только оглавление и
+# закрывает канал — на дампе больше буфера канала копия падала с «broken pipe».
+helper "cat '$DIR/db.dump'" | compose exec -T db pg_restore -f /dev/null \
   || die "дамп не читается pg_restore"
 
 info "архив файлов"
@@ -41,6 +47,7 @@ info "версия и контрольные суммы"
 helper "cd '$DIR' && printf 'name=%s\nversion=%s\ncreated=%s\n' '$NAME' '$VERSION' \"\$(date -Iseconds)\" > manifest.txt \
   && sha256sum db.dump files.tar.gz manifest.txt > SHA256SUMS && sha256sum -c SHA256SUMS >/dev/null"
 
+DONE=1
 helper "du -sh '$DIR' | cut -f1" | sed "s/^/  размер: /"
 echo "Копия создана: $NAME"
 
