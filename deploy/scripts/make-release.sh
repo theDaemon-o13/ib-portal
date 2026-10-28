@@ -56,9 +56,9 @@ docker buildx version >/dev/null 2>&1 || die "нужен docker buildx"
 
 # 2. Образы строго под linux/amd64
 build() {
-  local image="$1" context="$2"
+  local image="$1" context="$2"; shift 2
   info "сборка $image:$VERSION ($PLATFORM)"
-  docker buildx build --platform "$PLATFORM" --load \
+  docker buildx build --platform "$PLATFORM" --load "$@" \
     --label "org.opencontainers.image.version=$VERSION" \
     --label "org.opencontainers.image.revision=$COMMIT" \
     -t "$image:$VERSION" "$context"
@@ -68,7 +68,9 @@ build() {
 }
 build ibportal-db db
 build ibportal-backend backend
-build ibportal-frontend frontend
+# Версия, коммит и дата — в подпись и окно «О портале» (frontend/src/build-info.ts).
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+build ibportal-frontend frontend --build-arg "APP_VERSION=$VERSION" --build-arg "APP_COMMIT=$COMMIT" --build-arg "APP_BUILD_DATE=$BUILD_DATE"
 # @napi-rs/canvas (optional-зависимость pdfjs-dist) не нужен для извлечения текста PDF и не должен попасть в образ.
 if docker run --rm --network none --entrypoint sh "ibportal-backend:$VERSION" -c 'test -e node_modules/@napi-rs'; then
   die "в образе ibportal-backend:$VERSION есть node_modules/@napi-rs — сборка должна идти с --omit=optional"
@@ -85,6 +87,8 @@ leaks="$(in_image ibportal-backend '
 [ -z "$leaks" ] || die "в образе ibportal-backend лишнее: $leaks"
 leaks="$(in_image ibportal-frontend 'find / -xdev \( -name ".env" -o -name ".env.*" -o -name "*.map" -o -name "*.tsx" \) 2>/dev/null; true')"
 [ -z "$leaks" ] || die "в образе ibportal-frontend лишнее: $leaks"
+in_image ibportal-frontend "grep -rqF '\"$COMMIT\"' /usr/share/nginx/html/assets" \
+  || die "в ibportal-frontend:$VERSION нет коммита $COMMIT в подписи — build-args не дошли до сборки"
 for image in ibportal-backend ibportal-frontend; do
   user="$(docker image inspect -f '{{.Config.User}}' "$image:$VERSION")"
   case "$user" in ''|0|root|0:*|root:*) die "$image:$VERSION запускается от root (USER: '${user:-не задан}')" ;; esac

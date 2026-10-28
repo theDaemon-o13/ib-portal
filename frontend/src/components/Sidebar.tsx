@@ -6,6 +6,7 @@ import { evidenceApi, ekeys } from '../api/evidence';
 import { tasksApi, tkeys } from '../api/tasks';
 import { SEARCH_PERMS } from '../api/search';
 import { isKiosk, visibleNav } from '../nav';
+import { PortalCredit } from './AboutPortal';
 import { Brand } from './Brand';
 import { Icon } from './Icons';
 import { ThemeSwitch } from './ThemeSwitch';
@@ -85,6 +86,7 @@ export function Sidebar({ me }: { me: Me }) {
           </button>
         </div>
         <ThemeSwitch />
+        <PortalCredit />
       </div>
     </aside>
   );

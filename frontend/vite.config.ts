@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { cpSync, createReadStream, existsSync, statSync } from 'node:fs';
+import { cpSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
@@ -37,11 +37,26 @@ function pdfjsAssets(): Plugin {
   };
 }
 
+/**
+ * Версия, коммит и дата сборки для подписи и окна «О портале» (src/build-info.ts). Релиз: APP_VERSION, APP_COMMIT,
+ * APP_BUILD_DATE из make-release.sh (build-args образа). Dev: VERSION репозитория (если виден) и «dev».
+ */
+const repoVersion = (() => {
+  const file = join(process.cwd(), '..', 'VERSION');
+  return existsSync(file) ? readFileSync(file, 'utf8').trim() : '';
+})();
+const build = {
+  __APP_VERSION__: process.env.APP_VERSION || (repoVersion ? `${repoVersion}-dev` : 'dev'),
+  __APP_COMMIT__: process.env.APP_COMMIT || 'dev',
+  __APP_BUILD_DATE__: process.env.APP_BUILD_DATE || '',
+};
+
 // В dev /api проксируется на backend; в продукте это делает nginx.
 const backend = process.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:3000';
 
 export default defineConfig({
   plugins: [react(), pdfjsAssets()],
+  define: Object.fromEntries(Object.entries(build).map(([k, v]) => [k, JSON.stringify(v)])),
   server: {
     host: process.env.VITE_HOST ?? '127.0.0.1',
     port: 5173,

@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, authApi } from '../../api/client';
 import { useMe, useSetMe } from '../../auth/useMe';
+import { PortalCredit } from '../../components/AboutPortal';
 import { Brand } from '../../components/Brand';
 import { ThemeSwitch } from '../../components/ThemeSwitch';
 import { homePath, safeReturnPath } from '../../nav';
@@ -69,6 +70,7 @@ export function LoginPage() {
         <div className="auth-foot">
           <ThemeSwitch />
         </div>
+        <PortalCredit />
       </div>
     </div>
   );

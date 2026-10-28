@@ -40,6 +40,8 @@ before(async () => {
   assert.ok(LOGIN && PASSWORD, 'Задайте E2E_LOGIN и E2E_PASSWORD (пользователь с ролью «Супер-администратор»)');
   ui = await launchBrowser({ baseUrl: BASE });
   await ui.goto('/login');
+  // Подпись автора с версией сборки — и на странице входа.
+  await ui.waitFor(`document.querySelector('.auth-wrap .credit')?.textContent.includes('Разработал: Машарипов Искандар')`, 'подпись на странице входа');
   await ui.type(`document.querySelector('input[name=username]')`, LOGIN);
   await ui.type(`document.querySelector('input[name=password]')`, PASSWORD);
   await ui.click(`document.querySelector('form button[type=submit]')`);
@@ -153,12 +155,43 @@ describe('дашборд: переход по фильтру', () => {
   });
 });
 
+describe('подпись автора и «О портале»', () => {
+  it('внизу меню — «Портал ИБ <версия> · Разработал: …»; щелчок по версии — окно с версией, коммитом, датой и автором', async () => {
+    await ui.goto('/dashboard');
+    const credit = `document.querySelector('.rail .credit')`;
+    await ui.waitFor(`!!${credit}`, 'подпись в меню');
+    const text = await ui.text(credit);
+    // E2E_EXPECT_VERSION — при проверке архива релиза: версия берётся из сборки, а не вписана в код.
+    const version = process.env.E2E_EXPECT_VERSION;
+    assert.match(text, version ? new RegExp(`^Портал ИБ ${version.replace(/\./g, '\\.')} · Разработал: Машарипов Искандар$`) : /^Портал ИБ \S+ · Разработал: Машарипов Искандар$/);
+    await ui.click(`${credit}.querySelector('.credit-v')`, 'версия');
+    const dlg = `document.querySelector('[role=dialog][aria-labelledby=about-title]')`;
+    await ui.waitFor(`!!${dlg}`, 'окно «О портале»');
+    const rows = await ui.evaluate(`Object.fromEntries([...${dlg}.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling.textContent]))`);
+    assert.equal(rows['Название'], 'Портал ИБ');
+    assert.equal(rows['Автор'], 'Машарипов Искандар');
+    if (version) {
+      assert.equal(rows['Версия'], version);
+      assert.match(rows['Коммит сборки'], /^[0-9a-f]{7,}$/);
+      assert.match(rows['Дата сборки'], /^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/);
+    }
+    await ui.press('Escape');
+    await ui.waitFor(`!${dlg}`, 'окно закрыто по Esc');
+    // Узкий экран: меню — строкой сверху, видна версия, без горизонтальной прокрутки страницы.
+    await ui.viewport(390, 844);
+    await ui.waitFor(`${credit}.querySelector('.credit-v').offsetWidth > 0 && getComputedStyle(${credit}.querySelector('.credit-a')).display === 'none'`, 'версия на узком экране');
+    assert.equal(await ui.evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'без горизонтальной прокрутки');
+    await ui.viewport(1440, 1000);
+  });
+});
+
 describe('экран мониторинга', () => {
   it('листается сам каждые 12 с; пауза останавливает; ← → и пробел; панель прячется без мыши', async () => {
     await ui.goto('/monitor');
     await ui.waitFor(`document.querySelectorAll('.mon .mk').length === 8 && document.querySelectorAll('.mon .mrow').length > 0`, 'экран мониторинга с данными');
     assert.equal(await ui.evaluate(`document.documentElement.dataset.theme ?? ''`), 'dark', 'чёрная тема по умолчанию');
     assert.equal(await ui.evaluate(`document.documentElement.scrollHeight <= innerHeight`), true, 'без прокрутки');
+    assert.equal(await ui.evaluate(`!!document.querySelector('.credit')`), false, 'на мониторе подписи нет');
     const pages = await ui.text(`document.querySelector('.mp-h .pg')`);
     assert.match(pages, /^стр\. 1 из \d+$/, 'уязвимости не помещаются на одну страницу');
 

@@ -20,7 +20,11 @@ RUN npm ci
 COPY tsconfig.json vite.config.ts index.html ./
 COPY public public
 COPY src src
-RUN npm run build
+# Версия, коммит и дата сборки — из make-release.sh; без них подпись покажет «dev».
+ARG APP_VERSION=dev
+ARG APP_COMMIT=dev
+ARG APP_BUILD_DATE=
+RUN APP_VERSION="$APP_VERSION" APP_COMMIT="$APP_COMMIT" APP_BUILD_DATE="$APP_BUILD_DATE" npm run build
 
 FROM ${NGINX_IMAGE} AS runtime
 # Образ nginx-unprivileged работает от пользователя nginx (uid 101) и слушает непривилегированный порт.

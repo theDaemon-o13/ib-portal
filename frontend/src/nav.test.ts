@@ -30,3 +30,12 @@ describe('возврат после входа', () => {
     }
   });
 });
+
+describe('дата сборки в «О портале»', () => {
+  it('ISO — дата и время; пусто или мусор — прочерк', async () => {
+    const { buildDateText } = await import('./build-info');
+    expect(buildDateText('2026-10-28T04:11:00Z')).toMatch(/^28\.10\.2026, \d{2}:11$/);
+    expect(buildDateText('')).toBe('—');
+    expect(buildDateText('nope')).toBe('—');
+  });
+});
