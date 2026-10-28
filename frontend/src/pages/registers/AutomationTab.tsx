@@ -327,23 +327,6 @@ function RunLog({ reg, canManage }: { reg: RegisterDetail; canManage: boolean })
   );
 }
 
-/** «Задачи без привязки (N)»: задачи автоматизаций, правило которых известно только по событию. 0 — блока нет. */
-function UnlinkedTasks({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
-  const q = useQuery({ queryKey: [...rkeys.rules(reg.id), 'unlinked'], queryFn: () => registersApi.unlinkedTasks(reg.id) });
-  const link = useAction(() => registersApi.linkUnlinkedTasks(reg.id, q.data?.total ?? 0), {
-    invalidate: [rkeys.rules(reg.id), ['tasks']], success: (r) => `Привязано задач: ${r.linked}`,
-  });
-  if (!q.data?.total) return null;
-  return (
-    <div className="note grid-gap" data-testid="unlinked-tasks">
-      <b>Задачи без привязки ({q.data.total})</b>
-      <div className="hint">Задачи автоматизаций без ссылки на правило; правило найдено по событию. После привязки их можно убрать вместе с правилом.</div>
-      <ul className="bulk-lines">{q.data.byRule.map((r) => <li key={r.automationId}>{r.when} → {r.then}{r.deleted ? ' (правило удалено)' : ''} — {r.count}</li>)}</ul>
-      {canManage && <div className="row"><button className="btn sm" type="button" disabled={link.isPending} onClick={() => link.mutate(undefined)}>Привязать {q.data.total}</button></div>}
-    </div>
-  );
-}
-
 /** Журнал событий реестра: новые сверху; каждое событие ведёт к своим задачам. */
 function EventLog({ reg }: { reg: RegisterDetail }) {
   const [status, setStatus] = useState<'new' | 'processed' | ''>('');
@@ -436,7 +419,6 @@ export function AutomationTab({ reg, canManage }: { reg: RegisterDetail; canMana
           <RuleForm reg={reg} />
         </details>
       )}
-      <UnlinkedTasks reg={reg} canManage={canManage} />
       <EventLog reg={reg} />
       <RunLog reg={reg} canManage={canManage} />
     </div>

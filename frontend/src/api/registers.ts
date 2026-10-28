@@ -53,7 +53,6 @@ export type RuleTasksChoice = NonNullable<Body<'/api/v1/register-automations/{id
 export type RuleTasksPreview = Res<'/api/v1/register-automations/{id}/tasks/preview', 'post'>;
 export type RuleTasksResult = Res<'/api/v1/register-automations/{id}/delete', 'post'>['tasks'];
 export type RunPage = Res<'/api/v1/registers/{id}/automation-runs', 'get'>;
-export type UnlinkedTasks = Res<'/api/v1/registers/{id}/unlinked-tasks', 'get'>;
 export type NewDecision = Body<'/api/v1/register-records/{id}/decisions', 'post'>;
 export type DecisionEntry = Res<'/api/v1/register-records/{id}/decisions', 'get'>['items'][number];
 /** Системный «Реестр рисков ИБ»: решение ОУР заполняет «№ в реестре ОУР» и «Пересмотр до». */
@@ -220,9 +219,6 @@ export const registersApi = {
   runs: (registerId: string, cursor?: string) => request<RunPage>('GET', `/api/v1/registers/${registerId}/automation-runs${qs({ cursor, limit: '20' })}`),
   clearRuns: (registerId: string, olderThanDays: number | null) =>
     request<{ deleted: number }>('POST', `/api/v1/registers/${registerId}/automation-runs/clear`, { olderThanDays }),
-  unlinkedTasks: (registerId: string) => request<UnlinkedTasks>('GET', `/api/v1/registers/${registerId}/unlinked-tasks`),
-  linkUnlinkedTasks: (registerId: string, total: number) =>
-    request<{ linked: number }>('POST', `/api/v1/registers/${registerId}/unlinked-tasks/link`, { expected: { total } }),
   runRules: (registerId: string) => request<RunResult>('POST', `/api/v1/registers/${registerId}/automations/run`),
   events: (registerId: string, q: { status?: 'new' | 'processed'; recordId?: string; cursor?: string }) =>
     request<EventPage>('GET', `/api/v1/registers/${registerId}/automation-events${qs({ status: q.status, recordId: q.recordId, cursor: q.cursor, limit: '50' })}`),

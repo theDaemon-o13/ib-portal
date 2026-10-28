@@ -217,29 +217,6 @@ export const automationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     },
   }, async (request) => svc.clearRuns(db, actorOf(request), request.params.id, request.body.olderThanDays));
 
-  app.get('/registers/:id/unlinked-tasks', {
-    preHandler: view,
-    schema: {
-      tags: ['automations'], summary: 'Задачи автоматизаций без привязки к правилу (правило — по событию)', params: IdParams,
-      response: {
-        200: z.object({
-          total: z.number().int(),
-          byRule: z.array(z.object({ automationId: z.string(), when: z.string(), then: z.string(), deleted: z.boolean(), count: z.number().int() })),
-        }),
-        ...errors,
-      },
-    },
-  }, async (request) => svc.unlinkedTasksPreview(db, request.params.id));
-
-  app.post('/registers/:id/unlinked-tasks/link', {
-    preHandler: manage,
-    schema: {
-      tags: ['automations'], summary: 'Привязать задачи без привязки к правилам (после предпросмотра)', params: IdParams,
-      body: z.object({ expected: z.object({ total: z.number().int() }) }),
-      response: { 200: z.object({ linked: z.number().int() }), ...errors },
-    },
-  }, async (request) => svc.linkUnlinkedTasks(db, actorOf(request), request.params.id, request.body.expected));
-
   app.post('/registers/:id/automations/run', {
     preHandler: manage,
     schema: {

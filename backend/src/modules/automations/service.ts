@@ -1,7 +1,7 @@
 // Правила автоматизации реестров и их события (право registers.manage на правила, records.edit — отметить событие).
 import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
-import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { basisOf, isBasisRule } from '../../lib/link-basis.js';
 import { isDueRule, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
@@ -551,75 +551,6 @@ export async function describeRules(db: Db, ids: readonly string[]): Promise<Map
     out.set(r.id, `${reg.name}: ${dto.when}${r.deletedAt ? ' (правило удалено)' : r.archivedAt ? ' (правило в архиве)' : ''}`);
   }
   return out;
-}
-
-// ---------------------------------------------------------------- задачи без привязки
-
-/**
- * Задачи автоматизаций без правила (tasks.automation_id NULL), правило которых известно по событию:
- * automation_event_tasks → automation_events.automation_id; у задачи с несколькими событиями — по первому.
- * В коде 1.0.x automation_id заполняется всегда, поэтому обычно их 0 — тогда блок не показывается.
- */
-async function unlinkedRows(db: Db, registerId: string) {
-  return db.$queryRaw<{ taskId: string; number: number; automationId: string }[]>`
-    SELECT DISTINCT ON (t.id) t.id::text AS "taskId", t.number, e.automation_id::text AS "automationId"
-    FROM tasks t
-    JOIN automation_event_tasks et ON et.task_id = t.id
-    JOIN automation_events e ON e.id = et.event_id
-    WHERE t.source = 'automation' AND t.automation_id IS NULL AND t.deleted_at IS NULL
-      AND e.register_id = ${registerId}::uuid AND e.automation_id IS NOT NULL
-    ORDER BY t.id, e.created_at`;
-}
-
-export interface UnlinkedPreview {
-  total: number;
-  byRule: { automationId: string; when: string; then: string; deleted: boolean; count: number }[];
-}
-
-export async function unlinkedTasksPreview(db: Db, registerId: string): Promise<UnlinkedPreview> {
-  const reg = await loadRegister(db, registerId);
-  const rows = await unlinkedRows(db, registerId);
-  const counts = new Map<string, number>();
-  for (const r of rows) counts.set(r.automationId, (counts.get(r.automationId) ?? 0) + 1);
-  const rules = await db.registerAutomation.findMany({ where: { id: { in: [...counts.keys()] } } });
-  const labels = await loadLabels(db);
-  return {
-    total: rows.length,
-    byRule: rules.map((r) => {
-      const dto = toRuleDto(reg, r, labels);
-      return { automationId: r.id, when: dto.when, then: dto.then, deleted: r.deletedAt !== null, count: counts.get(r.id) ?? 0 };
-    }),
-  };
-}
-
-/** Привязать задачи к правилам по событиям — только после предпросмотра (expected), с журналом по каждой задаче. */
-export async function linkUnlinkedTasks(db: Db, actor: Actor, registerId: string, expected: { total: number }): Promise<{ linked: number }> {
-  const reg = await loadRegister(db, registerId);
-  const rows = await unlinkedRows(db, registerId);
-  if (rows.length !== expected.total) {
-    throw new AppError(409, 'BULK_CHANGED', 'Задачи изменились после предпросмотра — проверьте числа и подтвердите ещё раз', { preview: await unlinkedTasksPreview(db, registerId) });
-  }
-  let linked = 0;
-  for (let i = 0; i < rows.length; i += 200) {
-    await withTx(db, async (tx) => {
-      for (const r of rows.slice(i, i + 200)) {
-        const res = await tx.task.updateMany({ where: { id: r.taskId, automationId: null, deletedAt: null }, data: { automationId: r.automationId, version: { increment: 1 } } });
-        if (!res.count) continue;
-        linked++;
-        await auditSettings(tx, actor, {
-          action: 'task.automation_linked', entity: 'task', entityId: r.taskId,
-          summary: `Задача #${r.number} привязана к правилу автоматизации реестра «${reg.name}» (по событию)`,
-          before: { automationId: null }, after: { automationId: r.automationId },
-        });
-      }
-    });
-  }
-  await auditSettings(db, actor, {
-    action: 'tasks.automation_linked', entity: 'register', entityId: registerId,
-    summary: `«${reg.name}»: задачи без привязки привязаны к правилам — ${linked}`,
-    after: { linked },
-  });
-  return { linked };
 }
 
 export const RUN_TRIGGERS = ['schedule', 'manual', 'import'] as const;

@@ -11,7 +11,7 @@ import * as bulk from '../tasks/bulk.js';
 import * as tasks from '../tasks/service.js';
 import * as svc from './service.js';
 
-// Релиз 1.1.0, задача 2: задачи правила при его архиве и удалении, журнал запусков, задачи без привязки, доска.
+// Релиз 1.1.0, задача 2: задачи правила при его архиве и удалении, журнал запусков, доска.
 
 const DEC_1 = new Date('2026-12-01T06:00:00Z');
 
@@ -106,17 +106,14 @@ describe('журнал запусков', () => {
     }));
 });
 
-describe('задачи без привязки', () => {
-  it('база не допускает задачу автоматизации без правила (tasks_automation_check) — блок всегда пуст и скрыт', () =>
+describe('задача автоматизации всегда знает правило', () => {
+  // Поэтому «привязывать» задачи к правилам не нужно (план 1.1.0, вопрос 7): блок «Задачи без привязки» убран.
+  it('CHECK tasks_automation_check не даёт снять automation_id у задачи автоматизации', () =>
     inTx(async (tx) => {
-      const { x, taskIds } = await ruleWithTasks(tx, 2);
-      expect(await svc.unlinkedTasksPreview(tx, x.reg.id)).toEqual({ total: 0, byRule: [] });
-      // Отвязать задачу нельзя: CHECK ("source" = 'automation') = ("automation_id" IS NOT NULL), с этапа 5.
-      await expect(tx.$executeRaw`SAVEPOINT unlink`.then(() => tx.task.updateMany({ where: { id: { in: taskIds } }, data: { automationId: null } })))
-        .rejects.toThrow(/tasks_automation_check/);
+      const { taskIds } = await ruleWithTasks(tx, 1);
+      await tx.$executeRaw`SAVEPOINT unlink`;
+      await expect(tx.task.updateMany({ where: { id: { in: taskIds } }, data: { automationId: null } })).rejects.toThrow(/tasks_automation_check/);
       await tx.$executeRaw`ROLLBACK TO SAVEPOINT unlink`;
-      expect(await svc.linkUnlinkedTasks(tx, x.actor, x.reg.id, { total: 0 })).toEqual({ linked: 0 });
-      await expectCode(svc.linkUnlinkedTasks(tx, x.actor, x.reg.id, { total: 1 }), 'BULK_CHANGED');
     }));
 });
 
