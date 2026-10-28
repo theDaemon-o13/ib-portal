@@ -378,14 +378,52 @@ function cellText(v: ReturnType<typeof cellPrimitive>): string {
 
 const recordCols = { id: true, number: true, values: true, version: true, archivedAt: true, deletedAt: true, createdAt: true, updatedAt: true } as const;
 
-export async function previewImport(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string) {
-  const reg = await loadRegister(db, registerId);
-  assertNotArchived(reg);
+/** Книга выгрузки реестра: лист с данными (основной или первый видимый), не больше IMPORT_MAX_ROWS строк. */
+export async function openRegisterSheet(buffer: Buffer): Promise<{ wb: ExcelJS.Workbook; ws: ExcelJS.Worksheet }> {
   if (buffer.length === 0) throw badRequest('BAD_FILE', 'Файл пустой');
   const wb = await readWorkbook(buffer);
   const ws = wb.getWorksheet(MAIN_SHEET) ?? wb.worksheets.find((w) => w.name !== MAP_SHEET && w.name !== HELP_SHEET && w.state === 'visible');
   if (!ws) throw badRequest('BAD_FILE', 'В книге нет листа с данными');
   if (ws.rowCount - 1 > IMPORT_MAX_ROWS) throw badRequest('TOO_MANY_ROWS', `В файле больше ${IMPORT_MAX_ROWS} строк`);
+  return { wb, ws };
+}
+
+/** Строка файла: значения вводимых колонок, разобранные как при импорте (пустая ячейка — нет значения). */
+export interface FileRow {
+  rowNumber: number;
+  row: ExcelJS.Row;
+  values: { field: FieldMeta; value: StoredValue }[];
+  cellErrors: { field: string; message: string }[];
+}
+
+/**
+ * Строки с данными и разбор ячеек — один код для импорта и сравнения с реестром (релиз 1.1.0):
+ * значения в файле читаются одинаково (parseCell: списки по значению, сотрудник по логину, даты и числа).
+ */
+export async function readFileRows(db: Db, reg: RegisterDef, ws: ExcelJS.Worksheet, cols: ColMap): Promise<FileRow[]> {
+  const allUsers = await db.user.findMany({ select: { id: true, login: true, fullName: true, isActive: true } });
+  const linkTargets = await linkTargetsOf(db, reg);
+  const out: FileRow[] = [];
+  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) return;
+    if ([...cols.keys()].every((c) => cellPrimitive(row.getCell(c).value) === null)) return;
+    const values: FileRow['values'] = [];
+    const cellErrors: FileRow['cellErrors'] = [];
+    for (const [col, c] of cols) {
+      if (c.kind !== 'value' || !c.field) continue; // ID и «только для чтения» не импортируются
+      const r = parseCell(c.field, row.getCell(col).value, { users: allUsers, linkTargets });
+      if (!r.ok) cellErrors.push({ field: c.field.label, message: r.error });
+      else if (r.value !== null) values.push({ field: c.field, value: r.value });
+    }
+    out.push({ rowNumber, row, values, cellErrors });
+  });
+  return out;
+}
+
+export async function previewImport(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string) {
+  const reg = await loadRegister(db, registerId);
+  assertNotArchived(reg);
+  const { wb, ws } = await openRegisterSheet(buffer);
 
   const warnings: string[] = [];
   const { cols, matchBy } = mapColumns(wb, ws, reg, warnings);
@@ -393,17 +431,10 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0];
   const keyCol = keyField ? [...cols.entries()].find(([, c]) => c.kind === 'value' && c.field?.id === keyField.id)?.[0] : undefined;
   const matchCol = (matchBy === 'id' ? idCol : keyCol) as number;
-  const allUsers = await db.user.findMany({ select: { id: true, login: true, fullName: true, isActive: true } });
-  const linkTargets = await linkTargetsOf(db, reg);
   const today = todayIso();
 
   // Первый проход: что в файле в колонке сопоставления.
-  const dataRows: { rowNumber: number; row: ExcelJS.Row }[] = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return;
-    if ([...cols.keys()].every((c) => cellPrimitive(row.getCell(c).value) === null)) return;
-    dataRows.push({ rowNumber, row });
-  });
+  const dataRows = await readFileRows(db, reg, ws, cols);
   const rawMatch = dataRows.map((d) => cellText(cellPrimitive(d.row.getCell(matchCol).value)));
   // Значения ключа после правок строки (в обоих режимах): проверка уникальности ключа до применения.
   const rawKeys = keyCol ? dataRows.map((d) => cellText(cellPrimitive(d.row.getCell(keyCol).value))) : [];
@@ -461,7 +492,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   // Новый ключ → строка, которая его получит (повторы ключа среди изменений файла).
   const keyClaims = new Map<string, number>();
 
-  for (const [i, { row, rowNumber }] of dataRows.entries()) {
+  for (const [i, { row, rowNumber, values: parsed, cellErrors }] of dataRows.entries()) {
     const rowErrors: ImportIssue[] = [];
     const matchRaw = rawMatch[i] ?? '';
     let rec: Existing | undefined;
@@ -495,16 +526,9 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     }
     const current = (rec?.values ?? {}) as Values;
     const changes: Values = {};
-    for (const [col, c] of cols) {
-      if (c.kind !== 'value' || !c.field) continue; // ID и «только для чтения» не импортируются
-      const f = c.field;
-      const r = parseCell(f, row.getCell(col).value, { users: allUsers, linkTargets });
-      if (!r.ok) {
-        rowErrors.push({ row: rowNumber, id: matchRaw || null, field: f.label, message: r.error });
-        continue;
-      }
-      if (r.value === null) continue; // пустая ячейка не меняет значение
-      if (!sameValue(current[f.id], r.value)) changes[f.id] = r.value;
+    for (const e of cellErrors) rowErrors.push({ row: rowNumber, id: matchRaw || null, field: e.field, message: e.message });
+    for (const { field: f, value } of parsed) {
+      if (!sameValue(current[f.id], value)) changes[f.id] = value;
     }
     if (rec) {
       // Изменения в колонках «только чтение» — считаем для предупреждения.
