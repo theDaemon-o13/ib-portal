@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { PageQuery } from '../../lib/pagination.js';
+import { forbidden } from '../../lib/errors.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
@@ -11,6 +12,26 @@ import * as svc from './service.js';
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
 const Version = z.object({ version: z.number().int().positive() });
+/** Задачи правила при его архиве или удалении (релиз 1.1.0): по умолчанию — оставить. */
+const TasksChoice = z.object({
+  action: z.enum(['keep', 'archive', 'delete']),
+  onlyUntouched: z.boolean().optional(),
+  expected: z.object({ total: z.number().int(), affected: z.number().int() }).optional(),
+});
+const TaskBulkPreview = z.object({
+  total: z.number().int(), affected: z.number().int(), alreadyInState: z.number().int(), untouched: z.number().int(),
+  byStatus: z.array(z.object({ statusId: z.string(), label: z.string(), count: z.number().int() })),
+});
+const TaskBulkResult = z.object({ archived: z.number().int(), deleted: z.number().int(), skipped: z.number().int() });
+const Run = z.object({
+  id: z.string(), registerId: z.string().nullable(), trigger: z.enum(svc.RUN_TRIGGERS), actor: z.string().nullable(),
+  startedAt: z.string(), finishedAt: z.string().nullable(), rules: z.number().int(), checked: z.number().int(),
+  eventsCreated: z.number().int(), tasksCreated: z.number().int(), tasksCommented: z.number().int(), error: z.string().nullable(),
+});
+/** Удалить задачи правила — только с правом «Задачи: удаление» (кроме права маршрута registers.manage). */
+const assertTasksDelete = (request: { user?: { permissions: ReadonlySet<string> } | null }, choice?: z.infer<typeof TasksChoice>) => {
+  if (choice?.action === 'delete' && !request.user?.permissions.has('tasks.delete')) throw forbidden();
+};
 
 const ConditionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('before'), fieldId: z.string().uuid(), days: z.number().int().min(0).max(365), skipYearEnd: z.boolean().optional() }),
@@ -143,20 +164,81 @@ export const automationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     enabled: request.body.enabled,
   })));
 
-  for (const [path, archived, summary] of [['archive', true, 'Правило в архив'], ['restore', false, 'Вернуть правило из архива']] as const) {
-    app.post(`/register-automations/:id/${path}`, {
-      preHandler: manage,
-      schema: { tags: ['automations'], summary, params: IdParams, body: Version, response: { 200: Rule, ...errors } },
-    }, async (request) => asRule(await svc.setRuleArchived(db, actorOf(request), request.params.id, request.body.version, archived)));
-  }
+  app.post('/register-automations/:id/archive', {
+    preHandler: manage,
+    schema: {
+      tags: ['automations'], summary: 'Правило в архив; его задачи — оставить, в архив или удалить', params: IdParams,
+      body: Version.extend({ tasks: TasksChoice.optional() }), response: { 200: Rule.extend({ tasks: TaskBulkResult.nullable() }), ...errors },
+    },
+  }, async (request) => {
+    assertTasksDelete(request, request.body.tasks);
+    return asRule(await svc.setRuleArchived(db, actorOf(request), request.params.id, request.body.version, true, request.body.tasks)) as RuleOut & { tasks: null };
+  });
+
+  app.post('/register-automations/:id/restore', {
+    preHandler: manage,
+    schema: { tags: ['automations'], summary: 'Вернуть правило из архива', params: IdParams, body: Version, response: { 200: Rule, ...errors } },
+  }, async (request) => asRule(await svc.setRuleArchived(db, actorOf(request), request.params.id, request.body.version, false)));
 
   app.post('/register-automations/:id/delete', {
     preHandler: manage,
-    schema: { tags: ['automations'], summary: 'Удалить правило без событий', params: IdParams, body: Version, response: { 204: z.null(), ...errors } },
-  }, async (request, reply) => {
-    await svc.deleteRule(db, actorOf(request), request.params.id, request.body.version);
-    return reply.status(204).send(null);
+    schema: {
+      tags: ['automations'], summary: 'Удалить правило (мягко; события сохраняются); его задачи — оставить, в архив или удалить', params: IdParams,
+      body: Version.extend({ tasks: TasksChoice.optional() }), response: { 200: z.object({ tasks: TaskBulkResult.nullable() }), ...errors },
+    },
+  }, async (request) => {
+    assertTasksDelete(request, request.body.tasks);
+    return { tasks: await svc.deleteRule(db, actorOf(request), request.params.id, request.body.version, request.body.tasks) };
   });
+
+  app.post('/register-automations/:id/tasks/preview', {
+    preHandler: manage,
+    schema: {
+      tags: ['automations'], summary: 'Задачи, созданные правилом: сколько, по статусам, нетронутые', params: IdParams,
+      body: z.object({ action: z.enum(['archive', 'delete']), onlyUntouched: z.boolean().optional() }),
+      response: { 200: TaskBulkPreview, ...errors },
+    },
+  }, async (request) => svc.ruleTasksPreview(db, request.params.id, request.body.action, !!request.body.onlyUntouched));
+
+  app.get('/registers/:id/automation-runs', {
+    preHandler: view,
+    schema: {
+      tags: ['automations'], summary: 'Журнал запусков автоматизаций реестра (и общих прогонов)', params: IdParams, querystring: PageQuery,
+      response: { 200: z.object({ items: z.array(Run), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
+    },
+  }, async (request) => svc.listRuns(db, request.params.id, request.query));
+
+  app.post('/registers/:id/automation-runs/clear', {
+    preHandler: manage,
+    schema: {
+      tags: ['automations'], summary: 'Очистить журнал запусков: старше N дней или весь (null)', params: IdParams,
+      body: z.object({ olderThanDays: z.number().int().min(1).max(3650).nullable() }),
+      response: { 200: z.object({ deleted: z.number().int() }), ...errors },
+    },
+  }, async (request) => svc.clearRuns(db, actorOf(request), request.params.id, request.body.olderThanDays));
+
+  app.get('/registers/:id/unlinked-tasks', {
+    preHandler: view,
+    schema: {
+      tags: ['automations'], summary: 'Задачи автоматизаций без привязки к правилу (правило — по событию)', params: IdParams,
+      response: {
+        200: z.object({
+          total: z.number().int(),
+          byRule: z.array(z.object({ automationId: z.string(), when: z.string(), then: z.string(), deleted: z.boolean(), count: z.number().int() })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => svc.unlinkedTasksPreview(db, request.params.id));
+
+  app.post('/registers/:id/unlinked-tasks/link', {
+    preHandler: manage,
+    schema: {
+      tags: ['automations'], summary: 'Привязать задачи без привязки к правилам (после предпросмотра)', params: IdParams,
+      body: z.object({ expected: z.object({ total: z.number().int() }) }),
+      response: { 200: z.object({ linked: z.number().int() }), ...errors },
+    },
+  }, async (request) => svc.linkUnlinkedTasks(db, actorOf(request), request.params.id, request.body.expected));
 
   app.post('/registers/:id/automations/run', {
     preHandler: manage,
@@ -164,7 +246,7 @@ export const automationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
       tags: ['automations'], summary: 'Проверить правила реестра сейчас (без ожидания часового прогона)', params: IdParams,
       response: { 200: z.object({ ran: z.boolean(), today: z.string(), rules: z.number().int(), checked: z.number().int(), created: z.number().int(), tasksCreated: z.number().int(), tasksCommented: z.number().int() }), ...errors },
     },
-  }, async (request) => svc.runAutomations(db, { registerId: request.params.id }));
+  }, async (request) => svc.runAutomations(db, { registerId: request.params.id, trigger: 'manual', actorId: request.user?.id ?? null }));
 
   app.get('/registers/:id/automation-events', {
     preHandler: view,

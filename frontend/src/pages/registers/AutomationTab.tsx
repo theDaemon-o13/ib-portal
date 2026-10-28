@@ -3,9 +3,12 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { registersApi, type AutomationRule, type RegisterDetail, type RuleAction, type RuleCondition } from '../../api/registers';
 import { settingsApi } from '../../api/settings';
+import { useMe } from '../../auth/useMe';
+import { formatDateTime } from '../settings/logic';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
 import { EVENT_TYPE_NAMES, formatDate, isBasisRule, isScoreRule } from './logic';
+import { RuleTasksDialog } from './RuleTasksDialog';
 
 type CondKind = RuleCondition['kind'];
 type Recipient = Extract<RuleAction, { eventType: 'remind' | 'notify' | 'escalate' }>['recipients'][number];
@@ -224,13 +227,13 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   );
 }
 
-function RuleRow({ reg, rule, canManage }: { reg: RegisterDetail; rule: AutomationRule; canManage: boolean }) {
+function RuleRow({ reg, rule, canManage, canDeleteTasks }: { reg: RegisterDetail; rule: AutomationRule; canManage: boolean; canDeleteTasks: boolean }) {
   const invalidate = [rkeys.rules(reg.id)];
   const toggle = useAction(() => registersApi.updateRule(rule.id, { version: rule.version, enabled: !rule.enabled }), {
     invalidate, success: (r) => (r.enabled ? 'Правило включено' : 'Правило выключено'),
   });
-  const archive = useAction(() => registersApi.archiveRule(rule.id, rule.version), { invalidate, success: () => 'Правило в архиве: события сохранены' });
-  const remove = useAction(() => registersApi.deleteRule(rule.id, rule.version), { invalidate, success: () => 'Правило удалено' });
+  // В архив и удаление — через окно «Задачи, созданные им (N): оставить / в архив / удалить».
+  const [dialog, setDialog] = useState<'archive' | 'delete' | null>(null);
   return (
     <tr className={rule.enabled ? undefined : 'archived'}>
       <td><b>Когда</b> {rule.when}{rule.systemKey && <> <span className="chip" title="Правило процедуры (п. 7.4): только включается и выключается">Системное</span></>}</td>
@@ -249,14 +252,95 @@ function RuleRow({ reg, rule, canManage }: { reg: RegisterDetail; rule: Automati
             </label>
             {!rule.systemKey && (
               <>
-                <button className="btn ghost sm" type="button" disabled={archive.isPending} onClick={() => archive.mutate(undefined)}>В архив</button>
-                <button className="btn ghost sm danger-t" type="button" disabled={remove.isPending} onClick={() => remove.mutate(undefined)}>Удалить</button>
+                <button className="btn ghost sm" type="button" onClick={() => setDialog('archive')}>В архив</button>
+                <button className="btn ghost sm danger-t" type="button" onClick={() => setDialog('delete')}>Удалить</button>
               </>
             )}
           </div>
         )}
+        {dialog && <RuleTasksDialog registerId={reg.id} rule={rule} mode={dialog} canDeleteTasks={canDeleteTasks} onClose={() => setDialog(null)} />}
       </td>
     </tr>
+  );
+}
+
+const TRIGGER_NAMES: Record<string, string> = { schedule: 'по расписанию', manual: '«Проверить сейчас»', import: 'после импорта' };
+
+/** Журнал запусков (релиз 1.1.0): когда, кто, что проверено и создано; очистка — по праву настройки реестров. */
+function RunLog({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
+  const runs = useInfiniteQuery({
+    queryKey: [...rkeys.events(reg.id), 'runs'],
+    queryFn: ({ pageParam }) => registersApi.runs(reg.id, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+  const [older, setOlder] = useState('30');
+  const [confirming, setConfirming] = useState(false);
+  const clear = useAction(() => registersApi.clearRuns(reg.id, older === 'all' ? null : Number(older)), {
+    invalidate: [rkeys.events(reg.id)], success: (r) => `Журнал запусков очищен: строк — ${r.deleted}`, onDone: () => setConfirming(false),
+  });
+  const items = runs.data?.pages.flatMap((p) => p.items) ?? [];
+  const total = runs.data?.pages[0]?.total ?? 0;
+  return (
+    <details className="grid-gap run-log">
+      <summary className="eyebrow">Журнал запусков · {total}</summary>
+      {canManage && (
+        <div className="row">
+          <select className="inp sm-inp" value={older} onChange={(e) => { setOlder(e.target.value); setConfirming(false); }} aria-label="Что очистить">
+            <option value="30">старше 30 дней</option>
+            <option value="90">старше 90 дней</option>
+            <option value="180">старше 180 дней</option>
+            <option value="all">весь журнал</option>
+          </select>
+          {confirming ? (
+            <>
+              <span className="hint">Удалить строки журнала {older === 'all' ? 'полностью' : `старше ${older} дн.`}? События и задачи не затрагиваются.</span>
+              <button className="btn sm danger" type="button" disabled={clear.isPending} onClick={() => clear.mutate(undefined)}>Очистить</button>
+              <button className="btn ghost sm" type="button" onClick={() => setConfirming(false)}>Отмена</button>
+            </>
+          ) : (
+            <button className="btn sm" type="button" disabled={total === 0} onClick={() => setConfirming(true)}>Очистить…</button>
+          )}
+        </div>
+      )}
+      <div className="tbl-wrap">
+        <table className="cat-tbl events-tbl">
+          <thead><tr><th>Начат</th><th>Запуск</th><th>Правил</th><th>Записей</th><th>Событий</th><th>Задач</th><th>Итог</th></tr></thead>
+          <tbody>
+            {runs.isSuccess && items.length === 0 && <tr><td colSpan={7} className="hint">Запусков нет</td></tr>}
+            {items.map((r) => (
+              <tr key={r.id}>
+                <td className="mono">{formatDateTime(r.startedAt)}</td>
+                <td>{TRIGGER_NAMES[r.trigger] ?? r.trigger}{r.actor ? ` · ${r.actor}` : ''}{r.registerId ? '' : ' · все реестры'}</td>
+                <td className="mono">{r.rules}</td>
+                <td className="mono">{r.checked}</td>
+                <td className="mono">{r.eventsCreated}</td>
+                <td className="mono">{r.tasksCreated}{r.tasksCommented ? ` + ${r.tasksCommented} комм.` : ''}</td>
+                <td>{r.error ? <span className="chip crit" title={r.error}>ошибка</span> : r.finishedAt ? <span className="chip">готово</span> : <span className="chip acc">идёт</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {runs.hasNextPage && <button className="btn sm" type="button" onClick={() => void runs.fetchNextPage()} disabled={runs.isFetchingNextPage}>Показать ещё</button>}
+    </details>
+  );
+}
+
+/** «Задачи без привязки (N)»: задачи автоматизаций, правило которых известно только по событию. 0 — блока нет. */
+function UnlinkedTasks({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
+  const q = useQuery({ queryKey: [...rkeys.rules(reg.id), 'unlinked'], queryFn: () => registersApi.unlinkedTasks(reg.id) });
+  const link = useAction(() => registersApi.linkUnlinkedTasks(reg.id, q.data?.total ?? 0), {
+    invalidate: [rkeys.rules(reg.id), ['tasks']], success: (r) => `Привязано задач: ${r.linked}`,
+  });
+  if (!q.data?.total) return null;
+  return (
+    <div className="note grid-gap" data-testid="unlinked-tasks">
+      <b>Задачи без привязки ({q.data.total})</b>
+      <div className="hint">Задачи автоматизаций без ссылки на правило; правило найдено по событию. После привязки их можно убрать вместе с правилом.</div>
+      <ul className="bulk-lines">{q.data.byRule.map((r) => <li key={r.automationId}>{r.when} → {r.then}{r.deleted ? ' (правило удалено)' : ''} — {r.count}</li>)}</ul>
+      {canManage && <div className="row"><button className="btn sm" type="button" disabled={link.isPending} onClick={() => link.mutate(undefined)}>Привязать {q.data.total}</button></div>}
+    </div>
   );
 }
 
@@ -319,9 +403,11 @@ export function EventTasks({ e }: { e: { status: string; tasks: { id: string; nu
 }
 
 export function AutomationTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
+  const { data: me } = useMe();
+  const canDeleteTasks = !!me?.permissions.includes('tasks.delete');
   const rules = useQuery({ queryKey: rkeys.rules(reg.id), queryFn: () => registersApi.rules(reg.id) });
   const run = useAction(() => registersApi.runRules(reg.id), {
-    invalidate: [rkeys.events(reg.id), rkeys.records(reg.id), ['tasks']],
+    invalidate: [rkeys.events(reg.id), rkeys.records(reg.id), rkeys.rules(reg.id), ['tasks']],
     success: (r) => (r.ran
       ? (r.created || r.tasksCreated || r.tasksCommented
         ? `Событий: ${r.created}, задач создано: ${r.tasksCreated}, дополнено комментарием: ${r.tasksCommented}`
@@ -340,7 +426,7 @@ export function AutomationTab({ reg, canManage }: { reg: RegisterDetail; canMana
           <tbody>
             {rules.isPending && <tr><td className="hint">Загрузка…</td></tr>}
             {rules.isSuccess && items.length === 0 && <tr><td className="hint">Правил пока нет</td></tr>}
-            {items.map((r) => <RuleRow key={r.id} reg={reg} rule={r} canManage={canManage} />)}
+            {items.map((r) => <RuleRow key={r.id} reg={reg} rule={r} canManage={canManage} canDeleteTasks={canDeleteTasks} />)}
           </tbody>
         </table>
       </div>
@@ -350,7 +436,9 @@ export function AutomationTab({ reg, canManage }: { reg: RegisterDetail; canMana
           <RuleForm reg={reg} />
         </details>
       )}
+      <UnlinkedTasks reg={reg} canManage={canManage} />
       <EventLog reg={reg} />
+      <RunLog reg={reg} canManage={canManage} />
     </div>
   );
 }

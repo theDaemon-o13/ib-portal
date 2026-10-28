@@ -4,6 +4,8 @@ import type { Db } from '../../lib/db.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
+import { describeRules } from '../automations/service.js';
+import * as bulk from './bulk.js';
 import * as svc from './service.js';
 
 const tags = ['tasks'];
@@ -67,6 +69,8 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       querystring: z.object({
         archived: z.enum(['true', 'false']).optional(),
         categoryId: z.string().uuid().optional(),
+        /** Создано правилом автоматизации (релиз 1.1.0). */
+        automationId: z.string().uuid().optional(),
         overdue: z.enum(['true', 'false']).optional(),
         limit: z.coerce.number().int().min(1).max(svc.BOARD_LIMIT).default(svc.BOARD_LIMIT),
         cursor: z.string().max(20).optional(),
@@ -75,14 +79,19 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         200: z.object({
           items: z.array(Task), nextCursor: z.string().nullable(), total: z.number().int(),
           categories: z.array(z.object({ categoryId: z.string(), count: z.number().int() })), archivedTotal: z.number().int(),
+          automations: z.array(z.object({ automationId: z.string(), label: z.string(), count: z.number().int() })),
         }),
         ...errors,
       },
     },
   }, async (request) => {
     const q = request.query;
-    const page = await svc.listTasks(db, { archived: q.archived === 'true', categoryId: q.categoryId, overdue: q.overdue === 'true', limit: q.limit, cursor: q.cursor });
-    return { ...page, items: page.items.map(asTask) };
+    const page = await svc.listTasks(db, {
+      archived: q.archived === 'true', categoryId: q.categoryId, automationId: q.automationId, overdue: q.overdue === 'true', limit: q.limit, cursor: q.cursor,
+    });
+    const names = await describeRules(db, page.automations.map((a) => a.automationId));
+    const automations = page.automations.map((a) => ({ ...a, label: names.get(a.automationId) ?? 'Правило' })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+    return { ...page, items: page.items.map(asTask), automations };
   });
 
   app.get('/tasks/summary', {
@@ -161,6 +170,26 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     await svc.deleteTask(db, actorOf(request), request.params.id, request.body.version);
     return reply.status(204).send(null);
   });
+
+  // Массовые действия на доске (релиз 1.1.0, ADR-0016): архив — ib.work, удаление — tasks.delete.
+  const Ids = z.array(z.string().uuid()).min(1).max(bulk.TASK_BULK_MAX_IDS);
+  const Expected = z.object({ total: z.number().int(), affected: z.number().int() });
+  const BulkPreview = z.object({
+    total: z.number().int(), affected: z.number().int(), alreadyInState: z.number().int(), untouched: z.number().int(),
+    byStatus: z.array(z.object({ statusId: z.string(), label: z.string(), count: z.number().int() })),
+  });
+  const BulkResult = z.object({ archived: z.number().int(), deleted: z.number().int(), skipped: z.number().int() });
+  for (const [action, perm, what] of [['archive', view, 'В архив'], ['delete', requirePerm('tasks.delete'), 'Удалить (мягко)']] as const) {
+    app.post(`/tasks/bulk-${action}/preview`, {
+      preHandler: perm,
+      schema: { tags, summary: `${what} выбранные задачи: предпросмотр`, body: z.object({ ids: Ids }), response: { 200: BulkPreview, ...errors } },
+    }, async (request) => bulk.previewTaskBulk(db, action, { ids: request.body.ids }));
+    app.post(`/tasks/bulk-${action}/apply`, {
+      preHandler: perm,
+      schema: { tags, summary: `${what} выбранные задачи: применить`, body: z.object({ ids: Ids, expected: Expected }), response: { 200: BulkResult, ...errors } },
+    }, async (request) => bulk.applyTaskBulk(db, actorOf(request), action, { ids: request.body.ids }, request.body.expected,
+      { label: action === 'archive' ? 'массовая отправка в архив на доске' : 'массовое удаление на доске', entity: 'task', entityId: 'board' }));
+  }
 
   app.get('/tasks/:id/comments', {
     preHandler: view,

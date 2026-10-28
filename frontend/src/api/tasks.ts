@@ -16,10 +16,16 @@ export type MailDraft = Res<'/api/v1/tasks/mail-draft', 'post'>;
 export type NewTask = Body<'/api/v1/tasks', 'post'>;
 export type TaskPatch = Body<'/api/v1/tasks/{id}', 'patch'>;
 export type TaskSummary = Res<'/api/v1/tasks/summary', 'get'>;
+export type TaskBulkPreview = Res<'/api/v1/tasks/bulk-delete/preview', 'post'>;
+export type TaskBulkResult = Res<'/api/v1/tasks/bulk-delete/apply', 'post'>;
 
 export const tasksApi = {
-  list: (q: { archived: boolean; categoryId?: string; overdue?: boolean }) =>
-    request<TaskPage>('GET', `/api/v1/tasks?archived=${q.archived}${q.categoryId ? `&categoryId=${q.categoryId}` : ''}${q.overdue ? '&overdue=true' : ''}`),
+  list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean }) =>
+    request<TaskPage>('GET', `/api/v1/tasks?archived=${q.archived}${q.categoryId ? `&categoryId=${q.categoryId}` : ''}${q.automationId ? `&automationId=${q.automationId}` : ''}${q.overdue ? '&overdue=true' : ''}`),
+  // Выбранные на доске (релиз 1.1.0): архив — ib.work, удаление — tasks.delete.
+  bulkPreview: (action: 'archive' | 'delete', ids: string[]) => request<TaskBulkPreview>('POST', `/api/v1/tasks/bulk-${action}/preview`, { ids }),
+  bulkApply: (action: 'archive' | 'delete', ids: string[], expected: { total: number; affected: number }) =>
+    request<TaskBulkResult>('POST', `/api/v1/tasks/bulk-${action}/apply`, { ids, expected }),
   summary: () => request<TaskSummary>('GET', '/api/v1/tasks/summary'),
   get: (id: string) => request<TaskDetail>('GET', `/api/v1/tasks/${id}`),
   create: (body: NewTask) => request<Task>('POST', '/api/v1/tasks', body),
@@ -35,7 +41,7 @@ export const tasksApi = {
 
 export const tkeys = {
   all: ['tasks'] as const,
-  list: (archived: boolean, categoryId: string, overdue = false) => ['tasks', 'list', archived, categoryId, overdue] as const,
+  list: (archived: boolean, categoryId: string, overdue = false, automationId = '') => ['tasks', 'list', archived, categoryId, overdue, automationId] as const,
   detail: (id: string) => ['tasks', 'detail', id] as const,
   comments: (id: string) => ['tasks', 'comments', id] as const,
   history: (id: string) => ['tasks', 'history', id] as const,

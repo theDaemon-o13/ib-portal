@@ -59,6 +59,7 @@ model User {
   recordFilesAdded     RegisterRecordFile[] @relation("RecordFileAdder")
   recordFilesRemoved   RegisterRecordFile[] @relation("RecordFileRemover")
   dashboardTiles       DashboardTile[]
+  automationRuns       AutomationRun[]
   roles                UserRole[]           @relation("UserRoles")
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
   sessions             Session[]
@@ -323,6 +324,7 @@ model Register {
   automations RegisterAutomation[]
   events      AutomationEvent[]
   tiles       DashboardTile[]
+  automationRuns AutomationRun[]
 
   @@map("registers")
 }
@@ -674,6 +676,8 @@ model Task {
   @@index([recordId])
   @@index([documentId])
   @@index([evidenceId])
+  /// Задачи автоматизации: удаление и архив правила, фильтр «создано автоматизацией» (релиз 1.1.0).
+  @@index([automationId])
   @@map("tasks")
 }
 
@@ -717,6 +721,31 @@ model TaskComment {
 }
 
 /// Что событие автоматизации сделало с задачей: создало или прокомментировало.
+/// Журнал запусков автоматизаций (релиз 1.1.0, задача 2). Технический: строки удаляет «Очистить»
+/// по праву registers.manage, с записью в журнале аудита. register_id NULL — общий прогон по всем реестрам.
+model AutomationRun {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  registerId     String?   @map("register_id") @db.Uuid
+  /// schedule | manual | import
+  trigger        String
+  /// Кто запустил («Проверить сейчас», импорт); NULL — по расписанию.
+  actorId        String?   @map("actor_id") @db.Uuid
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime? @map("finished_at") @db.Timestamptz(3)
+  rules          Int       @default(0)
+  checked        Int       @default(0)
+  eventsCreated  Int       @default(0) @map("events_created")
+  tasksCreated   Int       @default(0) @map("tasks_created")
+  tasksCommented Int       @default(0) @map("tasks_commented")
+  error          String?
+
+  register Register? @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  actor    User?     @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([registerId, startedAt(sort: Desc)])
+  @@map("automation_runs")
+}
+
 model AutomationEventTask {
   eventId String @map("event_id") @db.Uuid
   taskId  String @map("task_id") @db.Uuid

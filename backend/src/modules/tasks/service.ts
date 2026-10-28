@@ -122,6 +122,8 @@ export async function getTaskRow(db: Db, id: string) {
 export interface TaskListQuery {
   archived: boolean;
   categoryId?: string;
+  /** Только задачи, созданные правилом автоматизации (релиз 1.1.0). */
+  automationId?: string;
   /** Только открытые просроченные (ссылка с дашборда и мониторинга). */
   overdue?: boolean;
   limit: number;
@@ -133,9 +135,10 @@ export async function listTasks(db: Db, q: TaskListQuery) {
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
   const scope: Prisma.TaskWhereInput = { deletedAt: null, archivedAt: q.archived ? { not: null } : null };
   const where: Prisma.TaskWhereInput = {
-    ...scope, ...(q.categoryId ? { categoryId: q.categoryId } : {}), ...(q.overdue && !q.archived ? overdueTaskWhere(today) : {}),
+    ...scope, ...(q.categoryId ? { categoryId: q.categoryId } : {}), ...(q.automationId ? { automationId: q.automationId } : {}),
+    ...(q.overdue && !q.archived ? overdueTaskWhere(today) : {}),
   };
-  const [rows, total, byCategory, archivedTotal] = await Promise.all([
+  const [rows, total, byCategory, archivedTotal, byAutomation] = await Promise.all([
     db.task.findMany({
       where,
       include: taskInclude,
@@ -146,6 +149,7 @@ export async function listTasks(db: Db, q: TaskListQuery) {
     db.task.count({ where }),
     db.task.groupBy({ by: ['categoryId'], where: scope, _count: { _all: true } }),
     db.task.count({ where: { deletedAt: null, archivedAt: { not: null } } }),
+    db.task.groupBy({ by: ['automationId'], where: { ...scope, automationId: { not: null } }, _count: { _all: true } }),
   ]);
   return {
     items: rows.slice(0, q.limit).map((t) => toTaskDto(t, today)),
@@ -153,6 +157,8 @@ export async function listTasks(db: Db, q: TaskListQuery) {
     total,
     /** Для фильтров: сколько задач в каждой категории (в архиве или на доске). */
     categories: byCategory.map((c) => ({ categoryId: c.categoryId, count: c._count._all })),
+    /** Для фильтра «Создано автоматизацией»: сколько задач у каждого правила (названия — в маршруте). */
+    automations: byAutomation.flatMap((a) => (a.automationId ? [{ automationId: a.automationId, count: a._count._all }] : [])),
     archivedTotal,
   };
 }

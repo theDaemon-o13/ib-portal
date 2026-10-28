@@ -355,6 +355,12 @@ table.recs .pick-col input{accent-color:var(--accent);width:15px;height:15px;ver
 .bulk-lines{margin:0;padding-left:18px;display:grid;gap:4px}
 .bulk-result{font-size:17px;font-weight:600}
 .bulk-dialog label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+.bulk-dialog label.check{display:flex;font-size:13px;color:var(--fg);font-weight:400}
+.run-log summary{cursor:pointer}
+.tasks-bulk{border-radius:var(--r-md);margin-bottom:12px;border-top:0}
+.card.picked{box-shadow:0 0 0 2px var(--accent)}
+.card-pick{accent-color:var(--accent);margin:0 6px 0 0;vertical-align:-2px;pointer-events:none}
+.auto-filter{max-width:320px}
 table.recs tr.rec-row{cursor:pointer}
 table.recs tr.rec-row:hover td,table.recs tr.rec-row:focus td{background:var(--solid-hover)}
 table.recs tr.rec-row:focus{outline:none}

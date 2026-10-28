@@ -133,7 +133,7 @@ describe('правила п. 7.4 по расписанию', () => {
 });
 
 describe('правила любого реестра', () => {
-  it('«поле = значение»; проверка правила; системные правила только выключаются; правило с событиями — только в архив', () =>
+  it('«поле = значение»; проверка правила; системные правила только выключаются; правило с событиями удаляется мягко', () =>
     inTx(async (tx) => {
       const x = await makeRegister(tx);
       const owner = await makeUser(tx, ['ib_staff'], { fullName: 'Нигина Получатель' });
@@ -162,11 +162,16 @@ describe('правила любого реестра', () => {
       expect(ok.when).toBe('«Срок устранения» просрочен на 10 раб. дн. и пусто «Баллы»');
       await svc.deleteRule(tx, x.actor, ok.id, ok.version);
 
-      // С событиями правило не удаляется — только архив.
-      await expectCode(svc.deleteRule(tx, x.actor, rule.id, rule.version), 'HAS_EVENTS');
+      // Правило в архив, затем удаление: с событиями — мягко (релиз 1.1.0), события сохраняют ссылку.
       const archived = await svc.setRuleArchived(tx, x.actor, rule.id, rule.version, true);
       expect(archived.archived).toBe(true);
       expect(await svc.listRules(tx, x.reg.id, { includeArchived: false })).toHaveLength(0);
+      const events = await tx.automationEvent.count({ where: { automationId: rule.id } });
+      expect(events).toBeGreaterThan(0);
+      await svc.deleteRule(tx, x.actor, rule.id, archived.version);
+      expect(await tx.registerAutomation.findUnique({ where: { id: rule.id } })).toMatchObject({ deletedAt: expect.any(Date) });
+      expect(await tx.automationEvent.count({ where: { automationId: rule.id } })).toBe(events);
+      expect(await svc.listRules(tx, x.reg.id, { includeArchived: true })).toHaveLength(0);
 
       // Системные правила реестра уязвимостей.
       const v = await vulnRegister(tx);

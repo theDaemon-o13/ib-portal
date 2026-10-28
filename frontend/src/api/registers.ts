@@ -48,6 +48,12 @@ export type RulePatch = Body<'/api/v1/register-automations/{id}', 'patch'>;
 export type EventPage = Res<'/api/v1/registers/{id}/automation-events', 'get'>;
 export type AutomationEvent = EventPage['items'][number];
 export type RunResult = Res<'/api/v1/registers/{id}/automations/run', 'post'>;
+/** Задачи правила при его архиве или удалении (релиз 1.1.0). */
+export type RuleTasksChoice = NonNullable<Body<'/api/v1/register-automations/{id}/delete', 'post'>['tasks']>;
+export type RuleTasksPreview = Res<'/api/v1/register-automations/{id}/tasks/preview', 'post'>;
+export type RuleTasksResult = Res<'/api/v1/register-automations/{id}/delete', 'post'>['tasks'];
+export type RunPage = Res<'/api/v1/registers/{id}/automation-runs', 'get'>;
+export type UnlinkedTasks = Res<'/api/v1/registers/{id}/unlinked-tasks', 'get'>;
 export type NewDecision = Body<'/api/v1/register-records/{id}/decisions', 'post'>;
 export type DecisionEntry = Res<'/api/v1/register-records/{id}/decisions', 'get'>['items'][number];
 /** Системный «Реестр рисков ИБ»: решение ОУР заполняет «№ в реестре ОУР» и «Пересмотр до». */
@@ -205,8 +211,18 @@ export const registersApi = {
   rules: (registerId: string) => request<Res<'/api/v1/registers/{id}/automations', 'get'>>('GET', `/api/v1/registers/${registerId}/automations`),
   createRule: (registerId: string, body: NewRule) => request<AutomationRule>('POST', `/api/v1/registers/${registerId}/automations`, body),
   updateRule: (id: string, body: RulePatch) => request<AutomationRule>('PATCH', `/api/v1/register-automations/${id}`, body),
-  archiveRule: (id: string, version: number) => request<AutomationRule>('POST', `/api/v1/register-automations/${id}/archive`, { version }),
-  deleteRule: (id: string, version: number) => request<undefined>('POST', `/api/v1/register-automations/${id}/delete`, { version }),
+  archiveRule: (id: string, version: number, tasks?: RuleTasksChoice) =>
+    request<AutomationRule & { tasks: RuleTasksResult }>('POST', `/api/v1/register-automations/${id}/archive`, { version, ...(tasks ? { tasks } : {}) }),
+  deleteRule: (id: string, version: number, tasks?: RuleTasksChoice) =>
+    request<{ tasks: RuleTasksResult }>('POST', `/api/v1/register-automations/${id}/delete`, { version, ...(tasks ? { tasks } : {}) }),
+  ruleTasksPreview: (id: string, action: 'archive' | 'delete', onlyUntouched: boolean) =>
+    request<RuleTasksPreview>('POST', `/api/v1/register-automations/${id}/tasks/preview`, { action, onlyUntouched }),
+  runs: (registerId: string, cursor?: string) => request<RunPage>('GET', `/api/v1/registers/${registerId}/automation-runs${qs({ cursor, limit: '20' })}`),
+  clearRuns: (registerId: string, olderThanDays: number | null) =>
+    request<{ deleted: number }>('POST', `/api/v1/registers/${registerId}/automation-runs/clear`, { olderThanDays }),
+  unlinkedTasks: (registerId: string) => request<UnlinkedTasks>('GET', `/api/v1/registers/${registerId}/unlinked-tasks`),
+  linkUnlinkedTasks: (registerId: string, total: number) =>
+    request<{ linked: number }>('POST', `/api/v1/registers/${registerId}/unlinked-tasks/link`, { expected: { total } }),
   runRules: (registerId: string) => request<RunResult>('POST', `/api/v1/registers/${registerId}/automations/run`),
   events: (registerId: string, q: { status?: 'new' | 'processed'; recordId?: string; cursor?: string }) =>
     request<EventPage>('GET', `/api/v1/registers/${registerId}/automation-events${qs({ status: q.status, recordId: q.recordId, cursor: q.cursor, limit: '50' })}`),

@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast';
 import { categoryTone, dueLabel, initials, sortColumn, todayLocal, workload } from './logic';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
+import { TaskBulkDialog } from './TaskBulkDialog';
 
 /** Сдвиг указателя, после которого нажатие на карточку — перетаскивание, а не щелчок. */
 const DRAG_PX = 5;
@@ -28,20 +29,25 @@ function plusDays(n: number): string {
   return todayLocal(d);
 }
 
-function Card({ t, today, archived, drag, onPointerDown, onOpen }: {
+function Card({ t, today, archived, drag, onPointerDown, onOpen, picking, picked, onPick }: {
   t: Task; today: string; archived: boolean; drag: Drag | null;
   onPointerDown: (e: ReactPointerEvent<HTMLElement>, t: Task) => void; onOpen: (id: string) => void;
+  /** Режим «Выбрать»: щелчок отмечает карточку, не открывает и не перетаскивает. */
+  picking: boolean; picked: boolean; onPick: (id: string) => void;
 }) {
   const due = dueLabel(t, today);
   const dragging = drag?.moving && drag.task.id === t.id;
   return (
-    <article className={`card${archived ? ' arch' : ''}${dragging ? ' dragging' : ''}${t.overdue ? ' late' : ''}`} tabIndex={0}
-      aria-label={`Открыть задачу ${t.title}`} data-task={t.id}
+    <article className={`card${archived ? ' arch' : ''}${dragging ? ' dragging' : ''}${t.overdue ? ' late' : ''}${picked ? ' picked' : ''}`} tabIndex={0}
+      aria-label={picking ? `Выбрать задачу ${t.title}` : `Открыть задачу ${t.title}`} aria-pressed={picking ? picked : undefined} data-task={t.id}
       style={dragging ? { transform: `translate(${drag.dx}px, ${drag.dy}px)` } : undefined}
-      onPointerDown={archived ? undefined : (e) => onPointerDown(e, t)}
-      onClick={archived ? () => onOpen(t.id) : undefined}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(t.id); }}>
-      <div className="card-t">{t.urgent && <span className="chip crit">срочно</span>}{t.title}</div>
+      onPointerDown={archived || picking ? undefined : (e) => onPointerDown(e, t)}
+      onClick={picking ? () => onPick(t.id) : archived ? () => onOpen(t.id) : undefined}
+      onKeyDown={(e) => { if (e.key === 'Enter') (picking ? onPick : onOpen)(t.id); }}>
+      <div className="card-t">
+        {picking && <input type="checkbox" className="card-pick" checked={picked} readOnly tabIndex={-1} aria-hidden="true" />}
+        {t.urgent && <span className="chip crit">срочно</span>}{t.title}
+      </div>
       <div className="meta">
         <span className={categoryTone(t.category)}>● {t.category.value}</span>
         <span className={`mono${due.late ? ' late-t' : ''}`}>{due.text}</span>
@@ -74,6 +80,19 @@ export function TasksPage() {
   const openId = params.get('task');
   const archived = params.get('archive') === '1';
   const categoryId = params.get('category') ?? '';
+  // ?automation=<id> — задачи, созданные правилом автоматизации (релиз 1.1.0).
+  const automationId = params.get('automation') ?? '';
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [bulk, setBulk] = useState<{ action: 'archive' | 'delete'; ids: string[] } | null>(null);
+  // Сменился фильтр — выбор сбрасывается: действие не должно задеть невидимые задачи.
+  useEffect(() => setPicked(new Set()), [archived, categoryId, automationId]);
+  const togglePick = useCallback((id: string) => setPicked((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  }), []);
   // ?overdue=1 — ссылка с дашборда «Просроченные задачи».
   const overdue = params.get('overdue') === '1' && !archived;
   const [mailOpen, setMailOpen] = useState(false);
@@ -84,8 +103,11 @@ export function TasksPage() {
   const statuses = useQuery({ queryKey: tkeys.statuses, queryFn: () => settingsApi.items('task_statuses', false) });
   const categories = useQuery({ queryKey: tkeys.categories, queryFn: () => settingsApi.items('task_categories', false) });
   const people = useQuery({ queryKey: ['settings', 'userOptions'], queryFn: settingsApi.userOptions });
-  const tasks = useQuery({ queryKey: tkeys.list(archived, categoryId, overdue), queryFn: () => tasksApi.list({ archived, categoryId: categoryId || undefined, overdue }) });
-  const all = useQuery({ queryKey: tkeys.list(archived, ''), queryFn: () => tasksApi.list({ archived }), enabled: !!categoryId });
+  const tasks = useQuery({
+    queryKey: tkeys.list(archived, categoryId, overdue, automationId),
+    queryFn: () => tasksApi.list({ archived, categoryId: categoryId || undefined, automationId: automationId || undefined, overdue }),
+  });
+  const all = useQuery({ queryKey: tkeys.list(archived, ''), queryFn: () => tasksApi.list({ archived }), enabled: !!categoryId || !!automationId });
 
   const setParam = useCallback((patch: Record<string, string | null>) => {
     setParams((p) => {
@@ -168,6 +190,10 @@ export function TasksPage() {
   const cols = statuses.data?.items ?? [];
   const submitQuick = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
   const filterCats = (categories.data?.items ?? []).filter((c) => counts.some((x) => x.categoryId === c.id) || c.id === categoryId || !c.archived);
+  const automations = (automationId ? all.data ?? tasks.data : tasks.data)?.automations ?? [];
+  const visibleIds = list.map((t) => t.id);
+  const stopPicking = () => { setPicking(false); setPicked(new Set()); };
+  const canDelete = me.permissions.includes('tasks.delete');
 
   return (
     <>
@@ -189,8 +215,24 @@ export function TasksPage() {
               Архив <span className="mono">{tasks.data?.archivedTotal ?? 0}</span>
             </button>
           </div>
+          {(automations.length > 0 || automationId) && (
+            <select className="inp auto-filter" value={automationId} aria-label="Создано автоматизацией" onChange={(e) => setParam({ automation: e.target.value || null })}>
+              <option value="">Все источники</option>
+              {automations.map((a) => <option key={a.automationId} value={a.automationId}>Автоматизация: {a.label} · {a.count}</option>)}
+            </select>
+          )}
+          <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
         </div>
       </div>
+      {picking && (
+        <div className="bulk-bar tasks-bulk" role="toolbar" aria-label="Действия с выбранными задачами">
+          <b>Выбрано: {picked.size}</b>
+          <button className="btn ghost sm" type="button" onClick={() => setPicked(new Set(visibleIds))} disabled={!visibleIds.length}>Выбрать все на доске ({visibleIds.length})</button>
+          {!archived && <button className="btn sm" type="button" disabled={!picked.size} onClick={() => setBulk({ action: 'archive', ids: [...picked] })}>Архивировать выбранные</button>}
+          {canDelete && <button className="btn sm danger-t" type="button" disabled={!picked.size} onClick={() => setBulk({ action: 'delete', ids: [...picked] })}>Удалить выбранные</button>}
+          <span className="hint">Щелчок по карточке отмечает её.</span>
+        </div>
+      )}
       {archived && (
         <div className="note arch-note">
           Показаны задачи в архиве: {tasks.data?.total ?? 0}. Откройте карточку, чтобы вернуть задачу на доску. Чтобы выйти из архива, нажмите «Архив» ещё раз.
@@ -225,7 +267,10 @@ export function TasksPage() {
             return (
               <div key={c.id} className={`col${drag?.moving && drag.over === c.id && drag.task.status.id !== c.id ? ' over' : ''}`} data-status={c.id} aria-label={`Колонка «${c.value}»`}>
                 <div className="col-h"><span>{c.value}</span><span className="mono">{items.length}</span></div>
-                {items.map((t) => <Card key={t.id} t={t} today={today} archived={archived} drag={drag} onPointerDown={onPointerDown} onOpen={openTask} />)}
+                {items.map((t) => (
+                  <Card key={t.id} t={t} today={today} archived={archived} drag={drag} onPointerDown={onPointerDown} onOpen={openTask}
+                    picking={picking} picked={picked.has(t.id)} onPick={togglePick} />
+                ))}
                 {tasks.isSuccess && items.length === 0 && <div className="hint col-empty">{archived ? 'Пусто' : 'Перетащите сюда карточку'}</div>}
               </div>
             );
@@ -253,6 +298,7 @@ export function TasksPage() {
         </div>
       </div>
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
+      {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}
       {mailOpen && <MailDrawer meId={me.id} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}
     </>
   );

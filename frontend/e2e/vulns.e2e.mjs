@@ -284,9 +284,15 @@ describe('Реестр уязвимостей', () => {
 
     // Тестовое правило — в архив тем же путём, что у пользователя.
     const row = `[...document.querySelectorAll('.rules-tbl tbody tr')].find((tr) => tr.textContent.includes('«Статус» = «В работе»'))`;
-    m = ui.mark();
+    // Окно «Задачи, созданные им (N)»: по умолчанию задачи остаются.
     await ui.click($.button('В архив', row));
-    assert.equal((await ui.request(m, 'POST', `/register-automations/${ruleId}/archive`)).status, 200);
+    const dlg = `document.querySelector('.bulk-dialog')`;
+    await ui.waitFor(`!!${dlg}?.querySelector('[data-testid=rule-tasks]')`, 'окно задач правила');
+    m = ui.mark();
+    await ui.click($.button('В архив', dlg), '«В архив» в окне');
+    const archived = await ui.request(m, 'POST', `/register-automations/${ruleId}/archive`);
+    assert.equal(archived.status, 200);
+    assert.deepEqual(archived.json.tasks, { action: 'keep' });
     await ui.waitFor(`!${row}`, 'правило ушло в архив');
   });
 });

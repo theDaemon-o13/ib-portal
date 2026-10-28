@@ -1,7 +1,7 @@
 // Правила автоматизации реестров и их события (право registers.manage на правила, records.edit — отметить событие).
 import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
-import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { basisOf, isBasisRule } from '../../lib/link-basis.js';
 import { isDueRule, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
@@ -21,6 +21,7 @@ import { runDocumentReviews } from '../documents/review.js';
 import { runEvidenceExpiry } from '../evidence/expiry.js';
 import { sweepOrphanFiles } from '../files/links.js';
 import { registerEvent, tasksFromEvents } from '../tasks/from-events.js';
+import { applyTaskBulk, assertTaskBulkExpected, previewTaskBulk, type TaskBulkPreview, type TaskBulkResult } from '../tasks/bulk.js';
 import { loadBasisSources, linkIdsIn, linkLabels, loadLinkRefs } from '../registers/links.js';
 import { lockErrors } from '../registers/record-rules.js';
 import { searchTextOf, userIdsIn } from '../registers/definition.js';
@@ -323,7 +324,42 @@ export async function updateRule(
   });
 }
 
-export async function setRuleArchived(db: Db, actor: Actor, id: string, version: number, archived: boolean) {
+/**
+ * Что сделать с задачами правила при его архиве или удалении (релиз 1.1.0): по умолчанию — оставить.
+ * expected — числа предпросмотра (ruleTasksPreview): разошлись — 409, правило не меняется.
+ */
+export interface RuleTasksChoice {
+  action: 'keep' | 'archive' | 'delete';
+  onlyUntouched?: boolean;
+  expected?: { total: number; affected: number };
+}
+
+/** Задачи, созданные правилом: сколько, по статусам, сколько нетронутых и сколько затронет выбранное действие. */
+export async function ruleTasksPreview(db: Db, id: string, action: 'archive' | 'delete', onlyUntouched: boolean): Promise<TaskBulkPreview> {
+  const rule = await db.registerAutomation.findFirst({ where: { id }, select: { id: true } });
+  if (!rule) throw notFound('Правило');
+  return previewTaskBulk(db, action, { automationId: id, onlyUntouched });
+}
+
+async function ruleTasks(db: Db, actor: Actor, id: string, label: string, choice: RuleTasksChoice | undefined, check: boolean): Promise<TaskBulkResult | null> {
+  if (!choice || choice.action === 'keep') return null;
+  const sel = { automationId: id, onlyUntouched: !!choice.onlyUntouched };
+  if (!choice.expected) throw badRequest('EXPECTED_REQUIRED', 'Сначала посмотрите, сколько задач затронет действие');
+  if (check) {
+    await assertTaskBulkExpected(db, choice.action, sel, choice.expected);
+    return null;
+  }
+  return applyTaskBulk(db, actor, choice.action, sel, choice.expected, { label, entity: 'register_automation', entityId: id });
+}
+
+export async function setRuleArchived(db: Db, actor: Actor, id: string, version: number, archived: boolean, tasks?: RuleTasksChoice) {
+  if (archived) await ruleTasks(db, actor, id, '', tasks, true);
+  const dto = await setRuleArchivedOnly(db, actor, id, version, archived);
+  const result = archived ? await ruleTasks(db, actor, id, `задачи правила «${dto.when} → ${dto.then}» при его архиве`, tasks, false) : null;
+  return { ...dto, tasks: result };
+}
+
+async function setRuleArchivedOnly(db: Db, actor: Actor, id: string, version: number, archived: boolean) {
   return withTx(db, async (tx) => {
     const { rule, reg, labels } = await getRule(tx, id);
     assertNotArchived(reg);
@@ -343,23 +379,29 @@ export async function setRuleArchived(db: Db, actor: Actor, id: string, version:
   });
 }
 
-/** Удалить можно только правило без событий; с событиями — в архив (события ссылаются на правило). */
-export async function deleteRule(db: Db, actor: Actor, id: string, version: number) {
-  await withTx(db, async (tx) => {
+/**
+ * Удаление правила мягкое (deleted_at): события и задачи сохраняют ссылку на него (релиз 1.1.0 — раньше
+ * правило с событиями не удалялось). Системные правила п. 7.4 не удаляются. Задачи правила — по выбору:
+ * оставить (по умолчанию), в архив или удалить (право tasks.delete проверяет маршрут).
+ */
+export async function deleteRule(db: Db, actor: Actor, id: string, version: number, tasks?: RuleTasksChoice): Promise<TaskBulkResult | null> {
+  await ruleTasks(db, actor, id, '', tasks, true);
+  const dto = await withTx(db, async (tx) => {
     const { rule, reg, labels } = await getRule(tx, id);
     assertNotArchived(reg);
     if (rule.systemKey) throw conflict('SYSTEM_RULE', 'Системное правило не удаляется — его можно выключить');
     const events = await tx.automationEvent.count({ where: { automationId: id } });
-    if (events > 0) throw conflict('HAS_EVENTS', `По правилу есть события (${events}). Отправьте его в архив`);
     const res = await tx.registerAutomation.updateMany({ where: { id, version }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerAutomation.findFirst({ where: { id, deletedAt: null } }), 'Правило');
     const dto = toRuleDto(reg, rule, labels);
     await auditSettings(tx, actor, {
       action: 'register.automation.deleted', entity: 'register_automation', entityId: id,
-      summary: `Реестр «${reg.name}»: удалено правило «${dto.when} → ${dto.then}»`,
-      before: { condition: dto.condition, action: dto.action },
+      summary: `Реестр «${reg.name}»: удалено правило «${dto.when} → ${dto.then}»${events ? ` (событий — ${events}, они сохранены)` : ''}`,
+      before: { condition: dto.condition, action: dto.action, events },
     });
+    return dto;
   });
+  return ruleTasks(db, actor, id, `задачи удалённого правила «${dto.when} → ${dto.then}»`, tasks, false);
 }
 
 // ---------------------------------------------------------------- события
@@ -498,11 +540,181 @@ export interface RunResult {
 /** Ключ advisory-блокировки: один прогон за раз, даже если backend запущен в нескольких экземплярах. */
 const RUN_LOCK = 0x1b_a0_7e;
 
+/** Названия правил для фильтра доски задач: «Реестр: когда → что». Удалённые правила тоже (их задачи живы). */
+export async function describeRules(db: Db, ids: readonly string[]): Promise<Map<string, string>> {
+  const rules = await db.registerAutomation.findMany({ where: { id: { in: [...ids] } } });
+  const labels = await loadLabels(db);
+  const out = new Map<string, string>();
+  for (const r of rules) {
+    const reg = await loadRegister(db, r.registerId);
+    const dto = toRuleDto(reg, r, labels);
+    out.set(r.id, `${reg.name}: ${dto.when}${r.deletedAt ? ' (правило удалено)' : r.archivedAt ? ' (правило в архиве)' : ''}`);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- задачи без привязки
+
+/**
+ * Задачи автоматизаций без правила (tasks.automation_id NULL), правило которых известно по событию:
+ * automation_event_tasks → automation_events.automation_id; у задачи с несколькими событиями — по первому.
+ * В коде 1.0.x automation_id заполняется всегда, поэтому обычно их 0 — тогда блок не показывается.
+ */
+async function unlinkedRows(db: Db, registerId: string) {
+  return db.$queryRaw<{ taskId: string; number: number; automationId: string }[]>`
+    SELECT DISTINCT ON (t.id) t.id::text AS "taskId", t.number, e.automation_id::text AS "automationId"
+    FROM tasks t
+    JOIN automation_event_tasks et ON et.task_id = t.id
+    JOIN automation_events e ON e.id = et.event_id
+    WHERE t.source = 'automation' AND t.automation_id IS NULL AND t.deleted_at IS NULL
+      AND e.register_id = ${registerId}::uuid AND e.automation_id IS NOT NULL
+    ORDER BY t.id, e.created_at`;
+}
+
+export interface UnlinkedPreview {
+  total: number;
+  byRule: { automationId: string; when: string; then: string; deleted: boolean; count: number }[];
+}
+
+export async function unlinkedTasksPreview(db: Db, registerId: string): Promise<UnlinkedPreview> {
+  const reg = await loadRegister(db, registerId);
+  const rows = await unlinkedRows(db, registerId);
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.automationId, (counts.get(r.automationId) ?? 0) + 1);
+  const rules = await db.registerAutomation.findMany({ where: { id: { in: [...counts.keys()] } } });
+  const labels = await loadLabels(db);
+  return {
+    total: rows.length,
+    byRule: rules.map((r) => {
+      const dto = toRuleDto(reg, r, labels);
+      return { automationId: r.id, when: dto.when, then: dto.then, deleted: r.deletedAt !== null, count: counts.get(r.id) ?? 0 };
+    }),
+  };
+}
+
+/** Привязать задачи к правилам по событиям — только после предпросмотра (expected), с журналом по каждой задаче. */
+export async function linkUnlinkedTasks(db: Db, actor: Actor, registerId: string, expected: { total: number }): Promise<{ linked: number }> {
+  const reg = await loadRegister(db, registerId);
+  const rows = await unlinkedRows(db, registerId);
+  if (rows.length !== expected.total) {
+    throw new AppError(409, 'BULK_CHANGED', 'Задачи изменились после предпросмотра — проверьте числа и подтвердите ещё раз', { preview: await unlinkedTasksPreview(db, registerId) });
+  }
+  let linked = 0;
+  for (let i = 0; i < rows.length; i += 200) {
+    await withTx(db, async (tx) => {
+      for (const r of rows.slice(i, i + 200)) {
+        const res = await tx.task.updateMany({ where: { id: r.taskId, automationId: null, deletedAt: null }, data: { automationId: r.automationId, version: { increment: 1 } } });
+        if (!res.count) continue;
+        linked++;
+        await auditSettings(tx, actor, {
+          action: 'task.automation_linked', entity: 'task', entityId: r.taskId,
+          summary: `Задача #${r.number} привязана к правилу автоматизации реестра «${reg.name}» (по событию)`,
+          before: { automationId: null }, after: { automationId: r.automationId },
+        });
+      }
+    });
+  }
+  await auditSettings(db, actor, {
+    action: 'tasks.automation_linked', entity: 'register', entityId: registerId,
+    summary: `«${reg.name}»: задачи без привязки привязаны к правилам — ${linked}`,
+    after: { linked },
+  });
+  return { linked };
+}
+
+export const RUN_TRIGGERS = ['schedule', 'manual', 'import'] as const;
+export type RunTrigger = (typeof RUN_TRIGGERS)[number];
+
+/**
+ * Прогон с записью в журнал запусков (automation_runs, релиз 1.1.0): строка создаётся до прогона и
+ * дополняется итогом или текстом ошибки — даже если прогон откатился, в журнале видно, что он был.
+ * Пропущенный прогон (уже идёт другой) не пишется.
+ */
+export async function runAutomations(
+  db: Db, opts: { now?: Date; registerId?: string; trigger?: RunTrigger; actorId?: string | null } = {},
+): Promise<RunResult> {
+  const run = await db.automationRun.create({
+    data: { registerId: opts.registerId ?? null, trigger: opts.trigger ?? 'schedule', actorId: opts.actorId ?? null, startedAt: opts.now ?? new Date() },
+  });
+  try {
+    const r = await runAutomationsNow(db, opts);
+    if (!r.ran) {
+      await db.automationRun.delete({ where: { id: run.id } });
+      return r;
+    }
+    await db.automationRun.update({
+      where: { id: run.id },
+      data: { finishedAt: new Date(), rules: r.rules, checked: r.checked, eventsCreated: r.created, tasksCreated: r.tasksCreated, tasksCommented: r.tasksCommented },
+    });
+    return r;
+  } catch (err) {
+    await db.automationRun.update({ where: { id: run.id }, data: { finishedAt: new Date(), error: err instanceof Error ? err.message.slice(0, 2000) : String(err) } }).catch(() => undefined);
+    throw err;
+  }
+}
+
+export interface RunDto {
+  id: string;
+  /** null — общий прогон по всем реестрам. */
+  registerId: string | null;
+  trigger: RunTrigger;
+  actor: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  rules: number;
+  checked: number;
+  eventsCreated: number;
+  tasksCreated: number;
+  tasksCommented: number;
+  error: string | null;
+}
+
+/** Журнал запусков реестра: его прогоны («Проверить сейчас», импорт) и общие часовые прогоны. */
+export async function listRuns(db: Db, registerId: string, q: { limit: number; cursor?: string }) {
+  await loadRegister(db, registerId);
+  const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
+  const where = { OR: [{ registerId }, { registerId: null }] };
+  const [rows, total] = await Promise.all([
+    db.automationRun.findMany({
+      where, orderBy: { startedAt: 'desc' }, skip: offset, take: q.limit + 1,
+      include: { actor: { select: { fullName: true } } },
+    }),
+    db.automationRun.count({ where }),
+  ]);
+  const items: RunDto[] = rows.slice(0, q.limit).map((r) => ({
+    id: r.id, registerId: r.registerId, trigger: r.trigger as RunTrigger, actor: r.actor?.fullName ?? null,
+    startedAt: r.startedAt.toISOString(), finishedAt: r.finishedAt?.toISOString() ?? null,
+    rules: r.rules, checked: r.checked, eventsCreated: r.eventsCreated, tasksCreated: r.tasksCreated, tasksCommented: r.tasksCommented, error: r.error,
+  }));
+  return { items, nextCursor: rows.length > q.limit ? String(offset + q.limit) : null, total };
+}
+
+/**
+ * Очистить журнал запусков (технический, ответ на вопрос 4 плана 1.1.0): строки удаляются физически,
+ * в журнал аудита — кто и сколько. Удаляются строки, которые видны на вкладке реестра: его прогоны и общие.
+ * События автоматизаций не трогаются — они защищают от повторных задач.
+ */
+export async function clearRuns(db: Db, actor: Actor, registerId: string, olderThanDays: number | null): Promise<{ deleted: number }> {
+  return withTx(db, async (tx) => {
+    const reg = await loadRegister(tx, registerId);
+    const before = olderThanDays === null ? null : new Date(Date.now() - olderThanDays * 86_400_000);
+    const res = await tx.automationRun.deleteMany({
+      where: { OR: [{ registerId }, { registerId: null }], ...(before ? { startedAt: { lt: before } } : {}) },
+    });
+    await auditSettings(tx, actor, {
+      action: 'automation.runs_cleared', entity: 'register', entityId: registerId,
+      summary: `«${reg.name}»: журнал запусков очищен${olderThanDays === null ? ' полностью' : ` — старше ${olderThanDays} дн.`} (строк — ${res.count}, вместе с общими прогонами)`,
+      after: { deleted: res.count, olderThanDays },
+    });
+    return { deleted: res.count };
+  });
+}
+
 /**
  * Проверить правила и создать события. Идемпотентно: событие уникально по (правило, запись, trigger_key),
  * повторный прогон в тот же день — и через час, и после перезапуска — дублей не создаёт.
  */
-export async function runAutomations(db: Db, opts: { now?: Date; registerId?: string } = {}): Promise<RunResult> {
+async function runAutomationsNow(db: Db, opts: { now?: Date; registerId?: string } = {}): Promise<RunResult> {
   const today = todayIso(opts.now ?? new Date());
   return withTx(db, async (tx) => {
     const [lock] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT pg_try_advisory_xact_lock(${RUN_LOCK}::bigint) AS ok`;

@@ -129,7 +129,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     // Новые записи сразу проверяются правилами (например, уже просроченные) — не ждать часового прогона.
     const imp = await scan.getScanImport(db, request.params.id);
     try {
-      await runAutomations(db, { registerId: imp.registerId });
+      await runAutomations(db, { registerId: imp.registerId, trigger: 'import', actorId: request.user?.id ?? null });
     } catch (err) {
       request.log.error({ err }, 'автоматизации после импорта отчёта не выполнены');
     }

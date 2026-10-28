@@ -458,6 +458,61 @@ describe('Массовые действия', () => {
   });
 });
 
+describe('Автоматизации и их задачи', () => {
+  it('удаление правила: «Задачи, созданные им (N)» → в архив; журнал запусков; доска: фильтр по правилу и «Архивировать выбранные»', async () => {
+    const reg = await api('POST', '/api/v1/registers', { name: `Правила E2E-${RUN}` });
+    created.push(reg);
+    const status = fieldOf(reg, 'Статус');
+    const inWork = status.options.find((o) => o.label === 'В работе').id;
+    const owner = await api('POST', `/api/v1/registers/${reg.id}/fields`, { label: 'Ответственный', type: 'user' });
+    const ownerId = fieldOf(owner, 'Ответственный').id;
+    const rule = (title) => api('POST', `/api/v1/registers/${reg.id}/automations`, {
+      condition: { kind: 'equals', fieldId: status.id, optionId: inWork },
+      action: { eventType: title, recipients: [{ kind: 'field', fieldId: ownerId }] },
+    });
+    const r1 = await rule('notify');
+    const r2 = await rule('remind');
+    for (let i = 1; i <= 2; i++) {
+      await api('POST', `/api/v1/registers/${reg.id}/records`, { values: { [fieldOf(reg, 'Наименование').id]: `Правило ${i} E2E-${RUN}`, [status.id]: inWork, [ownerId]: me.id } });
+    }
+    await api('POST', `/api/v1/registers/${reg.id}/automations/run`);
+    const tasksOf = async (ruleId, archived) => (await api('GET', `/api/v1/tasks?automationId=${ruleId}&archived=${archived}`)).items;
+    assert.equal((await tasksOf(r1.id, false)).length, 2);
+    assert.equal((await tasksOf(r2.id, false)).length, 2);
+
+    await openReg(reg, 'automation');
+    const ruleRow = (text) => `[...document.querySelectorAll('table.rules-tbl tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(text)}))`;
+    const dlg = `document.querySelector('.bulk-dialog')`;
+    await ui.click($.button('Удалить', ruleRow('Уведомить')), '«Удалить» у правила «Уведомить»');
+    await ui.waitFor(`${dlg}?.querySelector('[data-testid=rule-tasks]')?.textContent.includes('Задачи, созданные им: 2')`, 'задачи правила');
+    assert.equal(await ui.evaluate(`${dlg}.querySelector('input[name=rt]').checked`), true, 'по умолчанию — оставить');
+    await ui.click(`[...${dlg}.querySelectorAll('label.check')].find((l) => l.textContent.includes('Отправить в архив'))?.querySelector('input')`, '«Отправить в архив»');
+    await ui.waitFor(`${dlg}.querySelector('[data-testid=rule-tasks-affected]')?.textContent.includes('Затронет задач: 2')`, 'затронет 2');
+    await act('Удалить правило', dlg, 'POST', `/register-automations/${r1.id}/delete`);
+    await ui.waitFor(`!${dlg} && !${ruleRow('Уведомить')}`, 'правило удалено');
+    assert.equal((await tasksOf(r1.id, true)).length, 2, 'задачи правила — в архиве');
+
+    // Журнал запусков: прогон «Проверить сейчас» с автором.
+    await ui.click(`[...document.querySelectorAll('details.run-log summary')][0]`, 'журнал запусков');
+    await ui.waitFor(`[...document.querySelectorAll('details.run-log tbody tr')].some((tr) => tr.textContent.includes('«Проверить сейчас»'))`, 'строка запуска');
+
+    // Доска: только задачи второго правила, выбрать обе и в архив.
+    await ui.goto(`/tasks?automation=${r2.id}`);
+    await ui.waitFor(`document.querySelectorAll('article.card').length === 2`, 'две задачи правила');
+    await ui.click($.button('Выбрать'), '«Выбрать»');
+    for (const el of await ui.evaluate(`[...document.querySelectorAll('article.card')].map((c) => c.dataset.task)`)) {
+      await ui.click(`document.querySelector('article.card[data-task="${el}"]')`, 'карточка');
+    }
+    await ui.waitFor(`document.querySelector('.tasks-bulk')?.textContent.includes('Выбрано: 2')`, 'выбрано 2');
+    assert.equal(await ui.evaluate(`location.search.includes('task=')`), false, 'в режиме выбора карточка не открывается');
+    await ui.click($.button('Архивировать выбранные'));
+    await ui.waitFor(`${dlg}?.querySelector('[data-testid=task-bulk-preview]')?.textContent.includes('Уйдёт в архив: 2')`, 'предпросмотр');
+    await act('Архивировать', dlg, 'POST', '/tasks/bulk-archive/apply');
+    await ui.waitFor(`!${dlg} && document.querySelectorAll('article.card').length === 0`, 'задачи ушли в архив');
+    assert.equal((await tasksOf(r2.id, true)).length, 2);
+  });
+});
+
 describe('Excel', () => {
   it('экспорт, затем импорт с предпросмотром и применением', async () => {
     const reg = await makeRegister('Excel', [{ label: 'Баллы', type: 'number' }, { label: 'Ответственный', type: 'user' }]);
