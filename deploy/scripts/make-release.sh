@@ -103,16 +103,21 @@ cp deploy/docker-compose.yml "$OUT/"
 cp deploy/.env.example "$OUT/"
 cp CHANGELOG.md "$OUT/"
 cp deploy/docker-compose.restoretest.yml "$OUT/"
+mkdir -p "$OUT/docs"
+cp docs/runbook/deploy.md "$OUT/docs/deploy.md"
+cp docs/user-guide.md "$OUT/docs/user-guide.md"
 cp deploy/scripts/_common.sh deploy/scripts/backup.sh deploy/scripts/restore.sh deploy/scripts/restore-test.sh deploy/scripts/smoke.sh "$OUT/scripts/"
 chmod +x "$OUT"/scripts/*.sh
 
 # 4. RELEASE.md из шаблона
 info "RELEASE.md"
 changes() {
-  # Раздел CHANGELOG для этой версии, иначе — «Не выпущено».
+  # Сводка раздела CHANGELOG этой версии — текст до первого подраздела «### » (подробности — в CHANGELOG.md
+  # архива); раздела нет — «Не выпущено» целиком (пробная сборка).
   local section
   section="$(awk -v v="$VERSION" '
     /^## / { if (found) exit; if (index($0, "[" v "]")) { found=1; next } }
+    found && /^### / { exit }
     found { print }' CHANGELOG.md)"
   if [ -z "$(echo "$section" | tr -d '[:space:]')" ]; then
     section="$(awk '/^## / { if (found) exit; if ($0 ~ /Не выпущено/) { found=1; next } } found { print }' CHANGELOG.md)"
@@ -127,6 +132,10 @@ migrations() {
     list="$(git ls-files 'backend/prisma/migrations/*/migration.sql')"
   fi
   if [ -z "$list" ]; then echo "Нет. Схема базы не меняется."; return; fi
+  if [ -z "$PREV_TAG" ]; then
+    echo "Первая установка: $(printf '%s\n' "$list" | wc -l | tr -d ' ') миграций создают схему на пустой базе (сервис \`migrate\`, \`docs/deploy.md\`, раздел 5). Данных до установки нет — влияния на данные нет."
+    return
+  fi
   echo "Применяются командой \`docker compose --profile tools run --rm migrate\` (шаг 5)."
   echo
   echo "| Миграция | Влияние на данные |"
@@ -154,7 +163,7 @@ env_changes() {
 
 CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" \
 VERSION="$VERSION" DATE="$(date '+%Y-%m-%d %H:%M')" COMMIT="$COMMIT" \
-PREV_VERSION="${PREV_VERSION:-нет (первая установка)}" \
+PREV_VERSION="${PREV_VERSION:-нет (первая установка)}" ROLLBACK_VERSION="${PREV_VERSION:-<прежняя версия>}" \
 perl -pe 's/\{\{(\w+)\}\}/exists $ENV{$1} ? $ENV{$1} : $&/ge' deploy/RELEASE.template.md > "$OUT/RELEASE.md"
 
 # 5. Контрольные суммы и общий архив

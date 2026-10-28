@@ -8,9 +8,11 @@
 | Предыдущая версия | {{PREV_VERSION}} |
 | Платформа образов | linux/amd64 |
 
-## Что изменилось
+## Что нового
 
 {{CHANGES}}
+
+Полный список изменений — `CHANGELOG.md` в этом архиве.
 
 ## Миграции базы данных
 
@@ -25,67 +27,29 @@
 | Файл | Что это |
 |---|---|
 | `ibportal-images-{{VERSION}}.tar.gz` | Образы `ibportal-db`, `ibportal-backend`, `ibportal-frontend` с тегом `{{VERSION}}` |
-| `docker-compose.yml` | Описание сервисов |
-| `scripts/` | `backup.sh`, `restore.sh`, `smoke.sh`, `_common.sh` |
-| `.env.example` | Образец `.env` (без секретов) |
-| `CHANGELOG.md` | История изменений |
-| `SHA256SUMS` | Контрольные суммы всех файлов релиза |
+| `docker-compose.yml` | Сервисы портала |
+| `docker-compose.restoretest.yml` | Проверка восстановления (отдельный проект `ibportal-restoretest`) |
+| `scripts/` | `backup.sh`, `restore.sh`, `restore-test.sh`, `smoke.sh`, `_common.sh` |
+| `.env.example` | Образец `.env` с описанием переменных (без секретов) |
+| `docs/deploy.md` | Установка с нуля, резервные копии, проверка восстановления, ошибки |
+| `docs/user-guide.md` | Краткое руководство пользователя |
+| `CHANGELOG.md`, `SHA256SUMS` | История изменений; контрольные суммы всех файлов |
 
-Исходный код в релиз не входит и на сервер не передаётся.
+Исходный код в релиз не входит. Интернет для установки и работы не нужен: образы — из архива (`pull_policy: never`), шрифты и pdf.js — в сборке, проверки обновлений и телеметрия в образах выключены, писем портал не отправляет.
 
-**Работа без интернета.** Портал работает на закрытом хосте без внешних интеграций: ни почты, ни PT AF, ни API OnlyOffice. Для выкладки и работы доступ в интернет не нужен:
-- образы загружаются из архива релиза (`docker load`), ничего не скачивается из реестров: у сервисов в `docker-compose.yml` стоит `pull_policy: never`, без загруженного образа нужной версии Docker сразу сообщит об ошибке;
-- шрифты, иконки и pdf.js входят в сборку frontend, внешних CDN нет;
-- в образе backend выключены проверки обновлений и телеметрия Prisma и npm (`CHECKPOINT_DISABLE`, `NPM_CONFIG_OFFLINE`, `NPM_CONFIG_UPDATE_NOTIFIER`), поэтому `migrate` не обращается к сети;
-- лицензии пакетов и `npm audit` проверяются на машине разработчика при сборке, а не на сервере;
-- e-mail в справочниках хранится только для справки, писем портал не отправляет.
+## Первая установка
 
-- образы загружаются из архива релиза (`docker load`), ничего не скачивается из реестров;
-- шрифты, иконки и pdf.js входят в сборку frontend, внешних CDN нет;
-- лицензии пакетов и `npm audit` проверяются на машине разработчика при сборке, а не на сервере;
+Если портала на сервере ещё нет — по `docs/deploy.md`, разделы 1–9 (требования к серверу, тома, `.env`, сертификат, первый администратор, монитор, резервные копии, проверка). Разделы «Выкладка» и «Откат» ниже — для обновления.
 
-## Первая установка (только если портала на сервере ещё нет)
+## Выкладка (обновление)
 
-```bash
-# Тома создаются один раз; compose их не создаёт и не удаляет
-docker volume create ibportal_pgdata
-docker volume create ibportal_files
-docker volume create ibportal_backups
-
-mkdir -p /srv/ibportal/deploy/scripts /srv/ibportal/deploy/certs /srv/ibportal/releases
-# архив релиза положить в /srv/ibportal/releases, затем:
-cd /srv/ibportal/releases
-sha256sum -c ibportal-{{VERSION}}.tar.gz.sha256
-tar -xzf ibportal-{{VERSION}}.tar.gz
-cd ibportal-{{VERSION}} && sha256sum -c SHA256SUMS
-docker load -i ibportal-images-{{VERSION}}.tar.gz
-cp docker-compose.yml .env.example /srv/ibportal/deploy/
-cp scripts/*.sh /srv/ibportal/deploy/scripts/
-
-cd /srv/ibportal/deploy
-cp .env.example .env && chmod 600 .env    # заполнить пароли (openssl rand -hex 24) и VERSION={{VERSION}}
-# сертификат и ключ: certs/portal.crt и certs/portal.key
-docker compose up -d db
-docker compose --profile tools run --rm migrate
-docker compose run --rm backend node dist/scripts/create-admin.js   # спросит логин, ФИО и пароль
-docker compose up -d
-./scripts/smoke.sh
-```
-
-Дальше — по разделу «Что проверить после выкладки».
-
-## Выкладка
-
-Все команды выполняются на сервере. Каталог установки — `/srv/ibportal/deploy`.
-Запишите для журнала выкладок: дату, версию, своё имя, имя резервной копии (шаг 3) и результат. Журнал ведётся в `docs/runbook/deploy-log.md` у разработчика: передайте ему эти данные.
+Все команды — на сервере. Для журнала выкладок запишите дату, версию, своё имя, имя резервной копии (шаг 3) и результат и передайте разработчику.
 
 ```bash
 # 1. Проверить архив, распаковать, проверить файлы
 cd /srv/ibportal/releases
 sha256sum -c ibportal-{{VERSION}}.tar.gz.sha256
-tar -xzf ibportal-{{VERSION}}.tar.gz
-cd ibportal-{{VERSION}}
-sha256sum -c SHA256SUMS
+tar -xzf ibportal-{{VERSION}}.tar.gz && cd ibportal-{{VERSION}} && sha256sum -c SHA256SUMS
 
 # 2. Загрузить образы
 docker load -i ibportal-images-{{VERSION}}.tar.gz
@@ -93,17 +57,16 @@ docker load -i ibportal-images-{{VERSION}}.tar.gz
 # 3. Резервная копия (ОБЯЗАТЕЛЬНО). Если копия не создалась — стоп
 cd /srv/ibportal/deploy
 ./scripts/smoke.sh --before
-./scripts/backup.sh               # запишите имя копии для журнала выкладок
+./scripts/backup.sh               # имя копии — в журнал выкладок
 
-# 4. Обновить compose и скрипты (.env и certs не трогаются)
-cp /srv/ibportal/releases/ibportal-{{VERSION}}/docker-compose.yml .
+# 4. Обновить compose и скрипты (.env и certs не трогаются); новые переменные из раздела выше — в .env
+cp /srv/ibportal/releases/ibportal-{{VERSION}}/docker-compose*.yml .
 cp /srv/ibportal/releases/ibportal-{{VERSION}}/scripts/*.sh scripts/
-# Если в разделе «Переменные .env» есть новые — добавьте их в .env сейчас
 
-# 5. Новая версия, миграции, перезапуск backend и frontend
+# 5. Новая версия, миграции, перезапуск backend и frontend (db не перезапускается)
 sed -i 's/^VERSION=.*/VERSION={{VERSION}}/' .env
 docker compose --profile tools run --rm migrate
-docker compose up -d backend frontend      # db не перезапускаем
+docker compose up -d backend frontend
 
 # 6. Проверка
 ./scripts/smoke.sh --after
@@ -111,34 +74,21 @@ docker compose up -d backend frontend      # db не перезапускаем
 
 ## Откат
 
-**Если миграции совместимы с прошлой версией** (так должно быть всегда):
+Миграции совместимы с прошлой версией — вернуть её:
 
 ```bash
 cd /srv/ibportal/deploy
-sed -i 's/^VERSION=.*/VERSION={{PREV_VERSION}}/' .env
+sed -i 's/^VERSION=.*/VERSION={{ROLLBACK_VERSION}}/' .env
 docker compose up -d backend frontend
 ./scripts/smoke.sh
 ```
 
-> **Этап 8б (риск отката).** Seed создаёт стартовые реестры «Устройства DLP» и «Разрешения на доступ» с полями «Файл», «Связь с записью» и «статус основания». Backend до этапа 8б этих типов не знает: после отката на него эти два реестра открываются некорректно (остальные разделы работают). Первый релиз портала уже включает этап 8б, поэтому откатываться на версию без него не на что. Отдельной защиты нет.
-
-**Если релиз испортил данные:**
-
-```bash
-cd /srv/ibportal/deploy
-./scripts/restore.sh                       # список копий
-./scripts/restore.sh <имя копии из шага 3> # спросит подтверждение, сделает копию текущего состояния и в конце проверит целостность
-# если проверка целостности не пройдена — сервисы не поднимать, связаться с разработчиком
-sed -i 's/^VERSION=.*/VERSION={{PREV_VERSION}}/' .env
-docker compose up -d backend frontend
-./scripts/smoke.sh
-```
+Если релиз испортил данные — `./scripts/restore.sh <копия из шага 3>`: проверит контрольные суммы, спросит подтверждение, сделает копию текущего состояния, восстановит и проверит целостность. Не пройдена — сервисы не поднимать, связаться с разработчиком. Затем прежний `VERSION`, `docker compose up -d backend frontend`, `./scripts/smoke.sh`. Образы прошлой версии не удалять хотя бы неделю.
 
 ## Что проверить после выкладки
 
-- [ ] `smoke.sh --after` завершился строкой «Smoke-проверка пройдена», число записей не уменьшилось.
-- [ ] `docker compose ps`: `db`, `backend`, `frontend` в состоянии `running (healthy)`.
-- [ ] Портал открывается в браузере, вход работает, меню соответствует правам пользователя.
-- [ ] `docker compose logs --since 10m backend` без ошибок.
-- [ ] В логах `migrate` и `backend` нет попыток сетевых обращений наружу (тайм-ауты DNS, `checkpoint`, `registry.npmjs.org`).
-- [ ] Данные для журнала выкладок (дата, версия, кто, имя копии, результат) переданы разработчику.
+- [ ] `smoke.sh` — «Smoke-проверка пройдена», число записей не уменьшилось.
+- [ ] `docker compose ps`: `db` и `backend` — `healthy`, `frontend` — `running`.
+- [ ] Портал открывается по `PORTAL_URL`, вход работает, меню соответствует правам.
+- [ ] `docker compose logs --since 10m backend migrate` — без ошибок и попыток обратиться в интернет.
+- [ ] Данные для журнала выкладок переданы разработчику.
