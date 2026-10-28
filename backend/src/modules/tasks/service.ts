@@ -142,7 +142,8 @@ export async function listTasks(db: Db, q: TaskListQuery) {
     db.task.findMany({
       where,
       include: taskInclude,
-      orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { number: 'asc' }],
+      // Доска — ближний срок первым; архив — недавно архивированные первыми (архив растёт, показываются первые BOARD_LIMIT).
+      orderBy: q.archived ? [{ archivedAt: 'desc' }, { number: 'desc' }] : [{ dueDate: { sort: 'asc', nulls: 'last' } }, { number: 'asc' }],
       skip: offset,
       take: q.limit + 1,
     }),

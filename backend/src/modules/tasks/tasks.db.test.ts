@@ -328,3 +328,20 @@ describe('задачи', () => {
       expect(audit.userId).toBe(admin.id);
     }));
 });
+
+describe('архив доски', () => {
+  it('недавно архивированные — первыми, а не по сроку: новая задача в архиве не теряется за лимитом', () =>
+    inTx(async (tx) => {
+      const user = await makeUser(tx, ['ib_staff']);
+      const actor = await actorFor(tx, user.id);
+      const project = await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: 'task_categories', value: 'Проект' } });
+      const early = await svc.createTask(tx, actor, { title: 'Ранний срок', categoryId: project.id, dueDate: '2020-01-01' });
+      const late = await svc.createTask(tx, actor, { title: 'Поздний срок', categoryId: project.id, dueDate: '2030-01-01' });
+      await svc.setTaskArchived(tx, actor, early.id, early.version, true);
+      await svc.setTaskArchived(tx, actor, late.id, late.version, true);
+      const page = await svc.listTasks(tx, { archived: true, limit: 500 });
+      const ids = page.items.map((t) => t.id);
+      expect(ids.indexOf(late.id)).toBeLessThan(ids.indexOf(early.id));
+      expect(ids[0]).toBe(late.id);
+    }));
+});
