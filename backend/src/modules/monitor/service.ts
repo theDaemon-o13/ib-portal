@@ -80,7 +80,7 @@ const BUCKETS: Omit<MonitorBucket, 'count'>[] = [
 ];
 
 /** Открытые уязвимости: срочное сначала (дни до срока), при равенстве — выше Оценка. */
-async function vulnsBlock(db: Db, reg: RegisterDef, today: string): Promise<NonNullable<MonitorData['vulns']>> {
+export async function vulnsBlock(db: Db, reg: RegisterDef, today: string): Promise<NonNullable<MonitorData['vulns']>> {
   const vf = vulnFields(reg);
   const rows = await db.$queryRaw<{ id: string; number: number; values: Values }[]>`
     SELECT r.id, r.number, r."values" FROM register_records r WHERE ${baseSql(reg.id)} AND NOT ${closedSql(reg)}`;
@@ -119,46 +119,58 @@ async function vulnsBlock(db: Db, reg: RegisterDef, today: string): Promise<NonN
   return { registerId: reg.id, total: all.length, items: all.slice(0, MONITOR_VULNS_MAX), buckets, dates, packages };
 }
 
-/** Задачи, документы, риски и доказательства со сроком — дни до срока, срочное сначала. */
-async function otherItems(db: Db, today: string): Promise<MonitorItem[]> {
-  const out: MonitorItem[] = [];
+const byDays = (a: MonitorItem, b: MonitorItem) => a.days - b.days || a.title.localeCompare(b.title, 'ru');
+
+/** Открытые задачи со сроком — дни до срока, срочное сначала. */
+export async function taskItems(db: Db, today: string): Promise<MonitorItem[]> {
   const tasks = await db.task.findMany({
     where: { deletedAt: null, archivedAt: null, completedAt: null, dueDate: { not: null } },
     select: { id: true, title: true, dueDate: true, assignee: { select: { fullName: true } } },
     orderBy: { dueDate: 'asc' },
     take: MONITOR_ITEMS_MAX,
   });
-  for (const t of tasks) {
+  return tasks.map((t) => {
     const due = (t.dueDate as Date).toISOString().slice(0, 10);
-    out.push({ kind: 'task', id: t.id, title: t.title, sub: t.assignee?.fullName ?? 'не назначен', due, days: daysBetween(today, due) });
-  }
+    return { kind: 'task' as const, id: t.id, title: t.title, sub: t.assignee?.fullName ?? 'не назначен', due, days: daysBetween(today, due) };
+  });
+}
 
+/** Документы: срок пересмотра (он же срок актуальности) у утверждённых и пересматриваемых. */
+export async function documentItems(db: Db, today: string): Promise<MonitorItem[]> {
   const docs = await listDocuments(db, DEPARTMENT_VIEW, { archived: false, limit: DOC_LIMIT });
-  for (const d of docs.items) {
-    if (!d.reviewDue || !['approved', 'in_review', 'review_overdue'].includes(d.status)) continue;
-    out.push({ kind: 'document', id: d.id, title: d.title, sub: `пересмотр · ${d.owner.fullName}`, due: d.reviewDue, days: daysBetween(today, d.reviewDue) });
-  }
+  return docs.items
+    .filter((d) => d.reviewDue && ['approved', 'in_review', 'review_overdue'].includes(d.status))
+    .map((d) => ({ kind: 'document' as const, id: d.id, title: d.title, sub: `пересмотр · ${d.owner.fullName}`, due: d.reviewDue as string, days: daysBetween(today, d.reviewDue as string) }));
+}
 
+/** Риски ИБ: пересмотр решения ОУР. */
+export async function riskItems(db: Db, today: string): Promise<MonitorItem[]> {
   const risks = await systemRegister(db, RISK_REGISTER_KEY);
   const reviewDue = risks?.fields.find((f) => f.systemKey === 'reviewDue' && !f.archived);
   const riskTitle = risks?.fields.find((f) => f.isTitle);
-  if (risks && reviewDue) {
-    const rows = await db.$queryRaw<{ id: string; number: number; values: Values }[]>`
-      SELECT r.id, r.number, r."values" FROM register_records r
-      WHERE ${baseSql(risks.id)} AND NOT ${closedSql(risks)} AND r."values" ? ${reviewDue.id}`;
-    for (const r of rows) {
-      const due = String(r.values[reviewDue.id]);
-      const title = riskTitle && typeof r.values[riskTitle.id] === 'string' ? String(r.values[riskTitle.id]) : `Риск #${r.number}`;
-      out.push({ kind: 'risk', id: r.id, title, sub: 'пересмотр решения ОУР', due, days: daysBetween(today, due) });
-    }
-  }
+  if (!risks || !reviewDue) return [];
+  const rows = await db.$queryRaw<{ id: string; number: number; values: Values }[]>`
+    SELECT r.id, r.number, r."values" FROM register_records r
+    WHERE ${baseSql(risks.id)} AND NOT ${closedSql(risks)} AND r."values" ? ${reviewDue.id}`;
+  return rows.map((r) => {
+    const due = String(r.values[reviewDue.id]);
+    const title = riskTitle && typeof r.values[riskTitle.id] === 'string' ? String(r.values[riskTitle.id]) : `Риск #${r.number}`;
+    return { kind: 'risk' as const, id: r.id, title, sub: 'пересмотр решения ОУР', due, days: daysBetween(today, due) };
+  });
+}
 
+/** Принятые доказательства со сроком действия. */
+export async function evidenceItems(db: Db, today: string): Promise<MonitorItem[]> {
   const ev = await listEvidence(db, { archived: false, limit: EVIDENCE_LIMIT });
-  for (const e of ev.items) {
-    if (!e.validUntil || e.status !== 'accepted') continue;
-    out.push({ kind: 'evidence', id: e.id, title: e.title || e.object.label, sub: `срок действия · ${e.object.label}`, due: e.validUntil, days: daysBetween(today, e.validUntil) });
-  }
-  return out.sort((a, b) => a.days - b.days || a.title.localeCompare(b.title, 'ru')).slice(0, MONITOR_ITEMS_MAX);
+  return ev.items
+    .filter((e) => e.validUntil && e.status === 'accepted')
+    .map((e) => ({ kind: 'evidence' as const, id: e.id, title: e.title || e.object.label, sub: `срок действия · ${e.object.label}`, due: e.validUntil as string, days: daysBetween(today, e.validUntil as string) }));
+}
+
+/** Задачи, документы, риски и доказательства со сроком — дни до срока, срочное сначала. */
+async function otherItems(db: Db, today: string): Promise<MonitorItem[]> {
+  const parts = await Promise.all([taskItems(db, today), documentItems(db, today), riskItems(db, today), evidenceItems(db, today)]);
+  return parts.flat().sort(byDays).slice(0, MONITOR_ITEMS_MAX);
 }
 
 export async function monitorData(db: Db): Promise<MonitorData> {
