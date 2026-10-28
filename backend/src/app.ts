@@ -83,7 +83,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(swagger, {
     openapi: {
       openapi: '3.1.0',
-      info: { title: 'Портал ИБ API', version: '1.0.0' },
+      info: { title: 'Портал ИБ API', version: '1.0.1' },
       servers: [{ url: '/' }],
     },
     transform: jsonSchemaTransform,
