@@ -29,6 +29,13 @@ COPY prisma prisma
 COPY src src
 COPY scripts scripts
 RUN npm run build && npm prune --omit=dev --omit=optional
+# Размер образа (−~115 МБ): среды выполнения клиента Prisma для других СУБД (клиент сгенерирован под PostgreSQL),
+# source map и типы TypeScript в runtime не загружаются. Prisma CLI (нужен migrate) загружает свои зависимости
+# при старте — его не трогаем. Сборка падает, если Prisma переименует файлы среды PostgreSQL (ADR-0014).
+RUN ls node_modules/@prisma/client/runtime/query_compiler_fast_bg.postgresql.wasm-base64.mjs >/dev/null \
+ && find node_modules/@prisma/client/runtime -name 'query_compiler_*' ! -name '*.postgresql.*' -delete \
+ && find node_modules -name '*.map' -type f -delete \
+ && rm -rf node_modules/@types
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
@@ -44,7 +51,9 @@ WORKDIR /app
 # prisma CLI и движки нужны сервису migrate; в закрытом контуре npx ничего не скачает.
 COPY --from=build --chown=node:node /app/node_modules node_modules
 COPY --from=build --chown=node:node /app/dist dist
-COPY --from=build --chown=node:node /app/prisma prisma
+# Только схема и миграции: seed запускается из dist, его исходники в образ не попадают.
+COPY --from=build --chown=node:node /app/prisma/schema.prisma prisma/schema.prisma
+COPY --from=build --chown=node:node /app/prisma/migrations prisma/migrations
 COPY --from=build --chown=node:node /app/package.json package.json
 # Prisma 7: адрес БД для migrate берётся из prisma.config.ts (DATABASE_URL из compose).
 COPY --from=build --chown=node:node /app/prisma.config.ts prisma.config.ts

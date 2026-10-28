@@ -4,7 +4,7 @@ import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import type { Values } from '../../lib/register-values.js';
 import { actorFor, expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
-import { TEST_SECRET } from '../../test/helpers.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
@@ -298,7 +298,7 @@ describe('задачи', () => {
       const admin = await makeUser(tx, ['super_admin'], { passwordHash: hash });
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
       const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
-      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET });
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL });
       const login = async (l: string) => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });
         return `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;

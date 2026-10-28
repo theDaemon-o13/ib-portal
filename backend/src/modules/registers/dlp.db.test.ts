@@ -9,7 +9,7 @@ import ExcelJS from 'exceljs';
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { argon2Hasher } from '../../lib/passwords.js';
-import { TEST_SECRET } from '../../test/helpers.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import { diskFileStore } from '../../lib/file-store.js';
@@ -386,7 +386,7 @@ describe('HTTP: разрешения и поиск', () => {
   it('422 FIELD_LOCKED в едином формате; файл записи с sha256 и статусом текста; обратные связи; поиск; zip', () =>
     inTx(async (tx) => {
       const s = await setup(tx);
-      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, files: s.store });
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, files: s.store });
       const password = 'Dlp-Http-Test-2026';
       await tx.user.update({ where: { id: s.staff.id }, data: { passwordHash: await argon2Hasher.hash(password) } });
       const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: s.staff.login, password } });

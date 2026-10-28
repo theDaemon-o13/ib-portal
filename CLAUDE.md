@@ -370,6 +370,7 @@ services:
       MONITOR_ALLOWED_IPS: ${MONITOR_ALLOWED_IPS:-}           # адреса настенных мониторов; пусто — вход монитора запрещён
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}               # рабочие места администраторов; пусто — без ограничения (ADR-0015)
       ONLYOFFICE_URL_PREFIX: ${ONLYOFFICE_URL_PREFIX:-}       # сервер OnlyOffice банка; пусто — любая ссылка http(s) (ADR-0010)
+      PORTAL_URL: ${PORTAL_URL:-}                             # адрес портала для проверки Origin; пусто — backend не стартует
     volumes:
       - files:/data/files
     depends_on:

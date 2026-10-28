@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import type { Values } from '../../lib/register-values.js';
-import { TEST_SECRET } from '../../test/helpers.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { makeRegister } from '../../test/registers-fixture.js';
 import { SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
@@ -189,7 +189,7 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       const admin = await makeUser(tx, ['super_admin'], { passwordHash: hash });
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
       const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
-      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET });
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL });
       const login = async (l: string) => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });
         return `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;
@@ -243,7 +243,7 @@ describe('одна кнопка «Импорт из Excel»', () => {
       const x = await vulnRegister(tx);
       const other = await makeRegister(tx);
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: await argon2Hasher.hash(PASSWORD) });
-      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET });
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL });
       const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: staff.login, password: PASSWORD } });
       const cookie = `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;
       const upload = (registerId: string, body: Buffer, name: string) => app.inject({
@@ -292,7 +292,7 @@ describe('расписание внутри backend', () => {
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
       await vuln(tx, x, 'OLD', '2026-01-10', 'critical'); // давно просрочена
-      const deps = { db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET };
+      const deps = { db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL };
       const off = await buildApp(deps);
       await off.ready();
       await off.close();

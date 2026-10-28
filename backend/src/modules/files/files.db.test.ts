@@ -9,7 +9,7 @@ import { diskFileStore } from '../../lib/file-store.js';
 import { MAX_FILE_BYTES } from '../../lib/file-type.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import { tinyPdf, tinyPng } from '../../test/files-fixture.js';
-import { TEST_SECRET } from '../../test/helpers.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { actorFor, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
@@ -27,7 +27,7 @@ async function setup(tx: Tx) {
   roots.push(root);
   const app = await buildApp({
     db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher,
-    sessionSecret: TEST_SECRET, files: diskFileStore(root),
+    sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, files: diskFileStore(root),
   });
   const hash = await argon2Hasher.hash(PASSWORD);
   const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash, fullName: 'Сотрудник ИБ' });

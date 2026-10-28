@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { argon2Hasher } from '../../lib/passwords.js';
-import { TEST_SECRET } from '../../test/helpers.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { inTx, makeUser, type Tx } from '../../test/db.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
@@ -15,7 +15,7 @@ async function appWith(tx: Tx, logs: string[]) {
     repo: prismaAuthRepository(tx),
     audit: prismaAuditWriter(tx),
     hasher: argon2Hasher,
-    sessionSecret: TEST_SECRET,
+    sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL,
     logger: { level: 'trace', stream: { write: (line: string) => void logs.push(line) } },
   });
 }

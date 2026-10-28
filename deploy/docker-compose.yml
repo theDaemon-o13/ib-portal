@@ -42,6 +42,8 @@ services:
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
       # Ссылки на файлы документов — только на сервер OnlyOffice банка. Пусто — любая ссылка http(s).
       ONLYOFFICE_URL_PREFIX: ${ONLYOFFICE_URL_PREFIX:-}
+      # Адрес портала, как его открывают пользователи (https://имя[:порт]). Обязателен: без него backend не стартует.
+      PORTAL_URL: ${PORTAL_URL:-}
     volumes:
       - files:/data/files
     depends_on:

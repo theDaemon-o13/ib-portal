@@ -46,6 +46,8 @@ export interface AppDeps {
   audit: AuditWriter;
   hasher: PasswordHasher;
   sessionSecret: string;
+  /** Адрес портала (origin из PORTAL_URL): с ним сверяется Origin изменяющих запросов. */
+  portalUrl: string;
   now?: () => Date;
   logger?: FastifyServerOptions['logger'];
   trustProxy?: FastifyServerOptions['trustProxy'];
@@ -89,7 +91,7 @@ export async function buildApp(deps: AppDeps) {
 
   const auth = createAuthService({ repo: deps.repo, audit: deps.audit, hasher: deps.hasher, now: deps.now, kioskAllowedIps: deps.kioskAllowedIps,
     adminAllowedIps: deps.adminAllowedIps });
-  installAuth(base, auth);
+  installAuth(base, auth, deps.portalUrl);
 
   await app.register(healthRoutes, { prefix: '/api', ping: () => deps.repo.ping() });
   await app.register(authRoutes, { prefix: '/api/v1/auth', auth });

@@ -3,7 +3,7 @@ import { buildApp, type App } from '../../app.js';
 import { createPrisma } from '../../lib/db.js';
 import { LOCK_DURATION_MS } from '../../lib/lockout.js';
 import { SESSION_IDLE_MS } from '../../lib/session-token.js';
-import { FakeClock, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
+import { FakeClock, TEST_PORTAL_URL, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
 import { MemoryAuditWriter } from '../audit/audit.js';
 import { MemoryAuthRepository } from './repository.memory.js';
 
@@ -22,7 +22,7 @@ beforeEach(async () => {
   clock = new FakeClock();
   repo.addUser({ id: 'u1', login: 'ivanov', fullName: 'И. Иванов', passwordHash: `hash:${PASSWORD}` }, ['ib.work']);
   // Маршруты настроек здесь не вызываются: клиент без подключения к базе.
-  app = await buildApp({ db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'), repo, audit, hasher, sessionSecret: TEST_SECRET, now: clock.now });
+  app = await buildApp({ db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'), repo, audit, hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, now: clock.now });
 });
 
 async function login(loginName: string, password: string) {
@@ -117,6 +117,30 @@ describe('вход и сессия', () => {
     });
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('BAD_ORIGIN');
+  });
+
+  it('Origin сверяется с PORTAL_URL, а не с заголовком Host: совпадение с поддельным Host не помогает', async () => {
+    const spoofed = await app.inject({
+      method: 'POST', url: '/api/v1/auth/login',
+      headers: { origin: 'https://evil.example', host: 'evil.example' },
+      payload: { login: 'ivanov', password: PASSWORD },
+    });
+    expect(spoofed.statusCode).toBe(403);
+    expect(spoofed.json().error.code).toBe('BAD_ORIGIN');
+    // Тот же хост, другая схема или порт — тоже чужой источник.
+    for (const origin of ['http://portal.test', 'https://portal.test:8443']) {
+      const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: { origin, host: 'portal.test' }, payload: { login: 'ivanov', password: PASSWORD } });
+      expect(res.statusCode, origin).toBe(403);
+    }
+    expect(audit.actions()).toEqual([]);
+
+    // Origin портала проходит при любом Host (nginx может передать его без порта или с внутренним именем).
+    const own = await app.inject({
+      method: 'POST', url: '/api/v1/auth/login',
+      headers: { origin: TEST_PORTAL_URL, host: 'backend:3000' },
+      payload: { login: 'ivanov', password: PASSWORD },
+    });
+    expect(own.statusCode).toBe(200);
   });
 });
 

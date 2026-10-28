@@ -6,7 +6,7 @@ import { parseIpList } from '../../lib/ip-list.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import { addDaysIso, todayIso } from '../../lib/today.js';
 import { actorFor, expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
-import { TEST_SECRET } from '../../test/helpers.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
@@ -213,7 +213,7 @@ describe('по HTTP: права и кэш', () => {
     const wall = await makeUser(tx, ['kiosk'], { passwordHash: hash });
     const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
     const app = await buildApp({
-      db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET,
+      db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL,
       kioskAllowedIps: parseIpList(WALL),
     });
     const login = async (l: string, ip = '127.0.0.1') => {

@@ -5,7 +5,7 @@ import { buildApp, type App } from '../../app.js';
 import { createPrisma } from '../../lib/db.js';
 import { parseIpList } from '../../lib/ip-list.js';
 import { SESSION_IDLE_MS, SESSION_MAX_AGE_MS } from '../../lib/session-token.js';
-import { FakeClock, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
+import { FakeClock, TEST_PORTAL_URL, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
 import { MemoryAuditWriter } from '../audit/audit.js';
 import { MemoryAuthRepository } from './repository.memory.js';
 
@@ -27,7 +27,7 @@ beforeEach(async () => {
   repo.addUser({ id: 'u1', login: 'ivanov', passwordHash: `hash:${PASSWORD}` }, ['ib.work']);
   app = await buildApp({
     db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'),
-    repo, audit, hasher: fakeHasher(), sessionSecret: TEST_SECRET, now: clock.now,
+    repo, audit, hasher: fakeHasher(), sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, now: clock.now,
     trustProxy: NGINX,
     kioskAllowedIps: parseIpList(`${WALL}, 10.50.0.0/24`),
   });
@@ -69,7 +69,7 @@ describe('вход настенного монитора', () => {
   it('пустой MONITOR_ALLOWED_IPS — вход киоска запрещён отовсюду', async () => {
     app = await buildApp({
       db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'),
-      repo, audit, hasher: fakeHasher(), sessionSecret: TEST_SECRET, now: clock.now, trustProxy: NGINX, kioskAllowedIps: parseIpList(''),
+      repo, audit, hasher: fakeHasher(), sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, now: clock.now, trustProxy: NGINX, kioskAllowedIps: parseIpList(''),
     });
     expect((await login('wall', viaNginx(WALL))).statusCode).toBe(401);
     // Обычный пользователь входит как раньше.

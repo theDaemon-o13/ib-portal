@@ -73,6 +73,26 @@ build ibportal-frontend frontend
 if docker run --rm --network none --entrypoint sh "ibportal-backend:$VERSION" -c 'test -e node_modules/@napi-rs'; then
   die "в образе ibportal-backend:$VERSION есть node_modules/@napi-rs — сборка должна идти с --omit=optional"
 fi
+# Содержимое образов: без исходников, .env и инструментов разработки; процессы не от root (CLAUDE.md, раздел 10).
+info "проверка содержимого образов"
+in_image() { docker run --rm --network none --entrypoint sh "$1:$VERSION" -c "$2" 2>/dev/null; }
+leaks="$(in_image ibportal-backend '
+  find / -xdev \( -name ".env" -o -name ".env.*" \) 2>/dev/null
+  find /app -name "*.ts" ! -name "*.d.ts" ! -path "/app/node_modules/*" ! -path /app/prisma.config.ts
+  for p in src prisma/seed dist/scripts/test-db.js node_modules/vitest node_modules/tsx node_modules/typescript node_modules/eslint; do
+    [ -e "/app/$p" ] && echo "/app/$p"
+  done; true')"
+[ -z "$leaks" ] || die "в образе ibportal-backend лишнее: $leaks"
+leaks="$(in_image ibportal-frontend 'find / -xdev \( -name ".env" -o -name ".env.*" -o -name "*.map" -o -name "*.tsx" \) 2>/dev/null; true')"
+[ -z "$leaks" ] || die "в образе ibportal-frontend лишнее: $leaks"
+for image in ibportal-backend ibportal-frontend; do
+  user="$(docker image inspect -f '{{.Config.User}}' "$image:$VERSION")"
+  case "$user" in ''|0|root|0:*|root:*) die "$image:$VERSION запускается от root (USER: '${user:-не задан}')" ;; esac
+done
+# ibportal-db: entrypoint postgres стартует от root и сразу переходит на пользователя postgres (gosu) — так устроен
+# официальный образ; процесс СУБД работает от postgres.
+echo "Размеры образов:"
+docker image ls --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | grep -E "^ibportal-(db|backend|frontend):$VERSION " | sed 's/^/  /' || true
 
 mkdir -p "$OUT/scripts"
 info "сохранение образов"

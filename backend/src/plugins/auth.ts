@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AppError, forbidden } from '../lib/errors.js';
+import { sameOrigin } from '../lib/portal-url.js';
 import { SESSION_COOKIE } from '../lib/session-token.js';
 import type { AuthService, ClientInfo } from '../modules/auth/service.js';
 
@@ -25,30 +26,26 @@ export function clearSessionCookie(reply: FastifyReply): void {
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/** Дополнительно к SameSite=Strict: изменяющий запрос из браузера должен прийти с того же адреса. */
-function checkOrigin(request: FastifyRequest): void {
+/**
+ * Дополнительно к SameSite=Strict: изменяющий запрос из браузера должен прийти со страницы портала.
+ * Origin сверяется с PORTAL_URL, а не с заголовком Host: Host присылает клиент, и совпадение с ним ничего не доказывает.
+ */
+function checkOrigin(request: FastifyRequest, portalOrigin: string): void {
   if (!UNSAFE_METHODS.has(request.method)) return;
   const origin = request.headers.origin;
   if (!origin) return; // не браузер (скрипты, smoke.sh); cookie с SameSite=Strict чужой сайт не отправит
-  const host = request.host;
-  let originHost: string;
-  try {
-    originHost = new URL(origin).host;
-  } catch {
-    throw new AppError(403, 'BAD_ORIGIN', 'Запрос отклонён: неизвестный источник');
-  }
-  if (originHost !== host) {
+  if (!sameOrigin(origin, portalOrigin)) {
     throw new AppError(403, 'BAD_ORIGIN', 'Запрос отклонён: неизвестный источник');
   }
 }
 
 /** Определяет текущего пользователя по cookie для каждого запроса. Права проверяют guard'ы из rbac.ts. */
-export function installAuth(app: FastifyInstance, auth: AuthService): void {
+export function installAuth(app: FastifyInstance, auth: AuthService, portalOrigin: string): void {
   app.decorateRequest('user', null);
   app.decorateRequest('sessionId', null);
 
   app.addHook('onRequest', async (request, reply) => {
-    checkOrigin(request);
+    checkOrigin(request, portalOrigin);
 
     const raw = request.cookies[SESSION_COOKIE];
     if (!raw) return;

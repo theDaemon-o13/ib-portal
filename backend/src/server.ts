@@ -18,6 +18,7 @@ const app = await buildApp({
   audit: prismaAuditWriter(prisma),
   hasher: argon2Hasher,
   sessionSecret: config.SESSION_SECRET,
+  portalUrl: config.PORTAL_URL,
   files: diskFileStore(config.FILES_DIR),
   // Список, а не «доверять всем частным сетям»: иначе любой ПК в 10.x подставит свой X-Forwarded-For.
   trustProxy: parseIpList(config.TRUSTED_PROXY_IPS).entries.join(',') || false,

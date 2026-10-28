@@ -18,6 +18,7 @@
 - `prisma.config.ts`: `datasource.url` из `DATABASE_URL`, `shadowDatabaseUrl` из `SHADOW_DATABASE_URL`. Конфиг сам отказывается работать, если теневая база называется не `*_shadow` (CLAUDE.md, раздел 3.1). `env()` из `prisma/config` не используется: он падает на пустой переменной, а `prisma generate` при сборке образа работает без адреса.
 - `check:schema` передаёт адреса дочернему `prisma migrate diff` через `DATABASE_URL` и `SHADOW_DATABASE_URL`; `test:db` явно очищает `SHADOW_DATABASE_URL`.
 - Образ backend: `prisma.config.ts` копируется рядом с `prisma/` — сервис `migrate` берёт адрес из него.
+- Размер образа: после `npm prune` удаляются среды выполнения клиента для других СУБД (`@prisma/client/runtime/query_compiler_*` кроме `postgresql`), source map и `@types`. Prisma CLI (`prisma`, Studio, `@prisma/dev`) не урезается: он загружает свои зависимости при старте, и без них `migrate` не запускается (проверено). Если Prisma переименует файлы среды PostgreSQL, сборка образа падает — при обновлении Prisma проверить список.
 
 ## Последствия
 - Схема БД и миграции не менялись: `check:schema` (миграции и живая dev-база против `schema.prisma`) без расхождений, `check:integrity` в порядке.

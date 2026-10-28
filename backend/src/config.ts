@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parseIpList } from './lib/ip-list.js';
+import { parsePortalUrl } from './lib/portal-url.js';
 import { checkDocUrlPrefix } from './modules/documents/status.js';
 
 /** Список IP и подсетей: ошибка в .env видна при старте, а не при первом входе. */
@@ -32,6 +33,9 @@ const EnvSchema = z.object({
     const problem = checkDocUrlPrefix(v);
     if (problem) ctx.addIssue({ code: 'custom', message: problem });
   }),
+  // Полный адрес портала, как его открывают пользователи (схема, имя, порт): с ним сверяется Origin
+  // изменяющих запросов (защита от CSRF). Обязателен; http — только вне production.
+  PORTAL_URL: z.string().trim().default(''),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   // Часовой пояс банка: «сегодня» для сроков и автоматизаций (lib/today.ts).
   APP_TZ: z.string().default('Asia/Dushanbe').refine((tz) => {
@@ -44,6 +48,9 @@ const EnvSchema = z.object({
   }, 'неизвестный часовой пояс'),
   // Проверка правил автоматизации внутри backend (минуты). 0 — выключено.
   AUTOMATION_INTERVAL_MIN: z.coerce.number().int().min(0).max(1440).default(60),
+}).superRefine((env, ctx) => {
+  const portal = parsePortalUrl(env.PORTAL_URL, env.NODE_ENV === 'production');
+  if ('error' in portal) ctx.addIssue({ code: 'custom', path: ['PORTAL_URL'], message: portal.error });
 });
 
 export type Config = z.infer<typeof EnvSchema>;
@@ -54,5 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Неверная конфигурация: ${problems}`);
   }
-  return parsed.data;
+  // Дальше PORTAL_URL — origin: схема, хост и порт в том виде, в каком их присылает браузер.
+  const portal = parsePortalUrl(parsed.data.PORTAL_URL, parsed.data.NODE_ENV === 'production');
+  return { ...parsed.data, PORTAL_URL: 'origin' in portal ? portal.origin : '' };
 }

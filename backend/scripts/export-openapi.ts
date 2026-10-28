@@ -15,6 +15,7 @@ const app = await buildApp({
   audit: new MemoryAuditWriter(),
   hasher: argon2Hasher,
   sessionSecret: 'openapi-export-only-openapi-export-only',
+  portalUrl: 'https://portal.invalid',
 });
 await app.ready();
 const out = new URL('../openapi.json', import.meta.url);

@@ -25,6 +25,7 @@ RUN npm run build
 FROM ${NGINX_IMAGE} AS runtime
 # Образ nginx-unprivileged работает от пользователя nginx (uid 101) и слушает непривилегированный порт.
 COPY --chown=101:101 nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chown=101:101 nginx-security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build --chown=101:101 /app/dist /usr/share/nginx/html
 USER 101
 EXPOSE 8443

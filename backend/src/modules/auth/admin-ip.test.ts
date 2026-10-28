@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildApp, type App } from '../../app.js';
 import { createPrisma } from '../../lib/db.js';
 import { parseIpList } from '../../lib/ip-list.js';
-import { FakeClock, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
+import { FakeClock, TEST_PORTAL_URL, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
 import { MemoryAuditWriter } from '../audit/audit.js';
 import { MemoryAuthRepository } from './repository.memory.js';
 
@@ -20,7 +20,7 @@ let app: App;
 async function build(adminIps: string) {
   return buildApp({
     db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'),
-    repo, audit, hasher: fakeHasher(), sessionSecret: TEST_SECRET, now: new FakeClock().now,
+    repo, audit, hasher: fakeHasher(), sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, now: new FakeClock().now,
     trustProxy: NGINX,
     adminAllowedIps: parseIpList(adminIps),
   });

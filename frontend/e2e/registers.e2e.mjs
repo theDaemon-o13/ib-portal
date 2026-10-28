@@ -313,6 +313,8 @@ describe('Поля', () => {
     await ui.waitFor(`!!${optRow('Низкая')}`, 'переименовано');
     await act('В архив', optRow('Низкая'), 'POST', '/archive');
     await act('Вернуть', optRow('Низкая'), 'POST', '/restore');
+    // Строка — в итоговом состоянии (снова «В архив»): иначе «Удалить» уйдёт с версией до возврата и получит 409.
+    await ui.waitFor(`!!${$.button('В архив', optRow('Низкая'))}`, 'значение возвращено из архива');
     await act('Удалить', optRow('Низкая'), 'POST', '/delete');
     await ui.waitFor(`!${optRow('Низкая')}`, 'значение удалено');
     await closeField();

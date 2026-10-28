@@ -23,4 +23,6 @@ export class FakeClock {
   }
 }
 
+/** PORTAL_URL в тестах. */
+export const TEST_PORTAL_URL = 'https://portal.test';
 export const TEST_SECRET = 'test-secret-test-secret-test-secret-0000';

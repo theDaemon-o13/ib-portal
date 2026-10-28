@@ -53,6 +53,8 @@ services:
       # Рабочие места администраторов (ADR-0015). Пусто — без ограничения; в dev браузер виден как 172.31.251.1.
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
       ONLYOFFICE_URL_PREFIX: ${ONLYOFFICE_URL_PREFIX:-}
+      # Адрес, с которого браузер открывает dev (Vite): с ним сверяется Origin.
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:5173}
       LOG_LEVEL: debug
     volumes:
       - ../backend:/app
