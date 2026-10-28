@@ -40,7 +40,8 @@
   --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
   --paper:#1C1C1E; --paper-fg:#F5F5F7; --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
   color-scheme:dark}}
-:root[data-theme="dark"]{
+/* .wall-dark — тёмная стена в предпросмотре слайда мониторинга (релиз 1.1.0) при любой теме страницы. */
+:root[data-theme="dark"],.wall-dark{
   --bg:#000000;
   --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
   --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.86);

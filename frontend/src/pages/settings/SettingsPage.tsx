@@ -6,6 +6,7 @@ import { CalendarEditor } from './CalendarEditor';
 import { CatalogValues } from './CatalogValues';
 import { FormTemplatesEditor } from './FormTemplatesEditor';
 import { JournalTab } from './JournalTab';
+import { MonitorSlides } from './MonitorSlides';
 import { RolesMatrix } from './RolesMatrix';
 import { UsersTable } from './UsersTable';
 import { keys } from './useAction';
@@ -13,6 +14,8 @@ import { keys } from './useAction';
 const TABS = [
   { key: 'catalogs', title: 'Справочники' },
   { key: 'users', title: 'Пользователи и роли' },
+  // Слайды настенных мониторов (релиз 1.1.0): видно и правится по праву «Настройки».
+  { key: 'monitor', title: 'Экран мониторинга', perm: 'settings.manage' },
   { key: 'journal', title: 'Журнал изменений' },
 ] as const;
 
@@ -63,8 +66,9 @@ function CatalogsTab({ canEdit }: { canEdit: boolean }) {
 export function SettingsPage() {
   const me = useOutletContext<Me>();
   const { tab } = useParams();
-  if (!TABS.some((t) => t.key === tab)) return <Navigate to="/settings/catalogs" replace />;
   const canCatalogs = me.permissions.includes('settings.manage');
+  const tabs = TABS.filter((t) => !('perm' in t) || me.permissions.includes(t.perm));
+  if (!tabs.some((t) => t.key === tab)) return <Navigate to="/settings/catalogs" replace />;
   const canUsers = me.permissions.includes('users.manage');
 
   return (
@@ -79,7 +83,7 @@ export function SettingsPage() {
         </div>
       </div>
       <div className="tabs page-tabs" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <NavLink key={t.key} to={`/settings/${t.key}`} role="tab" aria-selected={t.key === tab}>
             {t.title}
           </NavLink>
@@ -92,6 +96,7 @@ export function SettingsPage() {
           <UsersTable canEdit={canUsers} />
         </div>
       )}
+      {tab === 'monitor' && <MonitorSlides />}
       {tab === 'journal' && <JournalTab />}
     </>
   );

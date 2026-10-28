@@ -28966,7 +28966,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Экран мониторинга одним запросом (кэш 1 минута): KPI, уязвимости с днями до срока, задачи, документы, риски, доказательства */
+        /** Экран мониторинга одним запросом (кэш 1 минута): включённые слайды по порядку с данными каждого (релиз 1.1.0) */
         get: {
             parameters: {
                 query?: never;
@@ -28984,58 +28984,127 @@ export interface paths {
                     content: {
                         "application/json": {
                             computedAt: string;
-                            kpis: {
+                            signature: string;
+                            slides: {
                                 /** @enum {string} */
-                                key: "vulns_open" | "vulns_overdue" | "vulns_soon" | "incidents_30d" | "tasks_overdue" | "docs_review" | "risks_no_decision" | "evidence_pending" | "evidence_expiring";
-                                label: string;
-                                value: number | null;
-                                tone: ("bad" | "warn") | null;
-                                source: string;
-                                link: string | null;
-                            }[];
-                            vulns: {
-                                registerId: string;
-                                total: number;
-                                items: {
-                                    id: string;
-                                    number: number;
-                                    title: string;
-                                    pkg: string;
-                                    desc: string;
-                                    crit: {
-                                        label: string;
-                                        tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
-                                    } | null;
-                                    hits: number | null;
-                                    score: number | null;
-                                    due: string | null;
-                                    days: number | null;
-                                }[];
-                                buckets: {
-                                    /** @enum {string} */
-                                    key: "overdue" | "d0_7" | "d8_14" | "d15_30" | "d31" | "none";
-                                    label: string;
-                                    count: number;
-                                    tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
-                                }[];
-                                dates: {
-                                    date: string;
-                                    days: number;
-                                    count: number;
-                                }[];
-                                packages: {
-                                    label: string;
-                                    count: number;
-                                }[];
-                            } | null;
-                            items: {
-                                /** @enum {string} */
-                                kind: "task" | "document" | "risk" | "evidence";
-                                id: string;
+                                kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
                                 title: string;
-                                sub: string;
-                                due: string;
-                                days: number;
+                                seconds: number;
+                                filter: {
+                                    /** @enum {string} */
+                                    period?: "all" | "overdue" | "within";
+                                    days?: number;
+                                    kpis?: string[];
+                                    crit?: string[];
+                                    departments?: string[];
+                                    systems?: string[];
+                                    categories?: string[];
+                                    types?: string[];
+                                    /** Format: uuid */
+                                    registerId?: string;
+                                };
+                                enabled: boolean;
+                                skipEmpty: boolean;
+                                id: string;
+                                sortOrder: number;
+                                version: number;
+                                data: {
+                                    /** @enum {string} */
+                                    kind: "kpis";
+                                    items: {
+                                        /** @enum {string} */
+                                        key: "vulns_open" | "vulns_overdue" | "vulns_soon" | "incidents_30d" | "tasks_overdue" | "docs_review" | "risks_no_decision" | "evidence_pending" | "evidence_expiring";
+                                        label: string;
+                                        value: number | null;
+                                        tone: ("bad" | "warn") | null;
+                                        source: string;
+                                        link: string | null;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "vulns";
+                                    vulns: {
+                                        registerId: string;
+                                        total: number;
+                                        items: {
+                                            id: string;
+                                            number: number;
+                                            title: string;
+                                            pkg: string;
+                                            desc: string;
+                                            crit: {
+                                                label: string;
+                                                tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                            } | null;
+                                            hits: number | null;
+                                            score: number | null;
+                                            due: string | null;
+                                            days: number | null;
+                                        }[];
+                                        buckets: {
+                                            /** @enum {string} */
+                                            key: "overdue" | "d0_7" | "d8_14" | "d15_30" | "d31" | "none";
+                                            label: string;
+                                            count: number;
+                                            tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                        }[];
+                                        dates: {
+                                            date: string;
+                                            days: number;
+                                            count: number;
+                                        }[];
+                                        packages: {
+                                            label: string;
+                                            count: number;
+                                        }[];
+                                    } | null;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "items";
+                                    items: {
+                                        /** @enum {string} */
+                                        kind: "task" | "document" | "risk" | "evidence";
+                                        id: string;
+                                        title: string;
+                                        sub: string;
+                                        due: string;
+                                        days: number;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "dlp";
+                                    widget: {
+                                        key: string;
+                                        title: string;
+                                        /** @enum {string} */
+                                        kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                                        source: string;
+                                        registerId: string | null;
+                                        link: string | null;
+                                        total: number | null;
+                                        rows: {
+                                            label: string;
+                                            count: number;
+                                            link: string | null;
+                                            tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                        }[];
+                                        stats: {
+                                            label: string;
+                                            value: number | null;
+                                            tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                            link: string | null;
+                                        }[];
+                                        items: {
+                                            id: string;
+                                            title: string;
+                                            sub: string;
+                                            date: string | null;
+                                            days: number | null;
+                                            link: string;
+                                        }[];
+                                    } | null;
+                                };
+                                empty: boolean;
                             }[];
                         };
                     };
@@ -29078,6 +29147,1182 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/slides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Слайды экрана мониторинга (и выключенные) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** @enum {string} */
+                                kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                                title: string;
+                                seconds: number;
+                                filter: {
+                                    /** @enum {string} */
+                                    period?: "all" | "overdue" | "within";
+                                    days?: number;
+                                    kpis?: string[];
+                                    crit?: string[];
+                                    departments?: string[];
+                                    systems?: string[];
+                                    categories?: string[];
+                                    types?: string[];
+                                    /** Format: uuid */
+                                    registerId?: string;
+                                };
+                                enabled: boolean;
+                                skipEmpty: boolean;
+                                id: string;
+                                sortOrder: number;
+                                version: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Добавить слайд (в конец) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                        title: string;
+                        seconds: number;
+                        filter: {
+                            /** @enum {string} */
+                            period?: "all" | "overdue" | "within";
+                            days?: number;
+                            kpis?: string[];
+                            crit?: string[];
+                            departments?: string[];
+                            systems?: string[];
+                            categories?: string[];
+                            types?: string[];
+                            /** Format: uuid */
+                            registerId?: string;
+                        };
+                        enabled: boolean;
+                        skipEmpty: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                            title: string;
+                            seconds: number;
+                            filter: {
+                                /** @enum {string} */
+                                period?: "all" | "overdue" | "within";
+                                days?: number;
+                                kpis?: string[];
+                                crit?: string[];
+                                departments?: string[];
+                                systems?: string[];
+                                categories?: string[];
+                                types?: string[];
+                                /** Format: uuid */
+                                registerId?: string;
+                            };
+                            enabled: boolean;
+                            skipEmpty: boolean;
+                            id: string;
+                            sortOrder: number;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/slide-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Значения для формы слайда */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            kinds: {
+                                /** @enum {string} */
+                                kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                                label: string;
+                            }[];
+                            kpis: {
+                                id: string;
+                                label: string;
+                            }[];
+                            crit: {
+                                id: string;
+                                label: string;
+                            }[];
+                            departments: {
+                                id: string;
+                                label: string;
+                            }[];
+                            systems: {
+                                id: string;
+                                label: string;
+                            }[];
+                            categories: {
+                                id: string;
+                                label: string;
+                            }[];
+                            types: {
+                                id: string;
+                                label: string;
+                            }[];
+                            registers: {
+                                id: string;
+                                label: string;
+                            }[];
+                            seconds: {
+                                min: number;
+                                max: number;
+                                default: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/slides/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Предпросмотр слайда — данные так, как они будут на мониторе */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                        title: string;
+                        seconds: number;
+                        filter: {
+                            /** @enum {string} */
+                            period?: "all" | "overdue" | "within";
+                            days?: number;
+                            kpis?: string[];
+                            crit?: string[];
+                            departments?: string[];
+                            systems?: string[];
+                            categories?: string[];
+                            types?: string[];
+                            /** Format: uuid */
+                            registerId?: string;
+                        };
+                        enabled: boolean;
+                        skipEmpty: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                            title: string;
+                            seconds: number;
+                            filter: {
+                                /** @enum {string} */
+                                period?: "all" | "overdue" | "within";
+                                days?: number;
+                                kpis?: string[];
+                                crit?: string[];
+                                departments?: string[];
+                                systems?: string[];
+                                categories?: string[];
+                                types?: string[];
+                                /** Format: uuid */
+                                registerId?: string;
+                            };
+                            enabled: boolean;
+                            skipEmpty: boolean;
+                            id: string;
+                            sortOrder: number;
+                            version: number;
+                            data: {
+                                /** @enum {string} */
+                                kind: "kpis";
+                                items: {
+                                    /** @enum {string} */
+                                    key: "vulns_open" | "vulns_overdue" | "vulns_soon" | "incidents_30d" | "tasks_overdue" | "docs_review" | "risks_no_decision" | "evidence_pending" | "evidence_expiring";
+                                    label: string;
+                                    value: number | null;
+                                    tone: ("bad" | "warn") | null;
+                                    source: string;
+                                    link: string | null;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "vulns";
+                                vulns: {
+                                    registerId: string;
+                                    total: number;
+                                    items: {
+                                        id: string;
+                                        number: number;
+                                        title: string;
+                                        pkg: string;
+                                        desc: string;
+                                        crit: {
+                                            label: string;
+                                            tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                        } | null;
+                                        hits: number | null;
+                                        score: number | null;
+                                        due: string | null;
+                                        days: number | null;
+                                    }[];
+                                    buckets: {
+                                        /** @enum {string} */
+                                        key: "overdue" | "d0_7" | "d8_14" | "d15_30" | "d31" | "none";
+                                        label: string;
+                                        count: number;
+                                        tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                    }[];
+                                    dates: {
+                                        date: string;
+                                        days: number;
+                                        count: number;
+                                    }[];
+                                    packages: {
+                                        label: string;
+                                        count: number;
+                                    }[];
+                                } | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "items";
+                                items: {
+                                    /** @enum {string} */
+                                    kind: "task" | "document" | "risk" | "evidence";
+                                    id: string;
+                                    title: string;
+                                    sub: string;
+                                    due: string;
+                                    days: number;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "dlp";
+                                widget: {
+                                    key: string;
+                                    title: string;
+                                    /** @enum {string} */
+                                    kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                                    source: string;
+                                    registerId: string | null;
+                                    link: string | null;
+                                    total: number | null;
+                                    rows: {
+                                        label: string;
+                                        count: number;
+                                        link: string | null;
+                                        tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                    }[];
+                                    stats: {
+                                        label: string;
+                                        value: number | null;
+                                        tone: ("accent" | "info" | "low" | "high" | "med" | "crit" | "muted") | null;
+                                        link: string | null;
+                                    }[];
+                                    items: {
+                                        id: string;
+                                        title: string;
+                                        sub: string;
+                                        date: string | null;
+                                        days: number | null;
+                                        link: string;
+                                    }[];
+                                } | null;
+                            };
+                            empty: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/slides/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить слайд */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                        title: string;
+                        seconds: number;
+                        filter: {
+                            /** @enum {string} */
+                            period?: "all" | "overdue" | "within";
+                            days?: number;
+                            kpis?: string[];
+                            crit?: string[];
+                            departments?: string[];
+                            systems?: string[];
+                            categories?: string[];
+                            types?: string[];
+                            /** Format: uuid */
+                            registerId?: string;
+                        };
+                        enabled: boolean;
+                        skipEmpty: boolean;
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                            title: string;
+                            seconds: number;
+                            filter: {
+                                /** @enum {string} */
+                                period?: "all" | "overdue" | "within";
+                                days?: number;
+                                kpis?: string[];
+                                crit?: string[];
+                                departments?: string[];
+                                systems?: string[];
+                                categories?: string[];
+                                types?: string[];
+                                /** Format: uuid */
+                                registerId?: string;
+                            };
+                            enabled: boolean;
+                            skipEmpty: boolean;
+                            id: string;
+                            sortOrder: number;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/monitor/slides/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Слайд выше или ниже */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        direction: "up" | "down";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** @enum {string} */
+                                kind: "kpis" | "vulns" | "tasks" | "documents" | "risks" | "evidence" | "dlp";
+                                title: string;
+                                seconds: number;
+                                filter: {
+                                    /** @enum {string} */
+                                    period?: "all" | "overdue" | "within";
+                                    days?: number;
+                                    kpis?: string[];
+                                    crit?: string[];
+                                    departments?: string[];
+                                    systems?: string[];
+                                    categories?: string[];
+                                    types?: string[];
+                                    /** Format: uuid */
+                                    registerId?: string;
+                                };
+                                enabled: boolean;
+                                skipEmpty: boolean;
+                                id: string;
+                                sortOrder: number;
+                                version: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitor/slides/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить слайд (мягко) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;

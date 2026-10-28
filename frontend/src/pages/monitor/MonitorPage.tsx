@@ -2,23 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi, type Me } from '../../api/client';
-import { dashboardApi, dashkeys, type Kpi, type MonitorItem, type MonitorVuln } from '../../api/dashboard';
+import { dashboardApi, dashkeys, type MonitorData } from '../../api/dashboard';
 import { applyThemeMode, loadThemeMode } from '../../theme/theme';
-import {
-  barWidth, dateRu, daysBox, daysText, MONITOR_FLIP_MS, MONITOR_IDLE_MS, MONITOR_REFRESH_MS, pageOf, rowsPerPage, timeOf,
-} from '../dashboard/logic';
+import { MONITOR_FLIP_MS, MONITOR_IDLE_MS, MONITOR_REFRESH_MS, rowsPerPage, timeOf } from '../dashboard/logic';
+import { stepsOf } from './slides';
+import { SlideView } from './SlideView';
 
-/** KPI на стене — по порядку; «на проверке» оставлен дашборду. */
-const WALL_KPIS: Kpi['key'][] = [
-  'vulns_open', 'vulns_overdue', 'vulns_soon', 'incidents_30d', 'tasks_overdue', 'docs_review', 'risks_no_decision', 'evidence_expiring',
-];
-const KIND_NAMES: Record<MonitorItem['kind'], string> = { task: 'Задача', document: 'Документ', risk: 'Риск ИБ', evidence: 'Доказательство' };
 const WEEKDAYS = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
-
-function Days({ days }: { days: number | null }) {
-  const d = daysBox(days);
-  return <div className={`days ${d.tone}`}><b>{d.value}</b><span>{d.caption}</span></div>;
-}
 
 function useViewport() {
   const [size, setSize] = useState(() => ({ h: window.innerHeight || 900, w: window.innerWidth || 1600 }));
@@ -78,8 +68,9 @@ const icons = {
 };
 
 /**
- * Экран мониторинга для настенного монитора: один экран без прокрутки, страницы листаются каждые 12 с,
- * данные обновляются раз в минуту; без связи с сервером остаются последние данные и плашка «Нет связи».
+ * Экран мониторинга для настенного монитора: слайды по порядку (релиз 1.1.0, ADR-0019), каждый — своё время
+ * (по умолчанию 12 с), длинный список — страницами. Данные и набор слайдов обновляются раз в минуту; новый
+ * набор подхватывается на границе слайда, без перезагрузки и мигания. Без связи остаются последние данные.
  */
 export function MonitorPage({ me }: { me: Me }) {
   const navigate = useNavigate();
@@ -101,8 +92,31 @@ export function MonitorPage({ me }: { me: Me }) {
   useWakeLock();
   useWallTheme();
 
+  // Показываемый набор слайдов. Новые данные того же набора — сразу; другой набор (слайды изменили в
+  // настройках) — ждёт границы слайда в pending, чтобы экран не перескакивал посреди показа.
+  const [shown, setShown] = useState<MonitorData | null>(null);
+  const pending = useRef<MonitorData | null>(null);
+  useEffect(() => {
+    if (!q.data) return;
+    if (!shown || shown.signature === q.data.signature) setShown(q.data);
+    else pending.current = q.data;
+  }, [q.data, shown]);
+
+  const per = rowsPerPage(h, w);
+  const steps = stepsOf(shown?.slides ?? [], per);
+  const at = steps.length ? ((step % steps.length) + steps.length) % steps.length : 0;
+  const cur = steps[at];
+  const slide = cur ? shown?.slides[cur.slide] : undefined;
+  const slideMs = slide ? slide.seconds * 1000 : MONITOR_FLIP_MS;
+
   const flip = useCallback((by: number) => {
-    setStep((s) => s + by);
+    if (pending.current) {
+      setShown(pending.current);
+      pending.current = null;
+      setStep(0);
+    } else {
+      setStep((s) => s + by);
+    }
     lastFlip.current = Date.now();
   }, []);
 
@@ -110,10 +124,10 @@ export function MonitorPage({ me }: { me: Me }) {
   useEffect(() => {
     const t = window.setInterval(() => {
       setNow(new Date());
-      if (!paused && Date.now() - lastFlip.current >= MONITOR_FLIP_MS) flip(1);
+      if (!paused && Date.now() - lastFlip.current >= slideMs) flip(1);
     }, 500);
     return () => window.clearInterval(t);
-  }, [paused, flip]);
+  }, [paused, flip, slideMs]);
 
   // Панель управления прячется без движения мыши.
   const wake = useCallback(() => {
@@ -173,15 +187,10 @@ export function MonitorPage({ me }: { me: Me }) {
   const data = q.data;
   // Нет связи: запрос упал или браузер считает сеть отключённой (TanStack Query тогда ставит запрос на паузу).
   const offline = !!data && (q.isError || q.fetchStatus === 'paused');
-  const per = rowsPerPage(h, w);
-  const vulns = pageOf<MonitorVuln>(data?.vulns?.items ?? [], per, step);
-  const side = pageOf<MonitorItem>(data?.items ?? [], Math.max(3, per - 1), step);
-  const kpis = WALL_KPIS.map((k) => data?.kpis.find((x) => x.key === k)).filter((k): k is Kpi => !!k);
-  const buckets = data?.vulns?.buckets ?? [];
   const p2 = (n: number) => String(n).padStart(2, '0');
 
   return (
-    <div className="mon" data-paused={paused ? 'true' : 'false'} data-step={step}>
+    <div className="mon" data-paused={paused ? 'true' : 'false'} data-step={step} data-slide-index={cur?.slide ?? -1}>
       <div className="mon-top">
         <div><div className="eyebrow">Отдел информационной безопасности</div><h1>Мониторинг ИБ</h1></div>
         <div className="mon-time">
@@ -198,98 +207,15 @@ export function MonitorPage({ me }: { me: Me }) {
       {!data && q.isPending && <div className="mon-offline mon-wait" role="status">Загрузка данных…</div>}
       {!data && q.isError && <div className="mon-offline" role="status">Нет связи с сервером портала · повторим через минуту</div>}
 
-      <div className="mon-kpis" aria-label="Ключевые показатели">
-        {kpis.map((k) => (
-          <div key={k.key} className={`mk ${k.tone ?? ''}`} data-kpi={k.key}>
-            <div className="l" title={k.label}>{k.label}</div>
-            <div className="v">{k.value ?? '—'}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mon-main">
-        <section className="mp" aria-label="Уязвимости: дни до срока устранения">
-          <div className="mp-h"><span>Уязвимости: дни до срока устранения</span><span className="mono pg">{vulns.pages > 1 ? `стр. ${vulns.page + 1} из ${vulns.pages}` : ''}</span></div>
-          <div className="mp-b">
-            {data && !data.vulns && <div className="hint">Реестр уязвимостей не настроен</div>}
-            {data?.vulns && vulns.items.length === 0 && <div className="hint">Открытых уязвимостей нет</div>}
-            {vulns.items.map((v) => (
-              <div key={v.id} className="mrow">
-                <Days days={v.days} />
-                <div className="min0">
-                  <div className="t1">{v.title} <span>{v.pkg}</span></div>
-                  <div className="t2">{v.desc}</div>
-                </div>
-                <div className="mr">
-                  {v.crit && <span className={`chip ${v.crit.tone ?? ''}`}>{v.crit.label}</span>}
-                  <span className="mono">{v.hits ? `${v.hits} ПК · ` : ''}{v.due ? `до ${dateRu(v.due)}` : 'без срока'}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {vulns.pages > 1 && <div className="pdots" aria-hidden="true">{Array.from({ length: vulns.pages }, (_, i) => <i key={i} className={i === vulns.page ? 'on' : ''} />)}</div>}
-        </section>
-
-        <div className="mcol">
-          <section className="mp" aria-label="Сроки устранения">
-            <div className="mp-h"><span>Сроки устранения</span><span className="mono pg">{data?.vulns ? `${data.vulns.total} откр.` : ''}</span></div>
-            <div className="mp-b">
-              <div className="bars">
-                {buckets.map((b) => (
-                  <div key={b.key} className="bar">
-                    <span className="t">{b.label}</span>
-                    <span className="track"><span className={`fill${b.tone ? ` c-${b.tone}` : ''}`} style={{ width: `${barWidth(b.count, buckets)}%` }} /></span>
-                    <span className="n">{b.count}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mdates">
-                {data?.vulns?.dates.map((d) => (
-                  <div key={d.date} className="md">
-                    <span className="mono">{dateRu(d.date)}</span>
-                    <span className={d.days < 0 ? 'neg' : d.days <= 7 ? 'warn' : ''}>{daysText(d.days)}</span>
-                    <b className="mono">{d.count}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-          <section className="mp" aria-label="Открытые по пакетам">
-            <div className="mp-h"><span>Открытые по пакетам</span></div>
-            <div className="mp-b">
-              <div className="bars">
-                {data?.vulns?.packages.map((p) => (
-                  <div key={p.label} className="bar">
-                    <span className="t" title={p.label}>{p.label}</span>
-                    <span className="track"><span className="fill" style={{ width: `${barWidth(p.count, data.vulns?.packages ?? [])}%` }} /></span>
-                    <span className="n">{p.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <section className="mp" aria-label="Задачи, документы, риски, доказательства: дни">
-          <div className="mp-h"><span>Задачи, документы, риски, доказательства</span><span className="mono pg">{side.pages > 1 ? `стр. ${side.page + 1} из ${side.pages}` : ''}</span></div>
-          <div className="mp-b">
-            {data && side.items.length === 0 && <div className="hint">Сроков нет</div>}
-            {side.items.map((o) => (
-              <div key={`${o.kind}:${o.id}`} className="mrow mrow-2">
-                <Days days={o.days} />
-                <div className="min0">
-                  <div className="t1">{o.title}</div>
-                  <div className="t2">{KIND_NAMES[o.kind]} · {o.sub}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+      {shown && slide && cur ? (
+        <SlideView key={`${slide.id}:${cur.page}`} slide={slide} page={cur.page} per={per} />
+      ) : (
+        <div className="mon-slide"><div className="mon-empty">{shown ? 'Нет слайдов для показа — добавьте их в «Настройки → Экран мониторинга»' : ''}</div></div>
+      )}
 
       <div className="mon-foot">
         <span>{data ? `Обновлено в ${timeOf(data.computedAt, true)}` : ''}</span>
-        <span>{paused ? 'на паузе' : 'листается само каждые 12 с'} · ← → листать · пробел — пауза{me.kiosk ? '' : ' · Esc — выход'}</span>
+        <span>{paused ? 'на паузе' : `листается само каждые ${Math.round(slideMs / 1000)} с`} · ← → листать · пробел — пауза{me.kiosk ? '' : ' · Esc — выход'}</span>
       </div>
 
       <div className="mon-ctl" role="toolbar" aria-label="Управление мониторингом">
@@ -297,8 +223,8 @@ export function MonitorPage({ me }: { me: Me }) {
         <button type="button" className="main" aria-label={paused ? 'Продолжить' : 'Пауза'} onClick={togglePause}>{paused ? icons.play : icons.pause}</button>
         <button type="button" aria-label="Следующая страница" onClick={() => flip(1)}>{icons.next}</button>
         <span className="mon-pg">
-          <span className="mono">{vulns.page + 1}/{vulns.pages}</span>
-          <span className={`mon-prog${paused ? ' paused' : ''}`}><i key={step} className="mon-prog-bar" /></span>
+          <span className="mono" title="Слайд из всех шагов показа">{steps.length ? at + 1 : 0}/{steps.length}</span>
+          <span className={`mon-prog${paused ? ' paused' : ''}`}><i key={step} className="mon-prog-bar" style={{ animationDuration: `${slideMs}ms` }} /></span>
         </span>
         <button type="button" aria-label="На весь экран" onClick={fullscreen}>{icons.full}</button>
         <button type="button" className="x" aria-label={me.kiosk ? 'Выйти' : 'Закрыть мониторинг'} onClick={close}>{icons.close}</button>

@@ -224,21 +224,20 @@ describe('подпись автора и «О портале»', () => {
 });
 
 describe('экран мониторинга', () => {
-  it('листается сам каждые 12 с; пауза останавливает; ← → и пробел; панель прячется без мыши', async () => {
+  it('слайды по 12 с: KPI, затем уязвимости; пауза останавливает; ← → и пробел; панель прячется без мыши', async () => {
     await ui.goto('/monitor');
-    await ui.waitFor(`document.querySelectorAll('.mon .mk').length === 8 && document.querySelectorAll('.mon .mrow').length > 0`, 'экран мониторинга с данными');
+    // Первый слайд набора по умолчанию — «Ключевые показатели» (8 KPI стены).
+    await ui.waitFor(`document.querySelectorAll('.mon .mon-kpis-big .mk').length === 8`, 'экран мониторинга с данными');
     assert.equal(await ui.evaluate(`document.documentElement.dataset.theme ?? ''`), 'dark', 'чёрная тема по умолчанию');
     assert.equal(await ui.evaluate(`document.documentElement.scrollHeight <= innerHeight`), true, 'без прокрутки');
     assert.equal(await ui.evaluate(`!!document.querySelector('.credit')`), false, 'на мониторе подписи нет');
-    const pages = await ui.text(`document.querySelector('.mp-h .pg')`);
-    assert.match(pages, /^стр\. 1 из \d+$/, 'уязвимости не помещаются на одну страницу');
 
     const t0 = Date.now();
     const step0 = await ui.evaluate(monStep);
     await ui.waitFor(`${monStep} === ${step0 + 1}`, 'автолистание', 15_000);
     const took = Date.now() - t0;
     assert.ok(took > 10_000 && took < 14_500, `перелистнулось через ${took} мс`);
-    assert.match(await ui.text(`document.querySelector('.mp-h .pg')`), /^стр\. 2 из/);
+    await ui.waitFor(`document.querySelector('.mon-slide')?.dataset.slide === 'vulns' && document.querySelectorAll('.mon .mrow').length > 0`, 'второй слайд — уязвимости');
 
     // Панель управления видна при движении мыши; пауза — щелчком.
     await ui.moveMouse(700, 500);
@@ -266,7 +265,7 @@ describe('экран мониторинга', () => {
 
   it('без связи с сервером данные остаются и видна плашка; после восстановления плашка исчезает', async () => {
     await ui.goto('/monitor');
-    await ui.waitFor(`document.querySelectorAll('.mon .mk').length === 8`, 'экран мониторинга');
+    await ui.waitFor(`document.querySelectorAll('.mon .mon-kpis-big .mk').length === 8`, 'экран мониторинга');
     const kpis = await ui.evaluate(`[...document.querySelectorAll('.mon .mk .v')].map((v) => v.textContent).join('|')`);
     const updated = await ui.text(`document.querySelector('.mon-foot span')`);
 
@@ -276,11 +275,46 @@ describe('экран мониторинга', () => {
     await ui.waitFor(`document.querySelector('.mon-offline')?.textContent.includes('Нет связи с сервером')`, 'плашка «Нет связи»', 15_000);
     assert.equal(await ui.evaluate(`[...document.querySelectorAll('.mon .mk .v')].map((v) => v.textContent).join('|')`), kpis, 'данные на экране остались');
     assert.equal(await ui.text(`document.querySelector('.mon-foot span')`), updated, 'время обновления — прежнее');
-    assert.ok(await ui.evaluate(`document.querySelectorAll('.mon .mrow').length > 0`), 'список уязвимостей на месте');
+    assert.ok(await ui.evaluate(`!!document.querySelector('.mon-slide')`), 'слайд на месте');
 
     await ui.allowRequests();
     await ui.evaluate(`window.dispatchEvent(new Event('visibilitychange'))`);
     await ui.waitFor(`!document.querySelector('.mon-offline')`, 'плашка исчезла', 15_000);
+  });
+
+  it('новый слайд из настроек — без перезагрузки, на границе слайда; своё время показа; предпросмотр в настройках', async () => {
+    const title = `${RUN} просроченные задачи`;
+    const created = [];
+    try {
+      await ui.goto('/monitor');
+      await ui.waitFor(`!!document.querySelector('.mon-slide')`, 'экран мониторинга');
+      const before = await ui.evaluate(`document.querySelector('.mon-ctl .mon-pg .mono').textContent`);
+      created.push(await api('POST', '/api/v1/monitor/slides', { kind: 'tasks', title, seconds: 5, filter: { period: 'overdue' }, enabled: true, skipEmpty: false }));
+      // Обновление раз в минуту ускоряем возвратом на вкладку; набор меняется только на границе слайда.
+      await ui.evaluate(`window.dispatchEvent(new Event('visibilitychange'))`);
+      await sleep(1500);
+      assert.equal(await ui.evaluate(`document.querySelector('.mon-ctl .mon-pg .mono').textContent`), before, 'посреди слайда набор не меняется');
+      await ui.press('ArrowRight');
+      await ui.waitFor(`document.querySelector('.mon').dataset.slideIndex === '0'`, 'новый набор — с первого слайда');
+      await ui.press('ArrowLeft');
+      await ui.waitFor(`document.querySelector('.mon-slide-h h2')?.textContent === ${JSON.stringify(title)}`, 'новый слайд — последний');
+      assert.match(await ui.text(`document.querySelector('.mon-foot span:last-child')`), /каждые 5 с/);
+      const t0 = Date.now();
+      await ui.waitFor(`document.querySelector('.mon-slide-h h2')?.textContent !== ${JSON.stringify(title)}`, 'слайд сменился сам', 9000);
+      const took = Date.now() - t0;
+      assert.ok(took > 3000 && took < 7000, `слайд показан ${took} мс, ожидалось около 5 с`);
+
+      // Настройки: слайд в списке, предпросмотр — так же, как на мониторе.
+      await ui.goto('/settings/monitor');
+      const row = `document.querySelector('[data-slide-id="${created[0].id}"]')`;
+      await ui.waitFor(`!!${row}`, 'слайд в настройках');
+      await ui.click(`[...${row}.querySelectorAll('button')].find((b) => b.textContent === 'Предпросмотр')`, '«Предпросмотр»');
+      await ui.waitFor(`document.querySelector('[aria-label="Предпросмотр слайда"] .mon-slide-h h2')?.textContent === ${JSON.stringify(title)}`, 'предпросмотр слайда');
+      await ui.press('Escape');
+      await ui.waitFor(`!document.querySelector('[aria-label="Предпросмотр слайда"]')`, 'предпросмотр закрыт');
+    } finally {
+      for (const s of created) await api('POST', `/api/v1/monitor/slides/${s.id}/delete`, { version: s.version }).catch(() => undefined);
+    }
   });
 
   it('Esc закрывает мониторинг и возвращает на дашборд', async () => {

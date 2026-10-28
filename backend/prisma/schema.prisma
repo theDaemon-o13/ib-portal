@@ -62,6 +62,7 @@ model User {
   automationRuns       AutomationRun[]
   dashboardLayout      DashboardLayout? @relation("LayoutOwner")
   dashboardLayoutEdits DashboardLayout[] @relation("LayoutEditor")
+  monitorSlides        MonitorSlide[]
   roles                UserRole[]           @relation("UserRoles")
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
   sessions             Session[]
@@ -750,6 +751,32 @@ model DashboardLayout {
   editor  User? @relation("LayoutEditor", fields: [updatedBy], references: [id], onDelete: Restrict)
 
   @@map("dashboard_layouts")
+}
+
+/// Слайд экрана мониторинга (релиз 1.1.0, задача 6, ADR-0019). Одна настройка на все настенные мониторы;
+/// правит settings.manage, киоск только читает. kind и диапазоны — CHECK в SQL; удаление мягкое.
+model MonitorSlide {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// kpis | vulns | tasks | documents | risks | evidence | dlp
+  kind      String
+  title     String
+  seconds   Int       @default(12)
+  filter    Json      @default("{}")
+  enabled   Boolean   @default(true)
+  /// Нет данных — слайд не показывается (иначе — текст «Нет …»).
+  skipEmpty Boolean   @default(false) @map("skip_empty")
+  sortOrder Int       @map("sort_order")
+  version   Int       @default(1)
+  /// NULL — слайд seed.
+  createdBy String?   @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  author User? @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([sortOrder])
+  @@map("monitor_slides")
 }
 
 model AutomationRun {

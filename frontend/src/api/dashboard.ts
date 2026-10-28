@@ -16,8 +16,14 @@ export type Tile = Res<'/api/v1/dashboard/tiles', 'get'>['items'][number];
 export type NewTile = Body<'/api/v1/dashboard/tiles', 'post'>;
 export type TilePatch = Body<'/api/v1/dashboard/tiles/{id}', 'patch'>;
 export type MonitorData = Res<'/api/v1/monitor', 'get'>;
-export type MonitorVuln = NonNullable<MonitorData['vulns']>['items'][number];
-export type MonitorItem = MonitorData['items'][number];
+/** Слайд экрана мониторинга с данными (релиз 1.1.0). */
+export type MonitorSlide = MonitorData['slides'][number];
+export type SlideData = MonitorSlide['data'];
+export type MonitorVuln = NonNullable<Extract<SlideData, { kind: 'vulns' }>['vulns']>['items'][number];
+export type MonitorItem = Extract<SlideData, { kind: 'items' }>['items'][number];
+export type SlideConfig = Res<'/api/v1/monitor/slides', 'get'>['items'][number];
+export type SlideInput = Body<'/api/v1/monitor/slides', 'post'>;
+export type SlideOptions = Res<'/api/v1/monitor/slide-options', 'get'>;
 /** Раскладка дашборда (релиз 1.1.0). */
 export type Layout = Res<'/api/v1/dashboard/layout', 'get'>;
 export type LayoutItem = Layout['items'][number];
@@ -32,6 +38,14 @@ export const dashboardApi = {
   updateTile: (id: string, body: TilePatch) => request<Tile>('PATCH', `/api/v1/dashboard/tiles/${id}`, body),
   deleteTile: (id: string, version: number) => request<undefined>('POST', `/api/v1/dashboard/tiles/${id}/delete`, { version }),
   monitor: () => request<MonitorData>('GET', '/api/v1/monitor'),
+  // Слайды мониторинга (settings.manage).
+  slides: () => request<{ items: SlideConfig[] }>('GET', '/api/v1/monitor/slides'),
+  slideOptions: () => request<SlideOptions>('GET', '/api/v1/monitor/slide-options'),
+  previewSlide: (body: SlideInput) => request<MonitorSlide>('POST', '/api/v1/monitor/slides/preview', body),
+  createSlide: (body: SlideInput) => request<SlideConfig>('POST', '/api/v1/monitor/slides', body),
+  updateSlide: (id: string, version: number, body: SlideInput) => request<SlideConfig>('PATCH', `/api/v1/monitor/slides/${id}`, { ...body, version }),
+  moveSlide: (id: string, direction: 'up' | 'down') => request<{ items: SlideConfig[] }>('POST', `/api/v1/monitor/slides/${id}/move`, { direction }),
+  deleteSlide: (id: string, version: number) => request<undefined>('POST', `/api/v1/monitor/slides/${id}/delete`, { version }),
   layout: () => request<Layout>('GET', '/api/v1/dashboard/layout'),
   saveLayout: (version: number, items: LayoutItem[]) => request<Layout>('PUT', '/api/v1/dashboard/layout', { version, items }),
   resetLayout: () => request<Layout>('POST', '/api/v1/dashboard/layout/reset'),
@@ -51,4 +65,6 @@ export const dashkeys = {
   layout: ['dashboard', 'layout'] as const,
   roleLayouts: ['dashboard', 'role-layouts'] as const,
   monitor: ['monitor'] as const,
+  slides: ['monitor', 'slides'] as const,
+  slideOptions: ['monitor', 'slide-options'] as const,
 };

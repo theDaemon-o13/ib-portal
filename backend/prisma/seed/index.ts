@@ -7,6 +7,7 @@ import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/per
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
+import { seedMonitorSlides } from './monitor.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
@@ -72,6 +73,7 @@ async function main() {
     await seedDlp(tx);
     await seedCompareKeys(tx);
     await seedDashboardLayouts(tx);
+    await seedMonitorSlides(tx);
   });
   console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}, справочников ${CATALOGS.length}`);
 }

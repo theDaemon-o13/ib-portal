@@ -572,9 +572,9 @@ a.btn svg{width:16px;height:16px}
 .tile-m{grid-column:span 2}.tile-l{grid-column:1/-1}
 .lay-cell{position:relative;min-width:0;display:grid}
 .lay-cell > *{min-width:0}
-.lay-edit .lay-cell{outline:1px dashed var(--line);outline-offset:3px;border-radius:var(--r-md)}
+.lay-edit .lay-cell{outline:1px dashed var(--line);outline-offset:3px;border-radius:var(--r-md);padding-top:36px}
 .lay-cell.dragging{opacity:.55}
-.lay-tools{position:absolute;top:6px;right:6px;z-index:2;display:flex;gap:4px;padding:3px;border-radius:9px;background:var(--glass-strong);box-shadow:var(--shadow-lg)}
+.lay-tools{position:absolute;top:2px;right:2px;z-index:2;display:flex;gap:4px;padding:3px;border-radius:9px;background:var(--glass-strong);box-shadow:var(--shadow-lg)}
 .lay-tools button{border:0;background:none;padding:3px 7px;border-radius:7px;font-size:12px;color:var(--fg);cursor:pointer}
 .lay-tools button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
 .lay-handle{cursor:grab!important;touch-action:none}
@@ -620,7 +620,7 @@ a.btn svg{width:16px;height:16px}
     radial-gradient(60vw 55vh at 5% 0%,var(--amb-a),transparent 70%),
     radial-gradient(50vw 50vh at 100% 100%,var(--amb-c),transparent 70%),
     var(--bg);
-  color:var(--fg);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:1.4vh;overflow:hidden;
+  color:var(--fg);display:flex;flex-direction:column;gap:1.4vh;overflow:hidden;
   padding:calc(2.2vh + env(safe-area-inset-top,0px)) max(2vw, env(safe-area-inset-right,0px)) calc(1.4vh + env(safe-area-inset-bottom,0px)) max(2vw, env(safe-area-inset-left,0px));
   font-size:clamp(12px, calc(1.25vh + .35vw), 22px)}
 .mon .eyebrow{font-size:.72em}
@@ -640,6 +640,28 @@ a.btn svg{width:16px;height:16px}
 .mk.bad::after,.mk.warn::after{content:"";position:absolute;right:1vw;top:1.3vh;width:.55em;height:.55em;border-radius:50%;background:var(--crit);box-shadow:0 0 0 .3em var(--crit-soft)}
 .mk.warn::after{background:var(--high);box-shadow:0 0 0 .3em var(--high-soft)}
 .mon-main{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,3.3fr) minmax(0,3.7fr);gap:.9vw;min-height:0}
+.mon-main-2{grid-template-columns:minmax(0,6fr) minmax(0,4fr);height:100%}
+/* Слайды (релиз 1.1.0): слайд занимает всё место между шапкой и подвалом */
+.mon-slide{flex:1;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:1.2vh;animation:mon-in .35s ease}
+@keyframes mon-in{from{opacity:0}to{opacity:1}}
+.mon-slide-h{display:flex;justify-content:space-between;align-items:baseline;gap:2vw}
+.mon-slide-h h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.45em;letter-spacing:-.02em}
+.mon-slide-h .pg{color:var(--muted);font-size:.8em}
+.mon-empty{display:grid;place-items:center;text-align:center;font-family:var(--f-display);font-size:2.4em;font-weight:600;color:var(--muted)}
+.mon-kpis-big{grid-template-columns:repeat(4,minmax(0,1fr));align-content:center;gap:1.4vw}
+.mon-kpis-big .mk{padding:3vh 1.6vw;gap:1.2vh}
+.mon-kpis-big .mk .l{font-size:1em}
+.mon-kpis-big .mk .v{font-size:4.6em}
+.mk .src{color:var(--muted);font-size:.7em}
+.mon-slide > .mp{height:100%}
+.mon-dlp-total{display:flex;align-items:baseline;gap:1vw;margin-bottom:2vh}
+.mon-dlp-total b{font-family:var(--f-display);font-size:4.6em;line-height:1;color:var(--crit)}
+.mon-dlp-total span{color:var(--muted)}
+.slide-preview{width:min(1100px,94vw);aspect-ratio:16/9;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg)}
+.mon.mon-preview{position:relative;inset:auto;width:100%;height:100%;z-index:auto;font-size:clamp(9px,1.05vw,16px)}
+.slide-pick{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.slide-pick legend{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:4px}
+.slide-form .fd-label{min-width:160px}
 .mcol{display:grid;grid-template-rows:minmax(0,1.15fr) minmax(0,1fr);gap:.9vw;min-height:0}
 .mp{background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:1.4vw;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .mp-h{display:flex;justify-content:space-between;gap:1vw;padding:1.1vh 1.1vw;border-bottom:1px solid var(--line);font-family:var(--f-display);font-weight:600;font-size:.98em;letter-spacing:-.01em}
