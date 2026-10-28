@@ -2,10 +2,12 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  registersApi, VULN_REGISTER_KEY, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, type ScanPreview,
+  registersApi, VULN_REGISTER_KEY, type BulkSelection, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, type ScanPreview,
   FILTER_PARAMS,
 } from '../../api/registers';
 import { useToast } from '../../components/Toast';
+import { BulkDialog, type BulkMode } from './BulkDialog';
+import { isPicked, NOTHING, pickedCount, pickPage, selectionBody, togglePicked, type Picked } from './bulk';
 import { ImportDialog } from './ImportDialog';
 import { BASIS_TONES, deadlineChip, deadlineFieldOf, describeFilter, filterFromParams, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
 import { ExportZipDialog } from './ExportZipDialog';
@@ -119,7 +121,11 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   // Реестр со сроками открывается «срочное сначала», как в прототипе.
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' }>(deadline ? { key: DEADLINE_KEY, dir: 'asc' } : { key: 'number', dir: 'desc' });
   const [archived, setArchived] = useState(false);
+  // «Архив»: только архивные записи — посмотреть и вернуть выбранные.
+  const [archiveView, setArchiveView] = useState(false);
   const [withTasks, setWithTasks] = useState(false);
+  const [picked, setPicked] = useState<Picked>(NOTHING);
+  const [bulk, setBulk] = useState<{ mode: BulkMode; selection: BulkSelection } | null>(null);
   const [scanPreview, setScanPreview] = useState<ScanPreview | null>(null);
   const [pin, setPin] = useState(() => loadPin(reg.id));
   // ?record=<id> — открыть карточку записи по ссылке (из доказательства, задачи).
@@ -165,13 +171,25 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   }, [qInput]);
 
   const query = useInfiniteQuery({
-    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, withTasks, filter],
-    queryFn: ({ pageParam }) => registersApi.records(reg.id, { q, sort: sort.key, dir: sort.dir, includeArchived: archived, withTasks, filter, cursor: pageParam }),
+    queryKey: [...rkeys.records(reg.id), q, sort.key, sort.dir, archived, archiveView, withTasks, filter],
+    queryFn: ({ pageParam }) => registersApi.records(reg.id, {
+      q, sort: sort.key, dir: sort.dir, includeArchived: archived, archivedOnly: archiveView, withTasks, filter, cursor: pageParam,
+    }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
   const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
   const total = query.data?.pages[0]?.total ?? 0;
+  // Выбор сбрасывается, когда меняются условия списка: «все по фильтру» относится к конкретному фильтру.
+  const conditionsKey = JSON.stringify([q, archived, archiveView, withTasks, filter]);
+  useEffect(() => setPicked(NOTHING), [conditionsKey]);
+  const selectable = canEdit || canDelete;
+  const nPicked = pickedCount(picked, total);
+  const pageIds = rows.map((r) => r.id);
+  const pageAllPicked = pageIds.length > 0 && pageIds.every((id) => isPicked(picked, id));
+  const startBulk = (mode: BulkMode) => setBulk({
+    mode, selection: selectionBody(picked, { q, includeArchived: archived, archivedOnly: archiveView, withTasks, filter }),
+  });
   const fieldCols = visibleColumns(reg).map((f): Col => ({ key: f.id, label: f.label, field: f }));
   // «Дней до срока» — сразу после заголовка записи.
   const cols: Col[] = [
@@ -182,10 +200,13 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   ];
 
   // Закреплённые столбцы: отступ слева = сумма ширин предыдущих.
+  // Столбец с галочками закреплён всегда, закреплённые столбцы — правее него.
+  const boxRef = useRef<HTMLTableCellElement | null>(null);
   useLayoutEffect(() => {
     const widths = headRefs.current.map((th) => th?.getBoundingClientRect().width ?? 0);
-    setLefts(pinOffsets(widths, pin));
-  }, [pin, rows.length, reg.version, q]);
+    const box = boxRef.current?.getBoundingClientRect().width ?? 0;
+    setLefts(pinOffsets(widths, pin).map((x) => x + box));
+  }, [pin, rows.length, reg.version, q, selectable]);
 
   // Вычисляемые поля и сроки сортируются на сервере; решение другого отдела — нет.
   const sortable = (c: Col) => !c.field || c.field.type !== 'decision';
@@ -262,7 +283,11 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
             <option key={n} value={n}>{n === 0 ? 'нет' : `${n}: ${cols.slice(0, n).map((c) => c.label).join(', ')}`}</option>
           ))}
         </select>
-        <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> С архивными</label>
+        <button className={`btn sm${archiveView ? ' acc' : ''}`} type="button" aria-pressed={archiveView}
+          title={archiveView ? 'Вернуться к действующим записям' : 'Записи в архиве: посмотреть и вернуть'} onClick={() => setArchiveView(!archiveView)}>
+          {archiveView ? '← К записям' : 'Архив'}
+        </button>
+        {!archiveView && <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> С архивными</label>}
         <label className="check"><input type="checkbox" checked={withTasks} onChange={(e) => setWithTasks(e.target.checked)} /> С задачами</label>
         {filterParts.length > 0 && (
           <span className="chip acc rec-filter" data-testid="record-filter">
@@ -271,12 +296,32 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           </span>
         )}
         <span className="hint mono">{rows.length} из {total}</span>
-        {canEdit && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
+        {canEdit && !archiveView && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
       </div>
+      {archiveView && <div className="panel-b hint archive-note">Архив реестра: записи не участвуют в сроках, автоматизациях и на дашборде. Отметьте нужные и нажмите «Вернуть выбранные».</div>}
+      {nPicked > 0 && (
+        <div className="bulk-bar" role="toolbar" aria-label="Действия с выбранными записями">
+          <b>{picked.kind === 'filter' ? `Выбраны все по фильтру: ${nPicked}` : `Выбрано: ${nPicked}`}</b>
+          {picked.kind === 'ids' && pageAllPicked && total > nPicked && (
+            <button className="btn ghost sm" type="button" onClick={() => setPicked({ kind: 'filter', excluded: new Set() })}>Выбрать все {total} по фильтру</button>
+          )}
+          {canEdit && (archiveView
+            ? <button className="btn sm" type="button" onClick={() => startBulk('restore')}>Вернуть выбранные</button>
+            : <button className="btn sm" type="button" onClick={() => startBulk('archive')}>Архивировать выбранные</button>)}
+          {canDelete && <button className="btn sm danger-t" type="button" onClick={() => startBulk('delete')}>Удалить выбранные</button>}
+          <button className="btn ghost sm" type="button" onClick={() => setPicked(NOTHING)}>Снять выбор</button>
+        </div>
+      )}
       <div className="tbl-wrap recs-wrap">
         <table className="recs">
           <thead>
             <tr>
+              {selectable && (
+                <th ref={boxRef} className="pin pick-col" style={{ left: 0 }}>
+                  <input type="checkbox" aria-label="Выбрать все на странице" checked={pageAllPicked}
+                    onChange={(e) => setPicked(pickPage(picked, pageIds, e.target.checked))} />
+                </th>
+              )}
               {cols.map((c, i) => {
                 const canSort = sortable(c);
                 const active = sort.key === c.key;
@@ -294,13 +339,22 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
             </tr>
           </thead>
           <tbody>
-            {query.isPending && <tr><td colSpan={cols.length} className="hint">Загрузка…</td></tr>}
-            {query.isError && <tr><td colSpan={cols.length} className="form-error">{query.error.message}</td></tr>}
-            {query.isSuccess && rows.length === 0 && <tr><td colSpan={cols.length} className="hint">{q || withTasks || filterParts.length ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>}
+            {query.isPending && <tr><td colSpan={cols.length + 1} className="hint">Загрузка…</td></tr>}
+            {query.isError && <tr><td colSpan={cols.length + 1} className="form-error">{query.error.message}</td></tr>}
+            {query.isSuccess && rows.length === 0 && (
+              <tr><td colSpan={cols.length + 1} className="hint">{archiveView ? 'В архиве записей нет' : q || withTasks || filterParts.length ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>
+            )}
             {rows.map((rec) => (
               <tr key={rec.id} className={`rec-row${rec.closed ? ' closed' : ''}${rec.archived ? ' archived' : ''}`} tabIndex={0}
                 title="Открыть карточку записи" onClick={() => setOpen(rec.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter') setOpen(rec.id); }}>
+                {selectable && (
+                  // Щелчок по галочке не открывает карточку.
+                  <td className="pin pick-col" style={{ left: 0 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <input type="checkbox" aria-label={`Выбрать запись ${rec.number}`} checked={isPicked(picked, rec.id)}
+                      onChange={() => setPicked(togglePicked(picked, rec.id))} />
+                  </td>
+                )}
                 {cols.map((c, i) => <td key={c.key} className={pinClass(i)} style={pinStyle(i)}><Cell rec={rec} col={c} /></td>)}
               </tr>
             ))}
@@ -314,6 +368,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       {preview && <ImportDialog reg={reg} preview={preview} onClose={() => setPreview(null)} />}
       {scanPreview && <ScanImportDialog reg={reg} preview={scanPreview} onClose={() => setScanPreview(null)} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
+      {bulk && <BulkDialog reg={reg} mode={bulk.mode} selection={bulk.selection} onClose={() => setBulk(null)} onDone={() => { setBulk(null); setPicked(NOTHING); }} />}
     </>
   );
 }

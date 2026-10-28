@@ -161,10 +161,10 @@ describe('Реестр уязвимостей', () => {
     await ensureReport();
     await openTab('records');
     await ui.waitFor(`!!${recRow('CVE-2024-21413')}`, 'запись из отчёта в таблице');
-    // Третья колонка: №, CVE / БДУ, «Дней до срока».
-    const firstChip = await ui.text(`document.querySelector('table.recs tbody tr td:nth-child(3) .chip')`);
+    // Четвёртая колонка: галочка, №, CVE / БДУ, «Дней до срока».
+    const firstChip = await ui.text(`document.querySelector('table.recs tbody tr td:nth-child(4) .chip')`);
     assert.match(firstChip, /^(Просрочено \d+ дн\.|Осталось \d+ дн\.|Срок сегодня|В срок · \d+ дн\.)$/);
-    const states = await ui.evaluate(`[...document.querySelectorAll('table.recs tbody tr')].map((tr) => tr.querySelector('td:nth-child(3) .chip')?.className ?? '')`);
+    const states = await ui.evaluate(`[...document.querySelectorAll('table.recs tbody tr')].map((tr) => tr.querySelector('td:nth-child(4) .chip')?.className ?? '')`);
     const rank = (c) => (c.includes('crit') ? 0 : c.includes('high') ? 1 : c.includes('low') ? 2 : 3);
     assert.deepEqual(states.map(rank), [...states.map(rank)].sort((a, b) => a - b), 'просрочено → скоро → в срок');
   });

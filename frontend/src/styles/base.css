@@ -345,6 +345,16 @@ table.recs td{background:var(--solid);white-space:nowrap;max-width:340px;overflo
 table.recs .pin{position:sticky;z-index:1}
 table.recs th.pin{z-index:3}
 table.recs .pin-last{box-shadow:6px 0 8px -6px rgba(0,0,0,.18)}
+/* Массовые действия (релиз 1.1.0) */
+table.recs .pick-col{width:34px;min-width:34px;max-width:34px;padding-inline:10px 4px;text-align:center}
+table.recs .pick-col input{accent-color:var(--accent);width:15px;height:15px;vertical-align:middle}
+.bulk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 18px;background:var(--accent-soft);border-top:1px solid var(--line)}
+.bulk-bar b{font-weight:600;margin-right:4px}
+.btn.acc{background:var(--accent-soft);color:var(--accent)}
+.archive-note{border-top:1px solid var(--line)}
+.bulk-lines{margin:0;padding-left:18px;display:grid;gap:4px}
+.bulk-result{font-size:17px;font-weight:600}
+.bulk-dialog label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
 table.recs tr.rec-row{cursor:pointer}
 table.recs tr.rec-row:hover td,table.recs tr.rec-row:focus td{background:var(--solid-hover)}
 table.recs tr.rec-row:focus{outline:none}

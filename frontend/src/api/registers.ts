@@ -63,11 +63,18 @@ export interface RecordQuery {
   sort?: string;
   dir?: 'asc' | 'desc';
   includeArchived?: boolean;
+  /** Только архивные записи (кнопка «Архив»). */
+  archivedOnly?: boolean;
   withTasks?: boolean;
   cursor?: string;
   /** Фильтр из адреса (ссылки дашборда, этап 8): state, deadline, f, date, from, to — как есть. */
   filter?: RecordFilterParams;
 }
+
+export type BulkSelection = Body<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>['selection'];
+export type BulkPreview = Res<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>;
+export type BulkResult = Res<'/api/v1/registers/{id}/records/bulk-delete/apply', 'post'>;
+export type BulkExpected = Pick<BulkPreview, 'total' | 'willDelete' | 'willArchive' | 'willRestore'>;
 
 /** Параметры фильтра записей — те же имена, что в адресе страницы и в API. */
 export const FILTER_PARAMS = ['state', 'deadline', 'f', 'date', 'from', 'to'] as const;
@@ -126,8 +133,21 @@ export const registersApi = {
   records: (registerId: string, q: RecordQuery) =>
     request<RecordPage>('GET', `/api/v1/registers/${registerId}/records${qs({
       q: q.q, sort: q.sort, dir: q.dir, cursor: q.cursor, limit: '100', includeArchived: q.includeArchived ? 'true' : undefined,
+      archived: q.archivedOnly ? 'only' : undefined,
       withTasks: q.withTasks ? 'true' : undefined, ...q.filter,
     })}`),
+  // Массовые действия (релиз 1.1.0): предпросмотр → применение с числами предпросмотра.
+  bulkArchivePreview: (registerId: string, action: 'archive' | 'restore', selection: BulkSelection) =>
+    request<BulkPreview>('POST', `/api/v1/registers/${registerId}/records/bulk-archive/preview`, { action, selection }),
+  bulkArchiveApply: (registerId: string, action: 'archive' | 'restore', selection: BulkSelection, expected: BulkExpected) =>
+    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/bulk-archive/apply`, { action, selection, expected }),
+  bulkDeletePreview: (registerId: string, selection: BulkSelection) =>
+    request<BulkPreview>('POST', `/api/v1/registers/${registerId}/records/bulk-delete/preview`, { selection }),
+  bulkDeleteApply: (registerId: string, selection: BulkSelection, expected: BulkExpected) =>
+    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/bulk-delete/apply`, { selection, expected }),
+  deleteAllPreview: (registerId: string) => request<BulkPreview>('POST', `/api/v1/registers/${registerId}/records/delete-all/preview`),
+  deleteAllApply: (registerId: string, confirmName: string, expected: BulkExpected) =>
+    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/delete-all/apply`, { confirmName, expected }),
   record: (id: string) => request<RegisterRecord>('GET', `/api/v1/register-records/${id}`),
   history: (id: string) => request<Res<'/api/v1/register-records/{id}/history', 'get'>>('GET', `/api/v1/register-records/${id}/history`),
   createRecord: (registerId: string, values: RecordValues) => request<RegisterRecord>('POST', `/api/v1/registers/${registerId}/records`, { values }),

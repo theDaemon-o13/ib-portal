@@ -10,6 +10,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import { registerAnalytics } from './analytics.service.js';
+import * as bulk from './bulk.service.js';
 import * as decisions from './decisions.service.js';
 import * as recordFiles from './record-files.service.js';
 import * as excel from './excel.service.js';
@@ -17,7 +18,7 @@ import { exportZip } from './export-zip.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
 import { loadRegister } from './definition.js';
-import { parseRecordFilter, RecordFilterQuery } from './filter.js';
+import { parseRecordFilter, RecordFilterQuery, type RecordFilterParams } from './filter.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 422: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
@@ -381,15 +382,17 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
         sort: z.string().max(64).optional(),
         dir: z.enum(['asc', 'desc']).optional(),
         includeArchived: z.enum(['true', 'false']).optional(),
+        /** only — только архивные записи (кнопка «Архив», релиз 1.1.0). */
+        archived: z.enum(['only']).optional(),
         withTasks: z.enum(['true', 'false']).optional(),
       }),
       response: { 200: z.object({ items: z.array(RegisterRecord), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => {
-    const { state, deadline, f, date, from, to, ...rest } = request.query;
+    const { state, deadline, f, date, from, to, archived, ...rest } = request.query;
     const filter = parseRecordFilter(await loadRegister(db, request.params.id), { state, deadline, f, date, from, to });
     const page = await records.listRecords(db, request.params.id, {
-      ...rest, includeArchived: rest.includeArchived === 'true', withTasks: rest.withTasks === 'true', filter,
+      ...rest, includeArchived: rest.includeArchived === 'true', archivedOnly: archived === 'only', withTasks: rest.withTasks === 'true', filter,
     });
     return { ...page, items: page.items.map(asRecord) };
   });
@@ -523,6 +526,90 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     await records.deleteRecord(db, actorOf(request), request.params.id, request.body.version);
     return reply.status(204).send(null);
   });
+
+  // ------------------------------------------------------------ массовые действия (релиз 1.1.0, ADR-0016)
+  // Два шага: preview → apply с числами предпросмотра в expected (разошлись — 409 BULK_CHANGED).
+  // Право — на маршруте: архив и возврат — records.edit, удаление — records.delete.
+  const BulkSelection = z.union([
+    z.object({ ids: z.array(z.string().uuid()).min(1).max(bulk.BULK_MAX_IDS) }),
+    z.object({
+      /** Те же условия, что у списка записей: «выбрать все N по фильтру». */
+      filter: RecordFilterQuery.extend({
+        q: z.string().max(200).optional(),
+        includeArchived: z.boolean().optional(),
+        archived: z.enum(['only']).optional(),
+        withTasks: z.boolean().optional(),
+      }),
+      excludeIds: z.array(z.string().uuid()).max(bulk.BULK_MAX_IDS).optional(),
+    }),
+  ]);
+  const Expected = z.object({ total: z.number().int(), willDelete: z.number().int(), willArchive: z.number().int(), willRestore: z.number().int() });
+  const Reasons = z.object({ locked: z.number().int(), decisions: z.number().int(), evidence: z.number().int(), tasks: z.number().int(), links: z.number().int() });
+  const BulkPreview = Expected.extend({ alreadyInState: z.number().int(), byReason: Reasons });
+  const BulkResult = z.object({ deleted: z.number().int(), archived: z.number().int(), restored: z.number().int(), skipped: z.number().int(), byReason: Reasons });
+
+  const toSelection = async (registerId: string, sel: z.infer<typeof BulkSelection>): Promise<bulk.BulkSelection> => {
+    if ('ids' in sel) return { ids: sel.ids };
+    const { q, includeArchived, archived, withTasks, ...params } = sel.filter;
+    const filter = parseRecordFilter(await loadRegister(db, registerId), params as RecordFilterParams);
+    return { query: { q, includeArchived, archivedOnly: archived === 'only', withTasks, filter }, excludeIds: sel.excludeIds };
+  };
+
+  app.post('/registers/:id/records/bulk-archive/preview', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'], summary: 'Массово в архив или из архива: предпросмотр', params: IdParams,
+      body: z.object({ action: z.enum(['archive', 'restore']), selection: BulkSelection }),
+      response: { 200: BulkPreview, ...errors },
+    },
+  }, async (request) => bulk.previewBulk(db, request.params.id, request.body.action, await toSelection(request.params.id, request.body.selection)));
+
+  app.post('/registers/:id/records/bulk-archive/apply', {
+    preHandler: edit,
+    schema: {
+      tags: ['register-records'], summary: 'Массово в архив или из архива: применить (пакетами, с журналом)', params: IdParams,
+      body: z.object({ action: z.enum(['archive', 'restore']), selection: BulkSelection, expected: Expected }),
+      response: { 200: BulkResult, ...errors },
+    },
+  }, async (request) => bulk.applyBulk(db, actorOf(request), request.params.id, request.body.action,
+    await toSelection(request.params.id, request.body.selection), request.body.expected,
+    request.body.action === 'archive' ? 'массовая отправка в архив' : 'массовый возврат из архива'));
+
+  app.post('/registers/:id/records/bulk-delete/preview', {
+    preHandler: requirePerm('records.delete'),
+    schema: {
+      tags: ['register-records'], summary: 'Удалить выбранные: предпросмотр (записи с зависимостями уйдут в архив)', params: IdParams,
+      body: z.object({ selection: BulkSelection }),
+      response: { 200: BulkPreview, ...errors },
+    },
+  }, async (request) => bulk.previewBulk(db, request.params.id, 'delete', await toSelection(request.params.id, request.body.selection)));
+
+  app.post('/registers/:id/records/bulk-delete/apply', {
+    preHandler: requirePerm('records.delete'),
+    schema: {
+      tags: ['register-records'], summary: 'Удалить выбранные: применить (мягкое удаление пакетами, с журналом)', params: IdParams,
+      body: z.object({ selection: BulkSelection, expected: Expected }),
+      response: { 200: BulkResult, ...errors },
+    },
+  }, async (request) => bulk.applyBulk(db, actorOf(request), request.params.id, 'delete',
+    await toSelection(request.params.id, request.body.selection), request.body.expected, 'массовое удаление'));
+
+  app.post('/registers/:id/records/delete-all/preview', {
+    preHandler: requirePerm('records.delete'),
+    schema: {
+      tags: ['register-records'], summary: 'Удалить все записи реестра (включая архивные): предпросмотр', params: IdParams,
+      response: { 200: BulkPreview, ...errors },
+    },
+  }, async (request) => bulk.previewBulk(db, request.params.id, 'delete', { all: true }));
+
+  app.post('/registers/:id/records/delete-all/apply', {
+    preHandler: requirePerm('records.delete'),
+    schema: {
+      tags: ['register-records'], summary: 'Удалить все записи реестра: применить; confirmName — название реестра', params: IdParams,
+      body: z.object({ confirmName: z.string().max(300), expected: Expected }),
+      response: { 200: BulkResult, ...errors },
+    },
+  }, async (request) => bulk.deleteAllRecords(db, actorOf(request), request.params.id, request.body.confirmName, request.body.expected));
 
   // ------------------------------------------------------------ Excel
   app.get('/registers/:id/export', {

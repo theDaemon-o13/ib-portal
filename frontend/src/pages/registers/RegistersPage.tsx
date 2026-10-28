@@ -48,7 +48,7 @@ export function RegistersPage() {
           <p>Реестр собирается из полей. Форма карточки записи строится по полям: новое поле сразу появляется в карточке. Выгрузка в Excel и обратная загрузка обновляют записи по колонке ID.</p>
         </div>
       </div>
-      <RegisterBar reg={reg} owner={owner} tab={tab} canManage={canManage} onPick={go} onTab={(t) => id && go(id, t)} />
+      <RegisterBar reg={reg} owner={owner} tab={tab} canManage={canManage} canDeleteRecords={me.permissions.includes('records.delete')} onPick={go} onTab={(t) => id && go(id, t)} />
       {detail.isError && <div className="panel panel-b form-error">Реестр не найден. Выберите другой в шапке.</div>}
       {list.isSuccess && list.data.items.length === 0 && !id && (
         <div className="panel panel-b hint">Реестров пока нет.{canManage ? ' Создайте первый в списке реестров в шапке.' : ''}</div>

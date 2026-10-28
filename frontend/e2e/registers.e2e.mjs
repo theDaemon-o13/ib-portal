@@ -380,10 +380,13 @@ describe('Записи', () => {
     await ui.waitFor(`document.querySelector('table.recs tbody tr.rec-row')?.textContent.includes('Второй инцидент')`, 'больше баллов — выше');
 
     await ui.select(`document.querySelector('#rec-pin')`, '2');
-    await ui.waitFor(`document.querySelectorAll('table.recs thead th.pin').length === 2`, 'закреплены 2 столбца');
-    const lefts = await ui.evaluate(`[...document.querySelectorAll('table.recs thead th.pin')].map((th) => th.style.left)`);
-    assert.equal(lefts[0], '0px');
-    assert.notEqual(lefts[1], '0px');
+    // Столбец с галочками закреплён всегда (слева, 0px); закреплённые столбцы данных — правее него.
+    await ui.waitFor(`document.querySelectorAll('table.recs thead th.pin:not(.pick-col)').length === 2`, 'закреплены 2 столбца');
+    assert.equal(await ui.evaluate(`document.querySelector('table.recs thead th.pick-col').style.left`), '0px');
+    const pickW = await ui.evaluate(`Math.round(document.querySelector('table.recs thead th.pick-col').getBoundingClientRect().width)`);
+    const lefts = await ui.evaluate(`[...document.querySelectorAll('table.recs thead th.pin:not(.pick-col)')].map((th) => Math.round(parseFloat(th.style.left)))`);
+    assert.equal(lefts[0], pickW, 'первый закреплённый — сразу за галочками');
+    assert.ok(lefts[1] > lefts[0]);
   });
 
   it('архив, возврат и удаление записи', async () => {
@@ -397,6 +400,61 @@ describe('Записи', () => {
     await ui.click($.button('Удалить запись', drawer));
     await act('Удалить', `${drawer}.querySelector('.danger-zone')`, 'POST', '/delete', 204);
     await ui.waitFor(`!${drawer} && !${recRow('Удаляемая запись')}`, 'запись удалена');
+  });
+});
+
+describe('Массовые действия', () => {
+  it('галочки: архивировать выбранные, «Архив» и вернуть, удалить выбранные, «Удалить все записи» с названием реестра', async () => {
+    const reg = await api('POST', '/api/v1/registers', { name: `Массово E2E-${RUN}` });
+    created.push(reg);
+    for (let i = 1; i <= 5; i++) await makeRecord(reg, { Наименование: `Пакет ${i}` });
+    await openReg(reg, 'records');
+    const box = (text) => `${recRow(text)}?.querySelector('.pick-col input')`;
+    const bar = `document.querySelector('.bulk-bar')`;
+    const dlg = `document.querySelector('.bulk-dialog')`;
+    const previewHas = (text) => `!!${dlg}?.querySelector('[data-testid=bulk-preview]')?.textContent.includes(${JSON.stringify(text)})`;
+    const resultIs = (text) => `${dlg}?.querySelector('[data-testid=bulk-result]')?.textContent === ${JSON.stringify(text)}`;
+
+    await ui.click(box('Пакет 1'), 'галочка «Пакет 1»');
+    await ui.click(box('Пакет 2'), 'галочка «Пакет 2»');
+    await ui.waitFor(`${bar}?.textContent.includes('Выбрано: 2')`, 'выбрано 2');
+    assert.equal(await ui.evaluate(`!!${drawer}`), false, 'щелчок по галочке не открывает карточку');
+
+    await ui.click($.button('Архивировать выбранные', bar));
+    await ui.waitFor(previewHas('Уйдёт в архив: 2 записи'), 'предпросмотр архивации');
+    await act('Архивировать', dlg, 'POST', '/bulk-archive/apply');
+    await ui.waitFor(resultIs('В архив 2'), 'итог архивации');
+    await ui.click($.button('Готово', dlg));
+    await ui.waitFor(`!${dlg} && !${recRow('Пакет 1')} && !${bar}`, 'записи ушли в архив, выбор снят');
+
+    await ui.click($.button('Архив'), '«Архив»');
+    await ui.waitFor(`!!${recRow('Пакет 1')} && !!${recRow('Пакет 2')} && !${recRow('Пакет 3')}`, 'в архиве — только архивные');
+    await ui.click(`document.querySelector('table.recs thead .pick-col input')`, 'выбрать все на странице');
+    await ui.click($.button('Вернуть выбранные', bar));
+    await ui.waitFor(previewHas('Вернётся из архива: 2 записи'), 'предпросмотр возврата');
+    await act('Вернуть', dlg, 'POST', '/bulk-archive/apply');
+    await ui.waitFor(resultIs('Возвращено 2'), 'итог возврата');
+    await ui.click($.button('Готово', dlg));
+    await ui.click($.button('← К записям'), '«К записям»');
+    await ui.waitFor(`!!${recRow('Пакет 1')} && !!${recRow('Пакет 5')}`, 'записи снова действующие');
+
+    await ui.click(box('Пакет 5'), 'галочка «Пакет 5»');
+    await ui.click($.button('Удалить выбранные', bar));
+    await ui.waitFor(previewHas('Будет удалено: 1 запись'), 'предпросмотр удаления');
+    await act('Удалить', dlg, 'POST', '/bulk-delete/apply');
+    await ui.waitFor(resultIs('Удалено 1'), 'итог удаления');
+    await ui.click($.button('Готово', dlg));
+    await ui.waitFor(`!${recRow('Пакет 5')} && !!${recRow('Пакет 4')}`, 'запись удалена');
+
+    await ui.click(`document.querySelector('.reg-bar .menu-btn')`, 'меню реестра');
+    await ui.click(`[...document.querySelectorAll('[role=menuitem]')].find((b) => b.textContent === 'Удалить все записи…')`, '«Удалить все записи…»');
+    await ui.waitFor(previewHas('Будет удалено: 4 записи'), 'предпросмотр «Удалить все»');
+    assert.ok(await ui.evaluate(`!${$.button('Удалить все записи', dlg)}`), 'без названия реестра кнопка неактивна');
+    await ui.type(`${dlg}.querySelector('input[aria-label="Название реестра"]')`, reg.name);
+    await act('Удалить все записи', dlg, 'POST', '/delete-all/apply');
+    await ui.waitFor(resultIs('Удалено 4'), 'итог «Удалить все»');
+    await ui.click($.button('Готово', dlg));
+    await ui.waitFor(`document.querySelector('table.recs tbody')?.textContent.includes('Записей пока нет')`, 'реестр пуст');
   });
 });
 

@@ -4,6 +4,7 @@ import { registersApi, type RegisterDetail, type RegisterListItem } from '../../
 import { Overlay } from '../../components/Overlay';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
+import { BulkDialog } from './BulkDialog';
 
 export type RegTab = 'records' | 'fields' | 'automation';
 
@@ -105,9 +106,11 @@ function RenameDialog({ reg, onClose }: { reg: RegisterDetail; onClose: () => vo
 }
 
 /** Меню действий реестра. Кнопка есть всегда (без прав — неактивна), чтобы шапка не меняла раскладку. */
-function RegisterMenu({ reg, canManage }: { reg: RegisterDetail | undefined; canManage: boolean }) {
+function RegisterMenu({ reg, canManage, canDeleteRecords }: { reg: RegisterDetail | undefined; canManage: boolean; canDeleteRecords: boolean }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const usable = canManage || canDeleteRecords;
   const ref = useDismiss(open, () => setOpen(false));
   const archive = useAction(() => (reg?.archived ? registersApi.restore(reg.id, reg.version) : registersApi.archive(reg?.id ?? '', reg?.version ?? 0)), {
     invalidate: [rkeys.list, rkeys.detail(reg?.id ?? '')],
@@ -119,14 +122,16 @@ function RegisterMenu({ reg, canManage }: { reg: RegisterDetail | undefined; can
   return (
     <div className="menu" ref={ref}>
       <button type="button" className="btn ghost sm menu-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Действия реестра"
-        disabled={!canManage || !reg} title={canManage ? 'Действия реестра' : 'Нет права «Реестры: создание и настройка полей»'} onClick={() => setOpen(!open)}>⋯</button>
+        disabled={!usable || !reg} title={usable ? 'Действия реестра' : 'Нет права «Реестры: создание и настройка полей»'} onClick={() => setOpen(!open)}>⋯</button>
       {open && reg && (
         <div className="menu-pop" role="menu">
-          {item('Переименовать', () => setRenaming(true))}
-          {item(reg.archived ? 'Вернуть из архива' : 'В архив', () => archive.mutate(undefined))}
+          {canManage && item('Переименовать', () => setRenaming(true))}
+          {canManage && item(reg.archived ? 'Вернуть из архива' : 'В архив', () => archive.mutate(undefined))}
+          {canDeleteRecords && !reg.archived && item('Удалить все записи…', () => setDeletingAll(true))}
         </div>
       )}
       {renaming && reg && <RenameDialog key={reg.version} reg={reg} onClose={() => setRenaming(false)} />}
+      {deletingAll && reg && <BulkDialog reg={reg} mode="delete-all" selection={null} onClose={() => setDeletingAll(false)} onDone={() => setDeletingAll(false)} />}
     </div>
   );
 }
@@ -135,8 +140,8 @@ function RegisterMenu({ reg, canManage }: { reg: RegisterDetail | undefined; can
  * Шапка конструктора: одна строка фиксированной высоты. Переключатель вкладок стоит на одном месте
  * на всех вкладках: колонки шапки фиксированы, имя реестра и владелец сжимаются с многоточием.
  */
-export function RegisterBar({ reg, owner, tab, canManage, onPick, onTab }: {
-  reg: RegisterDetail | undefined; owner: string | null; tab: RegTab; canManage: boolean;
+export function RegisterBar({ reg, owner, tab, canManage, canDeleteRecords, onPick, onTab }: {
+  reg: RegisterDetail | undefined; owner: string | null; tab: RegTab; canManage: boolean; canDeleteRecords: boolean;
   onPick: (id: string, tab?: RegTab) => void; onTab: (t: RegTab) => void;
 }) {
   return (
@@ -152,7 +157,7 @@ export function RegisterBar({ reg, owner, tab, canManage, onPick, onTab }: {
           </button>
         ))}
       </div>
-      <RegisterMenu reg={reg} canManage={canManage} />
+      <RegisterMenu reg={reg} canManage={canManage} canDeleteRecords={canDeleteRecords} />
     </div>
   );
 }

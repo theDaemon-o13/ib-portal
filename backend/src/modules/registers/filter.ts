@@ -195,9 +195,10 @@ export async function filterInMemory(db: Db, reg: RegisterDef, filter: RecordFil
 }
 
 /** Базовое условие: записи реестра, не удалённые и (по умолчанию) не в архиве. */
-export function baseSql(registerId: string, includeArchived = false): Prisma.Sql {
+/** Неудалённые записи реестра: false — только действующие, true — и архивные, 'only' — только архивные. */
+export function baseSql(registerId: string, archived: boolean | 'only' = false): Prisma.Sql {
   return Prisma.sql`r.register_id = ${registerId}::uuid AND r.deleted_at IS NULL
-    ${includeArchived ? Prisma.empty : Prisma.sql`AND r.archived_at IS NULL`}`;
+    ${archived === 'only' ? Prisma.sql`AND r.archived_at IS NOT NULL` : archived ? Prisma.empty : Prisma.sql`AND r.archived_at IS NULL`}`;
 }
 
 /** Число действующих записей по фильтру — KPI, плитки и виджеты дашборда. Тот же код, что у total списка. */

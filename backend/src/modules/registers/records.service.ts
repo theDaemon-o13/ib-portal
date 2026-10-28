@@ -37,6 +37,7 @@ import {
   type RecordDto,
   type RegisterDef,
 } from './definition.js';
+import { DEPENDENCY_TEXT, recordDependencies, type DependencyReason } from './dependencies.js';
 import { baseSql, filterInMemory, filterSql, type RecordFilter } from './filter.js';
 import { linkFieldsTo, linkIdsIn, linkLabels, loadBasisSources, loadLinkRefs, recordsLinkingTo } from './links.js';
 import { applyDateDefaults, dateErrors, linkErrors, lockErrors, type RuleError } from './record-rules.js';
@@ -53,6 +54,8 @@ export interface ListQuery {
   sort?: string;
   dir?: 'asc' | 'desc';
   includeArchived?: boolean;
+  /** Только архивные записи (кнопка «Архив», релиз 1.1.0); важнее includeArchived. */
+  archivedOnly?: boolean;
   /** Только записи с открытыми задачами (этап 5). */
   withTasks?: boolean;
   /** Фильтр по состоянию, срокам, значению поля, дате (этап 8, ссылки дашборда). */
@@ -130,15 +133,30 @@ function orderExpr(reg: RegisterDef, sort: string | undefined): Prisma.Sql {
   }
 }
 
+/** Условие выборки записей — общее у списка и у массовых действий «по фильтру» (одинаковые total и N). */
+export type SelectionQuery = Pick<ListQuery, 'q' | 'includeArchived' | 'archivedOnly' | 'withTasks' | 'filter'>;
+
+function selectionWhere(reg: RegisterDef, q: SelectionQuery): Prisma.Sql {
+  const search = q.q?.trim().toLowerCase();
+  return Prisma.sql`${baseSql(reg.id, q.archivedOnly ? 'only' : q.includeArchived)} ${filterSql(reg, q.filter ?? {})}
+    ${search ? Prisma.sql`AND r.search_text LIKE ${`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}` : Prisma.empty}
+    ${q.withTasks ? Prisma.sql`AND EXISTS (SELECT 1 FROM tasks t WHERE t.record_id = r.id AND t.completed_at IS NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL)` : Prisma.empty}`;
+}
+
+/** Все id записей по условию списка (без пагинации). */
+export async function selectRecordIds(db: Db, reg: RegisterDef, q: SelectionQuery): Promise<string[]> {
+  const keep = await filterInMemory(db, reg, q.filter ?? {});
+  const rows = await db.$queryRaw<{ id: string; values: Values }[]>`
+    SELECT r.id::text, r."values" FROM register_records r WHERE ${selectionWhere(reg, q)} ORDER BY r.number`;
+  return rows.filter((r) => keep?.(r.values, r.id) ?? true).map((r) => r.id);
+}
+
 export async function listRecords(db: Db, registerId: string, q: ListQuery) {
   const reg = await loadRegister(db, registerId);
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
   const dir = q.dir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
-  const search = q.q?.trim().toLowerCase();
   const filter = q.filter ?? {};
-  const where = Prisma.sql`${baseSql(registerId, q.includeArchived)} ${filterSql(reg, filter)}
-    ${search ? Prisma.sql`AND r.search_text LIKE ${`%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`}` : Prisma.empty}
-    ${q.withTasks ? Prisma.sql`AND EXISTS (SELECT 1 FROM tasks t WHERE t.record_id = r.id AND t.completed_at IS NULL AND t.archived_at IS NULL AND t.deleted_at IS NULL)` : Prisma.empty}`;
+  const where = selectionWhere(reg, q);
   // Сроки и вычисляемые даты фильтруются в памяти (как и сортируются): тот же код, что у countRecords.
   const keep = await filterInMemory(db, reg, filter);
   let ids: { id: string }[];
@@ -440,6 +458,21 @@ export async function setRecordArchived(db: Db, actor: Actor, id: string, versio
   });
 }
 
+const DEPENDENCY_CODES: Record<DependencyReason, string> = {
+  locked: 'RECORD_LOCKED', decisions: 'HAS_DECISIONS', evidence: 'HAS_EVIDENCE', tasks: 'HAS_TASKS', links: 'HAS_LINKS',
+};
+
+function dependencyError(reason: DependencyReason) {
+  return reason === 'locked' ? unprocessable(DEPENDENCY_CODES[reason], DEPENDENCY_TEXT[reason]) : conflict(DEPENDENCY_CODES[reason], DEPENDENCY_TEXT[reason]);
+}
+
+/** Снимок значений удалённой записи для журнала: «поле → как показывалось». */
+export async function deletedSnapshot(tx: Db, reg: RegisterDef, row: { number: number; values: unknown }) {
+  const values = (row.values ?? {}) as Values;
+  const users = await loadUsers(tx, userIdsIn(reg, [values]));
+  return { number: row.number, values: Object.fromEntries(reg.fields.filter((f) => values[f.id] !== undefined).map((f) => [f.label, displayValue(f, values[f.id], { users })])) };
+}
+
 /** Удаление мягкое (раздел 3.4): запись скрывается везде, снимок значений — в журнале. */
 export async function deleteRecord(db: Db, actor: Actor, id: string, version: number) {
   await withTx(db, async (tx) => {
@@ -447,21 +480,15 @@ export async function deleteRecord(db: Db, actor: Actor, id: string, version: nu
     const reg = await loadRegister(tx, row.registerId);
     assertNotArchived(reg);
     if (row.version !== version) throw versionConflict();
-    if (recordLocks(reg, (row.values ?? {}) as Values).size) {
-      throw unprocessable('RECORD_LOCKED', 'Запись с зафиксированными полями не удаляется: она хранится навсегда. Её можно отправить в архив');
-    }
-    const decisions = await tx.registerDecision.count({ where: { recordId: id } });
-    if (decisions > 0) throw conflict('HAS_DECISIONS', 'По записи есть решения другого отдела — её можно только отправить в архив');
-    const evidence = await tx.evidence.count({ where: { recordId: id, deletedAt: null } });
-    if (evidence > 0) throw conflict('HAS_EVIDENCE', 'К записи привязаны доказательства — её можно только отправить в архив');
+    // Те же зависимости, что и у массового удаления (dependencies.ts); первая найденная — в ответе.
+    const [reason] = (await recordDependencies(tx, reg, [row])).get(id) ?? [];
+    if (reason) throw dependencyError(reason);
     const res = await tx.registerRecord.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerRecord.findFirst({ where: { id, deletedAt: null } }), 'Запись');
-    const values = (row.values ?? {}) as Values;
-    const users = await loadUsers(tx, userIdsIn(reg, [values]));
     await auditSettings(tx, actor, {
       action: 'register_record.deleted', entity: 'register_record', entityId: id,
       summary: `«${reg.name}»: удалена запись #${row.number}`,
-      before: { number: row.number, values: Object.fromEntries(reg.fields.filter((f) => values[f.id] !== undefined).map((f) => [f.label, displayValue(f, values[f.id], { users })])) },
+      before: await deletedSnapshot(tx, reg, row),
     });
   });
 }
