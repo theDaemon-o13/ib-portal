@@ -200,7 +200,8 @@ describe('Доказательства: загрузка и просмотр ф�
     assert.equal(req.status, 200, req.body);
     assert.equal(req.json.decision, 'reject');
     await ui.waitFor(`${drawer}.querySelector('.dr-h .chip')?.textContent === 'Отклонено'`, 'статус «Отклонено»');
-    assert.equal(await ui.toast(), 'Отклонено. Загрузившему создана задача на исправление');
+    // Уведомление — после перезапроса списков, позже смены статуса в карточке.
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Отклонено. Загрузившему создана задача на исправление'`, 'уведомление об отклонении');
     const tasks = (await api('GET', '/api/v1/tasks?archived=false')).items.filter((t) => t.evidence?.id === evidenceId);
     assert.equal(tasks.length, 1);
     assert.equal(tasks[0].assignee?.id, users.staff.id);

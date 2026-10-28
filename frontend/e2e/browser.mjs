@@ -1,6 +1,8 @@
 // Драйвер Chrome по протоколу отладки (CDP) без сторонних зависимостей: встроенные fetch и WebSocket Node 24.
 // Действия выполняются настоящими событиями мыши и клавиатуры (Input.dispatch*), как у пользователя:
 // программный element.click() иначе планирует перерисовку React и может скрыть ошибки (см. CHANGELOG, «Исправлено»).
+// Против релизных образов (стенд ibportal-releasetest, nginx на https://localhost:8443 с самоподписанным сертификатом):
+//   NODE_EXTRA_CA_CERTS=<certs/portal.crt стенда> E2E_BASE_URL=https://localhost:8443 npm run test:e2e
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -22,9 +24,11 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
   if (!chrome) throw new Error('Не найден Chrome. Укажите путь в CHROME_PATH');
 
   const profile = mkdtempSync(join(tmpdir(), 'ibportal-e2e-'));
+  // Проверка релиза (ibportal-releasetest): nginx на https://localhost с самоподписанным сертификатом.
+  const tls = new URL(baseUrl).protocol === 'https:' ? ['--ignore-certificate-errors'] : [];
   const proc = spawn(chrome, [
     '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
-    '--no-first-run', '--no-default-browser-check', '--window-size=1440,1000', 'about:blank',
+    '--no-first-run', '--no-default-browser-check', '--window-size=1440,1000', ...tls, 'about:blank',
   ], { stdio: 'ignore' });
 
   let targets = [];
@@ -82,12 +86,18 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       void got.finally(() => send('Fetch.continueRequest', { requestId }).catch(() => undefined));
     }
     if (m.method === 'Runtime.exceptionThrown') consoleErrors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
+    // Сообщения браузера: нарушение CSP (source: security), не загрузившийся worker или скрипт.
+    // Ответы API с кодом 4xx (source: network) тесты вызывают намеренно — они не ошибка страницы.
+    if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error' && m.params.entry.source !== 'network') {
+      consoleErrors.push(`[${m.params.entry.source}] ${m.params.entry.text}`);
+    }
   });
   await send('Network.enable');
   const responsePattern = { urlPattern: `${baseUrl}/api/*`, requestStage: 'Response' };
   const blocked = [];
   await send('Fetch.enable', { patterns: [responsePattern] });
   await send('Runtime.enable');
+  await send('Log.enable');
   await send('Page.enable');
 
   const evaluate = async (expression) => {
