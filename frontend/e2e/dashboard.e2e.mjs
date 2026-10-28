@@ -8,7 +8,7 @@
 // Свои записи прогона помечены RUN и в конце уходят в архив, плитка удаляется (мягко).
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { launchBrowser, sleep } from './browser.mjs';
+import { launchBrowser, portalToday, sleep } from './browser.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -31,7 +31,7 @@ async function api(method, path, body) {
   return res.text ? JSON.parse(res.text) : null;
 }
 
-const iso = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+const iso = (days) => portalToday(days);
 const kpiCard = (label) => `[...document.querySelectorAll('.kpi')].find((k) => k.querySelector('.l')?.textContent === ${JSON.stringify(label)})`;
 const recordsTotal = `Number((document.querySelector('.rec-tools .hint.mono')?.textContent ?? '').split(' из ')[1])`;
 const monStep = `Number(document.querySelector('.mon')?.dataset.step)`;

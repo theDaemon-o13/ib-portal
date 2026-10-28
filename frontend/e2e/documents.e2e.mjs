@@ -8,7 +8,7 @@
 // В конце документы и задачи прогона уходят в архив, тестовые пользователи отключаются.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { $, launchBrowser } from './browser.mjs';
+import { $, launchBrowser, portalToday } from './browser.mjs';
 import { pickFiles, tempFile, tinyPdf, uploadViaApi } from './files.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
@@ -115,13 +115,12 @@ async function act(button, method, urlPart) {
   return req;
 }
 
-const today = new Date();
+// Дата утверждения — «сегодня» портала (часовой пояс банка), пересмотр — через 12 месяцев.
 const plusYear = () => {
-  const d = new Date(today);
-  d.setFullYear(d.getFullYear() + 1);
-  return d;
+  const [y, m, d] = portalToday().split('-');
+  return `${Number(y) + 1}-${m}-${d}`;
 };
-const ru = (d) => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+const ru = (iso) => iso.split('-').reverse().join('.');
 
 before(async () => {
   assert.ok(LOGIN && PASSWORD, 'Задайте E2E_LOGIN и E2E_PASSWORD (пользователь с ролью «Супер-администратор»)');

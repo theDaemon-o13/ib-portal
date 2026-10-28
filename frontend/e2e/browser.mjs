@@ -17,6 +17,16 @@ const CHROME_PATHS = [
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * «Сегодня» портала, YYYY-MM-DD (+ days): в часовом поясе банка, как backend (backend/src/lib/today.ts),
+ * а не по часам машины с тестом. Иначе на машине в UTC (WSL) с 19:00 до 24:00 даты расходятся на сутки.
+ */
+export function portalToday(days = 0) {
+  const tz = process.env.E2E_APP_TZ || 'Asia/Dushanbe';
+  const iso = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.random() * 400) }) {
   const host = new URL(baseUrl).hostname;
   if (!['localhost', '127.0.0.1'].includes(host)) throw new Error(`e2e запускается только против локального dev-окружения, а не ${baseUrl}`);
