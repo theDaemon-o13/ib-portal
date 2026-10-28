@@ -6,6 +6,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import type { DashboardCache } from './cache.js';
+import * as layout from './layout.service.js';
 import { computeKpis, DASHBOARD_KPIS, KPI_KEYS, listWidgets, widgetData } from './service.js';
 import * as tiles from './tiles.service.js';
 
@@ -73,6 +74,52 @@ export const dashboardRoutes: FastifyPluginAsyncZod<{ db: Db; cache: DashboardCa
       widgets: await listWidgets(db),
     };
   });
+
+  // ------------------------------------------------------------ раскладка (релиз 1.1.0, ADR-0018)
+  const Item = z.object({ key: z.string().max(80), hidden: z.boolean(), size: z.enum(['s', 'm', 'l']) });
+  const Layout = z.object({
+    source: z.enum(['user', 'role', 'system']), role: z.object({ id: z.string(), name: z.string() }).nullable(),
+    version: z.number().int(), items: z.array(Item),
+  });
+  const RoleLayout = z.object({ role: z.object({ id: z.string(), name: z.string() }), version: z.number().int(), custom: z.boolean(), items: z.array(Item) });
+  const LayoutIn = z.object({ version: z.number().int().min(0), items: z.array(Item).max(500) });
+  const settingsManage = requirePerm('settings.manage');
+  const permsOf = (request: { user?: { permissions: ReadonlySet<string> } | null }) => request.user?.permissions ?? new Set<string>();
+
+  app.get('/dashboard/layout', {
+    preHandler: view,
+    schema: { tags, summary: 'Раскладка дашборда: своя, иначе роли, иначе системная', response: { 200: Layout, ...errors } },
+  }, async (request) => layout.myLayout(db, actorOf(request).id, permsOf(request)));
+
+  app.put('/dashboard/layout', {
+    preHandler: view,
+    schema: { tags, summary: 'Сохранить свою раскладку (version: 0 — своей ещё нет)', body: LayoutIn, response: { 200: Layout, ...errors } },
+  }, async (request) => layout.saveMyLayout(db, actorOf(request), permsOf(request), request.body.version, request.body.items));
+
+  app.post('/dashboard/layout/reset', {
+    preHandler: view,
+    schema: { tags, summary: '«Сбросить»: своя раскладка удаляется, действует раскладка роли или системная', response: { 200: Layout, ...errors } },
+  }, async (request) => layout.resetMyLayout(db, actorOf(request), permsOf(request)));
+
+  app.get('/dashboard/role-layouts', {
+    preHandler: settingsManage,
+    schema: { tags, summary: 'Роли, которые видят дашборд, и задана ли у них раскладка по умолчанию', response: { 200: z.object({ items: z.array(z.object({ id: z.string(), name: z.string(), hasLayout: z.boolean() })) }), ...errors } },
+  }, async () => ({ items: await layout.roleLayouts(db) }));
+
+  app.get('/dashboard/role-layouts/:roleId', {
+    preHandler: settingsManage,
+    schema: { tags, summary: 'Раскладка дашборда по умолчанию для роли', params: z.object({ roleId: z.string().uuid() }), response: { 200: RoleLayout, ...errors } },
+  }, async (request) => layout.getRoleLayout(db, request.params.roleId));
+
+  app.put('/dashboard/role-layouts/:roleId', {
+    preHandler: settingsManage,
+    schema: { tags, summary: 'Сохранить раскладку роли по умолчанию', params: z.object({ roleId: z.string().uuid() }), body: LayoutIn, response: { 200: RoleLayout, ...errors } },
+  }, async (request) => layout.saveRoleLayout(db, actorOf(request), request.params.roleId, request.body.version, request.body.items));
+
+  app.post('/dashboard/role-layouts/:roleId/reset', {
+    preHandler: settingsManage,
+    schema: { tags, summary: 'Сбросить раскладку роли — действует системная', params: z.object({ roleId: z.string().uuid() }), response: { 200: RoleLayout, ...errors } },
+  }, async (request) => layout.resetRoleLayout(db, actorOf(request), request.params.roleId));
 
   app.get('/dashboard/widgets/:key', {
     preHandler: view,

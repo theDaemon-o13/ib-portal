@@ -5,6 +5,7 @@ import { createPrisma } from '../../src/lib/db.js';
 import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
+import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
@@ -70,6 +71,7 @@ async function main() {
     await seedRisks(tx);
     await seedDlp(tx);
     await seedCompareKeys(tx);
+    await seedDashboardLayouts(tx);
   });
   console.log(`Seed выполнен: прав ${PERMISSIONS.length}, системных ролей ${SYSTEM_ROLES.length}, справочников ${CATALOGS.length}`);
 }

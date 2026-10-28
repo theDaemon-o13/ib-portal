@@ -8,7 +8,7 @@
 // Свои записи прогона помечены RUN и в конце уходят в архив, плитка удаляется (мягко).
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { launchBrowser, portalToday, sleep } from './browser.mjs';
+import { $, launchBrowser, portalToday, sleep } from './browser.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -152,6 +152,44 @@ describe('дашборд: переход по фильтру', () => {
     await ui.click(bar, 'строка «Критическая»');
     await ui.waitFor(`location.pathname === '/registers' && decodeURIComponent(location.search).includes('f=${field('crit').id}:')`, 'фильтр по значению');
     await ui.waitFor(`document.querySelector('[data-testid=record-filter]')?.textContent.includes('Критичность: Критическая')`, 'плашка фильтра');
+  });
+});
+
+describe('дашборд: «Настроить» (релиз 1.1.0)', () => {
+  it('скрыть KPI, перетащить виджет, размер L, «Готово» — после перезагрузки так же; «Сбросить» — как было', async () => {
+    // Своя раскладка прогона — с чистого листа.
+    await api('POST', '/api/v1/dashboard/layout/reset');
+    await ui.goto('/dashboard');
+    const cells = (sel) => `[...document.querySelectorAll('${sel} > .lay-cell')]`;
+    await ui.waitFor(`${cells('.dash')}.length >= 2 && ${cells('.kpis')}.length >= 2`, 'дашборд');
+    const kpiKey = await ui.evaluate(`${cells('.kpis')}[1].dataset.layoutKey`);
+    const [w1, w2] = await ui.evaluate(`${cells('.dash')}.slice(0, 2).map((c) => c.dataset.layoutKey)`);
+    const cell = (key) => `document.querySelector('[data-layout-key="${key}"]')`;
+
+    await ui.click($.button('Настроить'), '«Настроить»');
+    await ui.waitFor(`!!document.querySelector('.lay-bar')`, 'режим настройки');
+    await ui.click($.button('Скрыть', cell(kpiKey)), 'скрыть KPI');
+    await ui.waitFor(`!${cell(kpiKey)} && !!document.querySelector('.lay-hidden')`, 'KPI в «Скрытых»');
+    // Оба виджета на экране до нажатия: иначе drag прокрутит к цели и нажмёт по устаревшим координатам ручки.
+    await ui.evaluate(`${cell(w1)}.scrollIntoView({ block: 'start' })`);
+    await ui.drag(`${cell(w2)}.querySelector('.lay-handle')`, cell(w1), 'перетащить второй виджет на место первого');
+    await ui.waitFor(`${cells('.dash')}[0]?.dataset.layoutKey === ${JSON.stringify(w2)}`, 'виджет перенесён');
+    await ui.click($.button('L', cell(w2)), 'размер L');
+    const m = ui.mark();
+    await ui.click($.button('Готово'), '«Готово»');
+    assert.equal((await ui.request(m, 'PUT', '/dashboard/layout')).status, 200);
+
+    await ui.goto('/dashboard');
+    await ui.waitFor(`${cells('.dash')}.length >= 2`, 'дашборд после перезагрузки');
+    assert.equal(await ui.evaluate(`${cells('.dash')}[0].dataset.layoutKey`), w2, 'порядок сохранён');
+    assert.ok(await ui.evaluate(`${cell(w2)}.classList.contains('w12')`), 'размер L — вся ширина');
+    assert.ok(await ui.evaluate(`!${cell(kpiKey)}`), 'KPI скрыт');
+
+    await ui.click($.button('Настроить'), '«Настроить»');
+    const r = ui.mark();
+    await ui.click($.button('Сбросить'), '«Сбросить»');
+    assert.equal((await ui.request(r, 'POST', '/dashboard/layout/reset')).status, 200);
+    await ui.waitFor(`!document.querySelector('.lay-bar') && !!${cell(kpiKey)} && ${cells('.dash')}[0]?.dataset.layoutKey === ${JSON.stringify(w1)}`, 'раскладка по умолчанию');
   });
 });
 

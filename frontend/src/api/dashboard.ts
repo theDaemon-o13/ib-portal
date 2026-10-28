@@ -18,6 +18,10 @@ export type TilePatch = Body<'/api/v1/dashboard/tiles/{id}', 'patch'>;
 export type MonitorData = Res<'/api/v1/monitor', 'get'>;
 export type MonitorVuln = NonNullable<MonitorData['vulns']>['items'][number];
 export type MonitorItem = MonitorData['items'][number];
+/** Раскладка дашборда (релиз 1.1.0). */
+export type Layout = Res<'/api/v1/dashboard/layout', 'get'>;
+export type LayoutItem = Layout['items'][number];
+export type RoleLayout = Res<'/api/v1/dashboard/role-layouts/{roleId}', 'get'>;
 
 export const dashboardApi = {
   kpis: () => request<KpiList>('GET', '/api/v1/dashboard/kpis'),
@@ -28,6 +32,14 @@ export const dashboardApi = {
   updateTile: (id: string, body: TilePatch) => request<Tile>('PATCH', `/api/v1/dashboard/tiles/${id}`, body),
   deleteTile: (id: string, version: number) => request<undefined>('POST', `/api/v1/dashboard/tiles/${id}/delete`, { version }),
   monitor: () => request<MonitorData>('GET', '/api/v1/monitor'),
+  layout: () => request<Layout>('GET', '/api/v1/dashboard/layout'),
+  saveLayout: (version: number, items: LayoutItem[]) => request<Layout>('PUT', '/api/v1/dashboard/layout', { version, items }),
+  resetLayout: () => request<Layout>('POST', '/api/v1/dashboard/layout/reset'),
+  roleLayouts: () => request<Res<'/api/v1/dashboard/role-layouts', 'get'>>('GET', '/api/v1/dashboard/role-layouts'),
+  roleLayout: (roleId: string) => request<RoleLayout>('GET', `/api/v1/dashboard/role-layouts/${roleId}`),
+  saveRoleLayout: (roleId: string, version: number, items: LayoutItem[]) =>
+    request<RoleLayout>('PUT', `/api/v1/dashboard/role-layouts/${roleId}`, { version, items }),
+  resetRoleLayout: (roleId: string) => request<RoleLayout>('POST', `/api/v1/dashboard/role-layouts/${roleId}/reset`),
 };
 
 export const dashkeys = {
@@ -36,5 +48,7 @@ export const dashkeys = {
   widgets: ['dashboard', 'widgets'] as const,
   widget: (key: string) => ['dashboard', 'widget', key] as const,
   tiles: ['dashboard', 'tiles'] as const,
+  layout: ['dashboard', 'layout'] as const,
+  roleLayouts: ['dashboard', 'role-layouts'] as const,
   monitor: ['monitor'] as const,
 };

@@ -113,11 +113,12 @@ function Basis({ w }: { w: WidgetData }) {
 const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3', basis: 'w6' };
 
 /** Виджет: свой запрос к серверу (кэш там же, 1 минута), обновление раз в минуту. */
-export function WidgetPanel({ w }: { w: WidgetRef }) {
+export function WidgetPanel({ w, bare = false }: { w: WidgetRef; bare?: boolean }) {
   const q = useQuery({ queryKey: dashkeys.widget(w.key), queryFn: () => dashboardApi.widget(w.key), refetchInterval: REFRESH_MS });
   const d = q.data;
   return (
-    <section className={`panel ${SIZE[w.kind]}`} aria-label={w.title} data-widget={w.key}>
+    // bare — ширину задаёт раскладка (обёртка в сетке), а не вид виджета.
+    <section className={bare ? 'panel' : `panel ${SIZE[w.kind]}`} aria-label={w.title} data-widget={w.key}>
       <div className="panel-h">
         <h3>{w.title}</h3>
         {d?.link ? <Link className="sub" to={d.link}>{w.source}</Link> : <span className="sub">{w.source}</span>}

@@ -568,6 +568,20 @@ a.btn svg{width:16px;height:16px}
 .kpi-link:hover{box-shadow:inset 0 1px 0 var(--hl),var(--shadow-lg)}
 .kpi-link:focus-visible,.bar-link:focus-visible,.stat-link:focus-visible,.li-link:focus-visible,.cols .c:focus-visible,.tile .v:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:14px}
+/* Раскладка дашборда (релиз 1.1.0) */
+.tile-m{grid-column:span 2}.tile-l{grid-column:1/-1}
+.lay-cell{position:relative;min-width:0;display:grid}
+.lay-cell > *{min-width:0}
+.lay-edit .lay-cell{outline:1px dashed var(--line);outline-offset:3px;border-radius:var(--r-md)}
+.lay-cell.dragging{opacity:.55}
+.lay-tools{position:absolute;top:6px;right:6px;z-index:2;display:flex;gap:4px;padding:3px;border-radius:9px;background:var(--glass-strong);box-shadow:var(--shadow-lg)}
+.lay-tools button{border:0;background:none;padding:3px 7px;border-radius:7px;font-size:12px;color:var(--fg);cursor:pointer}
+.lay-tools button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+.lay-handle{cursor:grab!important;touch-action:none}
+.lay-hide{color:var(--crit)!important}
+.lay-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:14px}
+.lay-hidden{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%}
+.lay-hidden .chip{cursor:pointer;border:0}
 .tile{background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:var(--r-lg);padding:15px 17px;display:grid;gap:8px;align-content:start}
 .tile .l{color:var(--muted);font-size:12.5px;font-weight:500}
 .tile .v{font-family:var(--f-display);font-size:32px;font-weight:600;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--fg);text-decoration:none;justify-self:start}
@@ -599,7 +613,7 @@ a.btn svg{width:16px;height:16px}
 .tile-form .opts{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px 14px}
 .tile-form .opts legend{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:6px;padding:0}
 @media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.w3,.w4,.w6{grid-column:span 6}}
-@media (max-width:700px){.w3,.w4,.w6,.w8{grid-column:span 12}}
+@media (max-width:700px){.w3,.w4,.w6,.w8{grid-column:span 12}.tile-m{grid-column:auto}}
 
 /* Экран мониторинга: один экран, размеры в единицах окна, ничего не прокручивается. */
 .mon{position:fixed;inset:0;z-index:40;background:

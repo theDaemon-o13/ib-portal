@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barWidth, dateRu, daysBox, daysText, num, pageOf, rowsPerPage } from './logic';
+import { barWidth, dateRu, daysBox, daysText, groupOf, moveEntry, num, pageOf, patchEntry, rowsPerPage, sizeClass } from './logic';
 
 describe('дни до срока', () => {
   it('просрочка, сегодня, ≤ 7 дней, позже, без срока', () => {
@@ -33,5 +33,17 @@ describe('форматирование', () => {
     expect(dateRu('2026-10-27')).toBe('27.10.2026');
     expect(barWidth(5, [{ count: 10 }, { count: 5 }])).toBe(50);
     expect(barWidth(0, [])).toBe(0);
+  });
+});
+
+describe('раскладка дашборда', () => {
+  it('группа по ключу, ширина, перенос и правка элемента', () => {
+    expect([groupOf('kpi:a'), groupOf('tile:1'), groupOf('widget:field:x')]).toEqual(['kpi', 'tile', 'widget']);
+    expect([sizeClass('widget', 's'), sizeClass('widget', 'm'), sizeClass('widget', 'l'), sizeClass('tile', 'm'), sizeClass('kpi', 'l')]).toEqual(['w4', 'w6', 'w12', 'tile-m', '']);
+    const items = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];
+    expect(moveEntry(items, 'c', 'a').map((i) => i.key)).toEqual(['c', 'a', 'b']);
+    expect(moveEntry(items, 'a', 'c').map((i) => i.key)).toEqual(['b', 'c', 'a']);
+    expect(moveEntry(items, 'a', 'нет').map((i) => i.key)).toEqual(['a', 'b', 'c']);
+    expect(patchEntry([{ key: 'a', hidden: false }], 'a', { hidden: true })).toEqual([{ key: 'a', hidden: true }]);
   });
 });

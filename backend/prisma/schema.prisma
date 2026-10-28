@@ -60,6 +60,8 @@ model User {
   recordFilesRemoved   RegisterRecordFile[] @relation("RecordFileRemover")
   dashboardTiles       DashboardTile[]
   automationRuns       AutomationRun[]
+  dashboardLayout      DashboardLayout? @relation("LayoutOwner")
+  dashboardLayoutEdits DashboardLayout[] @relation("LayoutEditor")
   roles                UserRole[]           @relation("UserRoles")
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
   sessions             Session[]
@@ -103,6 +105,7 @@ model Role {
 
   permissions RolePermission[]
   users       UserRole[]
+  dashboardLayout DashboardLayout?
 
   @@map("roles")
 }
@@ -729,6 +732,26 @@ model TaskComment {
 /// Что событие автоматизации сделало с задачей: создало или прокомментировало.
 /// Журнал запусков автоматизаций (релиз 1.1.0, задача 2). Технический: строки удаляет «Очистить»
 /// по праву registers.manage, с записью в журнале аудита. register_id NULL — общий прогон по всем реестрам.
+/// Раскладка дашборда (релиз 1.1.0, задача 5): пользователя или по умолчанию для роли (ровно одно из двух —
+/// CHECK в SQL). items — [{ key, hidden, size }]; неизвестные ключи пропускаются, новые элементы — в конец.
+model DashboardLayout {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?  @unique @map("user_id") @db.Uuid
+  roleId    String?  @unique @map("role_id") @db.Uuid
+  items     Json
+  version   Int      @default(1)
+  /// NULL — раскладка роли из seed.
+  updatedBy String?  @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User? @relation("LayoutOwner", fields: [userId], references: [id], onDelete: Restrict)
+  role    Role? @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  editor  User? @relation("LayoutEditor", fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@map("dashboard_layouts")
+}
+
 model AutomationRun {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   registerId     String?   @map("register_id") @db.Uuid

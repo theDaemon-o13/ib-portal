@@ -61,3 +61,37 @@ export function pageOf<T>(items: readonly T[], perPage: number, step: number): {
 export const MONITOR_FLIP_MS = 12_000;
 export const MONITOR_REFRESH_MS = 60_000;
 export const MONITOR_IDLE_MS = 3_500;
+
+// ---------------------------------------------------------------- раскладка (релиз 1.1.0, задача 5)
+
+export type LayoutGroup = 'kpi' | 'tile' | 'widget';
+export type LayoutSize = 's' | 'm' | 'l';
+export interface LayoutEntry {
+  key: string;
+  hidden: boolean;
+  size: LayoutSize;
+}
+
+export const groupOf = (key: string): LayoutGroup => (key.startsWith('kpi:') ? 'kpi' : key.startsWith('tile:') ? 'tile' : 'widget');
+
+/** Ширина в сетке виджетов: треть, половина, вся ширина; плитки — 1, 2 ячейки, вся строка. */
+export function sizeClass(group: LayoutGroup, size: LayoutSize): string {
+  if (group === 'widget') return size === 'l' ? 'w12' : size === 'm' ? 'w6' : 'w4';
+  if (group === 'tile') return size === 'l' ? 'tile-l' : size === 'm' ? 'tile-m' : '';
+  return '';
+}
+
+/** Перенести элемент from на место to (перетаскивание мышью). */
+export function moveEntry<T extends { key: string }>(items: readonly T[], fromKey: string, toKey: string): T[] {
+  const from = items.findIndex((i) => i.key === fromKey);
+  const to = items.findIndex((i) => i.key === toKey);
+  if (from < 0 || to < 0 || from === to) return [...items];
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  if (moved) next.splice(to, 0, moved);
+  return next;
+}
+
+export function patchEntry<T extends { key: string }>(items: readonly T[], key: string, patch: Partial<T>): T[] {
+  return items.map((i) => (i.key === key ? { ...i, ...patch } : i));
+}
