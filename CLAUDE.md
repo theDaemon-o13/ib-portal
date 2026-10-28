@@ -384,6 +384,8 @@ services:
     image: ibportal-frontend:${VERSION}
     restart: unless-stopped
     ports: ["443:8443"]
+    environment:
+      PORTAL_URL: ${PORTAL_URL:-}                             # страницы по другому адресу — 301 на PORTAL_URL
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on: [backend]

@@ -58,6 +58,9 @@ services:
     pull_policy: never              # образы только из релиза (docker load), реестра в контуре нет
     restart: unless-stopped
     ports: ["443:8443"]
+    environment:
+      # Страницы, открытые по другому адресу (IP, другое имя), перенаправляются (301) на PORTAL_URL.
+      PORTAL_URL: ${PORTAL_URL:-}
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on: [backend]

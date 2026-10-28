@@ -36,6 +36,16 @@ export function visibleNav(permissions: readonly string[]): NavItem[] {
   return NAV.filter((item) => canSee(item, permissions));
 }
 
+/**
+ * Путь, на который вернуть после входа (from — путь страницы, с которой отправили на вход; его задаёт ссылка).
+ * Только внутренний путь портала: «//host» и «/\\host» браузер и роутер могут понять как другой сайт.
+ */
+export function safeReturnPath(from: unknown): string | null {
+  if (typeof from !== 'string' || !from.startsWith('/') || from === '/login') return null;
+  if (from.startsWith('//') || from.includes('\\') || [...from].some((c) => c < ' ')) return null;
+  return from;
+}
+
 /** Куда вести после входа: первый доступный раздел. */
 export function homePath(permissions: readonly string[]): string {
   return visibleNav(permissions)[0]?.path ?? '/documents';

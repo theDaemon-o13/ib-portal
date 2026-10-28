@@ -5,7 +5,7 @@ import { ApiError, authApi } from '../../api/client';
 import { useMe, useSetMe } from '../../auth/useMe';
 import { Brand } from '../../components/Brand';
 import { ThemeSwitch } from '../../components/ThemeSwitch';
-import { homePath } from '../../nav';
+import { homePath, safeReturnPath } from '../../nav';
 
 function errorText(e: unknown): string {
   if (e instanceof ApiError && e.code === 'ACCOUNT_LOCKED') {
@@ -30,7 +30,7 @@ export function LoginPage() {
     onSuccess: ({ user }) => {
       setMe(user);
       if (user.mustChangePassword) navigate('/change-password', { replace: true });
-      else navigate(from && from !== '/login' ? from : homePath(user.permissions), { replace: true });
+      else navigate(safeReturnPath(from) ?? homePath(user.permissions), { replace: true });
     },
     onError: () => setPassword(''),
   });
