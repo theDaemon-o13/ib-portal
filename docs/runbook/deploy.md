@@ -230,7 +230,7 @@ docker compose down                                     # тома провер�
 
 ## Для разработчика
 
-**Сборка релиза** (Mac, Docker Desktop с buildx, доступ к npm и Docker Hub):
+**Сборка релиза** (Mac или Linux x86_64, Docker с buildx, доступ к npm и Docker Hub; пошагово для DevOps, с проверкой на тестовом стенде — `docs/runbook/build.md`):
 
 ```bash
 # CHANGELOG: «Не выпущено» → [X.Y.Z] — дата, вверху раздела — краткая сводка (она попадает в RELEASE.md); VERSION = X.Y.Z
