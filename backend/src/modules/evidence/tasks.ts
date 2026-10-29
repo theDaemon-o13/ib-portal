@@ -4,6 +4,7 @@
 // Пользователям без ib.work задачи не ставятся: тогда задача без ответственного.
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
+import { notifyAssignee } from '../notifications/service.js';
 import { initialStatusId, recordTransition, statusIdOf } from '../tasks/flow.js';
 import { systemItemId, TITLE_MAX } from '../tasks/service.js';
 
@@ -60,6 +61,7 @@ export async function evidenceTask(tx: Db, input: EvidenceTaskInput): Promise<{ 
     select: { id: true, number: true, statusId: true },
   });
   await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
+  await notifyAssignee(tx, { id: task.id, number: task.number, title: input.title.slice(0, TITLE_MAX) }, null, assigneeId, null);
   await tx.auditLog.create({
     data: {
       userId: null, action: 'task.created', entity: 'task', entityId: task.id,

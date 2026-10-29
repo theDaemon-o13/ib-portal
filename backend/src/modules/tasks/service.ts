@@ -10,6 +10,7 @@ import { parseMail, type ParsedMail } from '../../lib/mail-parse.js';
 import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
+import { notifyAssignee, notifyComment, notifyMoved } from '../notifications/service.js';
 import { loadRegister } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import {
@@ -261,6 +262,7 @@ export async function createTask(db: Db, actor: TaskActor, input: NewTaskInput) 
       include: taskInclude,
     });
     await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: actor.id, kind: 'process' });
+    await notifyAssignee(tx, task, null, task.assigneeId, actor.id);
     if (parsed && input.mail) {
       const dueChanged = (input.dueDate ?? null) !== parsed.due;
       await tx.taskMailSource.create({
@@ -428,6 +430,12 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
         summary: `Задача #${t.number}: ${changes.map((c) => `«${c.label}»`).join(', ')}`,
         after: { changes },
       });
+      // Уведомления (этап В): смена исполнителя — новому и прежнему; свободная смена статуса — исполнителю.
+      const title = typeof data.title === 'string' ? data.title : t.title;
+      const assigneeId = data.assigneeId !== undefined ? (data.assigneeId as string | null) : t.assigneeId;
+      if (data.assigneeId !== undefined) await notifyAssignee(tx, { id, number: t.number, title }, t.assigneeId, assigneeId, actor.id);
+      const moved = changes.find((c) => c.field === 'statusId');
+      if (transition === 'override' && moved) await notifyMoved(tx, { id, number: t.number, title, assigneeId }, moved.from, moved.to, actor.id, comment);
     }
     return toTaskDto(await getTaskRow(tx, id), todayIso());
   });
@@ -487,6 +495,7 @@ export async function addComment(db: Db, actor: Actor, taskId: string, body: str
     if (!text) throw badRequest('EMPTY_COMMENT', 'Напишите комментарий');
     if (text.length > COMMENT_MAX) throw badRequest('TOO_LONG', `Комментарий — не длиннее ${COMMENT_MAX} символов`);
     const c = await tx.taskComment.create({ data: { taskId, authorId: actor.id, body: text }, include: { author: userBrief } });
+    await notifyComment(tx, { id: t.id, number: t.number, title: t.title, assigneeId: t.assigneeId, createdBy: t.createdBy }, actor.id, text);
     await auditSettings(tx, actor, {
       action: 'task.commented', entity: 'task', entityId: taskId,
       summary: `Задача #${t.number}: комментарий`,

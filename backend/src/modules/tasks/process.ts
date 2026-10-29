@@ -9,6 +9,7 @@ import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, versionConflict } from '../../lib/errors.js';
 import { subordinateIdsOf } from '../../lib/hierarchy.js';
 import { todayIso } from '../../lib/today.js';
+import { notifyStep } from '../notifications/service.js';
 import { auditSettings, ensureVersioned } from '../settings/common.js';
 import { commentRequired, recordTransition, statusIdOf, type StatusKey, type TaskActor } from './flow.js';
 import { assertActive, assertAssignee, COMMENT_MAX, getTaskRow, toTaskDto, type TaskDto } from './service.js';
@@ -110,6 +111,9 @@ export async function runAction(db: Db, actor: TaskActor, id: string, action: Pr
     if (action === 'take') {
       const me = await tx.user.findUniqueOrThrow({ where: { id: actor.id }, select: { fullName: true } });
       changes.push({ field: 'assigneeId', label: 'Ответственный', from: '—', to: me.fullName });
+    }
+    if (action === 'submit' || action === 'return' || action === 'accept') {
+      await notifyStep(tx, { id, number: t.number, title: t.title, assigneeId: t.assigneeId, createdBy: t.createdBy }, action, actor.id, comment);
     }
     await auditSettings(tx, actor, {
       action: 'task.transition', entity: 'task', entityId: id,

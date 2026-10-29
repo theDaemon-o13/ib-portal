@@ -6,6 +6,7 @@ import type { Db } from '../../lib/db.js';
 import { todayIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
+import { notifyAssignee } from '../notifications/service.js';
 import { initialStatusId, recordTransition, statusIdOf } from '../tasks/flow.js';
 import { systemItemId, TITLE_MAX } from '../tasks/service.js';
 
@@ -69,6 +70,7 @@ export async function documentTask(tx: Db, input: DocTaskInput): Promise<{ taskI
     select: { id: true, number: true, statusId: true },
   });
   await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
+  await notifyAssignee(tx, { id: task.id, number: task.number, title: input.title.slice(0, TITLE_MAX) }, null, assigneeId, null);
   await tx.auditLog.create({
     data: {
       userId: null, action: 'task.created', entity: 'task', entityId: task.id,

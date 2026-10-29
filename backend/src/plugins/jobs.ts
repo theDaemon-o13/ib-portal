@@ -1,4 +1,5 @@
-// Фоновые задачи внутри backend (без отдельного сервиса): проверка правил автоматизации раз в час
+// Фоновые задачи внутри backend (без отдельного сервиса): проверка правил автоматизации раз в час (с релиза 1.2.0 —
+// и уведомления о сроках задач, очистка старых уведомлений)
 // и извлечение текста загруженных PDF для поиска (этап 8б) — раз в 20 секунд, если есть очередь.
 // Повторный запуск безопасен: события уникальны по (правило, запись, trigger_key), а одновременный
 // прогон из второго экземпляра отсекает advisory-блокировка в БД.
@@ -7,6 +8,7 @@ import type { Db } from '../lib/db.js';
 import type { FileStore } from '../lib/file-store.js';
 import { runAutomations } from '../modules/automations/service.js';
 import { processPendingTexts } from '../modules/files/text.js';
+import { cleanupNotifications, notifyDeadlines } from '../modules/notifications/service.js';
 
 export interface JobsOptions {
   db: Db;
@@ -57,6 +59,11 @@ export function installJobs(app: FastifyInstance, opts: JobsOptions): void {
         const r = await runAutomations(opts.db, { now: opts.now?.() });
         if (r.ran) app.log.info({ today: r.today, rules: r.rules, checked: r.checked, created: r.created }, 'автоматизации проверены');
         else app.log.info('автоматизации: прогон уже идёт в другом процессе — пропуск');
+        // Уведомления (этап В): «срок завтра» и «просрочено» без дублей (уникальный dedupe_key), очистка — раз в сутки.
+        const now = opts.now?.() ?? new Date();
+        const d = await notifyDeadlines(opts.db, now);
+        const cleaned = await cleanupNotifications(opts.db, now);
+        if (d.dueTomorrow || d.overdue || cleaned) app.log.info({ ...d, cleaned }, 'уведомления о сроках');
       } catch (err) {
         // Ошибка прогона не роняет backend: следующий прогон — по расписанию.
         app.log.error({ err }, 'автоматизации: прогон не выполнен');

@@ -26,6 +26,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   dashboard_layout: 'Дашборд',
   monitor_slide: 'Экран мониторинга',
   audit: 'Журнал',
+  notification: 'Уведомления',
 };
 
 /** Разделы настроек: прежняя вкладка «Настройки → Журнал изменений» — пункт фильтра «Настройки — всё». */
@@ -70,6 +71,7 @@ const ACTION_LABELS: Record<string, string> = {
   'tasks.bulk_archive': 'Задачи отправлены в архив (выбранные)',
   'tasks.bulk_delete': 'Задачи удалены (выбранные)',
   'tasks.report_exported': 'Отчёт по задачам выгружен в Excel',
+  'notifications.cleaned': 'Удалены старые уведомления',
   'task.commented': 'Комментарий к задаче',
   'task.transition': 'Задача: переход между колонками',
   'document.submitted': 'Документ отправлен на согласование',

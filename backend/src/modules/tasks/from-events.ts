@@ -9,6 +9,7 @@ import { addDaysIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate, type WorkCalendar } from '../../lib/working-days.js';
 import { digestTitle } from '../automations/conditions.js';
 import { deadlineField, dateOf, isClosed, loadRegister, type RegisterDef } from '../registers/definition.js';
+import { notifyAssignee } from '../notifications/service.js';
 import { recordTransition, statusIdOf } from './flow.js';
 import { systemItemId, TITLE_MAX } from './service.js';
 
@@ -197,6 +198,7 @@ export async function tasksFromEvents(
         select: { id: true, number: true, statusId: true },
       });
       await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
+      await notifyAssignee(tx, { id: task.id, number: task.number, title }, null, assigneeId, null);
       await tx.automationEventTask.create({ data: { eventId: e.id, taskId: task.id, action: 'created' } });
       await tx.auditLog.create({
         data: {
@@ -269,6 +271,7 @@ async function digestTask(
       select: { id: true, number: true, statusId: true },
     });
     await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
+    await notifyAssignee(tx, { id: task.id, number: task.number, title: taskTitle }, null, assigneeId, null);
     await tx.automationEventTask.create({ data: { eventId: e.id, taskId: task.id, action: 'created' } });
     await tx.auditLog.create({
       data: {

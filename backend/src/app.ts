@@ -15,6 +15,7 @@ import type { AuditWriter } from './modules/audit/audit.js';
 import type { AuthRepository } from './modules/auth/repository.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { automationRoutes } from './modules/automations/routes.js';
+import { notificationRoutes } from './modules/notifications/routes.js';
 import { taskRoutes } from './modules/tasks/routes.js';
 import { CACHE_TTL_MS, createCache } from './modules/dashboard/cache.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
@@ -97,6 +98,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(healthRoutes, { prefix: '/api', ping: () => deps.repo.ping() });
   await app.register(authRoutes, { prefix: '/api/v1/auth', auth });
   await app.register(catalogRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(notificationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(calendarRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(formTemplateRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });

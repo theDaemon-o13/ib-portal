@@ -49,6 +49,8 @@ model User {
   createdTasks         Task[]               @relation("TaskCreator")
   taskComments         TaskComment[]
   taskTransitions      TaskTransition[]     @relation("TransitionActor")
+  notifications        Notification[]       @relation("NotificationRecipient")
+  notificationsSent    Notification[]       @relation("NotificationActor")
   recipientOf          CatalogItemUser[]
   ownedDocuments       Document[]           @relation("DocumentOwner")
   createdDocuments     Document[]           @relation("DocumentCreator")
@@ -65,8 +67,8 @@ model User {
   recordFilesRemoved   RegisterRecordFile[] @relation("RecordFileRemover")
   dashboardTiles       DashboardTile[]
   automationRuns       AutomationRun[]
-  dashboardLayout      DashboardLayout? @relation("LayoutOwner")
-  dashboardLayoutEdits DashboardLayout[] @relation("LayoutEditor")
+  dashboardLayout      DashboardLayout?     @relation("LayoutOwner")
+  dashboardLayoutEdits DashboardLayout[]    @relation("LayoutEditor")
   monitorSlides        MonitorSlide[]
   roles                UserRole[]           @relation("UserRoles")
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
@@ -110,8 +112,8 @@ model Role {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  permissions RolePermission[]
-  users       UserRole[]
+  permissions     RolePermission[]
+  users           UserRole[]
   dashboardLayout DashboardLayout?
 
   @@map("roles")
@@ -200,30 +202,30 @@ model Catalog {
 }
 
 model CatalogItem {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  catalogCode String    @map("catalog_code")
-  value       String
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  catalogCode    String    @map("catalog_code")
+  value          String
   /// Ключ тона из tokens.css: accent, info, low, high, med, crit, muted
-  color       String?
+  color          String?
   /// Есть только у системных значений, на них опирается логика.
-  systemKey   String?   @map("system_key")
-  isSystem    Boolean   @default(false) @map("is_system")
+  systemKey      String?   @map("system_key")
+  isSystem       Boolean   @default(false) @map("is_system")
   /// Только для правил разбора почты.
-  keywords    String[]  @default([])
+  keywords       String[]  @default([])
   /// Ответственный правила почты; владелец системы (справочник «Системы»).
-  ownerUserId String?   @map("owner_user_id") @db.Uuid
+  ownerUserId    String?   @map("owner_user_id") @db.Uuid
   /// Только для меток «Получатели уведомлений»: адреса вне портала — для справки, письма портал не отправляет.
-  emails      String[]  @default([])
-  sortOrder   Int       @default(0) @map("sort_order")
+  emails         String[]  @default([])
+  sortOrder      Int       @default(0) @map("sort_order")
   /// Только «Статусы задач» (релиз 1.2.0, ADR-0022): при переходе в эту колонку вперёд (из колонки левее) обязателен комментарий.
-  commentForward Boolean @default(false) @map("comment_forward")
+  commentForward Boolean   @default(false) @map("comment_forward")
   /// Только «Статусы задач»: при возврате в эту колонку (из колонки правее) обязателен комментарий.
-  commentReturn  Boolean @default(false) @map("comment_return")
-  version     Int       @default(1)
-  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  commentReturn  Boolean   @default(false) @map("comment_return")
+  version        Int       @default(1)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   catalog         Catalog           @relation(fields: [catalogCode], references: [code], onDelete: Restrict)
   owner           User?             @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
@@ -319,32 +321,32 @@ model FormTemplateField {
 // ---------------------------------------------------------------------------
 
 model Register {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String    @default("")
-  ownerUserId String?   @map("owner_user_id") @db.Uuid
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  description          String    @default("")
+  ownerUserId          String?   @map("owner_user_id") @db.Uuid
   /// Системный реестр: vulns — реестр уязвимостей (этап 4). Не архивируется.
-  systemKey   String?   @unique @map("system_key")
+  systemKey            String?   @unique @map("system_key")
   /// Следующий номер записи (колонка ID в Excel).
-  nextNumber  Int       @default(1) @map("next_number")
+  nextNumber           Int       @default(1) @map("next_number")
   /// Сравнение с реестром (релиз 1.1.0): поля ключа по порядку (пусто — по ID) и поля, по которым выбирается область.
-  compareKeyFieldIds   String[] @default([]) @map("compare_key_field_ids") @db.Uuid
-  compareScopeFieldIds String[] @default([]) @map("compare_scope_field_ids") @db.Uuid
-  version     Int       @default(1)
-  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  compareKeyFieldIds   String[]  @default([]) @map("compare_key_field_ids") @db.Uuid
+  compareScopeFieldIds String[]  @default([]) @map("compare_scope_field_ids") @db.Uuid
+  version              Int       @default(1)
+  archivedAt           DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  owner       User?                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
-  fields      RegisterField[]      @relation("RegisterFields")
+  owner          User?                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  fields         RegisterField[]      @relation("RegisterFields")
   /// Поля «Связь с записью» других реестров, которые ссылаются на этот (этап 8б).
-  linkedBy    RegisterField[]      @relation("FieldLinkRegister")
-  records     RegisterRecord[]
-  imports     RegisterImport[]
-  scanReports ScanReport[]
-  automations RegisterAutomation[]
-  events      AutomationEvent[]
-  tiles       DashboardTile[]
+  linkedBy       RegisterField[]      @relation("FieldLinkRegister")
+  records        RegisterRecord[]
+  imports        RegisterImport[]
+  scanReports    ScanReport[]
+  automations    RegisterAutomation[]
+  events         AutomationEvent[]
+  tiles          DashboardTile[]
   automationRuns AutomationRun[]
 
   @@map("registers")
@@ -682,19 +684,20 @@ model Task {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  status     CatalogItem           @relation("TaskStatus", fields: [statusId], references: [id], onDelete: Restrict)
-  priority   CatalogItem           @relation("TaskPriority", fields: [priorityId], references: [id], onDelete: Restrict)
-  category   CatalogItem           @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: Restrict)
-  assignee   User?                 @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
-  creator    User?                 @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  record     RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
-  automation RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
-  document   Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  evidence   Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
-  mail       TaskMailSource?
-  comments   TaskComment[]
-  events     AutomationEventTask[]
-  transitions TaskTransition[]
+  status        CatalogItem           @relation("TaskStatus", fields: [statusId], references: [id], onDelete: Restrict)
+  priority      CatalogItem           @relation("TaskPriority", fields: [priorityId], references: [id], onDelete: Restrict)
+  category      CatalogItem           @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  assignee      User?                 @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  creator       User?                 @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  record        RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  automation    RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  document      Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  evidence      Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  mail          TaskMailSource?
+  comments      TaskComment[]
+  events        AutomationEventTask[]
+  transitions   TaskTransition[]
+  notifications Notification[]
 
   @@index([statusId])
   @@index([assigneeId, dueDate])
@@ -727,22 +730,22 @@ model TaskMailSource {
 }
 
 model TaskComment {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  taskId    String    @map("task_id") @db.Uuid
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId       String    @map("task_id") @db.Uuid
   /// NULL — комментарий автоматизации.
-  authorId  String?   @map("author_id") @db.Uuid
+  authorId     String?   @map("author_id") @db.Uuid
   /// Событие автоматизации, добавившее комментарий в открытую задачу.
-  eventId   String?   @map("event_id") @db.Uuid
+  eventId      String?   @map("event_id") @db.Uuid
   /// Комментарий перехода между колонками (релиз 1.2.0): тот же текст, что в task_transitions.
-  transitionId String? @map("transition_id") @db.Uuid
-  body      String
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  transitionId String?   @map("transition_id") @db.Uuid
+  body         String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  task   Task             @relation(fields: [taskId], references: [id], onDelete: Restrict)
-  author User?            @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  event  AutomationEvent? @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  transition TaskTransition? @relation(fields: [transitionId], references: [id], onDelete: Restrict)
+  task       Task             @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  author     User?            @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  event      AutomationEvent? @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  transition TaskTransition?  @relation(fields: [transitionId], references: [id], onDelete: Restrict)
 
   @@index([taskId, createdAt])
   @@map("task_comments")
@@ -788,9 +791,9 @@ model DashboardLayout {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user    User? @relation("LayoutOwner", fields: [userId], references: [id], onDelete: Restrict)
-  role    Role? @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  editor  User? @relation("LayoutEditor", fields: [updatedBy], references: [id], onDelete: Restrict)
+  user   User? @relation("LayoutOwner", fields: [userId], references: [id], onDelete: Restrict)
+  role   Role? @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  editor User? @relation("LayoutEditor", fields: [updatedBy], references: [id], onDelete: Restrict)
 
   @@map("dashboard_layouts")
 }
@@ -893,6 +896,7 @@ model Document {
   events          AutomationEvent[]
   tasks           Task[]
   evidence        Evidence[]
+  notifications   Notification[]
 
   @@index([ownerId])
   @@map("documents")
@@ -1127,4 +1131,34 @@ model FileText {
   @@index([status])
   @@index([tsv], type: Gin)
   @@map("file_texts")
+}
+
+/// Уведомления в портале (релиз 1.2.0, ADR-0023). Видит только адресат. Служебные строки: прочитанные старше 90 дней
+/// и непрочитанные старше 180 дней удаляет фоновая очистка (одной записью в журнале аудита).
+model Notification {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  /// Вид события: task_assigned, task_unassigned, task_submitted, task_returned, task_accepted, task_moved,
+  /// task_commented, task_due_tomorrow, task_overdue; виды документов — этап Г. Проверяется в коде.
+  kind       String
+  /// Снимок текста на момент события.
+  title      String
+  body       String    @default("")
+  taskId     String?   @map("task_id") @db.Uuid
+  documentId String?   @map("document_id") @db.Uuid
+  /// Кто сделал; NULL — система.
+  actorId    String?   @map("actor_id") @db.Uuid
+  /// «Срок завтра» и «просрочено»: одно уведомление адресату на задачу и срок.
+  dedupeKey  String?   @map("dedupe_key")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt     DateTime? @map("read_at") @db.Timestamptz(3)
+
+  user     User      @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Restrict)
+  actor    User?     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Restrict)
+  task     Task?     @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([createdAt])
+  @@map("notifications")
 }
