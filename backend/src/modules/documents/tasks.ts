@@ -6,6 +6,7 @@ import type { Db } from '../../lib/db.js';
 import { todayIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
+import { initialStatusId, recordTransition, statusIdOf } from '../tasks/flow.js';
 import { systemItemId, TITLE_MAX } from '../tasks/service.js';
 
 export type DocTaskReason = 'review' | 'returned';
@@ -55,7 +56,7 @@ export async function documentTask(tx: Db, input: DocTaskInput): Promise<{ taskI
     data: {
       title: input.title.slice(0, TITLE_MAX),
       description: input.description.slice(0, 20_000),
-      statusId: await systemItemId(tx, 'task_statuses', 'new'),
+      statusId: await initialStatusId(tx, assigneeId),
       priorityId: await systemItemId(tx, 'task_priorities', input.priority ?? 'normal'),
       categoryId: await systemItemId(tx, 'task_categories', 'documents'),
       assigneeId,
@@ -65,8 +66,9 @@ export async function documentTask(tx: Db, input: DocTaskInput): Promise<{ taskI
       documentReason: input.reason,
       recipientLabel: assigneeId ? null : OWNER_LABEL,
     },
-    select: { id: true, number: true },
+    select: { id: true, number: true, statusId: true },
   });
+  await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
   await tx.auditLog.create({
     data: {
       userId: null, action: 'task.created', entity: 'task', entityId: task.id,
@@ -83,18 +85,19 @@ export async function documentTask(tx: Db, input: DocTaskInput): Promise<{ taskI
 export async function closeDocumentTasks(tx: Db, documentId: string, reason: DocTaskReason, comment: string): Promise<number> {
   const open = await tx.task.findMany({
     where: { documentId, documentReason: reason, completedAt: null, archivedAt: null, deletedAt: null },
-    select: { id: true, number: true },
+    select: { id: true, number: true, statusId: true },
   });
   if (!open.length) return 0;
-  const done = await systemItemId(tx, 'task_statuses', 'done');
+  const done = await statusIdOf(tx, 'done');
   const now = new Date();
   for (const t of open) {
     await tx.task.update({ where: { id: t.id }, data: { statusId: done, completedAt: now, version: { increment: 1 } } });
-    await tx.taskComment.create({ data: { taskId: t.id, body: `${comment}. Задача закрыта автоматически` } });
+    // Системная задача закрывается сама, без проверки (решение владельца, этап Б); комментарий перехода — в ленте задачи.
+    await recordTransition(tx, { taskId: t.id, from: t.statusId, to: done, actorId: null, kind: 'system', comment: `${comment}. Задача закрыта автоматически` });
     await tx.auditLog.create({
       data: {
         userId: null, action: 'task.updated', entity: 'task', entityId: t.id,
-        diff: { summary: `Задача #${t.number} закрыта: ${comment}`, after: { changes: [{ label: 'Статус', from: 'открыта', to: 'Готово' }] } } as Prisma.InputJsonValue,
+        diff: { summary: `Задача #${t.number} закрыта: ${comment}`, after: { changes: [{ label: 'Статус', from: 'открыта', to: 'Выполнено' }] } } as Prisma.InputJsonValue,
       },
     });
   }

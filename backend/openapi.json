@@ -1121,6 +1121,12 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "commentForward": {
+                            "type": "boolean"
+                          },
+                          "commentReturn": {
+                            "type": "boolean"
+                          },
                           "version": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -1148,6 +1154,8 @@
                           "members",
                           "emails",
                           "sortOrder",
+                          "commentForward",
+                          "commentReturn",
                           "version",
                           "archived",
                           "usage"
@@ -1432,6 +1440,24 @@
                       "type": "string",
                       "maxLength": 254
                     }
+                  },
+                  "commentForward": {
+                    "type": "boolean"
+                  },
+                  "commentReturn": {
+                    "type": "boolean"
+                  },
+                  "afterId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -1571,6 +1597,12 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "commentForward": {
+                      "type": "boolean"
+                    },
+                    "commentReturn": {
+                      "type": "boolean"
+                    },
                     "version": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -1598,6 +1630,8 @@
                     "members",
                     "emails",
                     "sortOrder",
+                    "commentForward",
+                    "commentReturn",
                     "version",
                     "archived",
                     "usage"
@@ -1882,6 +1916,24 @@
                       "type": "string",
                       "maxLength": 254
                     }
+                  },
+                  "commentForward": {
+                    "type": "boolean"
+                  },
+                  "commentReturn": {
+                    "type": "boolean"
+                  },
+                  "afterId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -2022,6 +2074,12 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "commentForward": {
+                      "type": "boolean"
+                    },
+                    "commentReturn": {
+                      "type": "boolean"
+                    },
                     "version": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -2049,6 +2107,8 @@
                     "members",
                     "emails",
                     "sortOrder",
+                    "commentForward",
+                    "commentReturn",
                     "version",
                     "archived",
                     "usage"
@@ -2412,6 +2472,12 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "commentForward": {
+                      "type": "boolean"
+                    },
+                    "commentReturn": {
+                      "type": "boolean"
+                    },
                     "version": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -2439,6 +2505,8 @@
                     "members",
                     "emails",
                     "sortOrder",
+                    "commentForward",
+                    "commentReturn",
                     "version",
                     "archived",
                     "usage"
@@ -2802,6 +2870,12 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "commentForward": {
+                      "type": "boolean"
+                    },
+                    "commentReturn": {
+                      "type": "boolean"
+                    },
                     "version": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -2829,6 +2903,8 @@
                     "members",
                     "emails",
                     "sortOrder",
+                    "commentForward",
+                    "commentReturn",
                     "version",
                     "archived",
                     "usage"

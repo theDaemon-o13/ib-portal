@@ -240,7 +240,8 @@ describe('задачи', () => {
       await expectCode(svc.createTask(tx, actor, { title: 'Х', categoryId: project.id, assigneeId: outsider.id }), 'BAD_ASSIGNEE');
       await expectCode(svc.createTask(tx, actor, { title: '  ', categoryId: project.id }), 'EMPTY_TITLE');
       const t = await svc.createTask(tx, actor, { title: 'Проверить права в АБС', categoryId: project.id, assigneeId: staff.id, dueDate: '2020-01-10' });
-      expect([t.status.systemKey, t.priority.systemKey, t.source, t.overdue]).toEqual(['new', 'normal', 'manual', true]);
+      // С исполнителем задача сразу в «Поставленные» (релиз 1.2.0, ADR-0022).
+      expect([t.status.systemKey, t.priority.systemKey, t.source, t.overdue]).toEqual(['assigned', 'normal', 'manual', true]);
       expect((await svc.taskSummary(tx, staff.id)).overdueMine).toBeGreaterThanOrEqual(1);
 
       const work = await svc.systemItemId(tx, 'task_statuses', 'work');
@@ -256,7 +257,7 @@ describe('задачи', () => {
       await expectCode(svc.addComment(tx, actor, t.id, '   '), 'EMPTY_COMMENT');
       const history = await svc.taskHistory(tx, t.id);
       expect(history.map((h) => h.action)).toEqual(['task.commented', 'task.updated', 'task.updated', 'task.updated', 'task.created']);
-      expect(history[3]?.changes).toEqual([{ label: 'Статус', from: 'Новые', to: 'В работе' }, { label: 'Срок', from: '10.01.2020', to: '01.01.2099' }]);
+      expect(history[3]?.changes).toEqual([{ label: 'Статус', from: 'Поставленные', to: 'В работе' }, { label: 'Срок', from: '10.01.2020', to: '01.01.2099' }]);
 
       const archived = await svc.setTaskArchived(tx, actor, t.id, reopened.version, true);
       await expectCode(svc.updateTask(tx, actor, t.id, { version: archived.version, title: 'нельзя' }), 'TASK_ARCHIVED');

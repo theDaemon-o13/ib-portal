@@ -10,6 +10,7 @@ import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import { loadRegister } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
+import { initialStatusId, recordTransition, statusIdOf, type StatusKey, type TransitionKind } from './flow.js';
 
 export const TITLE_MAX = 300;
 export const DESCRIPTION_MAX = 20_000;
@@ -72,7 +73,7 @@ export type TaskDto = ReturnType<typeof toTaskDto>;
 
 // ---------------------------------------------------------------- справочники и люди
 
-/** Системное значение справочника задач (статус «Новые», категория «Почта», приоритет «Высокий»…). */
+/** Системное значение справочника задач (статус «Backlog», категория «Почта», приоритет «Высокий»…). */
 export async function systemItemId(db: Db, catalogCode: string, key: string): Promise<string> {
   const item = await db.catalogItem.findUnique({ where: { catalogCode_systemKey: { catalogCode, systemKey: key } }, select: { id: true } });
   if (!item) throw new Error(`нет системного значения ${catalogCode}.${key} — выполните seed`);
@@ -242,7 +243,7 @@ export async function createTask(db: Db, actor: Actor, input: NewTaskInput) {
       data: {
         title,
         description,
-        statusId: await systemItemId(tx, 'task_statuses', 'new'),
+        statusId: await initialStatusId(tx, input.assigneeId),
         priorityId,
         categoryId,
         assigneeId: input.assigneeId ?? null,
@@ -252,6 +253,7 @@ export async function createTask(db: Db, actor: Actor, input: NewTaskInput) {
       },
       include: taskInclude,
     });
+    await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: actor.id, kind: 'process' });
     if (parsed && input.mail) {
       const dueChanged = (input.dueDate ?? null) !== parsed.due;
       await tx.taskMailSource.create({
@@ -359,7 +361,7 @@ export async function updateTask(db: Db, actor: Actor, id: string, input: TaskPa
       const before = key === 'statusId' ? t.status : key === 'priorityId' ? t.priority : t.category;
       changes.push({ field: key, label, from: before.value, to: item.value });
       if (key === 'statusId') {
-        // «Готово» закрывает задачу; уход из «Готово» открывает снова.
+        // «Выполнено» закрывает задачу; уход из «Выполнено» открывает снова.
         if (item.systemKey === 'done' && !t.completedAt) data.completedAt = new Date();
         if (item.systemKey !== 'done' && t.completedAt) data.completedAt = null;
       }
@@ -381,9 +383,28 @@ export async function updateTask(db: Db, actor: Actor, id: string, input: TaskPa
         changes.push({ field: 'dueDate', label: 'Срок', from: before ? formatDateRu(before) : '—', to: input.dueDate ? formatDateRu(input.dueDate) : '—' });
       }
     }
+    // Исполнитель определяет колонку (ADR-0022): назначили — «Поставленные», сняли — Backlog;
+    // смена исполнителя у задачи «В работе» / «На проверке» — снова «Поставленные», новый исполнитель берёт её сам.
+    let transition: TransitionKind | null = data.statusId !== undefined ? 'override' : null;
+    if (transition === null && data.assigneeId !== undefined) {
+      const key = t.status.systemKey;
+      const next: StatusKey | null = data.assigneeId
+        ? (key === 'new' || key === 'work' || key === 'review' ? 'assigned' : null)
+        : (key === 'assigned' || key === 'work' || key === 'review' ? 'new' : null);
+      if (next) {
+        const to = await statusIdOf(tx, next);
+        data.statusId = to;
+        const toName = (await tx.catalogItem.findUniqueOrThrow({ where: { id: to }, select: { value: true } })).value;
+        changes.push({ field: 'statusId', label: 'Статус', from: t.status.value, to: toName });
+        transition = 'assign';
+      }
+    }
     if (changes.length) {
       const res = await tx.task.updateMany({ where: { id, version: input.version, deletedAt: null }, data: { ...data, version: { increment: 1 } } });
       await ensureVersioned(res.count, () => tx.task.findFirst({ where: { id, deletedAt: null } }), 'Задача');
+      if (transition && typeof data.statusId === 'string') {
+        await recordTransition(tx, { taskId: id, from: t.statusId, to: data.statusId, actorId: actor.id, kind: transition });
+      }
       await auditSettings(tx, actor, {
         action: 'task.updated', entity: 'task', entityId: id,
         summary: `Задача #${t.number}: ${changes.map((c) => `«${c.label}»`).join(', ')}`,

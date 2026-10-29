@@ -170,7 +170,13 @@ env_changes() {
   echo; echo "$added" | sed 's/^/- `/; s/$/`/'
 }
 
-CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" \
+# Проверки до выкладки конкретной версии (запросы «сколько строк затронет» на проде) — deploy/prechecks/<VERSION>.md.
+prechecks() {
+  local f="deploy/prechecks/$VERSION.md"
+  if [ -f "$f" ]; then cat "$f"; else echo "Для этой версии отдельных проверок нет."; fi
+}
+
+CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" PRECHECKS="$(prechecks)" \
 VERSION="$VERSION" DATE="$(date '+%Y-%m-%d %H:%M')" COMMIT="$COMMIT" \
 PREV_VERSION="${PREV_VERSION:-нет (первая установка)}" ROLLBACK_VERSION="${PREV_VERSION:-<прежняя версия>}" \
 perl -pe 's/\{\{(\w+)\}\}/exists $ENV{$1} ? $ENV{$1} : $&/ge' deploy/RELEASE.template.md > "$OUT/RELEASE.md"

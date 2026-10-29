@@ -17,6 +17,9 @@ catalogItemUsage.register('tasks', async (db: Db, ids) => {
       UNION ALL SELECT category_id FROM tasks WHERE deleted_at IS NULL
       UNION ALL SELECT m.mail_rule_id FROM task_mail_sources m JOIN tasks t ON t.id = m.task_id
         WHERE t.deleted_at IS NULL AND m.mail_rule_id IS NOT NULL
+      -- Колонка, через которую задачи уже проходили (релиз 1.2.0): история переходов ссылается на неё.
+      UNION ALL SELECT to_status_id FROM task_transitions
+      UNION ALL SELECT from_status_id FROM task_transitions WHERE from_status_id IS NOT NULL
     ) x WHERE id::text = ANY(${[...ids]}::text[]) GROUP BY id`;
   for (const r of rows) add(out, r.id, Number(r.n));
   return out;

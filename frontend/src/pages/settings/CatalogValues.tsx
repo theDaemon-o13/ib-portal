@@ -14,22 +14,33 @@ interface Draft {
   /** «Получатели уведомлений»: участники и e-mail. */
   members: { id: string; fullName: string }[];
   emails: string;
+  /** «Статусы задач» (ADR-0022): обязателен комментарий при переходе вперёд / при возврате; место — после колонки afterId. */
+  commentForward: boolean;
+  commentReturn: boolean;
+  afterId: string;
 }
 
 const sameDraft = (a: Draft, b: Draft) =>
   a.value.trim() === b.value.trim() && a.color === b.color && a.ownerUserId === b.ownerUserId &&
   parseKeywords(a.keywords).join('|') === parseKeywords(b.keywords).join('|') &&
   a.members.map((m) => m.id).sort().join('|') === b.members.map((m) => m.id).sort().join('|') &&
-  parseKeywords(a.emails).join('|') === parseKeywords(b.emails).join('|');
+  parseKeywords(a.emails).join('|') === parseKeywords(b.emails).join('|') &&
+  a.commentForward === b.commentForward && a.commentReturn === b.commentReturn && a.afterId === b.afterId;
 
-const draftOf = (i?: CatalogItem): Draft => ({
+const draftOf = (i?: CatalogItem, afterId = ''): Draft => ({
   value: i?.value ?? '',
   color: (i?.color ?? 'muted') as ToneKey,
   keywords: i?.keywords.join(', ') ?? '',
   ownerUserId: i?.owner?.id ?? '',
   members: i?.members.map((m) => ({ id: m.id, fullName: m.fullName })) ?? [],
   emails: i?.emails.join(', ') ?? '',
+  commentForward: i?.commentForward ?? false,
+  commentReturn: i?.commentReturn ?? false,
+  afterId,
 });
+
+/** Колонка перед i (её id) или '' — i первая. */
+const prevId = (rows: CatalogItem[], i: CatalogItem) => rows[rows.findIndex((r) => r.id === i.id) - 1]?.id ?? '';
 
 const SYSTEM_OWNER = 'system_owner';
 
@@ -85,7 +96,21 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [add, setAdd] = useState<Draft>(draftOf());
 
-  const invalidate = [keys.items(catalog.code), keys.catalogs, keys.journal];
+  const rows = items.data?.items ?? [];
+  const colCount = 3 + (isMail ? 2 : isRecipients ? 3 : isSystems ? 2 : isStatuses ? 2 : 1);
+  const invalidate = [keys.items(catalog.code), keys.catalogs, keys.journal, ['tasks']];
+  const commentChecks = (d: Draft, set: (d: Draft) => void, form?: string) => (
+    <div className="grid-gap">
+      <label className="chk"><input type="checkbox" form={form} checked={d.commentForward} onChange={(e) => set({ ...d, commentForward: e.target.checked })} /> при переходе вперёд</label>
+      <label className="chk"><input type="checkbox" form={form} checked={d.commentReturn} onChange={(e) => set({ ...d, commentReturn: e.target.checked })} /> при возврате</label>
+    </div>
+  );
+  const afterSelect = (d: Draft, set: (d: Draft) => void, exclude?: string, form?: string) => (
+    <select className="inp" form={form} value={d.afterId} onChange={(e) => set({ ...d, afterId: e.target.value })} aria-label="Место колонки">
+      <option value="">{exclude ? 'Первой' : 'В конце'}</option>
+      {rows.filter((r) => r.id !== exclude && !r.archived).map((r) => <option key={r.id} value={r.id}>после «{r.value}»</option>)}
+    </select>
+  );
   const save = useAction(
     ({ item, d }: { item: CatalogItem; d: Draft }) =>
       settingsApi.updateItem(item.id, {
@@ -95,6 +120,8 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
         ...(isMail ? { keywords: parseKeywords(d.keywords), ownerUserId: d.ownerUserId || null } : {}),
         ...(isSystems ? { ownerUserId: d.ownerUserId || null } : {}),
         ...(isRecipients && item.systemKey !== SYSTEM_OWNER ? { memberIds: d.members.map((m) => m.id), emails: parseKeywords(d.emails) } : {}),
+        ...(isStatuses ? { commentForward: d.commentForward, commentReturn: d.commentReturn } : {}),
+        ...(isStatuses && !item.isSystem && d.afterId !== prevId(rows, item) ? { afterId: d.afterId || null } : {}),
       }),
     { invalidate, success: (r) => `Сохранено: «${r.value}»`, onDone: () => setEditId(null) },
   );
@@ -106,6 +133,7 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
         ...(isMail ? { keywords: parseKeywords(d.keywords), ownerUserId: d.ownerUserId || null } : {}),
         ...(isSystems ? { ownerUserId: d.ownerUserId || null } : {}),
         ...(isRecipients ? { memberIds: d.members.map((m) => m.id), emails: parseKeywords(d.emails) } : {}),
+        ...(isStatuses ? { commentForward: d.commentForward, commentReturn: d.commentReturn, ...(d.afterId ? { afterId: d.afterId } : {}) } : {}),
       }),
     { invalidate, success: (r) => `Добавлено: «${r.value}»`, onDone: () => setAdd(draftOf()) },
   );
@@ -124,13 +152,13 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
 
   const startEdit = (i: CatalogItem) => {
     setEditId(i.id);
-    setEdit(draftOf(i));
+    setEdit(draftOf(i, prevId(rows, i)));
     setConfirmId(null);
   };
   const submitEdit = (e: FormEvent, item: CatalogItem) => {
     e.preventDefault();
     // Ничего не изменилось — просто закрыть строку, без запроса.
-    if (sameDraft(edit, draftOf(item))) {
+    if (sameDraft(edit, draftOf(item, prevId(rows, item)))) {
       setEditId(null);
       return;
     }
@@ -162,8 +190,6 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
       ? <div className="hint">нет доступа к ИБ — задачи «Владельцу системы» будут без ответственного</div>
       : null;
 
-  const rows = items.data?.items ?? [];
-  const colCount = 3 + (isMail ? 2 : isRecipients ? 3 : isSystems ? 2 : 1);
 
   return (
     <section className="panel">
@@ -181,6 +207,7 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
               <th>{isMail ? 'Категория письма' : isRecipients ? 'Метка' : 'Значение'}</th>
               {isMail && <th>Ключевые слова</th>}
               {isSystems && <th>Владелец системы</th>}
+              {isStatuses && <th title="Без комментария переход не выполнится">Комментарий обязателен</th>}
               {isRecipients && <th>Участники (задачи)</th>}
               {isRecipients && <th title="Для справки: портал письма не отправляет">E-mail (для справки)</th>}
               {isMail ? <th>Ответственный</th> : <th title="Сколько записей ссылается на значение">Используется</th>}
@@ -216,6 +243,12 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
                     </td>
                   )}
                   {isSystems && <td>{systemOwnerSelect(edit, setEdit, `ce-sowner-${i.id}`)}</td>}
+                  {isStatuses && (
+                    <td>
+                      {commentChecks(edit, setEdit, `ce-${i.id}`)}
+                      {!i.isSystem && <div className="mt6">{afterSelect(edit, setEdit, i.id, `ce-${i.id}`)}</div>}
+                    </td>
+                  )}
                   {isRecipients && (i.systemKey === SYSTEM_OWNER
                     ? <td colSpan={2} className="hint">Берётся из справочника «Системы» по полю «Система» записи</td>
                     : (
@@ -249,6 +282,11 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
                   {isMail && <td className="hint">{i.keywords.join(', ')}</td>}
                   {isSystems && (
                     <td>{i.owner ? <>{i.owner.fullName}{ownerNote(i)}</> : <span className="hint">не назначен</span>}</td>
+                  )}
+                  {isStatuses && (
+                    <td className="hint" data-comment-flags={`${i.commentForward ? 'f' : ''}${i.commentReturn ? 'r' : ''}`}>
+                      {[i.commentForward && 'при переходе вперёд', i.commentReturn && 'при возврате'].filter(Boolean).join(', ') || '—'}
+                    </td>
                   )}
                   {isRecipients && (i.systemKey === SYSTEM_OWNER
                     ? <td colSpan={2} className="hint">владелец системы записи</td>
@@ -293,6 +331,17 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
           </tbody>
         </table>
       </div>
+      {canEdit && isStatuses && (
+        <form className="field-form cat-add with-desc" onSubmit={submitAdd} aria-label="Новая колонка">
+          <label>
+            Новая колонка
+            <input className="inp" required value={add.value} onChange={(e) => setAdd({ ...add, value: e.target.value })} />
+          </label>
+          <label>Место{afterSelect(add, setAdd)}</label>
+          <div className="field-roles"><span className="eyebrow">Комментарий обязателен</span>{commentChecks(add, setAdd)}</div>
+          <button className="btn primary" type="submit" disabled={create.isPending}>Добавить</button>
+        </form>
+      )}
       {canEdit && !isStatuses && (
         <form className={`field-form cat-add${catalog.hasColor ? ' with-color' : ''}${isMail ? ' with-mail' : ''}${isSystems || isRecipients ? ' with-desc' : ''}`} onSubmit={submitAdd}>
           <label>
@@ -335,7 +384,14 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
         </div>
       )}
       {isStatuses && (
-        <div className="panel-b"><div className="hint">Набор статусов фиксирован: на нём построена доска задач. Названия можно менять.</div></div>
+        <div className="panel-b">
+          <div className="hint">
+            Колонки доски задач. Пять системных (замок) — процесс по кнопкам: Backlog → Поставленные → В работе → На проверке → Выполнено;
+            их можно переименовать, порядок не меняется. Свою колонку можно добавить в любое место — в неё задачу переносит только пользователь
+            с правом «Задачи: свободная смена статуса». «Вперёд» — переход из колонки левее, «возврат» — из колонки правее. Свою колонку можно
+            отправить в архив, когда в ней нет задач, и удалить, если задачи через неё не проходили.
+          </div>
+        </div>
       )}
       {!isStatuses && (
         <div className="panel-b">

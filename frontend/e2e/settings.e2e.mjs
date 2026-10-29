@@ -154,12 +154,45 @@ describe('Справочники', () => {
     assert.equal(back.json.color, 'info');
   });
 
-  it('статус задачи переименовывается', async () => {
+  it('колонки задач: переименовать и признак комментария; своя колонка — на место, в архив, удалить (релиз 1.2.0)', async () => {
     await ui.goto('/settings/catalogs?c=task_statuses');
-    const req = await editRow('Готово', () => ui.type($.input('Значение'), tag('Готово')), 'PATCH', '/catalog-items/');
-    assert.equal(req.json.value, tag('Готово'));
-    await editRow(tag('Готово'), () => ui.type($.input('Значение'), 'Готово'), 'PATCH', '/catalog-items/');
-    await ui.waitFor(`!!${$.row('Готово')}`, 'статус «Готово» вернулся');
+    const req = await editRow('Выполнено', () => ui.type($.input('Значение'), tag('Выполнено')), 'PATCH', '/catalog-items/');
+    assert.equal(req.json.value, tag('Выполнено'));
+    // Признак «при переходе вперёд» у «Выполнено» включён по умолчанию: снять и вернуть.
+    const checkbox = (label) => `[...document.querySelectorAll('tr.editing label.chk')].find((l) => l.textContent.includes(${JSON.stringify(label)}))?.querySelector('input')`;
+    const off = await editRow(tag('Выполнено'), async () => {
+      await ui.type($.input('Значение'), 'Выполнено');
+      await ui.click(checkbox('при переходе вперёд'), '«при переходе вперёд»');
+    }, 'PATCH', '/catalog-items/');
+    assert.equal(off.json.commentForward, false);
+    const on = await editRow('Выполнено', () => ui.click(checkbox('при переходе вперёд'), '«при переходе вперёд»'), 'PATCH', '/catalog-items/');
+    assert.equal(on.json.commentForward, true);
+
+    // Своя колонка после «В работе», с комментарием при переходе вперёд.
+    const form = `document.querySelector('form[aria-label="Новая колонка"]')`;
+    const name = tag('Ждём ответа');
+    await ui.type($.field('Новая колонка', form), name);
+    const work = await ui.evaluate(`fetch('/api/v1/catalogs/task_statuses/items').then((r) => r.json()).then((j) => j.items.find((i) => i.systemKey === 'work').id)`);
+    await ui.select(`${form}.querySelector('select[aria-label="Место колонки"]')`, work);
+    await ui.click(`[...${form}.querySelectorAll('label.chk')].find((l) => l.textContent.includes('при переходе вперёд'))?.querySelector('input')`);
+    let m = ui.mark();
+    await ui.click($.button('Добавить', form));
+    const created = await ui.request(m, 'POST', '/catalogs/task_statuses/items');
+    assert.equal(created.status, 201);
+    assert.equal(created.json.commentForward, true);
+    await ui.waitFor(`!!${$.row(name)}`, 'новая колонка в списке');
+    const order = await ui.evaluate(`[...document.querySelectorAll('.cat-tbl tbody tr b')].map((b) => b.textContent)`);
+    assert.equal(order.indexOf(name), order.indexOf('В работе') + 1, 'колонка встала после «В работе»');
+
+    m = ui.mark();
+    await ui.click($.button('В архив', $.row(name)));
+    assert.equal((await ui.request(m, 'POST', '/archive')).status, 200);
+    await ui.waitFor(`${$.row(name)}?.textContent.includes('В архиве')`, 'колонка в архиве');
+    await ui.click($.button('Удалить', $.row(name)));
+    m = ui.mark();
+    await ui.click($.button('Удалить', $.row(name)));
+    assert.equal((await ui.request(m, 'POST', '/delete')).status, 204);
+    await ui.waitFor(`!${$.row(name)}`, 'колонка удалена');
   });
 
   it('правило почты: ключевые слова и ответственный', async () => {

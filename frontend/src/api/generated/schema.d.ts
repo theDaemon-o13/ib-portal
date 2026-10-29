@@ -548,6 +548,8 @@ export interface paths {
                                 }[];
                                 emails: string[];
                                 sortOrder: number;
+                                commentForward: boolean;
+                                commentReturn: boolean;
                                 version: number;
                                 archived: boolean;
                                 usage: number;
@@ -662,6 +664,9 @@ export interface paths {
                         ownerUserId?: string | null;
                         memberIds?: string[];
                         emails?: string[];
+                        commentForward?: boolean;
+                        commentReturn?: boolean;
+                        afterId?: string | null;
                     };
                 };
             };
@@ -693,6 +698,8 @@ export interface paths {
                             }[];
                             emails: string[];
                             sortOrder: number;
+                            commentForward: boolean;
+                            commentReturn: boolean;
                             version: number;
                             archived: boolean;
                             usage: number;
@@ -825,6 +832,9 @@ export interface paths {
                         ownerUserId?: string | null;
                         memberIds?: string[];
                         emails?: string[];
+                        commentForward?: boolean;
+                        commentReturn?: boolean;
+                        afterId?: string | null;
                     };
                 };
             };
@@ -856,6 +866,8 @@ export interface paths {
                             }[];
                             emails: string[];
                             sortOrder: number;
+                            commentForward: boolean;
+                            commentReturn: boolean;
                             version: number;
                             archived: boolean;
                             usage: number;
@@ -1005,6 +1017,8 @@ export interface paths {
                             }[];
                             emails: string[];
                             sortOrder: number;
+                            commentForward: boolean;
+                            commentReturn: boolean;
                             version: number;
                             archived: boolean;
                             usage: number;
@@ -1158,6 +1172,8 @@ export interface paths {
                             }[];
                             emails: string[];
                             sortOrder: number;
+                            commentForward: boolean;
+                            commentReturn: boolean;
                             version: number;
                             archived: boolean;
                             usage: number;

@@ -158,7 +158,10 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     /** Перетащить мышью: нажать на from, провести через несколько точек к to, отпустить. */
     async drag(fromExpr, toExpr, what = 'перетаскивание') {
       await ui.waitFor(`!!(${fromExpr}) && !!(${toExpr})`, what);
-      const center = (expr) => evaluate(`(() => { const el = ${expr}; el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      // Прокрутка — только если элемента не видно: иначе прокрутка к высокой колонке сдвинет уже найденную карточку.
+      const center = (expr) => evaluate(`(() => { const el = ${expr};
+        const v = el.getBoundingClientRect();
+        if (v.bottom <= 0 || v.top >= innerHeight || v.right <= 0 || v.left >= innerWidth) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         const r = el.getBoundingClientRect();
         const left = Math.max(r.left, 0), right = Math.min(r.right, innerWidth), top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight);
         return { x: (left + right) / 2, y: (top + bottom) / 2 }; })()`);

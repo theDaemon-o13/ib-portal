@@ -42,7 +42,7 @@ const makeTask = (title, extra = {}) => api('POST', '/api/v1/tasks', { title: `$
 
 async function openBoard(query = '') {
   await ui.goto(`/tasks?run=${++navSeq}${query}`);
-  await ui.waitFor(`document.querySelectorAll('.board .col').length === 4`, 'доска из четырёх колонок');
+  await ui.waitFor(`document.querySelectorAll('.board .col').length === 5`, 'доска из пяти колонок');
 }
 
 before(async () => {
@@ -88,7 +88,8 @@ describe('Доска задач', () => {
     const created = await ui.request(m, 'POST', '/api/v1/tasks');
     assert.equal(created.status, 201, created.body);
     assert.equal(created.json.title, title);
-    await ui.waitFor(`!!${card(title)} && ${col(statuses[0].value)}.contains(${card(title)})`, 'задача в колонке «Новые»');
+    // С исполнителем — сразу «Поставленные» (релиз 1.2.0).
+    await ui.waitFor(`!!${card(title)} && ${col(statuses.find((s) => s.systemKey === 'assigned').value)}.contains(${card(title)})`, 'задача в колонке «Поставленные»');
     assert.match(await ui.text(card(title)), new RegExp(me.fullName));
 
     await ui.waitFor(`${card('просроченная')}?.classList.contains('late')`, 'просроченная выделена');
@@ -142,7 +143,7 @@ describe('Карточка задачи', () => {
     const done = await ui.request(m, 'PATCH', '/api/v1/tasks/');
     assert.equal(done.json.statusId, statuses.find((s) => s.systemKey === 'done').id);
     await ui.click($.button('Закрыть', drawer));
-    await ui.waitFor(`!${drawer} && !!${card('карточка изменена')} && ${col(statuses.find((s) => s.systemKey === 'done').value)}.contains(${card('карточка изменена')})`, 'задача в «Готово»');
+    await ui.waitFor(`!${drawer} && !!${card('карточка изменена')} && ${col(statuses.find((s) => s.systemKey === 'done').value)}.contains(${card('карточка изменена')})`, 'задача в «Выполнено»');
   });
 });
 

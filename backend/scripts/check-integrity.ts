@@ -99,6 +99,25 @@ async function main() {
     'триггеры неизменности истории и версий документов и «утверждение только с PDF» на месте',
   );
 
+  // Релиз 1.2.0: переходы задач только пополняются (ADR-0022); колонка открытой задачи согласована с исполнителем.
+  const transitionPrivs = await prisma.$queryRaw<{ ins: boolean; mod: boolean }[]>`
+    SELECT has_table_privilege('ibportal_app', 'public.task_transitions', 'INSERT') AS ins,
+           bool_or(has_table_privilege('ibportal_app', 'public.task_transitions', p)) AS mod
+    FROM unnest(ARRAY['UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+  check(transitionPrivs[0]?.ins === true && transitionPrivs[0]?.mod === false, 'ibportal_app: task_transitions только пополняется');
+  const transitionTriggers = await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.task_transitions'::regclass AND NOT tgisinternal`;
+  check(
+    ['task_transitions_no_update_delete', 'task_transitions_no_truncate'].every((n) => transitionTriggers.some((t) => t.tgname === n)),
+    'триггеры запрета правки task_transitions на месте',
+  );
+  const misplaced = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM tasks t JOIN catalog_items s ON s.id = t.status_id
+    WHERE t.deleted_at IS NULL AND t.completed_at IS NULL
+      AND ((s.system_key = 'new' AND t.assignee_id IS NOT NULL) OR (s.system_key = 'assigned' AND t.assignee_id IS NULL))`;
+  check(Number(misplaced[0]?.n ?? 0) === 0, 'открытые задачи: в Backlog — без исполнителя, в «Поставленные» — с исполнителем',
+    `не на месте: ${misplaced[0]?.n} — выполните seed (migrate)`);
+
   const sysItems = await prisma.catalogItem.findMany({ where: { isSystem: true, deletedAt: null }, select: { catalogCode: true, systemKey: true } });
   const missingItems = SYSTEM_ITEMS.filter((i) => !sysItems.some((x) => x.catalogCode === i.catalog && x.systemKey === i.key)).map((i) => i.value);
   check(missingItems.length === 0, `системные значения справочников на месте (${SYSTEM_ITEMS.length})`, `нет: ${missingItems.join(', ')} — выполните seed`);

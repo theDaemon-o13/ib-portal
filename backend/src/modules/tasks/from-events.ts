@@ -9,6 +9,7 @@ import { addDaysIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate, type WorkCalendar } from '../../lib/working-days.js';
 import { digestTitle } from '../automations/conditions.js';
 import { deadlineField, dateOf, isClosed, loadRegister, type RegisterDef } from '../registers/definition.js';
+import { recordTransition, statusIdOf } from './flow.js';
 import { systemItemId, TITLE_MAX } from './service.js';
 
 type EventType = 'remind' | 'notify' | 'escalate';
@@ -61,8 +62,9 @@ export async function tasksFromEvents(
   const result: EventTasksResult = { events: events.length, created: 0, commented: 0 };
   if (!events.length) return result;
 
-  const [statusNew, category, normal, high] = await Promise.all([
-    systemItemId(tx, 'task_statuses', 'new'),
+  const [statusNew, statusAssigned, category, normal, high] = await Promise.all([
+    statusIdOf(tx, 'new'),
+    statusIdOf(tx, 'assigned'),
     systemItemId(tx, 'task_categories', 'register'),
     systemItemId(tx, 'task_priorities', 'normal'),
     systemItemId(tx, 'task_priorities', 'high'),
@@ -118,7 +120,7 @@ export async function tasksFromEvents(
         id: row.id, automationId: row.automationId, automation: row.automation, eventType: row.eventType as EventType,
         triggerKey: row.triggerKey, fireAt: row.fireAt.toISOString().slice(0, 10),
         targets: resolveTargets(row.recipients as unknown as SnapshotRecipient[], null),
-      }, { ...opts, statusNew, category, normal, high, work, rule: opts.describe(reg, { condition: row.automation.condition, action: row.automation.action }) });
+      }, { ...opts, statusNew, statusAssigned, category, normal, high, work, rule: opts.describe(reg, { condition: row.automation.condition, action: row.automation.action }) });
       result.created += r.created;
       result.commented += r.commented;
       await tx.automationEvent.updateMany({ where: { id: row.id, status: 'new' }, data: { status: 'processed', processedAt: now } });
@@ -182,7 +184,7 @@ export async function tasksFromEvents(
         data: {
           title,
           description: `Реестр «${reg.name}», запись #${e.record.number}${recordTitle ? ` «${recordTitle}»` : ''}.\nПравило: ${rule.when} → ${rule.then}.\nСработало: ${fireAt}.`,
-          statusId: statusNew,
+          statusId: assigneeId ? statusAssigned : statusNew,
           priorityId: type === 'remind' ? normal : high,
           categoryId: category,
           assigneeId,
@@ -192,8 +194,9 @@ export async function tasksFromEvents(
           automationId: e.automationId,
           recipientLabel,
         },
-        select: { id: true, number: true },
+        select: { id: true, number: true, statusId: true },
       });
+      await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
       await tx.automationEventTask.create({ data: { eventId: e.id, taskId: task.id, action: 'created' } });
       await tx.auditLog.create({
         data: {
@@ -221,7 +224,7 @@ export const DIGEST_LINES_MAX = 300;
 async function digestTask(
   tx: Db, reg: RegisterDef,
   e: { id: string; automationId: string; automation: { condition: Prisma.JsonValue; action: Prisma.JsonValue }; eventType: EventType; triggerKey: string; fireAt: string; targets: Map<string | null, Set<string>> },
-  ctx: { today: string; calendar: WorkCalendar; statusNew: string; category: string; normal: string; high: string; work: (n: number) => string; rule: RuleText },
+  ctx: { today: string; calendar: WorkCalendar; statusNew: string; statusAssigned: string; category: string; normal: string; high: string; work: (n: number) => string; rule: RuleText },
 ): Promise<{ created: number; commented: number }> {
   const cond = e.automation.condition as { statusOptionIds?: string[] };
   const action = e.automation.action as { title?: string };
@@ -260,11 +263,12 @@ async function digestTask(
     }
     const task = await tx.task.create({
       data: {
-        title: taskTitle, description, statusId: ctx.statusNew, priorityId: e.eventType === 'remind' ? ctx.normal : ctx.high, categoryId: ctx.category,
+        title: taskTitle, description, statusId: assigneeId ? ctx.statusAssigned : ctx.statusNew, priorityId: e.eventType === 'remind' ? ctx.normal : ctx.high, categoryId: ctx.category,
         assigneeId, dueDate: new Date(`${due}T00:00:00Z`), source: 'automation', recordId: null, automationId: e.automationId, recipientLabel,
       },
-      select: { id: true, number: true },
+      select: { id: true, number: true, statusId: true },
     });
+    await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
     await tx.automationEventTask.create({ data: { eventId: e.id, taskId: task.id, action: 'created' } });
     await tx.auditLog.create({
       data: {

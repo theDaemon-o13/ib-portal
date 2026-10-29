@@ -439,7 +439,7 @@ table.recs tr.archived td{color:var(--faint)}
 .nav-n{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--crit);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
 .nav a[aria-current="page"] .nav-n{background:#fff;color:var(--crit)}
 .tasks-grid{display:grid;grid-template-columns:minmax(0,1fr) 304px;gap:12px;align-items:start}
-.board{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px;min-width:0}
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(180px,1fr);gap:10px;overflow-x:auto;padding-bottom:4px;min-width:0}
 .bar{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr) 34px;gap:10px;align-items:center;font-size:12.5px}
 .bar .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
 .bar .track{height:8px;background:var(--fill);border-radius:999px;overflow:hidden}
@@ -739,3 +739,6 @@ body.mon-idle .mon{cursor:none}
 .audit-tbl th:last-child{width:auto}
 .audit-open td{background:var(--fill-2)}
 .audit-details pre{margin:8px 0 0;max-height:320px;overflow:auto;font-size:12px;white-space:pre-wrap;word-break:break-word}
+
+/* Колонки доски задач в справочнике (релиз 1.2.0) */
+.chk{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);white-space:nowrap}

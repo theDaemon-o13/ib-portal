@@ -31,6 +31,9 @@ export interface CatalogItemDto {
   members: { id: string; fullName: string; isActive: boolean }[];
   emails: string[];
   sortOrder: number;
+  /** «Статусы задач»: обязателен комментарий при переходе в колонку вперёд / при возврате в неё (ADR-0022). */
+  commentForward: boolean;
+  commentReturn: boolean;
   version: number;
   archived: boolean;
   usage: number;
@@ -50,6 +53,8 @@ function toDto(row: ItemRow, usage: number): CatalogItemDto {
     members: row.members.map((m) => m.user),
     emails: row.emails,
     sortOrder: row.sortOrder,
+    commentForward: row.commentForward,
+    commentReturn: row.commentReturn,
     version: row.version,
     archived: row.archivedAt !== null,
     usage,
@@ -175,6 +180,11 @@ export interface ItemInput {
   ownerUserId?: string | null;
   memberIds?: string[];
   emails?: string[];
+  /** Только «Статусы задач». */
+  commentForward?: boolean;
+  commentReturn?: boolean;
+  /** Только «Статусы задач»: поставить колонку сразу после этой (null — в начало). */
+  afterId?: string | null;
 }
 
 function validateShape(catalog: { code: string; kind: string; hasColor: boolean }, input: ItemInput, systemKey: string | null = null) {
@@ -187,6 +197,9 @@ function validateShape(catalog: { code: string; kind: string; hasColor: boolean 
   }
   if (catalog.code !== RECIPIENTS_CATALOG && (input.memberIds !== undefined || input.emails !== undefined)) {
     throw badRequest('NOT_RECIPIENTS', 'Участники и e-mail есть только у меток «Получатели уведомлений»');
+  }
+  if (catalog.kind !== 'statuses' && (input.commentForward !== undefined || input.commentReturn !== undefined || input.afterId !== undefined)) {
+    throw badRequest('NOT_STATUSES', 'Признаки комментария и место есть только у колонок доски задач');
   }
   if (systemKey === SYSTEM_OWNER_KEY && (input.memberIds?.length || input.emails?.length)) {
     throw badRequest('SYSTEM_OWNER_LABEL', '«Владелец системы» берётся из справочника «Системы» — участников у метки нет');
@@ -204,9 +217,6 @@ async function setMembers(db: Db, itemId: string, ids: readonly string[]) {
 export async function createItem(db: Db, actor: Actor, code: string, input: ItemInput & { value: string }) {
   return withTx(db, async (tx) => {
     const catalog = await getCatalog(tx, code);
-    if (catalog.kind === 'statuses') {
-      throw conflict('FIXED_SET', 'Набор статусов фиксирован: статусы можно только переименовать');
-    }
     validateShape(catalog, input);
     const value = trimmed(input.value);
     if (!value) throw badRequest('EMPTY_VALUE', 'Укажите значение');
@@ -230,15 +240,21 @@ export async function createItem(db: Db, actor: Actor, code: string, input: Item
         ownerUserId: input.ownerUserId ?? null,
         emails,
         sortOrder: (max._max.sortOrder ?? 0) + 1,
+        commentForward: catalog.kind === 'statuses' ? input.commentForward ?? false : false,
+        commentReturn: catalog.kind === 'statuses' ? input.commentReturn ?? false : false,
       },
     });
     if (memberIds.length) await setMembers(tx, row.id, memberIds);
+    if (catalog.kind === 'statuses' && input.afterId !== undefined) await placeAfter(tx, code, row.id, input.afterId);
     await auditSettings(tx, actor, {
       action: 'catalog.item.created',
       entity: 'catalog_item',
       entityId: row.id,
       summary: `«${catalog.name}»: добавлено «${value}»`,
-      after: { value, color: row.color, keywords, ownerUserId: row.ownerUserId, memberIds, emails },
+      after: {
+        value, color: row.color, keywords, ownerUserId: row.ownerUserId, memberIds, emails,
+        ...(catalog.kind === 'statuses' ? { commentForward: row.commentForward, commentReturn: row.commentReturn } : {}),
+      },
     });
     return toDto(await getItem(tx, row.id), 0);
   });
@@ -297,6 +313,19 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
         changes.push(`e-mail «${item.value}»`);
       }
     }
+    for (const [key, label] of [['commentForward', 'комментарий при переходе вперёд'], ['commentReturn', 'комментарий при возврате']] as const) {
+      const v = input[key];
+      if (v !== undefined && v !== item[key]) {
+        data[key] = v;
+        changes.push(`«${item.value}»: ${label} — ${v ? 'обязателен' : 'не обязателен'}`);
+      }
+    }
+    let moved = false;
+    if (input.afterId !== undefined) {
+      if (item.isSystem) throw conflict('SYSTEM_ORDER', 'Порядок колонок процесса задач не меняется; свою колонку можно поставить между ними');
+      moved = true;
+      changes.push(`«${item.value}» перемещена`);
+    }
 
     if (changes.length > 0) {
       const res = await tx.catalogItem.updateMany({
@@ -305,12 +334,16 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
       });
       await ensureVersioned(res.count, () => tx.catalogItem.findFirst({ where: { id, deletedAt: null } }), 'Значение справочника');
       if (memberIds) await setMembers(tx, id, memberIds);
+      if (moved) await placeAfter(tx, item.catalogCode, id, input.afterId ?? null);
       await auditSettings(tx, actor, {
         action: 'catalog.item.updated',
         entity: 'catalog_item',
         entityId: id,
         summary: `«${item.catalog.name}»: ${changes.join(', ')}`,
-        before: { value: item.value, color: item.color, keywords: item.keywords, ownerUserId: item.ownerUserId, memberIds: membersBefore, emails: item.emails },
+        before: {
+          value: item.value, color: item.color, keywords: item.keywords, ownerUserId: item.ownerUserId, memberIds: membersBefore, emails: item.emails,
+          ...(item.catalog.kind === 'statuses' ? { commentForward: item.commentForward, commentReturn: item.commentReturn, sortOrder: item.sortOrder } : {}),
+        },
         after: { ...data, ...(memberIds ? { memberIds } : {}) },
       });
     } else if (input.version !== item.version) {
@@ -322,11 +355,26 @@ export async function updateItem(db: Db, actor: Actor, id: string, input: ItemIn
   });
 }
 
+/** Колонка доски задач встаёт сразу после afterId (null — в начало); порядок остальных сохраняется. */
+async function placeAfter(tx: Db, code: string, id: string, afterId: string | null) {
+  const rows = await tx.catalogItem.findMany({ where: { catalogCode: code, deletedAt: null }, select: { id: true }, orderBy: [{ sortOrder: 'asc' }, { value: 'asc' }] });
+  const rest = rows.map((r) => r.id).filter((x) => x !== id);
+  if (afterId !== null && !rest.includes(afterId)) throw badRequest('UNKNOWN_COLUMN', 'Колонка, после которой поставить, не найдена. Обновите страницу');
+  rest.splice(afterId === null ? 0 : rest.indexOf(afterId) + 1, 0, id);
+  // Системные колонки процесса сохраняют свой порядок относительно друг друга: свою колонку можно поставить только между ними.
+  for (const [i, x] of rest.entries()) await tx.catalogItem.update({ where: { id: x }, data: { sortOrder: i + 1 } });
+}
+
 async function setArchived(db: Db, actor: Actor, id: string, version: number, archived: boolean) {
   return withTx(db, async (tx) => {
     const item = await getItem(tx, id);
     if (item.isSystem) {
       throw conflict('SYSTEM_VALUE', 'Системное значение нельзя отправить в архив: на него опирается логика портала');
+    }
+    // Колонка доски: в архив — только пустая, иначе её задачи пропали бы с доски (ADR-0022).
+    if (archived && item.catalog.kind === 'statuses') {
+      const open = await tx.task.count({ where: { statusId: id, deletedAt: null, archivedAt: null } });
+      if (open > 0) throw conflict('COLUMN_NOT_EMPTY', `В колонке «${item.value}» задач: ${open}. Перенесите их в другую колонку, затем отправьте её в архив`);
     }
     const res = await tx.catalogItem.updateMany({
       where: { id, version, deletedAt: null },

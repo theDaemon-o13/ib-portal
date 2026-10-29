@@ -4,6 +4,7 @@
 // Пользователям без ib.work задачи не ставятся: тогда задача без ответственного.
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
+import { initialStatusId, recordTransition, statusIdOf } from '../tasks/flow.js';
 import { systemItemId, TITLE_MAX } from '../tasks/service.js';
 
 export type EvidenceTaskReason = 'rejected' | 'expiring';
@@ -46,7 +47,7 @@ export async function evidenceTask(tx: Db, input: EvidenceTaskInput): Promise<{ 
     data: {
       title: input.title.slice(0, TITLE_MAX),
       description: input.description.slice(0, 20_000),
-      statusId: await systemItemId(tx, 'task_statuses', 'new'),
+      statusId: await initialStatusId(tx, assigneeId),
       priorityId: await systemItemId(tx, 'task_priorities', 'normal'),
       categoryId: await systemItemId(tx, 'task_categories', 'evidence'),
       assigneeId,
@@ -56,8 +57,9 @@ export async function evidenceTask(tx: Db, input: EvidenceTaskInput): Promise<{ 
       evidenceReason: input.reason,
       recipientLabel: assigneeId ? null : input.label,
     },
-    select: { id: true, number: true },
+    select: { id: true, number: true, statusId: true },
   });
+  await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
   await tx.auditLog.create({
     data: {
       userId: null, action: 'task.created', entity: 'task', entityId: task.id,
@@ -75,18 +77,19 @@ export async function closeEvidenceTasks(tx: Db, evidenceIds: readonly string[],
   if (!evidenceIds.length) return 0;
   const open = await tx.task.findMany({
     where: { evidenceId: { in: [...evidenceIds] }, evidenceReason: reason, completedAt: null, archivedAt: null, deletedAt: null },
-    select: { id: true, number: true },
+    select: { id: true, number: true, statusId: true },
   });
   if (!open.length) return 0;
-  const done = await systemItemId(tx, 'task_statuses', 'done');
+  const done = await statusIdOf(tx, 'done');
   const now = new Date();
   for (const t of open) {
     await tx.task.update({ where: { id: t.id }, data: { statusId: done, completedAt: now, version: { increment: 1 } } });
-    await tx.taskComment.create({ data: { taskId: t.id, body: `${comment}. Задача закрыта автоматически` } });
+    // Системная задача закрывается сама, без проверки (решение владельца, этап Б); комментарий перехода — в ленте задачи.
+    await recordTransition(tx, { taskId: t.id, from: t.statusId, to: done, actorId: null, kind: 'system', comment: `${comment}. Задача закрыта автоматически` });
     await tx.auditLog.create({
       data: {
         userId: null, action: 'task.updated', entity: 'task', entityId: t.id,
-        diff: { summary: `Задача #${t.number} закрыта: ${comment}`, after: { changes: [{ label: 'Статус', from: 'открыта', to: 'Готово' }] } } as Prisma.InputJsonValue,
+        diff: { summary: `Задача #${t.number} закрыта: ${comment}`, after: { changes: [{ label: 'Статус', from: 'открыта', to: 'Выполнено' }] } } as Prisma.InputJsonValue,
       },
     });
   }

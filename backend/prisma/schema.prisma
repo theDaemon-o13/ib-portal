@@ -48,6 +48,7 @@ model User {
   assignedTasks        Task[]               @relation("TaskAssignee")
   createdTasks         Task[]               @relation("TaskCreator")
   taskComments         TaskComment[]
+  taskTransitions      TaskTransition[]     @relation("TransitionActor")
   recipientOf          CatalogItemUser[]
   ownedDocuments       Document[]           @relation("DocumentOwner")
   createdDocuments     Document[]           @relation("DocumentCreator")
@@ -214,6 +215,10 @@ model CatalogItem {
   /// Только для меток «Получатели уведомлений»: адреса вне портала — для справки, письма портал не отправляет.
   emails      String[]  @default([])
   sortOrder   Int       @default(0) @map("sort_order")
+  /// Только «Статусы задач» (релиз 1.2.0, ADR-0022): при переходе в эту колонку вперёд (из колонки левее) обязателен комментарий.
+  commentForward Boolean @default(false) @map("comment_forward")
+  /// Только «Статусы задач»: при возврате в эту колонку (из колонки правее) обязателен комментарий.
+  commentReturn  Boolean @default(false) @map("comment_return")
   version     Int       @default(1)
   archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -226,6 +231,8 @@ model CatalogItem {
   tasksByStatus   Task[]            @relation("TaskStatus")
   tasksByPriority Task[]            @relation("TaskPriority")
   tasksByCategory Task[]            @relation("TaskCategory")
+  transitionsFrom TaskTransition[]  @relation("TransitionFrom")
+  transitionsTo   TaskTransition[]  @relation("TransitionTo")
   mailSources     TaskMailSource[]
   documents       Document[]
   evidence        Evidence[]
@@ -687,6 +694,7 @@ model Task {
   mail       TaskMailSource?
   comments   TaskComment[]
   events     AutomationEventTask[]
+  transitions TaskTransition[]
 
   @@index([statusId])
   @@index([assigneeId, dueDate])
@@ -725,6 +733,8 @@ model TaskComment {
   authorId  String?   @map("author_id") @db.Uuid
   /// Событие автоматизации, добавившее комментарий в открытую задачу.
   eventId   String?   @map("event_id") @db.Uuid
+  /// Комментарий перехода между колонками (релиз 1.2.0): тот же текст, что в task_transitions.
+  transitionId String? @map("transition_id") @db.Uuid
   body      String
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -732,9 +742,34 @@ model TaskComment {
   task   Task             @relation(fields: [taskId], references: [id], onDelete: Restrict)
   author User?            @relation(fields: [authorId], references: [id], onDelete: Restrict)
   event  AutomationEvent? @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  transition TaskTransition? @relation(fields: [transitionId], references: [id], onDelete: Restrict)
 
   @@index([taskId, createdAt])
   @@map("task_comments")
+}
+
+/// Переходы задачи между колонками (релиз 1.2.0, ADR-0022). Только пополняется: права и триггер, как у audit_log.
+model TaskTransition {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId       String   @map("task_id") @db.Uuid
+  /// NULL — задача создана сразу в этой колонке.
+  fromStatusId String?  @map("from_status_id") @db.Uuid
+  toStatusId   String   @map("to_status_id") @db.Uuid
+  /// NULL — система (автоматизации, документы, доказательства, обновление).
+  actorId      String?  @map("actor_id") @db.Uuid
+  /// process — кнопки процесса; override — свободная смена; assign — назначение/снятие исполнителя; system; migration
+  kind         String
+  comment      String   @default("")
+  at           DateTime @default(now()) @db.Timestamptz(3)
+
+  task       Task          @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  fromStatus CatalogItem?  @relation("TransitionFrom", fields: [fromStatusId], references: [id], onDelete: Restrict)
+  toStatus   CatalogItem   @relation("TransitionTo", fields: [toStatusId], references: [id], onDelete: Restrict)
+  actor      User?         @relation("TransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  comments   TaskComment[]
+
+  @@index([taskId, at])
+  @@map("task_transitions")
 }
 
 /// Что событие автоматизации сделало с задачей: создало или прокомментировало.

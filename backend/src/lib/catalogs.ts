@@ -13,7 +13,7 @@ export interface CatalogDef {
 
 export const CATALOGS = [
   { code: 'task_categories', name: 'Категории задач', description: 'Задачи: доска, фильтры, карточка и быстрая постановка', kind: 'values', hasColor: true },
-  { code: 'task_statuses', name: 'Статусы задач', description: 'Колонки доски задач. Набор статусов фиксирован, названия можно менять', kind: 'statuses', hasColor: false },
+  { code: 'task_statuses', name: 'Статусы задач', description: 'Колонки доски задач. Пять системных колонок процесса можно переименовать; свои колонки — добавить. У колонки — обязателен ли комментарий при переходе вперёд и при возврате', kind: 'statuses', hasColor: false },
   { code: 'task_priorities', name: 'Приоритеты задач', description: 'Карточка задачи, черновик задачи из письма', kind: 'values', hasColor: false },
   { code: 'mail_rules', name: 'Правила разбора почты', description: 'Почта → задача: ключевые слова определяют категорию письма и ответственного', kind: 'mail_rules', hasColor: false },
   { code: 'systems', name: 'Системы', description: 'Владелец системы, поле «Система» реестров, риски ИБ (актив), формы подтверждения', kind: 'values', hasColor: false },
@@ -49,10 +49,12 @@ export const SYSTEM_ITEMS: readonly SystemItemDef[] = [
   { catalog: 'task_categories', key: 'register', value: 'Реестр', color: 'crit', why: 'её ставят автоматизации реестров' },
   { catalog: 'task_categories', key: 'documents', value: 'Документы', color: 'accent', why: 'её ставят пересмотр и возврат документа на доработку' },
   { catalog: 'task_categories', key: 'evidence', value: 'Доказательства', color: 'low', why: 'её ставят отклонение доказательства и окончание срока его действия' },
-  { catalog: 'task_statuses', key: 'new', value: 'Новые', why: 'статус участвует в маршруте задачи' },
-  { catalog: 'task_statuses', key: 'work', value: 'В работе', why: 'статус участвует в маршруте задачи' },
-  { catalog: 'task_statuses', key: 'review', value: 'На проверке', why: 'статус участвует в маршруте задачи' },
-  { catalog: 'task_statuses', key: 'done', value: 'Готово', why: 'статус участвует в маршруте задачи' },
+  // Процесс задач (релиз 1.2.0, ADR-0022): Backlog → Поставленные → В работе → На проверке → Выполнено.
+  { catalog: 'task_statuses', key: 'new', value: 'Backlog', why: 'колонка процесса задач: задачи без исполнителя' },
+  { catalog: 'task_statuses', key: 'assigned', value: 'Поставленные', why: 'колонка процесса задач: исполнитель назначен, работа не начата' },
+  { catalog: 'task_statuses', key: 'work', value: 'В работе', why: 'колонка процесса задач' },
+  { catalog: 'task_statuses', key: 'review', value: 'На проверке', why: 'колонка процесса задач' },
+  { catalog: 'task_statuses', key: 'done', value: 'Выполнено', why: 'колонка процесса задач: задача закрыта' },
   { catalog: 'task_priorities', key: 'normal', value: 'Обычный', why: 'приоритет по умолчанию' },
   { catalog: 'task_priorities', key: 'high', value: 'Высокий', why: 'ставится по слову «срочно» в письме' },
   { catalog: 'notify_recipients', key: 'dikt_head', value: 'Руководитель ДИКТ', why: 'получатель системных правил реестра уязвимостей (п. 7.4)' },

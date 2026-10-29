@@ -33,7 +33,8 @@ describe('справочники после seed', () => {
       ]);
       expect(categories[0]?.systemReason).toBe('задачи из писем создаются с этой категорией');
       const statuses = await svc.listItems(tx, 'task_statuses', { includeArchived: false });
-      expect(statuses.map((s) => s.value)).toEqual(['Новые', 'В работе', 'На проверке', 'Готово']);
+      expect(statuses.map((s) => s.value)).toEqual(['Backlog', 'Поставленные', 'В работе', 'На проверке', 'Выполнено']);
+      expect(statuses.map((s) => [s.commentForward, s.commentReturn])).toEqual([[false, false], [false, false], [false, true], [true, false], [true, false]]);
     }));
 });
 
@@ -49,14 +50,30 @@ describe('правила значений', () => {
       expect(recolored).toMatchObject({ value: 'Почта', color: 'accent' });
     }));
 
-  it('статусы задач: только переименование, набор фиксирован', () =>
+  it('колонки задач: системные — переименовать и признаки, порядок не меняется; свою — добавить на место, в архив только пустую (ADR-0022)', () =>
     inTx(async (tx) => {
       const { actor } = await setup(tx);
-      const done = await item(tx, 'task_statuses', 'Готово');
-      const renamed = await svc.updateItem(tx, actor, done.id, { version: done.version, value: 'Выполнено' });
-      expect(renamed.value).toBe('Выполнено');
-      await expectCode(svc.createItem(tx, actor, 'task_statuses', { value: 'Отложено' }), 'FIXED_SET');
+      const done = await item(tx, 'task_statuses', 'Выполнено');
+      const renamed = await svc.updateItem(tx, actor, done.id, { version: done.version, value: 'Сделано', commentForward: false });
+      expect([renamed.value, renamed.commentForward]).toEqual(['Сделано', false]);
       await expectCode(svc.archiveItem(tx, actor, done.id, renamed.version), 'SYSTEM_VALUE');
+      await expectCode(svc.updateItem(tx, actor, done.id, { version: renamed.version, afterId: null }), 'SYSTEM_ORDER');
+
+      const work = await item(tx, 'task_statuses', 'В работе');
+      const waiting = await svc.createItem(tx, actor, 'task_statuses', { value: 'Ждём ответа', commentForward: true, afterId: work.id });
+      expect(waiting.commentForward).toBe(true);
+      const order = (await svc.listItems(tx, 'task_statuses', { includeArchived: false })).map((s) => s.value);
+      expect(order).toEqual(['Backlog', 'Поставленные', 'В работе', 'Ждём ответа', 'На проверке', 'Сделано']);
+      await expectCode(svc.createItem(tx, actor, 'task_categories', { value: 'X', commentForward: true }), 'NOT_STATUSES');
+
+      // Задача в колонке: в архив нельзя, удалить нельзя; пустую — можно в архив.
+      const category = await item(tx, 'task_categories', 'Проект');
+      const user = await tx.user.findFirstOrThrow();
+      const task = await tx.task.create({ data: { title: 'В колонке', statusId: waiting.id, priorityId: (await item(tx, 'task_priorities', 'Обычный')).id, categoryId: category.id, source: 'manual', createdBy: user.id } });
+      await expectCode(svc.archiveItem(tx, actor, waiting.id, waiting.version), 'COLUMN_NOT_EMPTY');
+      await expectCode(svc.deleteItem(tx, actor, waiting.id, waiting.version), 'IN_USE');
+      await tx.task.update({ where: { id: task.id }, data: { archivedAt: new Date() } });
+      expect((await svc.archiveItem(tx, actor, waiting.id, waiting.version)).archived).toBe(true);
     }));
 
   it('используемое значение не удаляется — только в архив', () =>
