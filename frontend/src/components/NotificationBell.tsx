@@ -55,9 +55,10 @@ export function NotificationBell() {
       await notificationsApi.read(n.id).catch(() => undefined);
       void refresh();
     }
-    if (n.task && !n.task.deleted) {
+    // Задача или, у сводного «У вас N просроченных задач», доска с фильтром «просрочено».
+    if (n.link) {
       setOpen(false);
-      navigate(`/tasks?task=${n.task.id}`);
+      navigate(n.link);
     }
   };
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];

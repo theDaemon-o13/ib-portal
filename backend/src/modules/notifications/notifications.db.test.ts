@@ -139,6 +139,8 @@ describe('часовой прогон: сроки и очистка', () => {
       const soonFree = await tasks.createTask(tx, x.A, { title: 'Завтра без исполнителя', categoryId: x.project.id, dueDate: tomorrow });
       const late = await tasks.createTask(tx, x.A, { title: 'Просрочена', categoryId: x.project.id, assigneeId: x.staff.id, dueDate: addDaysIso(today, -3) });
       await tx.notification.deleteMany({ where: { userId: { in: [x.staff.id, x.author.id] } } });
+      // Опорная дата в прошлом: первый прогон после обновления уже был (сводное — отдельный тест).
+      await tx.appSetting.upsert({ where: { key: svc.OVERDUE_SINCE_KEY }, create: { key: svc.OVERDUE_SINCE_KEY, value: '2000-01-01' }, update: { value: '2000-01-01' } });
 
       await svc.notifyDeadlines(tx);
       expect((await kinds(tx, x.staff.id)).sort()).toEqual(['task_due_tomorrow', 'task_overdue']);
@@ -152,6 +154,39 @@ describe('часовой прогон: сроки и очистка', () => {
       // Выполненная задача — не напоминаем.
       await tx.task.update({ where: { id: soon.id }, data: { dueDate: new Date(`${addDaysIso(today, -5)}T00:00:00Z`), completedAt: new Date() } });
       expect((await svc.notifyDeadlines(tx)).overdue).toBe(0);
+    }));
+
+  it('первый прогон после обновления: просроченное на этот момент — одно сводное «У вас N просроченных задач» каждому; дальше — по задаче', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      const today = todayIso();
+      await tx.appSetting.deleteMany({ where: { key: svc.OVERDUE_SINCE_KEY } });
+      const mk = (title: string, assigneeId: string | null, due: string) =>
+        tasks.createTask(tx, x.A, { title, categoryId: x.project.id, assigneeId, dueDate: due });
+      await mk('Старая 1', x.staff.id, addDaysIso(today, -30));
+      await mk('Старая 2', x.staff.id, addDaysIso(today, -2));
+      await mk('Старая 3', x.lead.id, addDaysIso(today, -1));
+      await mk('Через неделю', x.staff.id, addDaysIso(today, 7));
+      await tx.notification.deleteMany({ where: { userId: { in: [x.staff.id, x.author.id, x.lead.id] } } });
+
+      const first = await svc.notifyDeadlines(tx);
+      expect(first.overdue).toBe(0);
+      expect(await inbox(tx, x.staff.id)).toEqual([
+        'task_overdue_summary: У вас 2 просроченные задачи | Просрочены на момент обновления портала — откройте доску с фильтром «просрочено». Дальше уведомление приходит по каждой задаче.',
+      ]);
+      expect(await inbox(tx, x.author.id)).toEqual([expect.stringMatching(/^task_overdue_summary: У вас \d+ просроченн/)]);
+      expect(await kinds(tx, x.lead.id)).toEqual(['task_overdue_summary']);
+      expect((await tx.appSetting.findUniqueOrThrow({ where: { key: svc.OVERDUE_SINCE_KEY } })).value).toBe(today);
+      const list = await svc.listNotifications(tx, x.staff.id, {});
+      expect([list.items[0]?.link, list.items[0]?.task]).toEqual([svc.OVERDUE_BOARD_LINK, null]);
+
+      // Повторный прогон — ни сводного, ни по задачам.
+      expect(await svc.notifyDeadlines(tx)).toEqual({ dueTomorrow: 0, overdue: 0, overdueSummary: 0 });
+      // Через 10 дней «Через неделю» просрочена — по задаче; старые — по-прежнему нет.
+      const later = new Date(Date.now() + 10 * 86_400_000);
+      expect((await svc.notifyDeadlines(tx, later)).overdue).toBe(2);
+      expect((await kinds(tx, x.staff.id)).filter((k) => k === 'task_overdue')).toHaveLength(1);
+      expect(overdueWord()).toEqual(['1 просроченная задача', '3 просроченные задачи', '5 просроченных задач', '11 просроченных задач', '22 просроченные задачи']);
     }));
 
   it('очистка: прочитанные старше 90 дней, непрочитанные старше 180; раз в сутки; запись в журнале только если удалено', () =>
@@ -220,3 +255,5 @@ describe('уведомления по HTTP', () => {
       expect((await app.inject({ url: '/api/v1/notifications/count', ...fromWall })).statusCode).toBe(403);
     }));
 });
+
+const overdueWord = () => [1, 3, 5, 11, 22].map(svc.overdueCountLabel);

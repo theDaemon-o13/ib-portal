@@ -63,7 +63,7 @@ export function installJobs(app: FastifyInstance, opts: JobsOptions): void {
         const now = opts.now?.() ?? new Date();
         const d = await notifyDeadlines(opts.db, now);
         const cleaned = await cleanupNotifications(opts.db, now);
-        if (d.dueTomorrow || d.overdue || cleaned) app.log.info({ ...d, cleaned }, 'уведомления о сроках');
+        if (d.dueTomorrow || d.overdue || d.overdueSummary || cleaned) app.log.info({ ...d, cleaned }, 'уведомления о сроках');
       } catch (err) {
         // Ошибка прогона не роняет backend: следующий прогон — по расписанию.
         app.log.error({ err }, 'автоматизации: прогон не выполнен');

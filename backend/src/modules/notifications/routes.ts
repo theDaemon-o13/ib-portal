@@ -23,6 +23,8 @@ const Notification = z.object({
   createdAt: z.string(),
   read: z.boolean(),
   task: z.object({ id: z.string(), number: z.number().int(), deleted: z.boolean() }).nullable(),
+  /** Куда ведёт щелчок; null — некуда (задача удалена). */
+  link: z.string().nullable(),
 });
 
 export const notificationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {

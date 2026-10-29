@@ -8,7 +8,7 @@ import { addDaysIso, todayIso } from '../../lib/today.js';
 
 export const NOTIFICATION_KINDS = [
   'task_assigned', 'task_unassigned', 'task_submitted', 'task_returned', 'task_accepted', 'task_moved', 'task_commented',
-  'task_due_tomorrow', 'task_overdue',
+  'task_due_tomorrow', 'task_overdue', 'task_overdue_summary',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -126,11 +126,27 @@ export async function notifyComment(db: Db, t: TaskRef & { assigneeId: string | 
 
 const fmt = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 
+/** «1 просроченная задача», «3 просроченные задачи», «5 просроченных задач». */
+export function overdueCountLabel(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return `${n} просроченная задача`;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} просроченные задачи`;
+  return `${n} просроченных задач`;
+}
+
+/** С какого дня «просрочено» приходит по одной задаче; что просрочено раньше — одним сводным (решение владельца после этапа В). */
+export const OVERDUE_SINCE_KEY = 'notifications.overdue_since';
+export const OVERDUE_BOARD_LINK = '/tasks?overdue=1';
+
 /**
  * «Срок завтра» — исполнителю (нет исполнителя — автору); «просрочено» — исполнителю и автору (решение В-2).
  * Только открытые задачи на доске. Одно уведомление адресату на задачу и срок: перенос срока — новое.
+ * Первый прогон после обновления: задачи, просроченные уже на этот момент, не дают отдельных уведомлений —
+ * каждому получателю одно сводное «У вас N просроченных задач» со ссылкой на доску с фильтром «просрочено».
+ * Опорная дата — app_settings.notifications.overdue_since: дальше по одному уведомлению на задачу со сроком не раньше неё.
  */
-export async function notifyDeadlines(db: Db, now = new Date()): Promise<{ dueTomorrow: number; overdue: number }> {
+export async function notifyDeadlines(db: Db, now = new Date()): Promise<{ dueTomorrow: number; overdue: number; overdueSummary: number }> {
   const today = todayIso(now);
   const tomorrow = addDaysIso(today, 1);
   const open = { deletedAt: null, archivedAt: null, completedAt: null } as const;
@@ -147,14 +163,33 @@ export async function notifyDeadlines(db: Db, now = new Date()): Promise<{ dueTo
       title: `Срок задачи ${label(t)} — завтра, ${fmt(tomorrow)}`, dedupeKey: `due_tomorrow:${t.id}:${tomorrow}`,
     });
   }
+  const since = (await db.appSetting.findUnique({ where: { key: OVERDUE_SINCE_KEY } }))?.value;
+  if (typeof since !== 'string') {
+    const byUser = new Map<string, Set<string>>();
+    for (const t of late) {
+      for (const u of [t.assigneeId, t.createdBy]) if (u) byUser.set(u, (byUser.get(u) ?? new Set()).add(t.id));
+    }
+    let overdueSummary = 0;
+    for (const [userId, ids] of byUser) {
+      overdueSummary += await notify(db, {
+        kind: 'task_overdue_summary', to: [userId], actorId: null, dedupeKey: 'overdue_summary',
+        title: `У вас ${overdueCountLabel(ids.size)}`,
+        body: 'Просрочены на момент обновления портала — откройте доску с фильтром «просрочено». Дальше уведомление приходит по каждой задаче.',
+      });
+    }
+    await db.appSetting.upsert({ where: { key: OVERDUE_SINCE_KEY }, create: { key: OVERDUE_SINCE_KEY, value: today }, update: {} });
+    return { dueTomorrow, overdue: 0, overdueSummary };
+  }
   for (const t of late) {
     const due = t.dueDate?.toISOString().slice(0, 10) ?? today;
+    // Просроченная до опорной даты уже вошла в сводное уведомление.
+    if (due < since) continue;
     overdue += await notify(db, {
       kind: 'task_overdue', to: [t.assigneeId, t.createdBy], taskId: t.id, actorId: null,
       title: `Задача ${label(t)} просрочена (срок ${fmt(due)})`, dedupeKey: `overdue:${t.id}:${due}`,
     });
   }
-  return { dueTomorrow, overdue };
+  return { dueTomorrow, overdue, overdueSummary: 0 };
 }
 
 const CLEANED_KEY = 'notifications.cleaned_on';
@@ -202,6 +237,8 @@ export async function listNotifications(db: Db, userId: string, q: { unread?: bo
       id: n.id, kind: n.kind, title: n.title, body: n.body, actor: n.actor?.fullName ?? null,
       createdAt: n.createdAt.toISOString(), read: n.readAt !== null,
       task: n.task ? { id: n.task.id, number: n.task.number, deleted: n.task.deletedAt !== null } : null,
+      /** Куда ведёт щелчок: задача (если не удалена) или доска с фильтром «просрочено» у сводного. */
+      link: n.kind === 'task_overdue_summary' ? OVERDUE_BOARD_LINK : n.task && !n.task.deletedAt ? `/tasks?task=${n.task.id}` : null,
     })),
     nextCursor: rows.length > limit ? page.at(-1)?.id ?? null : null,
     unread: await unreadCount(db, userId),

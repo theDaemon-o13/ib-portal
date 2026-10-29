@@ -3458,6 +3458,12 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "link": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -3468,7 +3474,8 @@
                           "actor",
                           "createdAt",
                           "read",
-                          "task"
+                          "task",
+                          "link"
                         ],
                         "additionalProperties": false
                       }

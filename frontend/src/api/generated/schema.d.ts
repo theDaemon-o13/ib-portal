@@ -1441,6 +1441,7 @@ export interface paths {
                                     number: number;
                                     deleted: boolean;
                                 } | null;
+                                link: string | null;
                             }[];
                             nextCursor: string | null;
                             unread: number;
