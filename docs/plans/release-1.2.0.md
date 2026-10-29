@@ -524,7 +524,7 @@ ALTER TABLE "task_comments" ADD COLUMN "transition_id" UUID REFERENCES "task_tra
 | Б3. Доска и карточка: кнопки вместо перетаскивания | `92aec05` | нет |
 | Б4. Отчёт по задачам в Excel | `d7e7620` | нет |
 
-Проверки после этапа: backend — 192 unit, 226 test:db; frontend — 53 unit; e2e — 66/66 (весь набор после Б3 — 65/65, после Б4 — задачи 8/8 и журнал); check:schema и check:integrity — в порядке. На dev шаг seed перенёс в «Поставленные» 365 задач (все в архиве).
+Проверки после этапа: backend — 192 unit, 226 test:db; frontend — 53 unit; e2e — весь набор после Б3 65/65, после Б4 — задачи 8/8 и журнал 2/2; check:schema и check:integrity — в порядке. На dev шаг seed перенёс в «Поставленные» 365 задач (все в архиве).
 
 Отступления от плана и уточнения:
 - Вид перехода `assign` (назначение или снятие исполнителя) — в `task_transitions` пять видов: `process`, `override`, `assign`, `system`, `migration`.
