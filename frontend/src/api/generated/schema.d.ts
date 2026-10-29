@@ -22004,6 +22004,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -22384,6 +22390,12 @@ export interface paths {
                                 manage: boolean;
                             };
                             blockedReason: string | null;
+                            returned: {
+                                at: string;
+                                actor: string;
+                                stageName: string;
+                                comment: string;
+                            } | null;
                             versions: {
                                 no: number;
                                 edition: string;
@@ -22647,6 +22659,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -22912,6 +22930,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -23181,6 +23205,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -23450,6 +23480,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -23718,6 +23754,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -23987,6 +24029,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -24252,6 +24300,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -24517,6 +24571,12 @@ export interface paths {
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
                                 versions: {
                                     no: number;
                                     edition: string;

@@ -410,8 +410,9 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     schema: { tags: ['register-records'], summary: 'Запись', params: IdParams, response: { 200: RegisterRecord, ...errors } },
   }, async (request) => asRecord(await records.getRecord(db, request.params.id)));
 
+  // История — по праву «История в карточках» (релиз 1.2.0, ADR-0021).
   app.get('/register-records/:id/history', {
-    preHandler: view,
+    preHandler: requirePerm('history.view'),
     schema: { tags: ['register-records'], summary: 'История изменений записи', params: IdParams, response: { 200: z.object({ items: z.array(HistoryEntry) }), ...errors } },
   }, async (request) => ({ items: await records.recordHistory(db, request.params.id) }));
 

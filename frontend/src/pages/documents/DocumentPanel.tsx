@@ -229,6 +229,11 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
         {mode === 'view' && d.blockedReason && (
           <div className="note ro"><LockIcon /><span>{d.blockedReason}</span></div>
         )}
+        {mode === 'view' && d.returned && (
+          <div className="note conflict" data-testid="doc-returned">
+            Возвращён на доработку с этапа «{d.returned.stageName}» · {d.returned.actor}, {formatDateTime(d.returned.at)}: {d.returned.comment}
+          </div>
+        )}
 
         {mode === 'return' && (
           <form className="task-form" onSubmit={(e) => { e.preventDefault(); back.mutate(); }}>

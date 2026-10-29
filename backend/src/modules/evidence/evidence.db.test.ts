@@ -64,6 +64,14 @@ describe('доказательства: форма подтверждения', 
       expect(fresh.checks?.map((c) => c.label)).toEqual(['Длина пароля', 'Максимальный срок действия, дней', 'Блокировка после попыток']);
     }));
 
+  it('история в карточке — только с правом «История в карточках» (ADR-0021)', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.form(x.staff);
+      expect((await x.card(x.staff, id)).history).toEqual([]);
+      expect((await x.card(x.admin, id)).history.length).toBeGreaterThan(0);
+    }));
+
   it('форма заполняется целиком; без файла и без «подтвердил» не загружается', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);

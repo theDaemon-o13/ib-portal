@@ -12,6 +12,7 @@ import { Backlinks, BasisField, FileField, LinkField } from './RecordLinks';
 import { EventTasks } from './AutomationTab';
 import { DecisionBlock } from './DecisionBlock';
 import { rkeys } from './keys';
+import { useMe } from '../../auth/useMe';
 
 const LONG = /описан|коммент|мер|примечан/i;
 // Лимиты — как на backend (lib/field-settings.ts).
@@ -167,7 +168,9 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const toast = useToast();
   const isNew = recordId === null;
   const rec = useQuery({ queryKey: rkeys.record(recordId ?? 'new'), queryFn: () => registersApi.record(recordId ?? ''), enabled: !isNew });
-  const history = useQuery({ queryKey: rkeys.history(recordId ?? 'new'), queryFn: () => registersApi.history(recordId ?? ''), enabled: !isNew });
+  // История — по праву «История в карточках» (ADR-0021).
+  const canHistory = !!useMe().data?.permissions.includes('history.view');
+  const history = useQuery({ queryKey: rkeys.history(recordId ?? 'new'), queryFn: () => registersApi.history(recordId ?? ''), enabled: !isNew && canHistory });
   const record = rec.data ?? null;
   const events = useQuery({
     queryKey: [...rkeys.events(reg.id), 'record', recordId ?? 'new'],
@@ -389,7 +392,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
             </div>
           )}
           {!isNew && recordId && <Backlinks recordId={recordId} />}
-          {!isNew && (
+          {!isNew && canHistory && (
             <div>
               <div className="eyebrow">История изменений</div>
               {history.data?.items.length === 0 && <div className="hint">Изменений нет</div>}

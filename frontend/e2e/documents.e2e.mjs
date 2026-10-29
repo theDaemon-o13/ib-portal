@@ -230,6 +230,13 @@ describe('Документы: маршрут согласования', () => {
     await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'документ утверждён');
     assert.equal(await ui.evaluate(`[...${panel}.querySelectorAll('.vstep .step')].every((s) => s.classList.contains('done'))`), true, 'все этапы пройдены');
     assert.match(await ui.text(`${panel}.querySelector('.row.gap-lg')`), new RegExp(ru(plusYear()).replace(/\./g, '\\.')), 'пересмотр через 12 месяцев');
+    // Кто согласовал этапы — видят все, кто видит документ; подробная история — только с правом «История в карточках» (ADR-0021).
+    const steps = await ui.text(`${panel}`);
+    assert.ok(steps.includes(users.board.fullName) && steps.includes(users.owner.fullName), 'в маршруте — кто согласовал этапы');
+    assert.ok(!steps.includes('История согласования'), 'без права подробной истории нет');
+    await loginAs(admin);
+    await openDocs(id);
+    await ui.waitFor(`${panel}?.textContent.includes('История согласования')`, 'подробная история у администратора');
     const hist = await ui.evaluate(`[...${panel}.querySelectorAll('.hist-item')].map((h) => h.textContent)`);
     assert.ok(hist.some((h) => h.includes(users.board.fullName) && h.includes('утвердил(а) версию 1')), hist.join('\n'));
     assert.ok(hist.some((h) => h.includes(users.owner.fullName) && h.includes('отправил(а) версию 1')), hist.join('\n'));
@@ -280,7 +287,8 @@ describe('Документы: возврат на доработку', () => {
     await ui.waitFor(`${drawer}?.textContent.includes(${JSON.stringify(comment)})`, 'замечание в описании задачи');
     await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
     await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(`${RUN} Регламент доступа`)}`, 'переход к документу из задачи');
-    assert.ok((await ui.text(`${panel}`)).includes(`вернул(а) версию 1 на доработку с этапа «Начальник ИБ»: ${comment}`));
+    // Замечание возврата — в карточке документа и без права на историю.
+    assert.match(await ui.text(`${panel}.querySelector('[data-testid=doc-returned]')`), new RegExp(`с этапа «Начальник ИБ».*${comment}`));
 
     // Автор правит черновик и отправляет снова — задача доработки закрывается сама.
     await ui.click($.button('Изменить черновик', panel));

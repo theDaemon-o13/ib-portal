@@ -37,7 +37,11 @@ async function act(tx: Tx, fn: typeof svc.approveDocument, u: User, id: string, 
   return fn(tx, await actorFor(tx, u.id), id, { ...(await cur(tx, id)), comment, pdfFileId });
 }
 
-const view = async (tx: Tx, u: User, id: string) => svc.getDocument(tx, await svc.accessOf(tx, u.id), id);
+/** Карточка глазами пользователя; history — как у пользователя с правом «История в карточках» (проверки маршрута ниже). */
+const view = async (tx: Tx, u: User, id: string, opts: { history?: boolean } = { history: true }) => {
+  const a = await svc.accessOf(tx, u.id);
+  return svc.getDocument(tx, opts.history ? { ...a, perms: new Set([...a.perms, 'history.view']) } : a, id);
+};
 const list = async (tx: Tx, u: User) => (await svc.listDocuments(tx, await svc.accessOf(tx, u.id), { archived: false, limit: 500 })).items;
 
 /** Утвердить документ полным маршрутом. */
@@ -61,6 +65,17 @@ async function sqlError(tx: Tx, sql: string): Promise<string> {
 }
 
 describe('документы: маршрут согласования', () => {
+  it('подробная история — только с правом «История в карточках»; кто согласовал этапы — видят все (ADR-0021)', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await approveAll(tx, x, id);
+      const plain = await view(tx, x.owner, id, { history: false });
+      expect(plain.history).toEqual([]);
+      expect(plain.route.map((r) => r.actedBy)).toEqual(['Автор Документа', 'Начальник ИБ', 'Юрист', 'Правление']);
+      expect((await view(tx, x.owner, id)).history).toHaveLength(4);
+    }));
+
   it('каждый этап согласует только пользователь с правом этапа; после правления версия утверждена', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
@@ -240,6 +255,10 @@ describe('документы: возврат на доработку', () => {
       expect(d.current.round).toBe(2);
       expect(d.route.every((r) => r.state !== 'done')).toBe(true);
       expect(d.history[0]).toMatchObject({ decision: 'returned', stage: 2, actor: 'Юрист', comment: 'Нет ссылки на закон о персональных данных' });
+      // Замечание возврата — в карточке и без права на историю.
+      const plain = await view(tx, x.owner, id, { history: false });
+      expect(plain.history).toEqual([]);
+      expect(plain.returned).toMatchObject({ actor: 'Юрист', comment: 'Нет ссылки на закон о персональных данных' });
 
       const tasks = await tx.task.findMany({ where: { documentId: id }, include: { category: true } });
       expect(tasks).toHaveLength(1);

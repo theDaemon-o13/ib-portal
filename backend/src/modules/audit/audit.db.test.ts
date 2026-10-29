@@ -5,7 +5,9 @@ import { buildApp } from '../../app.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import { actorFor, expectCode, inTx, makeUser, type Tx } from '../../test/db.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
+import { makeRegister } from '../../test/registers-fixture.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
+import { createRecord } from '../registers/records.service.js';
 import { prismaAuditWriter } from './audit.js';
 import { exportAudit, listAudit } from './service.js';
 
@@ -42,6 +44,26 @@ describe('раздел «Журнал»', () => {
         expect((await app.inject({ url, headers: { cookie: S } })).statusCode, url).toBe(403);
         expect((await app.inject({ url, headers: { cookie: H } })).statusCode, url).toBe(200);
       }
+    }));
+
+  it('история в карточках задачи и записи — только с history.view (403 без права), комментарии — всем', () =>
+    inTx(async (tx) => {
+      const hash = await argon2Hasher.hash(PASSWORD);
+      const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
+      const head = await makeUser(tx, ['ib_staff', 'ib_head'], { passwordHash: hash });
+      const app = await appWith(tx);
+      const S = await login(app, staff.login);
+      const H = await login(app, head.login);
+      const category = await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: 'task_categories', deletedAt: null, archivedAt: null } });
+      const task = (await app.inject({ method: 'POST', url: '/api/v1/tasks', headers: { cookie: S }, payload: { title: 'История', categoryId: category.id } })).json() as { id: string };
+      expect((await app.inject({ url: `/api/v1/tasks/${task.id}/history`, headers: { cookie: S } })).statusCode).toBe(403);
+      expect((await app.inject({ url: `/api/v1/tasks/${task.id}/history`, headers: { cookie: H } })).statusCode).toBe(200);
+      expect((await app.inject({ url: `/api/v1/tasks/${task.id}/comments`, headers: { cookie: S } })).statusCode).toBe(200);
+
+      const reg = await makeRegister(tx);
+      const record = await createRecord(tx, reg.actor, reg.reg.id, { values: { [reg.f.title]: 'История записи' } });
+      expect((await app.inject({ url: `/api/v1/register-records/${record.id}/history`, headers: { cookie: S } })).statusCode).toBe(403);
+      expect((await app.inject({ url: `/api/v1/register-records/${record.id}/history`, headers: { cookie: H } })).statusCode).toBe(200);
     }));
 
   it('фильтры: пользователь, раздел (группа), действие, поиск, период; курсор; переход к задаче', () =>

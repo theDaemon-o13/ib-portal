@@ -309,6 +309,12 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     };
   });
 
+  // Последнее решение по показанной версии — возврат: замечание видно в карточке и без права на историю (ADR-0021).
+  const lastAct = history.find((h) => h.versionId === shown.id);
+  const returned = lastAct?.decision === 'returned'
+    ? { at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment }
+    : null;
+
   const v = verdict(a, d, mine);
   const isOwner = d.ownerId === a.userId;
   const active = d.archivedAt === null;
@@ -331,11 +337,13 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     can,
     /** Почему вы не можете действовать на текущем этапе (для подсказки в карточке). */
     blockedReason: active && workingShown && w !== null && !v.ok ? v.reason : null,
+    returned,
     versions: visibleVersions.map((x) => ({
       no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote,
       pdf: pdfDto(x), textFrozen: x.pdf !== null,
     })),
-    history: history.map((h) => ({
+    // Подробная история — по праву «История в карточках» (ADR-0021); блок маршрута (route) — всем, кто видит документ.
+    history: !a.perms.has('history.view') ? [] : history.map((h) => ({
       id: h.id, at: h.at.toISOString(), actor: h.actor.fullName, stage: h.stage, stageName: stageName(h.stage),
       decision: h.decision as 'submitted' | 'approved' | 'returned' | 'revision_started' | 'skipped', comment: h.comment, versionNo: h.versionNo, round: h.round,
       pdfSha256: h.pdfSha256,

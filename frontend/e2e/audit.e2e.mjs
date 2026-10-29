@@ -106,6 +106,9 @@ describe('Журнал', () => {
     await ui.click(`[...${auditRow('Задача создана')}.querySelectorAll('a')].find((a) => a.textContent === 'Открыть')`, '«Открыть»');
     await ui.waitFor(`location.pathname === '/tasks' && new URLSearchParams(location.search).get('task') === ${JSON.stringify(task.id)}`, 'переход к задаче');
 
+    // В карточке задачи администратор видит историю изменений (право «История в карточках»).
+    await ui.waitFor(`[...document.querySelectorAll('aside.drawer .eyebrow')].some((e) => e.textContent === 'История изменений')`, 'история в карточке задачи');
+
     // Старая вкладка настроек ведёт в раздел «Журнал».
     await ui.goto('/settings/journal');
     await ui.waitFor(`location.pathname === '/audit'`, '«Журнал изменений» настроек → раздел «Журнал»');
@@ -119,6 +122,12 @@ describe('Журнал', () => {
     await ui.goto('/audit');
     await ui.waitFor(`location.pathname !== '/audit'`, 'прямой адрес /audit уводит из раздела');
     assert.equal((await api('GET', '/api/v1/audit')).status, 403);
+    // Карточка задачи: комментарии есть, истории нет; API истории — 403.
+    await ui.goto(`/tasks?task=${task.id}`);
+    await ui.waitFor(`document.querySelector('aside.drawer .dr-title')?.textContent === ${JSON.stringify(task.title)}`, 'карточка задачи');
+    await ui.waitFor(`[...document.querySelectorAll('aside.drawer .eyebrow')].some((e) => e.textContent.startsWith('Комментарии'))`, 'комментарии видны');
+    assert.ok(!(await ui.evaluate(`[...document.querySelectorAll('aside.drawer .eyebrow')].some((e) => e.textContent === 'История изменений')`)), 'истории в карточке нет');
+    assert.equal((await api('GET', `/api/v1/tasks/${task.id}/history`)).status, 403);
     assert.equal((await api('GET', '/api/v1/audit/export')).status, 403);
   });
 });

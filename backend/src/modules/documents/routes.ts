@@ -57,6 +57,8 @@ const DocDetail = DocItem.extend({
   })),
   can: z.object({ edit: z.boolean(), submit: z.boolean(), approve: z.boolean(), revise: z.boolean(), attachPdf: z.boolean(), manage: z.boolean() }),
   blockedReason: z.string().nullable(),
+  /** Показанную версию вернули на доработку, и с тех пор её не отправляли: кто, когда, с какого этапа, замечание. Видят все, кто видит документ. */
+  returned: z.object({ at: z.string(), actor: z.string(), stageName: z.string(), comment: z.string() }).nullable(),
   versions: z.array(z.object({
     no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), approvedAt: z.string().nullable(), changeNote: z.string(),
     pdf: Pdf.nullable(), textFrozen: z.boolean(),

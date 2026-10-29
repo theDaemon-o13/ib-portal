@@ -60623,6 +60623,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -60794,6 +60825,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -61802,6 +61834,37 @@
                         "null"
                       ]
                     },
+                    "returned": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string"
+                            },
+                            "actor": {
+                              "type": "string"
+                            },
+                            "stageName": {
+                              "type": "string"
+                            },
+                            "comment": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "actor",
+                            "stageName",
+                            "comment"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -61973,6 +62036,7 @@
                     "route",
                     "can",
                     "blockedReason",
+                    "returned",
                     "versions",
                     "history"
                   ],
@@ -62792,6 +62856,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -62963,6 +63058,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -63779,6 +63875,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -63950,6 +64077,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -64766,6 +64894,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -64937,6 +65096,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -65753,6 +65913,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -65924,6 +66115,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -66737,6 +66929,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -66908,6 +67131,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -67725,6 +67949,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -67896,6 +68151,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -68697,6 +68953,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -68868,6 +69155,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],
@@ -69669,6 +69957,37 @@
                                 "null"
                               ]
                             },
+                            "returned": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "actor": {
+                                      "type": "string"
+                                    },
+                                    "stageName": {
+                                      "type": "string"
+                                    },
+                                    "comment": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "at",
+                                    "actor",
+                                    "stageName",
+                                    "comment"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "versions": {
                               "type": "array",
                               "items": {
@@ -69840,6 +70159,7 @@
                             "route",
                             "can",
                             "blockedReason",
+                            "returned",
                             "versions",
                             "history"
                           ],

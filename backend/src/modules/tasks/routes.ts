@@ -201,8 +201,9 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     schema: { tags, summary: 'Добавить комментарий', params: IdParams, body: z.object({ body: z.string().max(svc.COMMENT_MAX) }), response: { 201: Comment, ...errors } },
   }, async (request, reply) => reply.status(201).send(await svc.addComment(db, actorOf(request), request.params.id, request.body.body)));
 
+  // История — по праву «История в карточках» (релиз 1.2.0, ADR-0021); комментарии видят все, кто видит задачу.
   app.get('/tasks/:id/history', {
-    preHandler: view,
+    preHandler: requirePerm('history.view'),
     schema: {
       tags, summary: 'История изменений из журнала аудита', params: IdParams,
       response: {

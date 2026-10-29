@@ -5,6 +5,7 @@ import { ApiError } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type TaskDetail, type TaskPatch } from '../../api/tasks';
 import { Overlay } from '../../components/Overlay';
+import { useMe } from '../../auth/useMe';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { initials } from './logic';
@@ -50,7 +51,9 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   const toast = useToast();
   const task = useQuery({ queryKey: tkeys.detail(id), queryFn: () => tasksApi.get(id) });
   const comments = useQuery({ queryKey: tkeys.comments(id), queryFn: () => tasksApi.comments(id) });
-  const history = useQuery({ queryKey: tkeys.history(id), queryFn: () => tasksApi.history(id) });
+  // История — по праву «История в карточках» (ADR-0021); комментарии видят все.
+  const canHistory = !!useMe().data?.permissions.includes('history.view');
+  const history = useQuery({ queryKey: tkeys.history(id), queryFn: () => tasksApi.history(id), enabled: canHistory });
   const statuses = useQuery({ queryKey: tkeys.statuses, queryFn: () => settingsApi.items('task_statuses', false) });
   const priorities = useQuery({ queryKey: tkeys.priorities, queryFn: () => settingsApi.items('task_priorities', false) });
   const categories = useQuery({ queryKey: tkeys.categories, queryFn: () => settingsApi.items('task_categories', false) });
@@ -284,18 +287,20 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
             )}
           </div>
 
-          <div>
-            <div className="eyebrow">История изменений</div>
-            <div className="hist">
-              {history.data?.items.map((h) => (
-                <div key={h.id} className="hist-item">
-                  <div>{formatDateTime(h.at)} · {h.actor?.fullName ?? 'Система'}</div>
-                  <div className="m">{h.summary}</div>
-                  {h.changes.map((c, i) => <div key={i} className="m">«{c.label}»: {c.from} → {c.to}</div>)}
-                </div>
-              ))}
+          {canHistory && (
+            <div>
+              <div className="eyebrow">История изменений</div>
+              <div className="hist">
+                {history.data?.items.map((h) => (
+                  <div key={h.id} className="hist-item">
+                    <div>{formatDateTime(h.at)} · {h.actor?.fullName ?? 'Система'}</div>
+                    <div className="m">{h.summary}</div>
+                    {h.changes.map((c, i) => <div key={i} className="m">«{c.label}»: {c.from} → {c.to}</div>)}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {t && !confirmDelete && (
             <div className="row dr-actions">

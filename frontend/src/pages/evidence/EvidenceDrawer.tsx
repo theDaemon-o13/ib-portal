@@ -180,12 +180,15 @@ export function EvidenceDrawer({ id, onClose }: { id: string; onClose: () => voi
                 {file && <FilePreview key={file.id} file={file} />}
               </div>
 
-              <div>
-                <div className="eyebrow">История</div>
-                <div className="hist">
-                  {e.history.map((h) => <div key={h.id}>{formatDateTime(h.at)} · {h.actor}: {h.summary}</div>)}
+              {/* История приходит только пользователю с правом «История в карточках» (ADR-0021). */}
+              {e.history.length > 0 && (
+                <div>
+                  <div className="eyebrow">История</div>
+                  <div className="hist">
+                    {e.history.map((h) => <div key={h.id}>{formatDateTime(h.at)} · {h.actor}: {h.summary}</div>)}
+                  </div>
                 </div>
-              </div>
+              )}
               {e.can.archive && (
                 <div className="row dr-actions">
                   <button className="btn sm" type="button" disabled={busy} onClick={() => archive.mutate()}>{e.archived ? 'Вернуть из архива' : 'В архив'}</button>

@@ -226,7 +226,8 @@ export async function getEvidence(db: Db, actor: { id: string; perms: ReadonlySe
   const today = todayIso();
   const e = await getRow(db, id);
   const objects = await objectInfos(db, [objectOf(e)]);
-  const history = await db.auditLog.findMany({
+  // История — по праву «История в карточках» (релиз 1.2.0, ADR-0021); без права список пуст.
+  const history = !actor.perms.has('history.view') ? [] : await db.auditLog.findMany({
     where: { entity: 'evidence', entityId: id },
     include: { user: { select: { fullName: true } } },
     orderBy: { id: 'desc' },
