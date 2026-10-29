@@ -7,13 +7,20 @@ export const PERMISSIONS = [
   { code: 'records.delete', name: 'Записи реестров: удаление', description: '' },
   { code: 'registers.manage', name: 'Реестры: создание и настройка полей', description: 'Конструктор реестров: реестры, поля, списки, смена типа поля' },
   { code: 'tasks.delete', name: 'Задачи: удаление', description: 'Архивировать задачу может любой сотрудник ИБ' },
+  { code: 'tasks.assign', name: 'Задачи: постановка другим', description: 'Назначать исполнителем любого сотрудника ИБ. Без права — только себя' },
+  { code: 'tasks.review', name: 'Задачи: проверка', description: '«Принять» и «Вернуть в работу» — автор задачи или старший над исполнителем; свою задачу не принимает' },
+  { code: 'tasks.status.override', name: 'Задачи: свободная смена статуса', description: 'Перетаскивание карточек и смена статуса в обход процесса' },
+  { code: 'tasks.report', name: 'Задачи: отчёт', description: 'Выгрузка отчёта по задачам в Excel' },
   { code: 'evidence.review', name: 'Доказательства: проверка', description: 'Принять или отклонить доказательство' },
   { code: 'docs.manage', name: 'Документы: управление', description: 'Создание, запуск пересмотра, отправка на согласование за автора' },
+  { code: 'docs.delete', name: 'Документы: удаление', description: 'Только неподписанные документы; подписанные — в архив' },
   { code: 'docs.approve.head', name: 'Документы: этап «Начальник ИБ»', description: 'Согласование этапа' },
   { code: 'docs.approve.legal', name: 'Документы: этап «Юридический отдел»', description: 'Согласование этапа' },
   { code: 'docs.approve.board', name: 'Документы: этап «Утверждение правлением»', description: 'Утверждение документа' },
   { code: 'settings.manage', name: 'Настройки: справочники и шаблоны форм', description: '' },
   { code: 'users.manage', name: 'Настройки: пользователи, роли и права', description: '' },
+  { code: 'history.view', name: 'История в карточках', description: 'История изменений задач, записей реестров, документов и доказательств' },
+  { code: 'audit.view', name: 'Журнал действий', description: 'Раздел «Журнал»: все действия пользователей, выгрузка в Excel' },
   {
     code: 'monitor.kiosk', name: 'Настенный монитор',
     description: 'Только экран мониторинга, вход с адресов MONITOR_ALLOWED_IPS. Не сочетается с другими правами и ролями',
@@ -49,7 +56,7 @@ export const SYSTEM_ROLES = [
     description: 'Полный доступ к настройкам, удаление задач и записей',
     permissions: [
       'ib.work', 'records.edit', 'records.delete', 'registers.manage', 'tasks.delete', 'evidence.review',
-      'docs.manage', 'settings.manage', 'users.manage',
+      'docs.manage', 'settings.manage', 'users.manage', 'history.view', 'audit.view',
     ],
   },
   {
@@ -61,8 +68,11 @@ export const SYSTEM_ROLES = [
   {
     code: 'ib_head',
     name: 'Начальник ИБ',
-    description: 'Согласует документы на этапе «Начальник ИБ»',
-    permissions: ['docs.approve.head'],
+    description: 'Согласует документы на этапе «Начальник ИБ», проверяет задачи, видит журнал',
+    permissions: [
+      'docs.approve.head', 'tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete',
+      'history.view', 'audit.view',
+    ],
   },
   {
     code: 'legal',
@@ -90,6 +100,21 @@ export const SYSTEM_ROLES = [
 }[];
 
 export type SystemRoleCode = (typeof SYSTEM_ROLES)[number]['code'];
+
+/**
+ * Права, появившиеся после первой установки: при обновлении их один раз выдаёт шаг seed
+ * (снятое администратором потом не возвращается). На новой установке они уже в SYSTEM_ROLES.
+ */
+export const PERMISSION_GRANTS: readonly { key: string; release: string; grants: Partial<Record<SystemRoleCode, readonly PermissionCode[]>> }[] = [
+  {
+    key: 'rbac.permissions.v1_2',
+    release: '1.2.0',
+    grants: {
+      ib_head: ['tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete', 'history.view', 'audit.view'],
+      super_admin: ['history.view', 'audit.view'],
+    },
+  },
+];
 
 export function isPermissionCode(value: string): value is PermissionCode {
   return (PERMISSION_CODES as readonly string[]).includes(value);

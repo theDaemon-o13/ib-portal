@@ -8,6 +8,7 @@ import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
 import { seedMonitorSlides } from './monitor.js';
+import { seedPermissionGrants } from './rbac.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
@@ -50,6 +51,8 @@ async function main() {
       data: SUPER_ADMIN_LOCKED.map((permissionCode) => ({ roleId: superAdmin.id, permissionCode })),
       skipDuplicates: true,
     });
+
+    await seedPermissionGrants(tx);
 
     // Справочники: набор фиксирован, названия и описания обновляются.
     for (const [index, c] of CATALOGS.entries()) {
