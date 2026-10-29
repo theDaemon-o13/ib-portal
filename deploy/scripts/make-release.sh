@@ -147,7 +147,12 @@ migrations() {
   while read -r f; do
     local name impact
     name="$(basename "$(dirname "$f")")"
-    impact="$(grep -m1 -i 'Влияние на данные' "$f" | sed 's/^-- *Влияние на данные: *//' || true)"
+    # Строка «Влияние на данные» и её продолжение (комментарии до пустой строки) — одной строкой таблицы.
+    impact="$(awk '
+      !found && tolower($0) ~ /влияние на данные/ { found=1; sub(/^-- *[Вв]лияние на данные: */, ""); out=$0; next }
+      found && /^-- *[^ ]/ { sub(/^-- */, ""); out=out " " $0; next }
+      found { exit }
+      END { print out }' "$f" | sed 's/|/\\|/g' || true)"
     echo "| \`$name\` | ${impact:-**не указано — уточнить у разработчика до выкладки**} |"
   done <<< "$list"
 }

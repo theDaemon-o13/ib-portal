@@ -26,10 +26,10 @@
 sudo mkdir -p /srv/ibportal/releases /srv/ibportal/deploy/scripts /srv/ibportal/deploy/certs
 # архив и .sha256 положить в /srv/ibportal/releases
 cd /srv/ibportal/releases
-sha256sum -c ibportal-1.0.0.tar.gz.sha256          # ожидается: OK
-tar -xzf ibportal-1.0.0.tar.gz
-cd ibportal-1.0.0 && sha256sum -c SHA256SUMS        # все файлы: OK
-docker load -i ibportal-images-1.0.0.tar.gz         # ibportal-db, ibportal-backend, ibportal-frontend:1.0.0
+sha256sum -c ibportal-<версия>.tar.gz.sha256          # ожидается: OK
+tar -xzf ibportal-<версия>.tar.gz
+cd ibportal-<версия> && sha256sum -c SHA256SUMS        # все файлы: OK
+docker load -i ibportal-images-<версия>.tar.gz         # ibportal-db, ibportal-backend, ibportal-frontend:<версия>
 
 cp docker-compose.yml docker-compose.restoretest.yml .env.example /srv/ibportal/deploy/
 cp scripts/*.sh /srv/ibportal/deploy/scripts/
@@ -66,7 +66,7 @@ cp .env.example .env && chmod 600 .env
 
 | Переменная | Что указать |
 |---|---|
-| `VERSION` | Версия релиза: `1.0.0`. Меняется при каждом обновлении |
+| `VERSION` | Версия релиза, например `1.1.0`. Меняется при каждом обновлении |
 | `DB_OWNER_USER` | Владелец схемы БД (только миграции). Оставить `ibportal_owner` |
 | `DB_OWNER_PASSWORD` | Случайный: `openssl rand -hex 24` |
 | `DB_APP_USER` | Логин backend в БД. Оставить `ibportal_app_login`; не совпадает с `DB_OWNER_USER` и с `ibportal_app` |
@@ -147,7 +147,7 @@ sudo crontab -e
 ```bash
 B=$(docker volume inspect -f '{{.Mountpoint}}' ibportal_backups)    # каталог тома на хосте (root)
 sudo ls -1 "$B"                                                        # копии
-N=2026-10-29_021500_1.0.0                                              # выносимая копия
+N=2026-10-29_021500_<версия>                                             # выносимая копия
 sudo tar -C "$B" -cf /tmp/ibportal-backup-$N.tar "$N"
 sha256sum /tmp/ibportal-backup-$N.tar > /tmp/ibportal-backup-$N.tar.sha256
 # перенести оба файла в место хранения; там:
@@ -184,7 +184,7 @@ COMPOSE_FILE=docker-compose.yml:docker-compose.restoretest.yml
 
 ```bash
 cd /srv/ibportal/restoretest
-docker run --rm -v ibportal_backups:/b:ro --entrypoint ls ibportal-backend:1.0.0 /b    # список копий
+docker run --rm -v ibportal_backups:/b:ro --entrypoint ls ibportal-backend:<версия> /b    # список копий
 ./scripts/restore-test.sh <имя последней копии>        # «Целостность в порядке»
 SMOKE_URL=https://localhost:8444 ./scripts/smoke.sh     # вход — учётной записью рабочего портала
 docker compose down                                     # тома проверки остаются до следующего раза
