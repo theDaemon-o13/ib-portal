@@ -4,6 +4,7 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { toPage } from '../../lib/pagination.js';
 import { passwordExpiresAt } from '../../lib/password-policy.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
@@ -12,7 +13,11 @@ import { recomputeSearchForUser } from '../registers/definition.js';
 import { assertKioskExclusive, assertUsersManageKept, lockRbac } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 
-const include = { roles: { include: { role: { select: { id: true, name: true } } } } } as const;
+const include = {
+  roles: { include: { role: { select: { id: true, name: true } } } },
+  manager: { select: { id: true, login: true, fullName: true, isActive: true } },
+  _count: { select: { subordinates: true } },
+} as const;
 type UserRow = Prisma.UserGetPayload<{ include: typeof include }>;
 
 export const LOGIN_RE = /^[a-z0-9._-]{3,64}$/;
@@ -26,6 +31,8 @@ function toDto(u: UserRow, now = new Date()) {
     department: u.department,
     isActive: u.isActive,
     roles: u.roles.map((r) => r.role).sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    manager: u.manager,
+    subordinateCount: u._count.subordinates,
     mustChangePassword: u.mustChangePassword,
     passwordExpiresAt: passwordExpiresAt(u.passwordChangedAt).toISOString(),
     locked: u.lockedUntil !== null && u.lockedUntil > now,
@@ -85,11 +92,35 @@ async function resolveRoles(db: Db, roleIds: readonly string[]) {
 
 const roleList = (roles: { name: string }[]) => (roles.length ? roles.map((r) => `«${r.name}»`).join(', ') : 'нет');
 
+async function hasIbWork(db: Db, userId: string): Promise<boolean> {
+  return (await db.user.count({ where: { id: userId, ...IB_WORK } })) > 0;
+}
+
+const who = (u: { fullName: string; login: string } | null) => (u ? `${u.fullName} (${u.login})` : '—');
+
+/**
+ * Руководитель (ADR-0020): активный сотрудник ИБ, не сам пользователь и не его подчинённый (цикл).
+ * userId — null при создании пользователя: подчинённых у него ещё нет.
+ */
+async function checkManager(db: Db, userId: string | null, managerId: string) {
+  if (managerId === userId) throw conflict('MANAGER_SELF', 'Пользователь не может быть руководителем самому себе');
+  const m = await db.user.findUnique({ where: { id: managerId }, select: { id: true, login: true, fullName: true, isActive: true } });
+  if (!m) throw badRequest('UNKNOWN_MANAGER', 'Руководитель не найден. Обновите страницу');
+  if (!m.isActive) throw conflict('MANAGER_INACTIVE', `${who(m)} отключён и не может быть руководителем`);
+  if (!(await hasIbWork(db, managerId))) {
+    throw conflict('MANAGER_NOT_IB', `${who(m)} без доступа к разделам ИБ и не может быть руководителем`);
+  }
+  if (userId && (await seniorIdsOf(db, managerId)).includes(userId)) {
+    throw conflict('MANAGER_CYCLE', `Нельзя: ${who(m)} уже подчинён этому пользователю`);
+  }
+  return m;
+}
+
 export async function createUser(
   db: Db,
   actor: Actor,
   hasher: PasswordHasher,
-  input: { login: string; fullName: string; position: string; department: string; roleIds: string[] },
+  input: { login: string; fullName: string; position: string; department: string; roleIds: string[]; managerId?: string | null },
 ) {
   const login = input.login.trim().toLowerCase();
   if (!LOGIN_RE.test(login)) {
@@ -103,6 +134,7 @@ export async function createUser(
   const user = await withTx(db, async (tx) => {
     if (await tx.user.findUnique({ where: { login } })) throw conflict('DUPLICATE', `Логин ${login} уже занят`);
     const roles = await resolveRoles(tx, input.roleIds);
+    const manager = input.managerId ? await checkManager(tx, null, input.managerId) : null;
     const created = await tx.user.create({
       data: {
         login,
@@ -113,15 +145,22 @@ export async function createUser(
         mustChangePassword: true,
         passwordChangedAt: new Date(),
         roles: { create: roles.map((r) => ({ roleId: r.id, assignedBy: actor.id })) },
+        ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
       },
     });
     await assertKioskExclusive(tx);
+    if (manager && !(await hasIbWork(tx, created.id))) {
+      throw conflict('SUBORDINATE_NOT_IB', 'Руководителя можно указать только сотруднику с доступом к разделам ИБ');
+    }
     await auditSettings(tx, actor, {
       action: 'user.created',
       entity: 'user',
       entityId: created.id,
-      summary: `Пользователи: создан ${fullName} (${login}), роли: ${roleList(roles)}`,
-      after: { login, fullName, position: created.position, department: created.department, roles: roles.map((r) => r.name) },
+      summary: `Пользователи: создан ${fullName} (${login}), роли: ${roleList(roles)}${manager ? `, руководитель ${who(manager)}` : ''}`,
+      after: {
+        login, fullName, position: created.position, department: created.department, roles: roles.map((r) => r.name),
+        manager: manager ? who(manager) : null,
+      },
     });
     return getUser(tx, created.id);
   });
@@ -132,7 +171,7 @@ export async function updateUser(
   db: Db,
   actor: Actor,
   id: string,
-  input: { version: number; fullName?: string; position?: string; department?: string; roleIds?: string[] },
+  input: { version: number; fullName?: string; position?: string; department?: string; roleIds?: string[]; managerId?: string | null },
 ) {
   return withTx(db, async (tx) => {
     await lockRbac(tx);
@@ -163,8 +202,30 @@ export async function updateUser(
         changes.push(`роли ${roleList(beforeRoles)} → ${roleList(next)}`);
       }
     }
+    // Руководитель и подчинённые — только сотрудники ИБ: без ib.work руководитель снимается, подчинённые мешают.
+    const ibWork = await hasIbWork(tx, id);
+    let nextManager: { id: string; login: string; fullName: string } | null = u.manager;
+    if (input.managerId !== undefined && input.managerId !== u.managerId) {
+      nextManager = input.managerId ? await checkManager(tx, id, input.managerId) : null;
+      if (nextManager && !ibWork) {
+        throw conflict('SUBORDINATE_NOT_IB', 'Руководителя можно указать только сотруднику с доступом к разделам ИБ');
+      }
+    } else if (!ibWork && u.managerId) {
+      nextManager = null;
+    }
+    if (!ibWork && u._count.subordinates > 0) {
+      throw conflict(
+        'HAS_SUBORDINATES',
+        `Без доступа к разделам ИБ ${u.fullName} не может руководить: сначала назначьте подчинённым (${u._count.subordinates}) другого руководителя`,
+      );
+    }
+    const managerChanged = (nextManager?.id ?? null) !== u.managerId;
+    if (managerChanged) changes.push(`руководитель ${who(u.manager)} → ${who(nextManager)}`);
     if (changes.length === 0) return toDto(u);
-    const res = await tx.user.updateMany({ where: { id, version: input.version }, data: { ...(data as object), version: { increment: 1 } } });
+    const res = await tx.user.updateMany({
+      where: { id, version: input.version },
+      data: { ...(data as object), ...(managerChanged ? { managerId: nextManager?.id ?? null } : {}), version: { increment: 1 } },
+    });
     await ensureVersioned(res.count, () => tx.user.findUnique({ where: { id } }), 'Пользователь');
     // ФИО участвует в поиске по реестрам (поле «сотрудник»).
     if (data.fullName !== undefined) await recomputeSearchForUser(tx, id);
@@ -176,8 +237,14 @@ export async function updateUser(
       entity: 'user',
       entityId: id,
       summary: `Пользователи: ${u.fullName} (${u.login}) — ${changes.join(', ')}`,
-      before: { fullName: u.fullName, position: u.position, department: u.department, roles: beforeRoles.map((r) => r.name) },
-      after: { ...(data as Record<string, unknown>), roles: afterRoles.map((r) => r.name) },
+      before: {
+        fullName: u.fullName, position: u.position, department: u.department, roles: beforeRoles.map((r) => r.name),
+        ...(managerChanged ? { manager: u.manager ? who(u.manager) : null } : {}),
+      },
+      after: {
+        ...(data as Record<string, unknown>), roles: afterRoles.map((r) => r.name),
+        ...(managerChanged ? { manager: nextManager ? who(nextManager) : null } : {}),
+      },
     });
     return toDto(await getUser(tx, id));
   });

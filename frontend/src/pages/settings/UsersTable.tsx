@@ -14,8 +14,10 @@ interface Draft {
   position: string;
   department: string;
   roleIds: string[];
+  /** '' — руководитель не назначен. */
+  managerId: string;
 }
-const empty: Draft = { fullName: '', login: '', position: '', department: '', roleIds: [] };
+const empty: Draft = { fullName: '', login: '', position: '', department: '', roleIds: [], managerId: '' };
 
 function RoleChecks({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const roles = useQuery({ queryKey: keys.roles, queryFn: settingsApi.roles });
@@ -29,6 +31,17 @@ function RoleChecks({ value, onChange }: { value: string[]; onChange: (ids: stri
         </label>
       ))}
     </div>
+  );
+}
+
+/** Руководитель (ADR-0020): активные сотрудники ИБ, кроме самого пользователя. */
+function ManagerSelect({ value, onChange, exclude, form }: { value: string; onChange: (id: string) => void; exclude?: string; form?: string }) {
+  const options = useQuery({ queryKey: keys.userOptions, queryFn: settingsApi.userOptions });
+  return (
+    <select className="inp" form={form} value={value} onChange={(e) => onChange(e.target.value)} aria-label="Руководитель">
+      <option value="">Руководитель не назначен</option>
+      {options.data?.items.filter((o) => o.id !== exclude).map((o) => <option key={o.id} value={o.id}>{o.fullName}</option>)}
+    </select>
   );
 }
 
@@ -46,13 +59,14 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
   const [shown, setShown] = useState<{ title: string; result: WithTemporaryPassword } | null>(null);
 
   const invalidate = [keys.users, keys.roles, keys.userOptions, keys.journal, ['auth', 'me']];
-  const create = useAction(() => settingsApi.createUser({ ...add, login: add.login.trim() }), {
+  const create = useAction(() => settingsApi.createUser({ ...add, login: add.login.trim(), managerId: add.managerId || null }), {
     invalidate,
     success: (r) => `Пользователь ${r.user.fullName} создан`,
     onDone: (r) => { setAdd(empty); setShown({ title: 'Пользователь создан', result: r }); },
   });
   const save = useAction((u: AdminUser) => settingsApi.updateUser(u.id, {
     version: u.version, fullName: edit.fullName, position: edit.position, department: edit.department, roleIds: edit.roleIds,
+    managerId: edit.managerId || null,
   }), { invalidate, success: (r) => `Сохранено: ${r.fullName}`, onDone: () => setEditId(null) });
   const toggleActive = useAction((u: AdminUser) => (u.isActive ? settingsApi.disableUser(u.id, u.version) : settingsApi.enableUser(u.id, u.version)), {
     invalidate,
@@ -96,7 +110,8 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                         e.preventDefault();
                         const sameRoles = [...edit.roleIds].sort().join() === u.roles.map((r) => r.id).sort().join();
                         const same = sameRoles && edit.fullName.trim() === u.fullName &&
-                          edit.position.trim() === u.position && edit.department.trim() === u.department;
+                          edit.position.trim() === u.position && edit.department.trim() === u.department &&
+                          edit.managerId === (u.manager?.id ?? '');
                         if (same) setEditId(null);
                         else save.mutate(u);
                       }} />
@@ -106,6 +121,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                     <td>
                       <input form={`ue-${u.id}`} className="inp" placeholder="Должность" value={edit.position} onChange={(e) => setEdit({ ...edit, position: e.target.value })} aria-label="Должность" />
                       <input form={`ue-${u.id}`} className="inp mt6" placeholder="Подразделение" value={edit.department} onChange={(e) => setEdit({ ...edit, department: e.target.value })} aria-label="Подразделение" />
+                      <div className="mt6"><ManagerSelect form={`ue-${u.id}`} value={edit.managerId} exclude={u.id} onChange={(managerId) => setEdit({ ...edit, managerId })} /></div>
                     </td>
                     <td><RoleChecks value={edit.roleIds} onChange={(roleIds) => setEdit({ ...edit, roleIds })} /></td>
                     <td />
@@ -129,7 +145,15 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                       </div>
                     </div>
                   </td>
-                  <td>{u.position || '—'}<div className="hint">{u.department}</div></td>
+                  <td>
+                    {u.position || '—'}<div className="hint">{u.department}</div>
+                    {u.manager && (
+                      <div className="hint" data-manager={u.manager.id}>
+                        Руководитель: {u.manager.fullName}{!u.manager.isActive && ' (отключён)'}
+                      </div>
+                    )}
+                    {u.subordinateCount > 0 && <div className="hint">Подчинённых: {u.subordinateCount}</div>}
+                  </td>
                   <td>
                     <div className="cover">
                       {u.roles.length ? u.roles.map((r) => <span key={r.id} className="chip info">{r.name}</span>) : <span className="hint">нет ролей</span>}
@@ -148,7 +172,10 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                       <div className="row act">
                         <button className="btn ghost sm" type="button" onClick={() => {
                           setEditId(u.id);
-                          setEdit({ fullName: u.fullName, login: u.login, position: u.position, department: u.department, roleIds: u.roles.map((r) => r.id) });
+                          setEdit({
+                            fullName: u.fullName, login: u.login, position: u.position, department: u.department,
+                            roleIds: u.roles.map((r) => r.id), managerId: u.manager?.id ?? '',
+                          });
                         }}>Изменить</button>
                         {u.locked && <button className="btn ghost sm" type="button" onClick={() => unlock.mutate(u)} disabled={unlock.isPending}>Разблокировать</button>}
                         {!self && u.isActive && <button className="btn ghost sm" type="button" onClick={() => reset.mutate(u)} disabled={reset.isPending}>Сбросить пароль</button>}
@@ -177,6 +204,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
           <label>Логин<input className="inp" required placeholder="i.ivanov" autoComplete="off" value={add.login} onChange={(e) => setAdd({ ...add, login: e.target.value })} /></label>
           <label>Должность<input className="inp" placeholder="Специалист" value={add.position} onChange={(e) => setAdd({ ...add, position: e.target.value })} /></label>
           <label>Подразделение<input className="inp" placeholder="Отдел ИБ" value={add.department} onChange={(e) => setAdd({ ...add, department: e.target.value })} /></label>
+          <label>Руководитель<ManagerSelect value={add.managerId} onChange={(managerId) => setAdd({ ...add, managerId })} /></label>
           <div className="field-roles"><span className="eyebrow">Роли</span><RoleChecks value={add.roleIds} onChange={(roleIds) => setAdd({ ...add, roleIds })} /></div>
           <button className="btn primary" type="submit" disabled={create.isPending}>Добавить</button>
         </form>
@@ -185,6 +213,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
         <div className="note">
           Пароль новому пользователю и при сбросе генерирует портал: он показывается один раз, при первом входе пользователь задаёт свой.
           Срок действия пароля — 90 дней. Этап документа согласует только пользователь с правом этого этапа.
+          Руководитель — сотрудник ИБ; все, кто выше по цепочке руководителей, — старшие над пользователем.
         </div>
       </div>
       {shown && (

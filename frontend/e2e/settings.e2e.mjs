@@ -328,12 +328,17 @@ describe('Пользователи', () => {
     await ui.waitFor(`!document.querySelector('[role=dialog]')`, 'окно закрыто');
     await revealRow(login);
 
+    // Руководитель (релиз 1.2.0) — тот, кто запускает тест: сотрудник ИБ.
+    const meId = await ui.evaluate(`fetch('/api/v1/auth/me').then((r) => r.json()).then((j) => j.user.id)`);
     const req = await editRow(login, async () => {
       await ui.type($.input('Должность'), 'Аудитор (e2e)');
       await ui.click(`[...document.querySelectorAll('tr.editing .role-checks label')].find((l) => l.textContent.includes('Сотрудник ИБ'))?.querySelector('input')`);
+      await ui.select(`document.querySelector('tr.editing select[aria-label="Руководитель"]')`, meId, '«Руководитель»');
     }, 'PATCH', '/users/');
     assert.equal(req.json.position, 'Аудитор (e2e)');
     assert.equal(req.json.roleIds.length, 1);
+    assert.equal(req.json.managerId, meId);
+    await ui.waitFor(`!!${$.row(login)}?.querySelector('[data-manager="${meId}"]')`, 'руководитель в строке пользователя');
 
     // Блокировка входа: 5 неверных паролей по API (тем же путём через прокси).
     for (let i = 0; i < 5; i++) {

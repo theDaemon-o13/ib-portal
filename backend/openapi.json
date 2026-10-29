@@ -154,13 +154,20 @@
                               "records.delete",
                               "registers.manage",
                               "tasks.delete",
+                              "tasks.assign",
+                              "tasks.review",
+                              "tasks.status.override",
+                              "tasks.report",
                               "evidence.review",
                               "docs.manage",
+                              "docs.delete",
                               "docs.approve.head",
                               "docs.approve.legal",
                               "docs.approve.board",
                               "settings.manage",
                               "users.manage",
+                              "history.view",
+                              "audit.view",
                               "monitor.kiosk"
                             ]
                           }
@@ -410,13 +417,20 @@
                               "records.delete",
                               "registers.manage",
                               "tasks.delete",
+                              "tasks.assign",
+                              "tasks.review",
+                              "tasks.status.override",
+                              "tasks.report",
                               "evidence.review",
                               "docs.manage",
+                              "docs.delete",
                               "docs.approve.head",
                               "docs.approve.legal",
                               "docs.approve.board",
                               "settings.manage",
                               "users.manage",
+                              "history.view",
+                              "audit.view",
                               "monitor.kiosk"
                             ]
                           }
@@ -562,13 +576,20 @@
                               "records.delete",
                               "registers.manage",
                               "tasks.delete",
+                              "tasks.assign",
+                              "tasks.review",
+                              "tasks.status.override",
+                              "tasks.report",
                               "evidence.review",
                               "docs.manage",
+                              "docs.delete",
                               "docs.approve.head",
                               "docs.approve.legal",
                               "docs.approve.board",
                               "settings.manage",
                               "users.manage",
+                              "history.view",
+                              "audit.view",
                               "monitor.kiosk"
                             ]
                           }
@@ -8231,6 +8252,42 @@
                               "additionalProperties": false
                             }
                           },
+                          "manager": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "login": {
+                                    "type": "string"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  },
+                                  "isActive": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "login",
+                                  "fullName",
+                                  "isActive"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "subordinateCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "mustChangePassword": {
                             "type": "boolean"
                           },
@@ -8266,6 +8323,8 @@
                           "department",
                           "isActive",
                           "roles",
+                          "manager",
+                          "subordinateCount",
                           "mustChangePassword",
                           "passwordExpiresAt",
                           "locked",
@@ -8528,6 +8587,18 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     }
+                  },
+                  "managerId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -8588,6 +8659,42 @@
                             "additionalProperties": false
                           }
                         },
+                        "manager": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "login": {
+                                  "type": "string"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                },
+                                "isActive": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "login",
+                                "fullName",
+                                "isActive"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "subordinateCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
                         "mustChangePassword": {
                           "type": "boolean"
                         },
@@ -8623,6 +8730,8 @@
                         "department",
                         "isActive",
                         "roles",
+                        "manager",
+                        "subordinateCount",
                         "mustChangePassword",
                         "passwordExpiresAt",
                         "locked",
@@ -9107,7 +9216,7 @@
     },
     "/api/v1/users/{id}": {
       "patch": {
-        "summary": "Изменить ФИО, должность, подразделение, роли",
+        "summary": "Изменить ФИО, должность, подразделение, роли, руководителя",
         "tags": [
           "users"
         ],
@@ -9143,6 +9252,18 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     }
+                  },
+                  "managerId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -9210,6 +9331,42 @@
                         "additionalProperties": false
                       }
                     },
+                    "manager": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "login": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "login",
+                            "fullName",
+                            "isActive"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subordinateCount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -9245,6 +9402,8 @@
                     "department",
                     "isActive",
                     "roles",
+                    "manager",
+                    "subordinateCount",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -9538,6 +9697,42 @@
                         "additionalProperties": false
                       }
                     },
+                    "manager": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "login": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "login",
+                            "fullName",
+                            "isActive"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subordinateCount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -9573,6 +9768,8 @@
                     "department",
                     "isActive",
                     "roles",
+                    "manager",
+                    "subordinateCount",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -9866,6 +10063,42 @@
                         "additionalProperties": false
                       }
                     },
+                    "manager": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "login": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "login",
+                            "fullName",
+                            "isActive"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subordinateCount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -9901,6 +10134,8 @@
                     "department",
                     "isActive",
                     "roles",
+                    "manager",
+                    "subordinateCount",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -10197,6 +10432,42 @@
                             "additionalProperties": false
                           }
                         },
+                        "manager": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "login": {
+                                  "type": "string"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                },
+                                "isActive": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "login",
+                                "fullName",
+                                "isActive"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "subordinateCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
                         "mustChangePassword": {
                           "type": "boolean"
                         },
@@ -10232,6 +10503,8 @@
                         "department",
                         "isActive",
                         "roles",
+                        "manager",
+                        "subordinateCount",
                         "mustChangePassword",
                         "passwordExpiresAt",
                         "locked",
@@ -10535,6 +10808,42 @@
                         "additionalProperties": false
                       }
                     },
+                    "manager": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "login": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "login",
+                            "fullName",
+                            "isActive"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subordinateCount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -10570,6 +10879,8 @@
                     "department",
                     "isActive",
                     "roles",
+                    "manager",
+                    "subordinateCount",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -11076,13 +11387,20 @@
                                 "records.delete",
                                 "registers.manage",
                                 "tasks.delete",
+                                "tasks.assign",
+                                "tasks.review",
+                                "tasks.status.override",
+                                "tasks.report",
                                 "evidence.review",
                                 "docs.manage",
+                                "docs.delete",
                                 "docs.approve.head",
                                 "docs.approve.legal",
                                 "docs.approve.board",
                                 "settings.manage",
                                 "users.manage",
+                                "history.view",
+                                "audit.view",
                                 "monitor.kiosk"
                               ]
                             }
@@ -11097,13 +11415,20 @@
                                 "records.delete",
                                 "registers.manage",
                                 "tasks.delete",
+                                "tasks.assign",
+                                "tasks.review",
+                                "tasks.status.override",
+                                "tasks.report",
                                 "evidence.review",
                                 "docs.manage",
+                                "docs.delete",
                                 "docs.approve.head",
                                 "docs.approve.legal",
                                 "docs.approve.board",
                                 "settings.manage",
                                 "users.manage",
+                                "history.view",
+                                "audit.view",
                                 "monitor.kiosk"
                               ]
                             }
@@ -11118,13 +11443,20 @@
                                 "records.delete",
                                 "registers.manage",
                                 "tasks.delete",
+                                "tasks.assign",
+                                "tasks.review",
+                                "tasks.status.override",
+                                "tasks.report",
                                 "evidence.review",
                                 "docs.manage",
+                                "docs.delete",
                                 "docs.approve.head",
                                 "docs.approve.legal",
                                 "docs.approve.board",
                                 "settings.manage",
                                 "users.manage",
+                                "history.view",
+                                "audit.view",
                                 "monitor.kiosk"
                               ]
                             }
@@ -11433,13 +11765,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -11454,13 +11793,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -11475,13 +11821,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -11801,13 +12154,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -11822,13 +12182,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -11843,13 +12210,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -12365,13 +12739,20 @@
                 "records.delete",
                 "registers.manage",
                 "tasks.delete",
+                "tasks.assign",
+                "tasks.review",
+                "tasks.status.override",
+                "tasks.report",
                 "evidence.review",
                 "docs.manage",
+                "docs.delete",
                 "docs.approve.head",
                 "docs.approve.legal",
                 "docs.approve.board",
                 "settings.manage",
                 "users.manage",
+                "history.view",
+                "audit.view",
                 "monitor.kiosk"
               ]
             },
@@ -12421,13 +12802,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -12442,13 +12830,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }
@@ -12463,13 +12858,20 @@
                           "records.delete",
                           "registers.manage",
                           "tasks.delete",
+                          "tasks.assign",
+                          "tasks.review",
+                          "tasks.status.override",
+                          "tasks.report",
                           "evidence.review",
                           "docs.manage",
+                          "docs.delete",
                           "docs.approve.head",
                           "docs.approve.legal",
                           "docs.approve.board",
                           "settings.manage",
                           "users.manage",
+                          "history.view",
+                          "audit.view",
                           "monitor.kiosk"
                         ]
                       }

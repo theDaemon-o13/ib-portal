@@ -19,6 +19,10 @@ export const AdminUser = z.object({
   department: z.string(),
   isActive: z.boolean(),
   roles: z.array(z.object({ id: z.string(), name: z.string() })),
+  /** Руководитель (ADR-0020); null — не назначен. */
+  manager: z.object({ id: z.string(), login: z.string(), fullName: z.string(), isActive: z.boolean() }).nullable(),
+  /** Прямых подчинённых. */
+  subordinateCount: z.number().int(),
   mustChangePassword: z.boolean(),
   passwordExpiresAt: z.string(),
   locked: z.boolean(),
@@ -65,6 +69,7 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher 
         position: Text.default(''),
         department: Text.default(''),
         roleIds: z.array(z.string().uuid()).max(50),
+        managerId: z.string().uuid().nullable().optional(),
       }),
       response: { 201: WithTemporaryPassword, ...errors },
     },
@@ -73,12 +78,13 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher 
   app.patch('/users/:id', {
     preHandler: manage,
     schema: {
-      tags, summary: 'Изменить ФИО, должность, подразделение, роли', params: IdParams,
+      tags, summary: 'Изменить ФИО, должность, подразделение, роли, руководителя', params: IdParams,
       body: Version.extend({
         fullName: z.string().trim().min(1).max(200).optional(),
         position: Text.optional(),
         department: Text.optional(),
         roleIds: z.array(z.string().uuid()).max(50).optional(),
+        managerId: z.string().uuid().nullable().optional(),
       }),
       response: { 200: AdminUser, ...errors },
     },

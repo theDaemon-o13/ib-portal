@@ -29,11 +29,15 @@ model User {
   lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(3)
   lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(3)
   isActive           Boolean   @default(true) @map("is_active")
+  /// Руководитель (релиз 1.2.0, ADR-0020): «старшие» — вся цепочка выше. Только пользователи с ib.work; цикл запрещён триггером.
+  managerId          String?   @map("manager_id") @db.Uuid
   version            Int       @default(1)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   passwordHistory      PasswordHistory[]
+  manager              User?                @relation("UserManager", fields: [managerId], references: [id], onDelete: Restrict)
+  subordinates         User[]               @relation("UserManager")
   mailRules            CatalogItem[]
   ownedRegisters       Register[]
   decisions            RegisterDecision[]
@@ -68,6 +72,7 @@ model User {
   sessions             Session[]
   auditEntries         AuditLog[]
 
+  @@index([managerId])
   @@map("users")
 }
 

@@ -99,7 +99,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -246,7 +246,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -319,7 +319,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -3615,6 +3615,13 @@ export interface paths {
                                     id: string;
                                     name: string;
                                 }[];
+                                manager: {
+                                    id: string;
+                                    login: string;
+                                    fullName: string;
+                                    isActive: boolean;
+                                } | null;
+                                subordinateCount: number;
                                 mustChangePassword: boolean;
                                 passwordExpiresAt: string;
                                 locked: boolean;
@@ -3732,6 +3739,7 @@ export interface paths {
                         /** @default  */
                         department?: string;
                         roleIds: string[];
+                        managerId?: string | null;
                     };
                 };
             };
@@ -3754,6 +3762,13 @@ export interface paths {
                                     id: string;
                                     name: string;
                                 }[];
+                                manager: {
+                                    id: string;
+                                    login: string;
+                                    fullName: string;
+                                    isActive: boolean;
+                                } | null;
+                                subordinateCount: number;
                                 mustChangePassword: boolean;
                                 passwordExpiresAt: string;
                                 locked: boolean;
@@ -4001,7 +4016,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Изменить ФИО, должность, подразделение, роли */
+        /** Изменить ФИО, должность, подразделение, роли, руководителя */
         patch: {
             parameters: {
                 query?: never;
@@ -4019,6 +4034,7 @@ export interface paths {
                         position?: string;
                         department?: string;
                         roleIds?: string[];
+                        managerId?: string | null;
                     };
                 };
             };
@@ -4040,6 +4056,13 @@ export interface paths {
                                 id: string;
                                 name: string;
                             }[];
+                            manager: {
+                                id: string;
+                                login: string;
+                                fullName: string;
+                                isActive: boolean;
+                            } | null;
+                            subordinateCount: number;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4182,6 +4205,13 @@ export interface paths {
                                 id: string;
                                 name: string;
                             }[];
+                            manager: {
+                                id: string;
+                                login: string;
+                                fullName: string;
+                                isActive: boolean;
+                            } | null;
+                            subordinateCount: number;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4328,6 +4358,13 @@ export interface paths {
                                 id: string;
                                 name: string;
                             }[];
+                            manager: {
+                                id: string;
+                                login: string;
+                                fullName: string;
+                                isActive: boolean;
+                            } | null;
+                            subordinateCount: number;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4475,6 +4512,13 @@ export interface paths {
                                     id: string;
                                     name: string;
                                 }[];
+                                manager: {
+                                    id: string;
+                                    login: string;
+                                    fullName: string;
+                                    isActive: boolean;
+                                } | null;
+                                subordinateCount: number;
                                 mustChangePassword: boolean;
                                 passwordExpiresAt: string;
                                 locked: boolean;
@@ -4623,6 +4667,13 @@ export interface paths {
                                 id: string;
                                 name: string;
                             }[];
+                            manager: {
+                                id: string;
+                                login: string;
+                                fullName: string;
+                                isActive: boolean;
+                            } | null;
+                            subordinateCount: number;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4883,9 +4934,9 @@ export interface paths {
                                 description: string;
                                 isSystem: boolean;
                                 version: number;
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                                 activeUserCount: number;
                                 userCount: number;
                             }[];
@@ -5011,9 +5062,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -5158,9 +5209,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -5397,7 +5448,7 @@ export interface paths {
                 header?: never;
                 path: {
                     id: string;
-                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk";
+                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk";
                 };
                 cookie?: never;
             };
@@ -5422,9 +5473,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "evidence.review" | "docs.manage" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "docs.approve.legal" | "docs.approve.board" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
