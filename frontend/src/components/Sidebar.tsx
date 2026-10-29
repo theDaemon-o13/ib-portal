@@ -9,6 +9,7 @@ import { isKiosk, visibleNav } from '../nav';
 import { PortalCredit } from './AboutPortal';
 import { Brand } from './Brand';
 import { Icon } from './Icons';
+import { NotificationBell } from './NotificationBell';
 import { ThemeSwitch } from './ThemeSwitch';
 
 function initials(fullName: string): string {
@@ -19,7 +20,7 @@ function initials(fullName: string): string {
 export function Sidebar({ me }: { me: Me }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  // Уведомления пока только внутри портала: число просроченных задач отдела у пункта «Задачи».
+  // Число просроченных задач отдела у пункта «Задачи»; уведомления — значок рядом с «Портал ИБ».
   const summary = useQuery({
     queryKey: tkeys.summary,
     queryFn: tasksApi.summary,
@@ -44,7 +45,10 @@ export function Sidebar({ me }: { me: Me }) {
 
   return (
     <aside className="rail">
-      <Brand />
+      <div className="rail-top">
+        <Brand />
+        {!isKiosk(me.permissions) && <NotificationBell />}
+      </div>
       {!isKiosk(me.permissions) && me.permissions.some((p) => SEARCH_PERMS.includes(p)) && (
         <form className="rail-search" role="search" onSubmit={(e) => {
           e.preventDefault();
