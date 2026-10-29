@@ -10,6 +10,7 @@ import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsCo
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
+import { TaskReportDialog } from './TaskReportDialog';
 
 /** Сдвиг указателя, после которого нажатие на карточку — перетаскивание, а не щелчок. */
 const DRAG_PX = 5;
@@ -109,6 +110,7 @@ export function TasksPage() {
   // ?overdue=1 — ссылка с дашборда «Просроченные задачи».
   const overdue = params.get('overdue') === '1' && !archived;
   const [mailOpen, setMailOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [drag, setDrag] = useState<Drag | null>(null);
   // Перетаскивание в колонку, где нужен комментарий: окно «Комментарий к переходу».
   const [pendingMove, setPendingMove] = useState<{ t: Task; statusId: string; comment: string } | null>(null);
@@ -257,6 +259,7 @@ export function TasksPage() {
             </select>
           )}
           <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
+          {me.permissions.includes('tasks.report') && <button type="button" className="btn" onClick={() => setReportOpen(true)}>Отчёт</button>}
         </div>
       </div>
       {picking && (
@@ -338,6 +341,7 @@ export function TasksPage() {
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}
       {mailOpen && <MailDrawer meId={me.id} canAssign={canAssign} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}
+      {reportOpen && <TaskReportDialog onClose={() => setReportOpen(false)} />}
       {pendingMove && (
         <Overlay>
           <div className="backdrop" role="presentation">

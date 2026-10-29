@@ -8,6 +8,9 @@ import { describeRules } from '../automations/service.js';
 import * as bulk from './bulk.js';
 import type { TaskActor } from './flow.js';
 import { PROCESS_ACTIONS, runAction, withActions } from './process.js';
+import { exportTaskReport, REPORT_LIMIT, REPORT_PERIODS } from './report.js';
+
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 import * as svc from './service.js';
 
 const tags = ['tasks'];
@@ -108,6 +111,33 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     preHandler: view,
     schema: { tags, summary: 'Просроченные задачи: всего и мои (счётчик в меню)', response: { 200: z.object({ overdue: z.number().int(), overdueMine: z.number().int() }), ...errors } },
   }, async (request) => svc.taskSummary(db, actorOf(request).id));
+
+  // Отчёт в Excel (релиз 1.2.0, ADR-0022) — по праву «Задачи: отчёт».
+  app.get('/tasks/report', {
+    preHandler: requirePerm('tasks.report'),
+    schema: {
+      tags, summary: `Отчёт по задачам в Excel (до ${REPORT_LIMIT} задач; больше — 409 «Сузьте период»)`,
+      querystring: z.object({
+        period: z.enum(REPORT_PERIODS).default('created'),
+        from: IsoDate.optional(),
+        to: IsoDate.optional(),
+        assigneeId: z.string().uuid().optional(),
+        creatorId: z.string().uuid().optional(),
+        categoryId: z.string().uuid().optional(),
+        statusId: z.string().uuid().optional(),
+        overdue: z.enum(['true', 'false']).optional(),
+        archived: z.enum(['true', 'false']).optional(),
+      }),
+    },
+  }, async (request, reply) => {
+    const q = request.query;
+    const { fileName, buffer } = await exportTaskReport(db, actorOf(request), { ...q, overdue: q.overdue === 'true', archived: q.archived === 'true' });
+    return reply
+      .header('Content-Type', XLSX_TYPE)
+      .header('Content-Disposition', `attachment; filename="tasks-report.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+      .header('Cache-Control', 'no-store')
+      .send(buffer);
+  });
 
   app.post('/tasks/mail-draft', {
     preHandler: view,

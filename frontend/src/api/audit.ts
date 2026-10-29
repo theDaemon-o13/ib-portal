@@ -26,7 +26,8 @@ export function toApiQuery(f: AuditFilter): URLSearchParams {
   return p;
 }
 
-function fileNameFrom(header: string | null, fallback: string): string {
+/** Имя файла из Content-Disposition (filename*=UTF-8''…). */
+export function fileNameFrom(header: string | null, fallback: string): string {
   const m = header ? /filename\*=UTF-8''([^;]+)/i.exec(header) : null;
   try {
     return m?.[1] ? decodeURIComponent(m[1]) : fallback;

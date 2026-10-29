@@ -193,6 +193,7 @@ describe('Процесс по кнопкам', () => {
       await openBoard();
       assert.match(await ui.text(`document.querySelector('.head p')`), /Статус меняется кнопками в карточке/);
       assert.equal(await ui.evaluate(`${card('процесс')}.classList.contains('static')`), true, 'карточка не перетаскивается');
+      assert.equal(await ui.evaluate(`!!${$.button('Отчёт')}`), false, 'без права «Задачи: отчёт» кнопки нет');
       assert.deepEqual(await ui.evaluate(`[...document.querySelector('form.quick select[aria-label="Ответственный"]').options].map((o) => o.textContent)`),
         ['— не назначен', `Сотрудник Задач ${RUN} (я)`], 'без права — только «я» или «не назначен»');
 
@@ -253,6 +254,30 @@ describe('Процесс по кнопкам', () => {
     assert.equal(req.status, 200, req.body);
     assert.deepEqual(req.json, { version: t.version, statusId: review.id, comment: 'Перенёс сам' });
     await ui.waitFor(`!${dlg} && ${col(review.value)}.contains(${card('с комментарием')})`, 'карточка в «На проверке»');
+  });
+});
+
+describe('Отчёт по задачам', () => {
+  it('окно фильтров → «Выгрузить в Excel»: запрос с фильтрами, файл', async () => {
+    await makeTask('в отчёт', { dueDate: '2020-01-10' });
+    await openBoard();
+    await ui.click($.button('Отчёт'));
+    const dlg = `document.querySelector('form[aria-labelledby="tr-title"]')`;
+    await ui.waitFor(`!!${dlg}`, 'окно «Отчёт по задачам»');
+    await ui.select(label('Период', dlg), 'due');
+    // Поле type=date заполняется значением целиком: посимвольный ввод даты зависит от локали браузера.
+    for (const [name, v] of [['С', '2020-01-01'], ['По', '2020-01-31']]) {
+      await ui.evaluate(`(() => { const el = ${label(name, dlg)};
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(v)});
+        el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    }
+    await ui.click(`[...${dlg}.querySelectorAll('label.chk')].find((l) => l.textContent.includes('только просроченные')).querySelector('input')`);
+    const m = ui.mark();
+    await ui.click($.button('Выгрузить в Excel', dlg));
+    const res = await ui.request(m, 'GET', '/api/v1/tasks/report');
+    const q = new URL(res.url, BASE).searchParams;
+    assert.deepEqual([q.get('period'), q.get('from'), q.get('to'), q.get('overdue')], ['due', '2020-01-01', '2020-01-31', 'true']);
+    await ui.waitFor(`!${dlg} && document.body.textContent.includes('Выгружено: Отчёт по задачам')`, 'отчёт выгружен');
   });
 });
 

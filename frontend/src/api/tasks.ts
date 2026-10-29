@@ -1,5 +1,6 @@
 // Запросы раздела «Задачи». Типы — из сгенерированной схемы OpenAPI.
-import { request, type JsonOf } from './client';
+import { fileNameFrom } from './audit';
+import { ApiError, request, type JsonOf } from './client';
 import type { paths } from './generated/schema';
 
 type Res<P extends keyof paths, M extends keyof paths[P], S extends number = 200> = paths[P][M] extends { responses: infer R }
@@ -18,6 +19,8 @@ export type TaskPatch = Body<'/api/v1/tasks/{id}', 'patch'>;
 export type TaskSummary = Res<'/api/v1/tasks/summary', 'get'>;
 export type TaskBulkPreview = Res<'/api/v1/tasks/bulk-delete/preview', 'post'>;
 export type TaskBulkResult = Res<'/api/v1/tasks/bulk-delete/apply', 'post'>;
+/** Фильтр отчёта: период — по дате создания (по умолчанию), сроку или выполнению; даты YYYY-MM-DD включительно. */
+export type TaskReportFilter = NonNullable<paths['/api/v1/tasks/report']['get']['parameters']['query']>;
 
 export const tasksApi = {
   list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean }) =>
@@ -40,6 +43,17 @@ export const tasksApi = {
   addComment: (id: string, body: string) => request<TaskComment>('POST', `/api/v1/tasks/${id}/comments`, { body }),
   history: (id: string) => request<Res<'/api/v1/tasks/{id}/history', 'get'>>('GET', `/api/v1/tasks/${id}/history`),
   mailDraft: (raw: string) => request<MailDraft>('POST', '/api/v1/tasks/mail-draft', { raw }),
+  // Отчёт в Excel (релиз 1.2.0) — по праву tasks.report; больше 100 000 задач — 409 «Сузьте период».
+  async report(f: TaskReportFilter): Promise<{ blob: Blob; fileName: string }> {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(f)) if (v) p.set(k, String(v));
+    const res = await fetch(`/api/v1/tasks/report?${p.toString()}`, { credentials: 'same-origin' });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+      throw new ApiError(res.status, data?.error?.code ?? 'UNKNOWN', data?.error?.message ?? 'Не удалось выгрузить отчёт');
+    }
+    return { blob: await res.blob(), fileName: fileNameFrom(res.headers.get('Content-Disposition'), 'отчёт по задачам.xlsx') };
+  },
 };
 
 export const tkeys = {

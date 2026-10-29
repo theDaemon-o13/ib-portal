@@ -69,6 +69,7 @@ const ACTION_LABELS: Record<string, string> = {
   'register_records.compare_status': 'Статус по результату сравнения',
   'tasks.bulk_archive': 'Задачи отправлены в архив (выбранные)',
   'tasks.bulk_delete': 'Задачи удалены (выбранные)',
+  'tasks.report_exported': 'Отчёт по задачам выгружен в Excel',
   'task.commented': 'Комментарий к задаче',
   'task.transition': 'Задача: переход между колонками',
   'document.submitted': 'Документ отправлен на согласование',

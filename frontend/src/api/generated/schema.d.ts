@@ -19751,6 +19751,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Отчёт по задачам в Excel (до 100000 задач; больше — 409 «Сузьте период») */
+        get: {
+            parameters: {
+                query?: {
+                    period?: "created" | "due" | "completed";
+                    from?: string;
+                    to?: string;
+                    assigneeId?: string;
+                    creatorId?: string;
+                    categoryId?: string;
+                    statusId?: string;
+                    overdue?: "true" | "false";
+                    archived?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/mail-draft": {
         parameters: {
             query?: never;
