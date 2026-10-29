@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload } from './logic';
+import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -65,5 +65,12 @@ describe('процесс по кнопкам', () => {
     expect(processHint({ ...review, assignee: { id: 'b', fullName: 'Б' } }, 'me', ['tasks.review'])).toMatch(/автор задачи или руководитель исполнителя$/);
     expect(processHint({ ...review, status: st('w', 'work'), assignee: { id: 'b', fullName: 'Б' } }, 'me', [])).toMatch(/исполнитель/);
     expect(processHint({ ...review, actions: ['accept'] }, 'me', [])).toBeNull();
+  });
+});
+
+describe('панель «Загрузка сотрудников»', () => {
+  it('запомненный выбор главнее ширины; без выбора — открыта с 1600 px', () => {
+    expect([workloadOpen(null, 1366), workloadOpen(null, 1440), workloadOpen(null, 1920)]).toEqual([false, false, true]);
+    expect([workloadOpen('1', 1366), workloadOpen('0', 1920), workloadOpen('x', 1366)]).toEqual([true, false, false]);
   });
 });

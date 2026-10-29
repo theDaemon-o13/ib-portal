@@ -6,7 +6,7 @@ import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type Task } from '../../api/tasks';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
-import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, workload, type ProcessAction } from './logic';
+import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, workload, workloadOpen, WORKLOAD_KEY, type ProcessAction } from './logic';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
@@ -29,6 +29,21 @@ function plusDays(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() + n);
   return todayLocal(d);
+}
+
+function loadWorkloadOpen(): boolean {
+  try {
+    return workloadOpen(window.localStorage.getItem(WORKLOAD_KEY), window.innerWidth);
+  } catch {
+    return workloadOpen(null, window.innerWidth);
+  }
+}
+function saveWorkloadOpen(open: boolean) {
+  try {
+    window.localStorage.setItem(WORKLOAD_KEY, open ? '1' : '0');
+  } catch {
+    // хранилище недоступно — выбор просто не запомнится
+  }
 }
 
 function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick }: {
@@ -111,6 +126,9 @@ export function TasksPage() {
   const overdue = params.get('overdue') === '1' && !archived;
   const [mailOpen, setMailOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  // «Загрузка сотрудников» сворачивается, чтобы пять колонок помещались на 1366–1440 px без прокрутки.
+  const [showWorkload, setShowWorkload] = useState(loadWorkloadOpen);
+  const toggleWorkload = () => setShowWorkload((v) => { saveWorkloadOpen(!v); return !v; });
   const [drag, setDrag] = useState<Drag | null>(null);
   // Перетаскивание в колонку, где нужен комментарий: окно «Комментарий к переходу».
   const [pendingMove, setPendingMove] = useState<{ t: Task; statusId: string; comment: string } | null>(null);
@@ -260,6 +278,7 @@ export function TasksPage() {
           )}
           <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
           {me.permissions.includes('tasks.report') && <button type="button" className="btn" onClick={() => setReportOpen(true)}>Отчёт</button>}
+          {!showWorkload && <button type="button" className="btn" aria-expanded={false} onClick={toggleWorkload}>Загрузка сотрудников</button>}
         </div>
       </div>
       {picking && (
@@ -301,7 +320,7 @@ export function TasksPage() {
         </form>
       )}
       {tasks.isError && <div className="form-error">{tasks.error.message}</div>}
-      <div className="tasks-grid">
+      <div className={`tasks-grid${showWorkload ? '' : ' wide'}`}>
         <div className={`board${drag?.moving ? ' is-dragging' : ''}`}>
           {cols.map((c) => {
             const items = sortColumn(list.filter((t) => t.status.id === c.id));
@@ -317,9 +336,13 @@ export function TasksPage() {
             );
           })}
         </div>
-        <div className="grid-gap">
+        {showWorkload && <div className="grid-gap">
           <section className="panel">
-            <div className="panel-h"><h3>Загрузка сотрудников</h3><span className="sub">открытые задачи</span></div>
+            <div className="panel-h">
+              <h3>Загрузка сотрудников</h3>
+              <button type="button" className="btn ghost sm" aria-expanded onClick={toggleWorkload} title="Скрыть панель: колонкам доски станет шире">Скрыть</button>
+            </div>
+            <div className="panel-b hint wl-sub">открытые задачи</div>
             <div className="panel-b">
               <div className="bars">
                 {workload(list).map((w) => {
@@ -336,7 +359,7 @@ export function TasksPage() {
               </div>
             </div>
           </section>
-        </div>
+        </div>}
       </div>
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}

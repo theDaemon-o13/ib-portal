@@ -99,3 +99,16 @@ export function cardStep(t: Pick<Task, 'actions'>): { action: ProcessAction | 'r
   if (!a) return null;
   return { action: a, label: a === 'submit' ? 'На проверку' : ACTION_LABEL[a] };
 }
+
+// ---------------------------------------------------------------- панель «Загрузка сотрудников»
+
+/** С какой ширины окна панель по умолчанию открыта: пять колонок по 180 px и панель 304 px помещаются без прокрутки. */
+export const WORKLOAD_OPEN_FROM = 1600;
+export const WORKLOAD_KEY = 'ibportal.tasks.workload';
+
+/** Запомненный выбор ('1' / '0') главнее ширины окна; без выбора — открыта только на широком экране. */
+export function workloadOpen(stored: string | null, viewportWidth: number): boolean {
+  if (stored === '1') return true;
+  if (stored === '0') return false;
+  return viewportWidth >= WORKLOAD_OPEN_FROM;
+}

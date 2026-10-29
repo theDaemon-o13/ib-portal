@@ -158,6 +158,30 @@ describe('Доска задач', () => {
   });
 });
 
+describe('Ширина доски', () => {
+  it('1366 px: пять колонок без прокрутки, «Загрузка сотрудников» свёрнута; открыть — запоминается после перезагрузки', async () => {
+    const board = `document.querySelector('.board')`;
+    const panel = `[...document.querySelectorAll('.tasks-grid .panel h3')].some((h) => h.textContent === 'Загрузка сотрудников')`;
+    await ui.evaluate(`localStorage.removeItem('ibportal.tasks.workload')`);
+    try {
+      await ui.viewport(1366, 900);
+      await openBoard();
+      assert.equal(await ui.evaluate(panel), false, 'на 1366 панель по умолчанию свёрнута');
+      assert.equal(await ui.evaluate(`${board}.scrollWidth <= ${board}.clientWidth`), true, 'колонки без горизонтальной прокрутки');
+      await ui.click($.button('Загрузка сотрудников'));
+      await ui.waitFor(panel, 'панель открыта');
+      await openBoard();
+      assert.equal(await ui.evaluate(panel), true, 'открытая панель запомнилась');
+      await ui.click($.button('Скрыть'));
+      await openBoard();
+      assert.equal(await ui.evaluate(panel), false, 'скрытая панель запомнилась');
+    } finally {
+      await ui.evaluate(`localStorage.removeItem('ibportal.tasks.workload')`);
+      await ui.viewport(1440, 1000);
+    }
+  });
+});
+
 describe('Карточка задачи', () => {
   it('правка только изменённого, комментарий, история; «Отметить выполненной» больше нет', async () => {
     await makeTask('карточка');
