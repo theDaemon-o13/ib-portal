@@ -19332,6 +19332,7 @@ export interface paths {
                                 archived: boolean;
                                 commentCount: number;
                                 version: number;
+                                actions: ("take" | "start" | "submit" | "accept" | "return")[];
                             }[];
                             nextCursor: string | null;
                             total: number;
@@ -19529,6 +19530,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
+                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
                         };
                     };
                 };
@@ -19985,6 +19987,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
+                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
                             recipients: {
                                 label: string;
                                 emails: string[];
@@ -20096,7 +20099,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Изменить задачу (и перетаскивание: statusId). Нужна version; 409 — задачу успели изменить */
+        /** Изменить задачу. statusId (перетаскивание) — только с правом tasks.status.override, иначе 403; другого исполнителя — tasks.assign. Нужна version; 409 — задачу успели изменить */
         patch: {
             parameters: {
                 query?: never;
@@ -20120,6 +20123,7 @@ export interface paths {
                         categoryId?: string;
                         assigneeId?: string | null;
                         dueDate?: string | null;
+                        comment?: string;
                     };
                 };
             };
@@ -20191,6 +20195,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
+                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
                         };
                     };
                 };
@@ -20281,6 +20286,199 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/actions/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Шаг процесса: take — взять себе, start — в работу, submit — на проверку, accept — принять, return — вернуть в работу */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    action: "take" | "start" | "submit" | "accept" | "return";
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                number: number;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
+                            } | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/tasks/{id}/archive": {
@@ -20377,6 +20575,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
+                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
                         };
                     };
                 };
@@ -20567,6 +20766,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
+                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
                         };
                     };
                 };
@@ -21369,6 +21569,10 @@ export interface paths {
                                 } | null;
                                 automatic: boolean;
                                 createdAt: string;
+                                transition: {
+                                    from: string | null;
+                                    to: string;
+                                } | null;
                             }[];
                         };
                     };
@@ -21494,6 +21698,10 @@ export interface paths {
                             } | null;
                             automatic: boolean;
                             createdAt: string;
+                            transition: {
+                                from: string | null;
+                                to: string;
+                            } | null;
                         };
                     };
                 };

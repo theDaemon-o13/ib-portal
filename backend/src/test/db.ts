@@ -51,9 +51,10 @@ export async function makeUser(tx: Tx, roleCodes: string[], extra: Partial<Prism
   });
 }
 
-export async function actorFor(tx: Tx, userId: string): Promise<Actor> {
+/** Пользователь как в сессии: роли и сумма прав (права нужны процессу задач, ADR-0022). */
+export async function actorFor(tx: Tx, userId: string): Promise<Actor & { perms: ReadonlySet<string> }> {
   const roles = await tx.userRole.findMany({ where: { userId }, include: { role: true } });
-  return { id: userId, roleNames: roles.map((r) => r.role.name), ip: '127.0.0.1' };
+  return { id: userId, roleNames: roles.map((r) => r.role.name), ip: '127.0.0.1', perms: new Set(await permissionsOf(tx, userId)) };
 }
 
 export async function permissionsOf(tx: Tx, userId: string): Promise<PermissionCode[]> {

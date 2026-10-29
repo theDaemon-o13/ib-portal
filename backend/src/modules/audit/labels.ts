@@ -70,6 +70,7 @@ const ACTION_LABELS: Record<string, string> = {
   'tasks.bulk_archive': 'Задачи отправлены в архив (выбранные)',
   'tasks.bulk_delete': 'Задачи удалены (выбранные)',
   'task.commented': 'Комментарий к задаче',
+  'task.transition': 'Задача: переход между колонками',
   'document.submitted': 'Документ отправлен на согласование',
   'document.approved_stage': 'Этап документа согласован',
   'document.approved': 'Документ утверждён',

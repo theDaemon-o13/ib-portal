@@ -135,10 +135,10 @@ describe('события автоматизаций → задачи', () => {
       const comments = await svc.listComments(tx, first.id);
       expect(comments).toEqual([expect.objectContaining({ automatic: true, author: null, body: expect.stringMatching(/^Повторное срабатывание 2026-12-01/) })]);
 
-      // ДИКТ Первый закрыл задачу — следующее срабатывание создаёт ему новую, остальным — комментарий.
-      const actor1 = await actorFor(tx, dikt1.id);
+      // Задачу ДИКТ Первого закрыли — следующее срабатывание создаёт ему новую, остальным — комментарий.
+      const head = await actorFor(tx, (await makeUser(tx, ['ib_head'])).id);
       const doneId = await svc.systemItemId(tx, 'task_statuses', 'done');
-      const closed = await svc.updateTask(tx, actor1, first.id, { version: first.version, statusId: doneId });
+      const closed = await svc.updateTask(tx, head, first.id, { version: first.version, statusId: doneId, comment: 'Закрыта' });
       expect(closed.completedAt).not.toBeNull();
       rec = await records.updateRecord(tx, x.actor, a.id, { version: rec.version, values: { [x.vf.newDue.id]: '2026-11-25' } });
       expect(await automations.runAutomations(tx, { now: DEC_1, registerId: x.reg.id })).toMatchObject({ created: 1, tasksCreated: 1, tasksCommented: 2 });
@@ -231,13 +231,15 @@ describe('метка, не найденная при переносе на id (i
 });
 
 describe('задачи', () => {
-  it('доска: создать, правка с версией, «Готово», архив; ответственный — только сотрудник ИБ; комментарии и история', () =>
+  it('доска: создать, правка с версией, «Выполнено», архив; ответственный — только сотрудник ИБ; комментарии и история', () =>
     inTx(async (tx) => {
       const staff = await makeUser(tx, ['ib_staff'], { fullName: 'Сотрудник ИБ' });
       const outsider = await makeUser(tx, ['legal']);
       const actor = await actorFor(tx, staff.id);
+      // Статус в обход кнопок меняет только tasks.status.override (релиз 1.2.0) — здесь начальник ИБ.
+      const head = await actorFor(tx, (await makeUser(tx, ['ib_head'])).id);
       const project = await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: 'task_categories', value: 'Проект' } });
-      await expectCode(svc.createTask(tx, actor, { title: 'Х', categoryId: project.id, assigneeId: outsider.id }), 'BAD_ASSIGNEE');
+      await expectCode(svc.createTask(tx, head, { title: 'Х', categoryId: project.id, assigneeId: outsider.id }), 'BAD_ASSIGNEE');
       await expectCode(svc.createTask(tx, actor, { title: '  ', categoryId: project.id }), 'EMPTY_TITLE');
       const t = await svc.createTask(tx, actor, { title: 'Проверить права в АБС', categoryId: project.id, assigneeId: staff.id, dueDate: '2020-01-10' });
       // С исполнителем задача сразу в «Поставленные» (релиз 1.2.0, ADR-0022).
@@ -245,12 +247,13 @@ describe('задачи', () => {
       expect((await svc.taskSummary(tx, staff.id)).overdueMine).toBeGreaterThanOrEqual(1);
 
       const work = await svc.systemItemId(tx, 'task_statuses', 'work');
-      const moved = await svc.updateTask(tx, actor, t.id, { version: t.version, statusId: work, dueDate: '2099-01-01' });
+      await expectCode(svc.updateTask(tx, actor, t.id, { version: t.version, statusId: work }), 'NO_OVERRIDE');
+      const moved = await svc.updateTask(tx, head, t.id, { version: t.version, statusId: work, dueDate: '2099-01-01' });
       expect([moved.status.value, moved.overdue, moved.version]).toEqual(['В работе', false, t.version + 1]);
       await expectCode(svc.updateTask(tx, actor, t.id, { version: t.version, title: 'старая версия' }), 'VERSION_CONFLICT');
-      const done = await svc.updateTask(tx, actor, t.id, { version: moved.version, statusId: await svc.systemItemId(tx, 'task_statuses', 'done') });
+      const done = await svc.updateTask(tx, head, t.id, { version: moved.version, statusId: await svc.systemItemId(tx, 'task_statuses', 'done'), comment: 'Готово' });
       expect(done.completedAt).not.toBeNull();
-      const reopened = await svc.updateTask(tx, actor, t.id, { version: done.version, statusId: work });
+      const reopened = await svc.updateTask(tx, head, t.id, { version: done.version, statusId: work, comment: 'Не доделано' });
       expect(reopened.completedAt).toBeNull();
 
       await svc.addComment(tx, actor, t.id, 'Права проверены, жду ответа ДИКТ');

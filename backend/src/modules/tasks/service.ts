@@ -1,16 +1,20 @@
 // Задачи (этап 5): доска, карточка, комментарии, архив и удаление, «Почта → задача».
 // Права: всё — ib.work, удаление — tasks.delete (проверяет маршрут). История — из журнала аудита.
+// Процесс (релиз 1.2.0, ADR-0022): назначить другого — tasks.assign, статус в обход кнопок — tasks.status.override (здесь);
+// кнопки процесса — process.ts.
 import type { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
-import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { parseMail, type ParsedMail } from '../../lib/mail-parse.js';
 import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import { loadRegister } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
-import { initialStatusId, recordTransition, statusIdOf, type StatusKey, type TransitionKind } from './flow.js';
+import {
+  assertCanAssign, commentRequired, initialStatusId, recordTransition, statusIdOf, type StatusKey, type TaskActor, type TransitionKind,
+} from './flow.js';
 
 export const TITLE_MAX = 300;
 export const DESCRIPTION_MAX = 20_000;
@@ -221,12 +225,15 @@ export interface NewTaskInput {
   mail?: { raw: string };
 }
 
-export async function createTask(db: Db, actor: Actor, input: NewTaskInput) {
+export async function createTask(db: Db, actor: TaskActor, input: NewTaskInput) {
   return withTx(db, async (tx) => {
     const title = cleanTitle(input.title);
     const description = cleanDescription(input.description ?? '');
     checkDue(input.dueDate);
-    if (input.assigneeId) await assertAssignee(tx, input.assigneeId);
+    if (input.assigneeId) {
+      assertCanAssign(actor, null, input.assigneeId, null);
+      await assertAssignee(tx, input.assigneeId);
+    }
     let parsed: ParsedMail | null = null;
     if (input.mail) {
       if (!input.mail.raw.trim()) throw badRequest('EMPTY_MAIL', 'Вставьте текст письма');
@@ -323,15 +330,17 @@ export interface TaskPatch {
   categoryId?: string;
   assigneeId?: string | null;
   dueDate?: string | null;
+  /** Комментарий к свободной смене статуса: обязателен по признаку колонки. */
+  comment?: string;
 }
 
 interface Change { field: string; label: string; from: string; to: string }
 
-function assertActive(t: { archivedAt: Date | null; number: number }) {
+export function assertActive(t: { archivedAt: Date | null; number: number }) {
   if (t.archivedAt) throw conflict('TASK_ARCHIVED', `Задача #${t.number} в архиве. Верните её на доску, чтобы изменить`);
 }
 
-export async function updateTask(db: Db, actor: Actor, id: string, input: TaskPatch) {
+export async function updateTask(db: Db, actor: TaskActor, id: string, input: TaskPatch) {
   return withTx(db, async (tx) => {
     const t = await getTaskRow(tx, id);
     assertActive(t);
@@ -361,6 +370,9 @@ export async function updateTask(db: Db, actor: Actor, id: string, input: TaskPa
       const before = key === 'statusId' ? t.status : key === 'priorityId' ? t.priority : t.category;
       changes.push({ field: key, label, from: before.value, to: item.value });
       if (key === 'statusId') {
+        if (!actor.perms.has('tasks.status.override')) {
+          throw new AppError(403, 'NO_OVERRIDE', 'Статус меняется кнопками в карточке задачи. Свободная смена — у пользователей с правом «Задачи: свободная смена статуса»');
+        }
         // «Выполнено» закрывает задачу; уход из «Выполнено» открывает снова.
         if (item.systemKey === 'done' && !t.completedAt) data.completedAt = new Date();
         if (item.systemKey !== 'done' && t.completedAt) data.completedAt = null;
@@ -368,6 +380,7 @@ export async function updateTask(db: Db, actor: Actor, id: string, input: TaskPa
     }
     if (input.assigneeId !== undefined && input.assigneeId !== t.assigneeId) {
       let name: string | null = null;
+      assertCanAssign(actor, t.assigneeId, input.assigneeId, t.status.systemKey);
       if (input.assigneeId) {
         await assertAssignee(tx, input.assigneeId);
         name = (await tx.user.findUnique({ where: { id: input.assigneeId }, select: { fullName: true } }))?.fullName ?? null;
@@ -399,11 +412,16 @@ export async function updateTask(db: Db, actor: Actor, id: string, input: TaskPa
         transition = 'assign';
       }
     }
+    const comment = (input.comment ?? '').trim();
+    if (comment.length > COMMENT_MAX) throw badRequest('TOO_LONG', `Комментарий — не длиннее ${COMMENT_MAX} символов`);
+    if (transition === 'override' && typeof data.statusId === 'string' && !comment && await commentRequired(tx, t.statusId, data.statusId)) {
+      throw badRequest('COMMENT_REQUIRED', 'Для перехода в эту колонку нужен комментарий');
+    }
     if (changes.length) {
       const res = await tx.task.updateMany({ where: { id, version: input.version, deletedAt: null }, data: { ...data, version: { increment: 1 } } });
       await ensureVersioned(res.count, () => tx.task.findFirst({ where: { id, deletedAt: null } }), 'Задача');
       if (transition && typeof data.statusId === 'string') {
-        await recordTransition(tx, { taskId: id, from: t.statusId, to: data.statusId, actorId: actor.id, kind: transition });
+        await recordTransition(tx, { taskId: id, from: t.statusId, to: data.statusId, actorId: actor.id, kind: transition, comment: transition === 'override' ? comment : '' });
       }
       await auditSettings(tx, actor, {
         action: 'task.updated', entity: 'task', entityId: id,
@@ -452,10 +470,13 @@ export async function listComments(db: Db, taskId: string) {
   await getTaskRow(db, taskId);
   const rows = await db.taskComment.findMany({
     where: { taskId, deletedAt: null },
-    include: { author: userBrief },
+    include: { author: userBrief, transition: { select: { fromStatus: { select: { value: true } }, toStatus: { select: { value: true } } } } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  return rows.map((c) => ({ id: c.id, body: c.body, author: c.author, automatic: c.eventId !== null, createdAt: c.createdAt.toISOString() }));
+  return rows.map((c) => ({
+    id: c.id, body: c.body, author: c.author, automatic: c.eventId !== null, createdAt: c.createdAt.toISOString(),
+    transition: c.transition ? { from: c.transition.fromStatus?.value ?? null, to: c.transition.toStatus.value } : null,
+  }));
 }
 
 export async function addComment(db: Db, actor: Actor, taskId: string, body: string) {
@@ -471,7 +492,7 @@ export async function addComment(db: Db, actor: Actor, taskId: string, body: str
       summary: `Задача #${t.number}: комментарий`,
       after: { commentId: c.id },
     });
-    return { id: c.id, body: c.body, author: c.author, automatic: false, createdAt: c.createdAt.toISOString() };
+    return { id: c.id, body: c.body, author: c.author, automatic: false, createdAt: c.createdAt.toISOString(), transition: null };
   });
 }
 

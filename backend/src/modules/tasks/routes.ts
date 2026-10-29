@@ -6,6 +6,8 @@ import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import { describeRules } from '../automations/service.js';
 import * as bulk from './bulk.js';
+import type { TaskActor } from './flow.js';
+import { PROCESS_ACTIONS, runAction, withActions } from './process.js';
 import * as svc from './service.js';
 
 const tags = ['tasks'];
@@ -44,6 +46,8 @@ export const Task = z.object({
   archived: z.boolean(),
   commentCount: z.number().int(),
   version: z.number().int(),
+  /** Кнопки процесса, доступные текущему пользователю (ADR-0022): take, start, submit, accept, return. */
+  actions: z.array(z.enum(PROCESS_ACTIONS)),
 });
 const TaskDetail = Task.extend({
   record: z.object({ id: z.string(), registerId: z.string(), registerName: z.string(), number: z.number().int(), title: z.string() }).nullable(),
@@ -54,12 +58,18 @@ const TaskDetail = Task.extend({
     rule: z.object({ id: z.string(), label: z.string() }).nullable(), ruleHits: z.array(z.string()), dueReason: z.string(),
   }).nullable(),
 });
-const Comment = z.object({ id: z.string(), body: z.string(), author: Person.nullable(), automatic: z.boolean(), createdAt: z.string() });
+const Comment = z.object({
+  id: z.string(), body: z.string(), author: Person.nullable(), automatic: z.boolean(), createdAt: z.string(),
+  /** Комментарий перехода между колонками (релиз 1.2.0): откуда и куда. */
+  transition: z.object({ from: z.string().nullable(), to: z.string() }).nullable(),
+});
 
 const view = requirePerm('ib.work');
 
 type TaskOut = z.infer<typeof Task>;
 const asTask = (t: unknown) => t as TaskOut;
+/** Пользователь с правами сессии: процесс задач проверяет их в сервисе (tasks.assign, tasks.review, tasks.status.override). */
+const taskActor = (request: Parameters<typeof actorOf>[0]): TaskActor => ({ ...actorOf(request), perms: request.user?.permissions ?? new Set<string>() });
 
 export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get('/tasks', {
@@ -91,7 +101,7 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     });
     const names = await describeRules(db, page.automations.map((a) => a.automationId));
     const automations = page.automations.map((a) => ({ ...a, label: names.get(a.automationId) ?? 'Правило' })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-    return { ...page, items: page.items.map(asTask), automations };
+    return { ...page, items: (await withActions(db, taskActor(request), page.items)).map(asTask), automations };
   });
 
   app.get('/tasks/summary', {
@@ -131,17 +141,25 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       }),
       response: { 201: Task, ...errors },
     },
-  }, async (request, reply) => reply.status(201).send(asTask(await svc.createTask(db, actorOf(request), request.body))));
+  }, async (request, reply) => {
+    const actor = taskActor(request);
+    const [t] = await withActions(db, actor, [await svc.createTask(db, actor, request.body)]);
+    return reply.status(201).send(asTask(t));
+  });
 
   app.get('/tasks/:id', {
     preHandler: view,
     schema: { tags, summary: 'Карточка задачи', params: IdParams, response: { 200: TaskDetail, ...errors } },
-  }, async (request) => (await svc.getTask(db, request.params.id)) as z.infer<typeof TaskDetail>);
+  }, async (request) => {
+    const [t] = await withActions(db, taskActor(request), [await svc.getTask(db, request.params.id)]);
+    return t as z.infer<typeof TaskDetail>;
+  });
 
   app.patch('/tasks/:id', {
     preHandler: view,
     schema: {
-      tags, summary: 'Изменить задачу (и перетаскивание: statusId). Нужна version; 409 — задачу успели изменить',
+      tags,
+      summary: 'Изменить задачу. statusId (перетаскивание) — только с правом tasks.status.override, иначе 403; другого исполнителя — tasks.assign. Нужна version; 409 — задачу успели изменить',
       params: IdParams,
       body: Version.extend({
         title: z.string().max(svc.TITLE_MAX).optional(),
@@ -151,16 +169,42 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         categoryId: z.string().uuid().optional(),
         assigneeId: z.string().uuid().nullable().optional(),
         dueDate: IsoDate.nullable().optional(),
+        /** Комментарий к смене statusId: обязателен, если этого требует признак колонки. */
+        comment: z.string().max(svc.COMMENT_MAX).optional(),
       }),
       response: { 200: Task, ...errors },
     },
-  }, async (request) => asTask(await svc.updateTask(db, actorOf(request), request.params.id, request.body)));
+  }, async (request) => {
+    const actor = taskActor(request);
+    const [t] = await withActions(db, actor, [await svc.updateTask(db, actor, request.params.id, request.body)]);
+    return asTask(t);
+  });
+
+  // Кнопки процесса (релиз 1.2.0, ADR-0022): кто может — проверяет сервис по исполнителю, автору, иерархии и правам.
+  app.post('/tasks/:id/actions/:action', {
+    preHandler: view,
+    schema: {
+      tags,
+      summary: 'Шаг процесса: take — взять себе, start — в работу, submit — на проверку, accept — принять, return — вернуть в работу',
+      params: IdParams.extend({ action: z.enum(PROCESS_ACTIONS) }),
+      body: Version.extend({ comment: z.string().max(svc.COMMENT_MAX).optional() }),
+      response: { 200: Task, ...errors },
+    },
+  }, async (request) => {
+    const actor = taskActor(request);
+    const [t] = await withActions(db, actor, [await runAction(db, actor, request.params.id, request.params.action, request.body)]);
+    return asTask(t);
+  });
 
   for (const [path, archived, summary] of [['archive', true, 'В архив'], ['restore', false, 'Вернуть на доску']] as const) {
     app.post(`/tasks/:id/${path}`, {
       preHandler: view,
       schema: { tags, summary, params: IdParams, body: Version, response: { 200: Task, ...errors } },
-    }, async (request) => asTask(await svc.setTaskArchived(db, actorOf(request), request.params.id, request.body.version, archived)));
+    }, async (request) => {
+      const actor = taskActor(request);
+      const [t] = await withActions(db, actor, [await svc.setTaskArchived(db, actor, request.params.id, request.body.version, archived)]);
+      return asTask(t);
+    });
   }
 
   app.post('/tasks/:id/delete', {

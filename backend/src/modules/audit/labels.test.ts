@@ -23,7 +23,7 @@ register.field.updated register.field.archived register.field.restored register.
 register.import.previewed register.option.created register.option.deleted register.option.moved register.option.updated
 register.option.archived register.option.restored register.scan.applied register.scan.previewed register.scan.archived
 register.scan.restored register.updated register.archived register.restored role.created role.deleted role.permission.granted
-role.permission.revoked role.updated task.archived task.restored task.commented task.created task.deleted task.updated
+role.permission.revoked role.updated task.archived task.restored task.commented task.created task.deleted task.transition task.updated
 tasks.bulk_archive tasks.bulk_delete user.created user.password_reset user.unlocked user.updated user.enabled user.disabled
 audit.exported`.split(/\s+/);
 

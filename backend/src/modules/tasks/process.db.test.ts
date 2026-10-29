@@ -5,6 +5,7 @@ import { actorFor, inTx, makeUser, type Tx } from '../../test/db.js';
 import { createDocument } from '../documents/service.js';
 import { closeDocumentTasks } from '../documents/tasks.js';
 import { statusIdOf } from './flow.js';
+import { runAction, withActions } from './process.js';
 import * as svc from './service.js';
 
 async function setup(tx: Tx) {
@@ -31,14 +32,15 @@ describe('процесс задач: колонки и переходы', () => 
   it('исполнитель двигает колонку: назначили — «Поставленные», сняли — Backlog, сменили у «В работе» — «Поставленные»', () =>
     inTx(async (tx) => {
       const x = await setup(tx);
+      const head = await actorFor(tx, (await makeUser(tx, ['ib_head'])).id);
       let t = await svc.createTask(tx, x.actor, { title: 'Задача', categoryId: x.project.id });
       t = await svc.updateTask(tx, x.actor, t.id, { version: t.version, assigneeId: x.staff.id });
       expect(t.status.systemKey).toBe('assigned');
       t = await svc.updateTask(tx, x.actor, t.id, { version: t.version, assigneeId: null });
       expect(t.status.systemKey).toBe('new');
       t = await svc.updateTask(tx, x.actor, t.id, { version: t.version, assigneeId: x.staff.id });
-      t = await svc.updateTask(tx, x.actor, t.id, { version: t.version, statusId: await statusIdOf(tx, 'work') });
-      t = await svc.updateTask(tx, x.actor, t.id, { version: t.version, assigneeId: x.other.id });
+      t = await svc.updateTask(tx, head, t.id, { version: t.version, statusId: await statusIdOf(tx, 'work') });
+      t = await svc.updateTask(tx, head, t.id, { version: t.version, assigneeId: x.other.id });
       expect(t.status.systemKey).toBe('assigned');
       const kinds = (await transitions(tx, t.id)).map((r) => `${r.kind}:${r.toStatus.systemKey}`);
       expect(kinds).toEqual(['process:new', 'assign:assigned', 'assign:new', 'assign:assigned', 'override:work', 'assign:assigned']);
@@ -70,6 +72,170 @@ describe('процесс задач: колонки и переходы', () => 
         await expect(tx.$executeRawUnsafe(sql)).rejects.toThrow(/permission denied|только пополняется/);
         await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT tt');
       }
+    }));
+});
+
+/** Статус задачи с HTTP-кодом ошибки: 403 — нет права, 409 — состояние не то. */
+async function expectStatus(p: Promise<unknown>, code: string, http: number) {
+  const err = await p.then(() => null, (e: unknown) => e as { code?: string; statusCode?: number });
+  expect([err?.code, err?.statusCode]).toEqual([code, http]);
+}
+
+describe('процесс задач: кнопки и права (Б2)', () => {
+  /** Цепочка: начальник ← руководитель группы ← исполнитель; автор — отдельный сотрудник. */
+  async function team(tx: Tx) {
+    const x = await setup(tx);
+    const boss = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник' });
+    const lead = await makeUser(tx, ['ib_staff'], { fullName: 'Руководитель группы', manager: { connect: { id: boss.id } } });
+    await tx.user.update({ where: { id: x.staff.id }, data: { managerId: lead.id } });
+    const stranger = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Чужой начальник' });
+    const author = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Автор' });
+    return {
+      ...x,
+      boss: await actorFor(tx, boss.id), lead: await actorFor(tx, lead.id), stranger: await actorFor(tx, stranger.id), author: await actorFor(tx, author.id),
+      other: await actorFor(tx, x.other.id),
+    };
+  }
+  const act = (tx: Tx, who: Parameters<typeof runAction>[1], t: { id: string; version: number }, a: Parameters<typeof runAction>[3], comment?: string) =>
+    runAction(tx, who, t.id, a, { version: t.version, comment });
+
+  it('полный путь: взять себе → в работу → на проверку (комментарий) → вернуть (комментарий) → принять (комментарий)', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      let t = await svc.createTask(tx, x.author, { title: 'Путь', categoryId: x.project.id });
+      expect(t.status.systemKey).toBe('new');
+      t = await act(tx, x.actor, t, 'take');
+      expect([t.status.systemKey, t.assignee?.id]).toEqual(['assigned', x.staff.id]);
+      await expectStatus(act(tx, x.other, t, 'start'), 'NOT_ASSIGNEE', 403);
+      t = await act(tx, x.actor, t, 'start');
+      await expectStatus(act(tx, x.actor, t, 'submit'), 'COMMENT_REQUIRED', 400);
+      t = await act(tx, x.actor, t, 'submit', 'Сделал, проверьте');
+      expect(t.status.systemKey).toBe('review');
+      await expectStatus(act(tx, x.author, t, 'return'), 'COMMENT_REQUIRED', 400);
+      t = await act(tx, x.author, t, 'return', 'Не хватает отчёта');
+      expect(t.status.systemKey).toBe('work');
+      t = await act(tx, x.actor, t, 'submit', 'Отчёт приложил');
+      t = await act(tx, x.author, t, 'accept', 'Принято');
+      expect([t.status.systemKey, t.completedAt !== null]).toEqual(['done', true]);
+
+      const rows = await transitions(tx, t.id);
+      expect(rows.map((r) => `${r.kind}:${r.toStatus.systemKey}`)).toEqual([
+        'process:new', 'process:assigned', 'process:work', 'process:review', 'process:work', 'process:review', 'process:done',
+      ]);
+      const comments = await svc.listComments(tx, t.id);
+      expect(comments.map((c) => [c.body, c.transition?.from, c.transition?.to])).toEqual([
+        ['Сделал, проверьте', 'В работе', 'На проверке'], ['Не хватает отчёта', 'На проверке', 'В работе'],
+        ['Отчёт приложил', 'В работе', 'На проверке'], ['Принято', 'На проверке', 'Выполнено'],
+      ]);
+      const audit = await tx.auditLog.findMany({ where: { entityId: t.id, action: 'task.transition' } });
+      expect(audit).toHaveLength(6);
+    }));
+
+  it('действие не из своей колонки — 409; архивная задача — 409; старая версия — 409', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      const t = await svc.createTask(tx, x.actor, { title: 'Колонка', categoryId: x.project.id, assigneeId: x.staff.id });
+      await expectStatus(act(tx, x.actor, t, 'submit', 'рано'), 'WRONG_STATUS', 409);
+      await expectStatus(act(tx, x.actor, t, 'take'), 'WRONG_STATUS', 409);
+      await expectStatus(act(tx, x.actor, { id: t.id, version: t.version + 5 }, 'start'), 'VERSION_CONFLICT', 409);
+      const arch = await svc.setTaskArchived(tx, x.actor, t.id, t.version, true);
+      await expectStatus(act(tx, x.actor, arch, 'start'), 'TASK_ARCHIVED', 409);
+    }));
+
+  it('«Принять»: автор — да; старший через 2 уровня — да; чужой с tasks.review — нет; исполнитель — никогда, даже с правом', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      const onReview = async (creator: typeof x.actor, assignee: typeof x.actor) => {
+        let t = await svc.createTask(tx, x.boss, { title: 'На проверку', categoryId: x.project.id, assigneeId: assignee.id });
+        if (creator.id !== x.boss.id) await tx.task.update({ where: { id: t.id }, data: { createdBy: creator.id } });
+        t = await act(tx, assignee, t, 'start');
+        return act(tx, assignee, t, 'submit', 'готово');
+      };
+      // Старший через 2 уровня (начальник над руководителем группы над исполнителем).
+      const a = await onReview(x.author, x.actor);
+      await expectStatus(act(tx, x.stranger, a, 'accept', 'да'), 'NOT_REVIEWER', 403);
+      await expectStatus(act(tx, x.lead, a, 'accept', 'да'), 'NO_REVIEW', 403); // руководитель группы без tasks.review
+      expect((await act(tx, x.boss, a, 'accept', 'да')).status.systemKey).toBe('done');
+      // Автор задачи с tasks.review.
+      const b = await onReview(x.author, x.actor);
+      expect((await act(tx, x.author, b, 'return', 'ещё раз')).status.systemKey).toBe('work');
+      // Исполнитель с tasks.review, сам автор своей задачи — свою не принимает (409 OWN_TASK).
+      const c = await onReview(x.boss, x.boss);
+      await expectStatus(act(tx, x.boss, c, 'accept', 'сам'), 'OWN_TASK', 409);
+      // У исполнителя-начальника нет руководителя — принимает любой с tasks.review.
+      expect((await act(tx, x.stranger, c, 'accept', 'принял')).status.systemKey).toBe('done');
+    }));
+
+  it('кнопки на доске и в карточке — только доступные этому пользователю', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      let t = await svc.createTask(tx, x.author, { title: 'Кнопки', categoryId: x.project.id });
+      const of = async (who: typeof x.actor) => (await withActions(tx, who, [await svc.getTask(tx, t.id)]))[0]?.actions;
+      expect(await of(x.actor)).toEqual(['take']);
+      t = await act(tx, x.actor, t, 'take');
+      expect([await of(x.actor), await of(x.other)]).toEqual([['start'], []]);
+      t = await act(tx, x.actor, t, 'start');
+      expect(await of(x.actor)).toEqual(['submit']);
+      t = await act(tx, x.actor, t, 'submit', 'готово');
+      expect([await of(x.actor), await of(x.boss), await of(x.author), await of(x.stranger), await of(x.other)])
+        .toEqual([[], ['accept', 'return'], ['accept', 'return'], [], []]);
+    }));
+
+  it('исполнитель: без tasks.assign — только себя; снять себя — пока не взял в работу; с правом — любого', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      await expectStatus(svc.createTask(tx, x.actor, { title: 'Другому', categoryId: x.project.id, assigneeId: x.other.id }), 'NO_ASSIGN', 403);
+      let t = await svc.createTask(tx, x.actor, { title: 'Себе', categoryId: x.project.id, assigneeId: x.staff.id });
+      await expectStatus(svc.updateTask(tx, x.actor, t.id, { version: t.version, assigneeId: x.other.id }), 'NO_ASSIGN', 403);
+      await expectStatus(svc.updateTask(tx, x.other, t.id, { version: t.version, assigneeId: null }), 'NO_ASSIGN', 403);
+      t = await act(tx, x.actor, t, 'start');
+      await expectStatus(svc.updateTask(tx, x.actor, t.id, { version: t.version, assigneeId: null }), 'TASK_TAKEN', 403);
+      // Начальник меняет исполнителя у задачи «В работе» — снова «Поставленные».
+      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, assigneeId: x.other.id });
+      expect([t.status.systemKey, t.assignee?.id]).toEqual(['assigned', x.other.id]);
+      // Новый исполнитель снимает себя, пока не взял в работу.
+      t = await svc.updateTask(tx, x.other, t.id, { version: t.version, assigneeId: null });
+      expect([t.status.systemKey, t.assignee]).toEqual(['new', null]);
+    }));
+
+  it('свободная смена статуса: без tasks.status.override — 403; с правом — признаки колонки действуют; снятый признак — без комментария', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      const done = await statusIdOf(tx, 'done');
+      let t = await svc.createTask(tx, x.boss, { title: 'Обход', categoryId: x.project.id, assigneeId: x.staff.id });
+      await expectStatus(svc.updateTask(tx, x.actor, t.id, { version: t.version, statusId: done }), 'NO_OVERRIDE', 403);
+      await expectStatus(svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: done }), 'COMMENT_REQUIRED', 400);
+      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: done, comment: 'Закрыта решением начальника' });
+      expect(t.completedAt).not.toBeNull();
+      // Переоткрыть — возврат в «В работе»: комментарий по признаку «при возврате».
+      const work = await statusIdOf(tx, 'work');
+      await expectStatus(svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: work }), 'COMMENT_REQUIRED', 400);
+      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: work, comment: 'Переоткрыта' });
+      expect(t.completedAt).toBeNull();
+      const last = (await transitions(tx, t.id)).at(-1);
+      expect([last?.kind, last?.comment]).toEqual(['override', 'Переоткрыта']);
+
+      // Администратор снял признак у «На проверке» — «Отправить на проверку» без комментария.
+      await tx.catalogItem.update({ where: { id: await statusIdOf(tx, 'review') }, data: { commentForward: false } });
+      expect((await act(tx, x.actor, t, 'submit')).status.systemKey).toBe('review');
+    }));
+
+  it('своя колонка: попасть в неё — только свободной сменой; её признак комментария действует', () =>
+    inTx(async (tx) => {
+      const x = await team(tx);
+      // Своя колонка между «В работе» и «На проверке».
+      const workItem = await tx.catalogItem.findUniqueOrThrow({ where: { id: await statusIdOf(tx, 'work') } });
+      await tx.catalogItem.updateMany({ where: { catalogCode: 'task_statuses', sortOrder: { gt: workItem.sortOrder } }, data: { sortOrder: { increment: 1 } } });
+      const custom = await tx.catalogItem.create({
+        data: { catalogCode: 'task_statuses', value: `Ждём ответа ${Math.random().toString(36).slice(2)}`, sortOrder: workItem.sortOrder + 1, commentForward: true },
+      });
+      let t = await svc.createTask(tx, x.boss, { title: 'Своя колонка', categoryId: x.project.id, assigneeId: x.staff.id });
+      t = await act(tx, x.actor, t, 'start');
+      await expectStatus(svc.updateTask(tx, x.actor, t.id, { version: t.version, statusId: custom.id }), 'NO_OVERRIDE', 403);
+      await expectStatus(svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: custom.id }), 'COMMENT_REQUIRED', 400);
+      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: custom.id, comment: 'Ждём ДИКТ' });
+      expect((await withActions(tx, x.actor, [t]))[0]?.actions).toEqual([]);
+      await expectStatus(act(tx, x.actor, t, 'submit', 'готово'), 'WRONG_STATUS', 409);
     }));
 });
 

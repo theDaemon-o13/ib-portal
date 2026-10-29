@@ -1,11 +1,10 @@
 // Тестовый реестр со всеми типами полей.
-import type { Actor } from '../modules/settings/common.js';
 import * as structure from '../modules/registers/structure.service.js';
 import { loadRegister, type RegisterDef } from '../modules/registers/definition.js';
 import { actorFor, makeUser, type Tx } from './db.js';
 
 export interface Fixture {
-  actor: Actor;
+  actor: Awaited<ReturnType<typeof actorFor>>;
   adminId: string;
   reg: RegisterDef;
   f: Record<'title' | 'status' | 'level' | 'score' | 'found' | 'owner' | 'due' | 'newDue' | 'decision', string>;

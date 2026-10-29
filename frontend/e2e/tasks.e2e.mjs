@@ -5,6 +5,8 @@
 //
 // Каждый тест готовит свои задачи через API и начинает с полной загрузки страницы.
 // В конце все задачи прогона уходят в архив (одна — удаляется в тесте удаления, мягко).
+// Процесс задач (релиз 1.2.0, ADR-0022): у супер-администратора нет прав процесса — доску проверяет созданный на прогон
+// начальник ИБ («Начальник ИБ» + «Супер-администратор»: свободная смена статуса, постановка другим, удаление задач).
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser } from './browser.mjs';
@@ -19,6 +21,7 @@ let me;
 let category;
 let statuses;
 let navSeq = 0;
+let head;
 
 /** Карточка задачи этого прогона: название всегда с меткой RUN, чужие задачи на доске не мешают. */
 const card = (title) => {
@@ -45,14 +48,38 @@ async function openBoard(query = '') {
   await ui.waitFor(`document.querySelectorAll('.board .col').length === 5`, 'доска из пяти колонок');
 }
 
+/** Выйти и войти через форму; при первом входе — смена временного пароля. */
+async function loginAs(login, password) {
+  if (!(await ui.evaluate(`location.origin.startsWith('http')`))) await ui.goto(`/login?n=${++navSeq}`);
+  await ui.evaluate(`fetch('/api/v1/auth/logout', { method: 'POST' })`);
+  await ui.goto(`/login?n=${++navSeq}`);
+  await ui.type(`document.querySelector('input[name=username]')`, login);
+  await ui.type(`document.querySelector('input[name=password]')`, password);
+  await ui.click(`document.querySelector('form button[type=submit]')`);
+  await ui.waitFor(`location.pathname !== '/login'`, `вход ${login}`);
+  if (await ui.evaluate(`location.pathname === '/change-password'`)) {
+    const next = `Задачи-${RUN.slice(4)}-Zq9!`;
+    await ui.type(`document.querySelector('input[autocomplete=current-password]')`, password);
+    await ui.type(`document.querySelectorAll('input[autocomplete=new-password]')[0]`, next);
+    await ui.type(`document.querySelectorAll('input[autocomplete=new-password]')[1]`, next);
+    await ui.click($.button('Сменить пароль'));
+    await ui.waitFor(`location.pathname !== '/change-password'`, `смена пароля ${login}`);
+    return next;
+  }
+  return password;
+}
+
 before(async () => {
   assert.ok(LOGIN && PASSWORD, 'Задайте E2E_LOGIN и E2E_PASSWORD (пользователь с ролью «Супер-администратор»)');
   ui = await launchBrowser({ baseUrl: BASE });
-  await ui.goto('/login');
-  await ui.type(`document.querySelector('input[name=username]')`, LOGIN);
-  await ui.type(`document.querySelector('input[name=password]')`, PASSWORD);
-  await ui.click(`document.querySelector('form button[type=submit]')`);
-  await ui.waitFor(`location.pathname !== '/login'`, 'вход');
+  await loginAs(LOGIN, PASSWORD);
+  const roles = (await api('GET', '/api/v1/roles')).items;
+  const created = await api('POST', '/api/v1/users', {
+    login: `${RUN.toLowerCase()}.head`, fullName: `Начальник Задач ${RUN}`,
+    roleIds: ['ib_head', 'super_admin'].map((c) => roles.find((r) => r.code === c).id),
+  });
+  head = { id: created.user.id, login: created.user.login };
+  await loginAs(head.login, created.temporaryPassword);
   me = (await api('GET', '/api/v1/auth/me')).user;
   const cats = (await api('GET', '/api/v1/catalogs/task_categories/items')).items;
   category = cats.find((c) => !c.systemKey) ?? cats[0];
@@ -65,6 +92,11 @@ after(async () => {
     const page = await api('GET', '/api/v1/tasks?archived=false').catch(() => ({ items: [] }));
     for (const t of page.items.filter((x) => x.title.startsWith(RUN))) {
       await api('POST', `/api/v1/tasks/${t.id}/archive`, { version: t.version }).catch(() => undefined);
+    }
+    if (head) {
+      await loginAs(LOGIN, PASSWORD).catch(() => undefined);
+      const cur = (await api('GET', `/api/v1/users?q=${encodeURIComponent(head.login)}`).catch(() => ({ items: [] }))).items.find((u) => u.id === head.id);
+      if (cur?.isActive) await api('POST', `/api/v1/users/${head.id}/disable`, { version: cur.version }).catch(() => undefined);
     }
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
     ui.close();
@@ -119,7 +151,8 @@ describe('Доска задач', () => {
 });
 
 describe('Карточка задачи', () => {
-  it('правка только изменённого, комментарий, история, «Отметить выполненной»', async () => {
+  // «Отметить выполненной» уходит в Б3: вместо неё — кнопки процесса (закрыть задачу свободной сменой можно только с комментарием).
+  it('правка только изменённого, комментарий, история', async () => {
     await makeTask('карточка');
     await openBoard();
     await ui.click(card('карточка'), 'карточка на доске');
@@ -138,12 +171,6 @@ describe('Карточка задачи', () => {
     assert.equal((await ui.request(m, 'POST', '/comments')).status, 201);
     await ui.waitFor(`${drawer}.querySelector('.cmt .tx')?.textContent === 'Права проверены, жду ответа ДИКТ'`, 'комментарий в карточке');
 
-    m = ui.mark();
-    await ui.click($.button('Отметить выполненной', drawer));
-    const done = await ui.request(m, 'PATCH', '/api/v1/tasks/');
-    assert.equal(done.json.statusId, statuses.find((s) => s.systemKey === 'done').id);
-    await ui.click($.button('Закрыть', drawer));
-    await ui.waitFor(`!${drawer} && !!${card('карточка изменена')} && ${col(statuses.find((s) => s.systemKey === 'done').value)}.contains(${card('карточка изменена')})`, 'задача в «Выполнено»');
   });
 });
 
