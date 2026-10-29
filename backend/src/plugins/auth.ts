@@ -54,13 +54,15 @@ export function installAuth(app: FastifyInstance, auth: AuthService, portalOrigi
       clearSessionCookie(reply);
       return;
     }
-    const resolved = await auth.resolveSession(unsigned.value, clientInfo(request));
+    // Фоновый запрос страницы (опрос счётчиков, уведомлений, дашборда) не продлевает сессию (ADR-0023).
+    const resolved = await auth.resolveSession(unsigned.value, clientInfo(request), { background: request.headers['x-background'] === '1' });
     if (!resolved) {
       clearSessionCookie(reply);
       return;
     }
     request.user = resolved.user;
     request.sessionId = resolved.sessionId;
+    if (resolved.idleRemainingMs !== null) reply.header('X-Session-Idle-Ms', String(resolved.idleRemainingMs));
     // Настенный монитор: закрытые для него маршруты отвечают 403 до разбора запроса (guard в rbac.ts — второй слой).
     const config = request.routeOptions.config as { kiosk?: boolean; public?: boolean } | undefined;
     if (resolved.user.kiosk && request.url.startsWith('/api/v1/') && config?.kiosk !== true && config?.public !== true) {

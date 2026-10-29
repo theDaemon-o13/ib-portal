@@ -96,6 +96,28 @@ describe('вход и сессия', () => {
     expect(audit.actions()).toContain('auth.session_expired');
   });
 
+  it('фоновые запросы (X-Background: 1) не продлевают сессию; действие пользователя продлевает; остаток — в X-Session-Idle-Ms', async () => {
+    const cookie = sessionCookie(await login('ivanov', PASSWORD));
+    const bg = { cookie, 'x-background': '1' };
+    clock.advance(20 * 60_000);
+    const polled = await app.inject({ url: '/api/v1/auth/me', headers: bg });
+    expect(polled.statusCode).toBe(200);
+    expect(Number(polled.headers['x-session-idle-ms'])).toBe(SESSION_IDLE_MS - 20 * 60_000);
+    clock.advance(9 * 60_000);
+    expect((await app.inject({ url: '/api/v1/auth/me', headers: bg })).statusCode).toBe(200);
+    // Действие пользователя (без заголовка) продлевает: снова 30 минут.
+    const active = await app.inject({ url: '/api/v1/auth/me', headers: { cookie } });
+    expect(Number(active.headers['x-session-idle-ms'])).toBe(SESSION_IDLE_MS);
+    // 31 минута одних фоновых запросов — сессия закрыта по бездействию.
+    for (let i = 0; i < 31; i++) {
+      clock.advance(60_000);
+      const r = await app.inject({ url: '/api/v1/auth/me', headers: bg });
+      if (i < 29) expect(r.statusCode).toBe(200);
+    }
+    expect((await app.inject({ url: '/api/v1/auth/me', headers: bg })).statusCode).toBe(401);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'idle' } });
+  });
+
   it('выход закрывает сессию', async () => {
     const cookie = sessionCookie(await login('ivanov', PASSWORD));
     const out = await app.inject({ method: 'POST', url: '/api/v1/auth/logout', headers: { cookie } });

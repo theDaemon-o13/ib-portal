@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, authApi } from '../../api/client';
 import { loadRememberedLogin, saveRememberedLogin } from '../../auth/remembered-login';
+import { clearExpired } from '../../auth/session';
 import { useMe, useSetMe } from '../../auth/useMe';
 import { PortalCredit } from '../../components/AboutPortal';
 import { Brand } from '../../components/Brand';
@@ -32,7 +33,7 @@ export function LoginPage() {
   const setMe = useSetMe();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from;
+  const { from, expired } = (location.state as { from?: string; expired?: boolean } | null) ?? {};
   const [remembered] = useState(() => loadRememberedLogin(storage()));
   const [login, setLogin] = useState(remembered);
   const [remember, setRemember] = useState(remembered !== '');
@@ -41,6 +42,7 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: ({ user }) => {
+      clearExpired();
       saveRememberedLogin(storage(), user.login, remember);
       setMe(user);
       if (user.mustChangePassword) navigate('/change-password', { replace: true });
@@ -50,7 +52,7 @@ export function LoginPage() {
   });
 
   if (me && !mutation.isPending) {
-    return <Navigate to={me.mustChangePassword ? '/change-password' : homePath(me.permissions)} replace />;
+    return <Navigate to={me.mustChangePassword ? '/change-password' : safeReturnPath(from) ?? homePath(me.permissions)} replace />;
   }
 
   const submit = (e: FormEvent) => {
@@ -64,6 +66,11 @@ export function LoginPage() {
         <form className="panel auth-card form" onSubmit={submit} noValidate>
           <Brand />
           <h1>Вход</h1>
+          {expired && (
+            <div className="note" role="status">
+              Сессия завершилась: 30 минут без действий. Войдите снова — откроем ту же страницу.
+            </div>
+          )}
           <label>
             Логин
             <input className="inp" name="username" autoComplete="username" autoFocus={!remembered} required

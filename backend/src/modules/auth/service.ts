@@ -162,8 +162,12 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     return { token, sessionId, user: authUser };
   }
 
-  /** Проверяет токен из cookie. Неактивную или истёкшую сессию закрывает. */
-  async function resolveSession(token: string, client: ClientInfo) {
+  /**
+   * Проверяет токен из cookie. Неактивную или истёкшую сессию закрывает.
+   * background — фоновый запрос страницы (опрос по таймеру, заголовок X-Background: 1): сессию не продлевает,
+   * иначе открытая вкладка не завершалась бы по бездействию никогда (релиз 1.2.0, ADR-0023). Киоск продлевается всегда.
+   */
+  async function resolveSession(token: string, client: ClientInfo, opts: { background?: boolean } = {}) {
     const sessionId = sessionIdFromToken(token);
     const session = await repo.findSession(sessionId);
     if (!session || session.revokedAt) return null;
@@ -208,10 +212,14 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       return null;
     }
 
-    if (at.getTime() - session.lastSeenAt.getTime() >= SESSION_TOUCH_INTERVAL_MS) {
+    let lastSeen = session.lastSeenAt;
+    if ((authUser.kiosk || !opts.background) && at.getTime() - lastSeen.getTime() >= SESSION_TOUCH_INTERVAL_MS) {
       await repo.touchSession(sessionId, at);
+      lastSeen = at;
     }
-    return { sessionId, user: authUser };
+    // Сколько осталось до завершения по бездействию: frontend предупреждает за 2 минуты. У киоска — не ограничено.
+    const idleRemainingMs = authUser.kiosk ? null : Math.max(0, SESSION_IDLE_MS - (at.getTime() - lastSeen.getTime()));
+    return { sessionId, user: authUser, idleRemainingMs };
   }
 
   async function logout(sessionId: string, userId: string, client: ClientInfo) {

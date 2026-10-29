@@ -98,6 +98,16 @@ describe('сессия настенного монитора', () => {
     expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'max_age' } });
   });
 
+  it('фоновый опрос слайдов 31 минуту и дольше — сессия жива (киоск не завершается по бездействию); остатка в заголовке нет', async () => {
+    const cookie = cookieOf(await login('wall', viaNginx(WALL)));
+    for (let i = 0; i < 4; i++) {
+      clock.advance(SESSION_IDLE_MS / 3);
+      const r = await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie, 'x-background': '1' }) });
+      expect(r.statusCode).toBe(200);
+      expect(r.headers['x-session-idle-ms']).toBeUndefined();
+    }
+  });
+
   it('у обычного пользователя бездействие по-прежнему завершает сессию', async () => {
     const cookie = cookieOf(await login('ivanov', viaNginx(OTHER)));
     clock.advance(SESSION_IDLE_MS + 60_000);

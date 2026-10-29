@@ -71,7 +71,7 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
   const consoleErrors = [];
   listeners.add((m) => {
     if (m.method === 'Network.requestWillBeSent' && m.params.request.url.startsWith(`${baseUrl}/api/`)) {
-      const r = { requestId: m.params.requestId, method: m.params.request.method, url: m.params.request.url.slice(baseUrl.length), body: m.params.request.postData ?? null, status: null, done: false };
+      const r = { requestId: m.params.requestId, method: m.params.request.method, url: m.params.request.url.slice(baseUrl.length), body: m.params.request.postData ?? null, headers: m.params.request.headers ?? {}, status: null, done: false };
       requests.push(r);
       byId.set(m.params.requestId, r);
     }
