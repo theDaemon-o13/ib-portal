@@ -30,6 +30,9 @@ export const tasksApi = {
   get: (id: string) => request<TaskDetail>('GET', `/api/v1/tasks/${id}`),
   create: (body: NewTask) => request<Task>('POST', '/api/v1/tasks', body),
   update: (id: string, body: TaskPatch) => request<Task>('PATCH', `/api/v1/tasks/${id}`, body),
+  // Кнопки процесса (релиз 1.2.0, ADR-0022): кто может — решает backend.
+  action: (id: string, action: Task['actions'][number], version: number, comment?: string) =>
+    request<Task>('POST', `/api/v1/tasks/${id}/actions/${action}`, { version, ...(comment ? { comment } : {}) }),
   archive: (id: string, version: number) => request<Task>('POST', `/api/v1/tasks/${id}/archive`, { version }),
   restore: (id: string, version: number) => request<Task>('POST', `/api/v1/tasks/${id}/restore`, { version }),
   remove: (id: string, version: number) => request<undefined>('POST', `/api/v1/tasks/${id}/delete`, { version }),

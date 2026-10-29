@@ -8,7 +8,7 @@ import { Overlay } from '../../components/Overlay';
 import { useMe } from '../../auth/useMe';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
-import { initials } from './logic';
+import { ACTION_LABEL, actionNeedsComment, initials, needsComment, processHint, type ProcessAction } from './logic';
 
 interface Draft {
   title: string;
@@ -30,7 +30,7 @@ const draftOf = (t: TaskDetail): Draft => ({
   categoryId: t.category.id,
 });
 
-/** В PATCH уходят только изменённые поля. */
+/** В PATCH уходят только изменённые поля. Статус в обход кнопок — только с правом «Задачи: свободная смена статуса». */
 function changes(t: TaskDetail, d: Draft): Omit<TaskPatch, 'version'> {
   const o = draftOf(t);
   const out: Omit<TaskPatch, 'version'> = {};
@@ -52,7 +52,12 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   const task = useQuery({ queryKey: tkeys.detail(id), queryFn: () => tasksApi.get(id) });
   const comments = useQuery({ queryKey: tkeys.comments(id), queryFn: () => tasksApi.comments(id) });
   // История — по праву «История в карточках» (ADR-0021); комментарии видят все.
-  const canHistory = !!useMe().data?.permissions.includes('history.view');
+  const me = useMe().data;
+  const perms = me?.permissions ?? [];
+  const canHistory = perms.includes('history.view');
+  // Процесс задач (релиз 1.2.0, ADR-0022): статус списком и перетаскивание — tasks.status.override, исполнитель-другой — tasks.assign.
+  const canOverride = perms.includes('tasks.status.override');
+  const canAssign = perms.includes('tasks.assign');
   const history = useQuery({ queryKey: tkeys.history(id), queryFn: () => tasksApi.history(id), enabled: canHistory });
   const statuses = useQuery({ queryKey: tkeys.statuses, queryFn: () => settingsApi.items('task_statuses', false) });
   const priorities = useQuery({ queryKey: tkeys.priorities, queryFn: () => settingsApi.items('task_priorities', false) });
@@ -63,6 +68,10 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   const [comment, setComment] = useState('');
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** Кнопка процесса с обязательным комментарием: сначала поле, потом подтверждение. */
+  const [stepping, setStepping] = useState<ProcessAction | null>(null);
+  const [stepComment, setStepComment] = useState('');
+  const [moveComment, setMoveComment] = useState('');
   const t = task.data;
 
   // Черновик — из задачи при открытии и после «Перечитать».
@@ -96,9 +105,29 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   };
   const save = useMutation({
     mutationFn: (patch: Omit<TaskPatch, 'version'>) => tasksApi.update(id, { version: t?.version ?? 0, ...patch }),
-    onSuccess: (r) => afterSave(`Задача #${r.number} сохранена`),
+    onSuccess: async (r) => {
+      setMoveComment('');
+      await Promise.all([afterSave(`Задача #${r.number} сохранена`), qc.invalidateQueries({ queryKey: tkeys.comments(id) })]);
+    },
     onError,
   });
+  const step = useMutation({
+    mutationFn: ({ action, comment }: { action: ProcessAction; comment?: string }) => tasksApi.action(id, action, t?.version ?? 0, comment),
+    onSuccess: async (r, v) => {
+      setStepping(null);
+      setStepComment('');
+      await Promise.all([afterSave(`Задача #${r.number}: «${ACTION_LABEL[v.action]}» → ${r.status.value}`), qc.invalidateQueries({ queryKey: tkeys.comments(id) })]);
+    },
+    onError,
+  });
+  const runStep = (a: ProcessAction) => {
+    if (t && actionNeedsComment(statuses.data?.items ?? [], t, a)) {
+      setStepping(a);
+      setStepComment('');
+    } else {
+      step.mutate({ action: a });
+    }
+  };
   const archive = useMutation({
     mutationFn: () => (t?.archived ? tasksApi.restore(id, t.version) : tasksApi.archive(id, t?.version ?? 0)),
     onSuccess: (r) => afterSave(r.archived ? `Задача #${r.number} в архиве` : `Задача #${r.number} снова на доске`),
@@ -138,12 +167,16 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
       toast('Изменений нет');
       return;
     }
-    save.mutate(patch);
+    save.mutate(statusNeedsComment ? { ...patch, comment: moveComment } : patch);
   };
-  const doneId = statuses.data?.items.find((s) => s.systemKey === 'done')?.id;
   const readOnly = !!t?.archived;
   const people0 = people.data?.items ?? [];
-  const assigneeMissing = t && draft?.assigneeId && !people0.some((p) => p.id === draft.assigneeId);
+  const statusNeedsComment = !!t && !!draft && draft.statusId !== t.status.id && needsComment(statuses.data?.items ?? [], t.status.id, draft.statusId);
+  // Без «Задачи: постановка другим»: себя — на задачу без исполнителя, снять себя — пока задача в «Поставленные».
+  const mine = !!t?.assignee && t.assignee.id === me?.id;
+  const assigneeLocked = !canAssign && !!t?.assignee && !(mine && t.status.systemKey === 'assigned');
+  const assigneeOptions = canAssign ? people0 : people0.filter((p) => p.id === me?.id);
+  const hint = t && me ? processHint(t, me.id, perms) : null;
 
   return (
     <Overlay>
@@ -175,16 +208,22 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
               <label>Название<input className="inp" required maxLength={300} value={draft.title} disabled={readOnly} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
               <label>Описание<textarea className="inp" placeholder="Что нужно сделать, критерий готовности" value={draft.description} disabled={readOnly} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
               <div className="fgrid">
-                <label>Статус
-                  <select className="inp" value={draft.statusId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, statusId: e.target.value })}>
-                    {statuses.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
-                  </select>
-                </label>
+                {canOverride
+                  ? (
+                    <label>Статус
+                      <select className="inp" value={draft.statusId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, statusId: e.target.value })}>
+                        {statuses.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
+                        {!statuses.data?.items.some((s) => s.id === t.status.id) && <option value={t.status.id}>{t.status.value}</option>}
+                      </select>
+                    </label>
+                  )
+                  : <div className="field-ro"><span>Статус</span><b data-testid="task-status">{t.status.value}</b></div>}
                 <label>Ответственный
-                  <select className="inp" value={draft.assigneeId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, assigneeId: e.target.value })}>
+                  <select className="inp" value={draft.assigneeId} disabled={readOnly || assigneeLocked} onChange={(e) => setDraft({ ...draft, assigneeId: e.target.value })}
+                    title={assigneeLocked ? (mine ? 'Снять себя можно, пока задача не взята в работу' : 'Исполнителя меняет пользователь с правом «Задачи: постановка другим»') : undefined}>
                     <option value="">— не назначен</option>
-                    {assigneeMissing && t.assignee && <option value={t.assignee.id}>{t.assignee.fullName}</option>}
-                    {people0.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+                    {t.assignee && !assigneeOptions.some((p) => p.id === t.assignee?.id) && <option value={t.assignee.id}>{t.assignee.fullName}</option>}
+                    {assigneeOptions.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
                   </select>
                 </label>
                 <label>Срок<input className="inp" type="date" value={draft.dueDate} disabled={readOnly} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} /></label>
@@ -201,15 +240,44 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                   </select>
                 </label>
               </div>
+              {statusNeedsComment && !readOnly && (
+                <label>Комментарий к переходу
+                  <textarea className="inp" required maxLength={4000} value={moveComment} onChange={(e) => setMoveComment(e.target.value)}
+                    placeholder="Для этой колонки комментарий обязателен" />
+                </label>
+              )}
               {!readOnly && (
                 <div className="row">
-                  <button className="btn primary" type="submit" disabled={save.isPending || conflict}>Сохранить</button>
-                  {doneId && t.status.id !== doneId && (
-                    <button className="btn" type="button" disabled={save.isPending || conflict} onClick={() => save.mutate({ statusId: doneId })}>Отметить выполненной</button>
-                  )}
+                  <button className="btn primary" type="submit" disabled={save.isPending || conflict || (statusNeedsComment && !moveComment.trim())}>Сохранить</button>
                 </div>
               )}
             </form>
+          )}
+
+          {t && !readOnly && (t.actions.length > 0 || hint) && (
+            <div className="process" aria-label="Шаг процесса">
+              <div className="eyebrow">Шаг процесса · {t.status.value}</div>
+              {!stepping && (
+                <div className="row">
+                  {t.actions.map((a) => (
+                    <button key={a} className={`btn sm${a === 'return' ? '' : ' primary'}`} type="button" disabled={step.isPending || conflict} onClick={() => runStep(a)}>
+                      {ACTION_LABEL[a]}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {stepping && (
+                <form className="grid-gap" onSubmit={(e) => { e.preventDefault(); step.mutate({ action: stepping, comment: stepComment }); }}>
+                  <textarea className="inp" required maxLength={4000} autoFocus aria-label="Комментарий к шагу" value={stepComment} onChange={(e) => setStepComment(e.target.value)}
+                    placeholder={stepping === 'submit' ? 'Что сделано, где результат' : stepping === 'return' ? 'Что доделать' : 'Комментарий: что проверено'} />
+                  <div className="row">
+                    <button className="btn sm primary" type="submit" disabled={step.isPending || !stepComment.trim()}>{ACTION_LABEL[stepping]}</button>
+                    <button className="btn sm" type="button" onClick={() => setStepping(null)}>Отмена</button>
+                  </div>
+                </form>
+              )}
+              {hint && <div className="hint">{hint}</div>}
+            </div>
           )}
 
           {t?.record && (
@@ -273,7 +341,10 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
               <div key={c.id} className="cmt">
                 <span className="av" aria-hidden="true">{c.author ? initials(c.author.fullName) : 'А'}</span>
                 <div>
-                  <div className="who">{c.author?.fullName ?? 'Автоматизация'} · {formatDateTime(c.createdAt)}</div>
+                  <div className="who">
+                    {c.author?.fullName ?? (c.automatic ? 'Автоматизация' : 'Система')} · {formatDateTime(c.createdAt)}
+                    {c.transition && <span className="chip tr-chip">{c.transition.from ? `${c.transition.from} → ` : ''}{c.transition.to}</span>}
+                  </div>
                   <div className="tx">{c.body}</div>
                 </div>
               </div>

@@ -6,7 +6,8 @@
 // Каждый тест готовит свои задачи через API и начинает с полной загрузки страницы.
 // В конце все задачи прогона уходят в архив (одна — удаляется в тесте удаления, мягко).
 // Процесс задач (релиз 1.2.0, ADR-0022): у супер-администратора нет прав процесса — доску проверяет созданный на прогон
-// начальник ИБ («Начальник ИБ» + «Супер-администратор»: свободная смена статуса, постановка другим, удаление задач).
+// начальник ИБ («Начальник ИБ» + «Супер-администратор»: свободная смена статуса, постановка другим, удаление задач),
+// кнопки процесса — его подчинённый «Сотрудник ИБ» без этих прав.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser } from './browser.mjs';
@@ -22,6 +23,7 @@ let category;
 let statuses;
 let navSeq = 0;
 let head;
+let staff;
 
 /** Карточка задачи этого прогона: название всегда с меткой RUN, чужие задачи на доске не мешают. */
 const card = (title) => {
@@ -79,7 +81,11 @@ before(async () => {
     roleIds: ['ib_head', 'super_admin'].map((c) => roles.find((r) => r.code === c).id),
   });
   head = { id: created.user.id, login: created.user.login };
-  await loginAs(head.login, created.temporaryPassword);
+  const sub = await api('POST', '/api/v1/users', {
+    login: `${RUN.toLowerCase()}.staff`, fullName: `Сотрудник Задач ${RUN}`, roleIds: [roles.find((r) => r.code === 'ib_staff').id], managerId: head.id,
+  });
+  staff = { id: sub.user.id, login: sub.user.login, password: sub.temporaryPassword };
+  head.password = await loginAs(head.login, created.temporaryPassword);
   me = (await api('GET', '/api/v1/auth/me')).user;
   const cats = (await api('GET', '/api/v1/catalogs/task_categories/items')).items;
   category = cats.find((c) => !c.systemKey) ?? cats[0];
@@ -95,8 +101,10 @@ after(async () => {
     }
     if (head) {
       await loginAs(LOGIN, PASSWORD).catch(() => undefined);
-      const cur = (await api('GET', `/api/v1/users?q=${encodeURIComponent(head.login)}`).catch(() => ({ items: [] }))).items.find((u) => u.id === head.id);
-      if (cur?.isActive) await api('POST', `/api/v1/users/${head.id}/disable`, { version: cur.version }).catch(() => undefined);
+      for (const u of [staff, head].filter(Boolean)) {
+        const cur = (await api('GET', `/api/v1/users?q=${encodeURIComponent(u.login)}`).catch(() => ({ items: [] }))).items.find((x) => x.id === u.id);
+        if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version }).catch(() => undefined);
+      }
     }
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
     ui.close();
@@ -151,8 +159,7 @@ describe('Доска задач', () => {
 });
 
 describe('Карточка задачи', () => {
-  // «Отметить выполненной» уходит в Б3: вместо неё — кнопки процесса (закрыть задачу свободной сменой можно только с комментарием).
-  it('правка только изменённого, комментарий, история', async () => {
+  it('правка только изменённого, комментарий, история; «Отметить выполненной» больше нет', async () => {
     await makeTask('карточка');
     await openBoard();
     await ui.click(card('карточка'), 'карточка на доске');
@@ -170,7 +177,82 @@ describe('Карточка задачи', () => {
     await ui.click($.button('Добавить комментарий', drawer));
     assert.equal((await ui.request(m, 'POST', '/comments')).status, 201);
     await ui.waitFor(`${drawer}.querySelector('.cmt .tx')?.textContent === 'Права проверены, жду ответа ДИКТ'`, 'комментарий в карточке');
+    assert.equal(await ui.evaluate(`[...${drawer}.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Отметить выполненной')`), false);
 
+  });
+});
+
+describe('Процесс по кнопкам', () => {
+  const step = (title) => `${card(title)}?.querySelector('.card-step button')`;
+  const colOf = (key) => col(statuses.find((s) => s.systemKey === key).value);
+
+  it('сотрудник без права: карточки не перетаскиваются; «Взять себе» → «Взять в работу» → «Отправить на проверку» с комментарием; свою не принять', async () => {
+    const t = await makeTask('процесс', { assigneeId: null });
+    staff.password = await loginAs(staff.login, staff.password);
+    try {
+      await openBoard();
+      assert.match(await ui.text(`document.querySelector('.head p')`), /Статус меняется кнопками в карточке/);
+      assert.equal(await ui.evaluate(`${card('процесс')}.classList.contains('static')`), true, 'карточка не перетаскивается');
+      assert.deepEqual(await ui.evaluate(`[...document.querySelector('form.quick select[aria-label="Ответственный"]').options].map((o) => o.textContent)`),
+        ['— не назначен', `Сотрудник Задач ${RUN} (я)`], 'без права — только «я» или «не назначен»');
+
+      let m = ui.mark();
+      await ui.click(step('процесс'), '«Взять себе»');
+      assert.equal((await ui.request(m, 'POST', `/api/v1/tasks/${t.id}/actions/take`)).status, 200);
+      await ui.waitFor(`${colOf('assigned')}.contains(${card('процесс')}) && ${step('процесс')}?.textContent === 'Взять в работу'`, '«Поставленные», моя');
+      m = ui.mark();
+      await ui.click(step('процесс'), '«Взять в работу»');
+      assert.equal((await ui.request(m, 'POST', `/api/v1/tasks/${t.id}/actions/start`)).status, 200);
+      await ui.waitFor(`${colOf('work')}.contains(${card('процесс')}) && ${step('процесс')}?.textContent === 'На проверку'`, '«В работе»');
+
+      // «На проверку» требует комментария — открывается карточка.
+      await ui.click(step('процесс'), '«На проверку»');
+      await ui.waitFor(`!!${drawer}?.querySelector('.process')`, 'карточка с шагом процесса');
+      assert.match(await ui.text(`${drawer}.querySelector('[data-testid="task-status"]')`), /В работе/, 'статус — текстом');
+      await ui.click($.button('Отправить на проверку', drawer));
+      await ui.waitFor(`!!${drawer}.querySelector('textarea[aria-label="Комментарий к шагу"]')`, 'поле комментария');
+      assert.equal(await ui.evaluate(`!!${$.button('Отправить на проверку', drawer)}`), false, 'без комментария кнопка не активна');
+      await ui.type(`${drawer}.querySelector('textarea[aria-label="Комментарий к шагу"]')`, 'Права сняты, отчёт в письме');
+      m = ui.mark();
+      await ui.click($.button('Отправить на проверку', drawer));
+      const sub = await ui.request(m, 'POST', `/api/v1/tasks/${t.id}/actions/submit`);
+      assert.equal(sub.status, 200, sub.body);
+      assert.equal(sub.json.comment, 'Права сняты, отчёт в письме');
+      await ui.waitFor(`[...${drawer}.querySelectorAll('.cmt')].some((c) => c.textContent.includes('В работе → На проверке') && c.textContent.includes('Права сняты'))`, 'комментарий перехода в ленте');
+      await ui.waitFor(`${drawer}.querySelector('.process .hint')?.textContent.includes('Свою задачу нельзя принять')`, 'свою не принять');
+      await ui.click($.button('Закрыть', drawer));
+    } finally {
+      head.password = await loginAs(head.login, head.password);
+    }
+
+    // Руководитель исполнителя: на карточке «Проверить» → «Принять» с комментарием.
+    await openBoard();
+    await ui.waitFor(`${step('процесс')}?.textContent === 'Проверить'`, 'кнопка «Проверить»');
+    await ui.click(step('процесс'));
+    await ui.waitFor(`!!${drawer}?.querySelector('.process')`, 'карточка проверки');
+    await ui.click($.button('Принять', drawer));
+    await ui.type(`${drawer}.querySelector('textarea[aria-label="Комментарий к шагу"]')`, 'Проверил, принято');
+    const m = ui.mark();
+    await ui.click($.button('Принять', drawer));
+    assert.equal((await ui.request(m, 'POST', `/api/v1/tasks/${t.id}/actions/accept`)).status, 200);
+    await ui.click($.button('Закрыть', drawer));
+    await ui.waitFor(`!${drawer} && ${colOf('done')}.contains(${card('процесс')})`, 'задача в «Выполнено»');
+  });
+
+  it('перетаскивание в колонку с обязательным комментарием — окно «Комментарий к переходу»', async () => {
+    const t = await makeTask('с комментарием');
+    await openBoard();
+    const review = statuses.find((s) => s.systemKey === 'review');
+    await ui.drag(card('с комментарием'), col(review.value), 'карточка → «На проверке»');
+    const dlg = `document.querySelector('form[aria-labelledby="mv-title"]')`;
+    await ui.waitFor(`!!${dlg}`, 'окно «Комментарий к переходу»');
+    await ui.type(`${dlg}.querySelector('textarea')`, 'Перенёс сам');
+    const m = ui.mark();
+    await ui.click($.button('Перенести', dlg));
+    const req = await ui.request(m, 'PATCH', `/api/v1/tasks/${t.id}`);
+    assert.equal(req.status, 200, req.body);
+    assert.deepEqual(req.json, { version: t.version, statusId: review.id, comment: 'Перенёс сам' });
+    await ui.waitFor(`!${dlg} && ${col(review.value)}.contains(${card('с комментарием')})`, 'карточка в «На проверке»');
   });
 });
 

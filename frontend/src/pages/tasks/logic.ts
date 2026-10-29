@@ -50,3 +50,52 @@ export function todayLocal(now = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
 }
+
+// ---------------------------------------------------------------- процесс по кнопкам (релиз 1.2.0, ADR-0022)
+// Решает всегда backend: кнопки берутся из task.actions, здесь — только подписи, подсказки и нужен ли комментарий.
+
+export type ProcessAction = Task['actions'][number];
+
+export const ACTION_LABEL: Record<ProcessAction, string> = {
+  take: 'Взять себе', start: 'Взять в работу', submit: 'Отправить на проверку', accept: 'Принять', return: 'Вернуть в работу',
+};
+/** Колонка, в которую ведёт кнопка (системный ключ). */
+export const ACTION_TARGET: Record<ProcessAction, string> = { take: 'assigned', start: 'work', submit: 'review', accept: 'done', return: 'work' };
+
+export interface StatusFlags { id: string; systemKey: string | null; commentForward: boolean; commentReturn: boolean }
+
+/** Как на backend: переход в колонку правее — признак «вперёд», левее — «при возврате» (порядок — как в справочнике). */
+export function needsComment(statuses: readonly StatusFlags[], fromId: string, toId: string): boolean {
+  const from = statuses.findIndex((s) => s.id === fromId);
+  const to = statuses.findIndex((s) => s.id === toId);
+  if (from < 0 || to < 0 || from === to) return false;
+  const target = statuses[to];
+  return to > from ? !!target?.commentForward : !!target?.commentReturn;
+}
+
+export function actionNeedsComment(statuses: readonly StatusFlags[], t: Pick<Task, 'status'>, a: ProcessAction): boolean {
+  const to = statuses.find((s) => s.systemKey === ACTION_TARGET[a]);
+  return !!to && needsComment(statuses, t.status.id, to.id);
+}
+
+/** Почему кнопок процесса нет — подсказка в карточке; null — объяснять нечего. */
+export function processHint(t: Pick<Task, 'status' | 'assignee' | 'actions' | 'archived'>, meId: string, perms: readonly string[]): string | null {
+  if (t.archived || t.actions.length) return null;
+  const key = t.status.systemKey;
+  if (key === 'review') {
+    if (t.assignee?.id === meId) return 'Свою задачу нельзя принять: это делает автор задачи или руководитель';
+    return perms.includes('tasks.review')
+      ? 'Принять может автор задачи или руководитель исполнителя'
+      : 'Принимает автор задачи или руководитель исполнителя с правом «Задачи: проверка»';
+  }
+  if ((key === 'assigned' || key === 'work') && t.assignee?.id !== meId) return 'Дальше задачу двигает исполнитель';
+  return null;
+}
+
+/** Кнопка следующего шага на карточке доски: своя работа или «Проверить» (открывает карточку). */
+export function cardStep(t: Pick<Task, 'actions'>): { action: ProcessAction | 'review'; label: string } | null {
+  if (t.actions.includes('accept')) return { action: 'review', label: 'Проверить' };
+  const a = t.actions.find((x) => x === 'take' || x === 'start' || x === 'submit');
+  if (!a) return null;
+  return { action: a, label: a === 'submit' ? 'На проверку' : ACTION_LABEL[a] };
+}

@@ -4,8 +4,9 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError, type Me } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type Task } from '../../api/tasks';
+import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
-import { categoryTone, dueLabel, initials, sortColumn, todayLocal, workload } from './logic';
+import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, workload, type ProcessAction } from './logic';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
@@ -29,20 +30,26 @@ function plusDays(n: number): string {
   return todayLocal(d);
 }
 
-function Card({ t, today, archived, drag, onPointerDown, onOpen, picking, picked, onPick }: {
+function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick }: {
   t: Task; today: string; archived: boolean; drag: Drag | null;
+  /** Перетаскивание — только с правом «Задачи: свободная смена статуса» (релиз 1.2.0); без него щелчок открывает карточку. */
+  canDrag: boolean;
   onPointerDown: (e: ReactPointerEvent<HTMLElement>, t: Task) => void; onOpen: (id: string) => void;
+  /** Кнопка следующего шага на карточке: своя работа или «Проверить». */
+  onStep: (t: Task, a: ProcessAction | 'review') => void;
   /** Режим «Выбрать»: щелчок отмечает карточку, не открывает и не перетаскивает. */
   picking: boolean; picked: boolean; onPick: (id: string) => void;
 }) {
   const due = dueLabel(t, today);
   const dragging = drag?.moving && drag.task.id === t.id;
+  const draggable = canDrag && !archived && !picking;
+  const step = archived || picking ? null : cardStep(t);
   return (
-    <article className={`card${archived ? ' arch' : ''}${dragging ? ' dragging' : ''}${t.overdue ? ' late' : ''}${picked ? ' picked' : ''}`} tabIndex={0}
+    <article className={`card${archived ? ' arch' : ''}${draggable ? '' : ' static'}${dragging ? ' dragging' : ''}${t.overdue ? ' late' : ''}${picked ? ' picked' : ''}`} tabIndex={0}
       aria-label={picking ? `Выбрать задачу ${t.title}` : `Открыть задачу ${t.title}`} aria-pressed={picking ? picked : undefined} data-task={t.id}
       style={dragging ? { transform: `translate(${drag.dx}px, ${drag.dy}px)` } : undefined}
-      onPointerDown={archived || picking ? undefined : (e) => onPointerDown(e, t)}
-      onClick={picking ? () => onPick(t.id) : archived ? () => onOpen(t.id) : undefined}
+      onPointerDown={draggable ? (e) => onPointerDown(e, t) : undefined}
+      onClick={picking ? () => onPick(t.id) : draggable ? undefined : () => onOpen(t.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') (picking ? onPick : onOpen)(t.id); }}>
       <div className="card-t">
         {picking && <input type="checkbox" className="card-pick" checked={picked} readOnly tabIndex={-1} aria-hidden="true" />}
@@ -68,6 +75,12 @@ function Card({ t, today, archived, drag, onPointerDown, onOpen, picking, picked
           {t.source === 'evidence' && <span className="chip acc" title="Задача по доказательству">доказательство</span>}
         </span>
       </div>
+      {step && (
+        <div className="card-step">
+          <button className="btn sm" type="button" onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onStep(t, step.action); }}>{step.label}</button>
+        </div>
+      )}
     </article>
   );
 }
@@ -97,10 +110,13 @@ export function TasksPage() {
   const overdue = params.get('overdue') === '1' && !archived;
   const [mailOpen, setMailOpen] = useState(false);
   const [drag, setDrag] = useState<Drag | null>(null);
+  // Перетаскивание в колонку, где нужен комментарий: окно «Комментарий к переходу».
+  const [pendingMove, setPendingMove] = useState<{ t: Task; statusId: string; comment: string } | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const today = todayLocal();
 
   const statuses = useQuery({ queryKey: tkeys.statuses, queryFn: () => settingsApi.items('task_statuses', false) });
+  const cols = statuses.data?.items ?? [];
   const categories = useQuery({ queryKey: tkeys.categories, queryFn: () => settingsApi.items('task_categories', false) });
   const people = useQuery({ queryKey: ['settings', 'userOptions'], queryFn: settingsApi.userOptions });
   const tasks = useQuery({
@@ -118,6 +134,8 @@ export function TasksPage() {
   }, [setParams]);
   const openTask = useCallback((id: string) => setParam({ task: id }), [setParam]);
 
+  const canOverride = me.permissions.includes('tasks.status.override');
+  const canAssign = me.permissions.includes('tasks.assign');
   const [quick, setQuick] = useState({ title: '', categoryId: '', assigneeId: me.id, dueDate: plusDays(5) });
   const quickCategories = (categories.data?.items ?? []).filter((c) => c.systemKey !== 'register' && c.systemKey !== 'mail' && c.systemKey !== 'documents' && c.systemKey !== 'evidence');
   const quickCategory = quick.categoryId || quickCategories[0]?.id || '';
@@ -130,17 +148,30 @@ export function TasksPage() {
     },
     onError: (e) => toast(e instanceof Error ? e.message : 'Не удалось поставить задачу', 'error'),
   });
+  const moved = async (t: Task) => {
+    setPendingMove(null);
+    await qc.invalidateQueries({ queryKey: tkeys.all });
+    toast(`«${t.title}» → ${t.status.value}`);
+  };
+  const moveFailed = async (e: unknown) => {
+    await qc.invalidateQueries({ queryKey: tkeys.all });
+    toast(e instanceof ApiError && e.code === 'VERSION_CONFLICT' ? 'Задачу успели изменить — доска обновлена, повторите' : e instanceof Error ? e.message : 'Не удалось сменить статус', 'error');
+  };
   const move = useMutation({
-    mutationFn: ({ t, statusId }: { t: Task; statusId: string }) => tasksApi.update(t.id, { version: t.version, statusId }),
-    onSuccess: async (t) => {
-      await qc.invalidateQueries({ queryKey: tkeys.all });
-      toast(`«${t.title}» → ${t.status.value}`);
-    },
-    onError: async (e) => {
-      await qc.invalidateQueries({ queryKey: tkeys.all });
-      toast(e instanceof ApiError && e.code === 'VERSION_CONFLICT' ? 'Задачу успели изменить — доска обновлена, повторите' : e instanceof Error ? e.message : 'Не удалось сменить статус', 'error');
-    },
+    mutationFn: ({ t, statusId, comment }: { t: Task; statusId: string; comment?: string }) => tasksApi.update(t.id, { version: t.version, statusId, ...(comment ? { comment } : {}) }),
+    onSuccess: moved,
+    onError: moveFailed,
   });
+  const step = useMutation({
+    mutationFn: ({ t, action }: { t: Task; action: ProcessAction }) => tasksApi.action(t.id, action, t.version),
+    onSuccess: moved,
+    onError: moveFailed,
+  });
+  // Шаг с карточки: без комментария — сразу; с обязательным комментарием и «Проверить» — открыть карточку.
+  const onStep = (t: Task, a: ProcessAction | 'review') => {
+    if (a === 'review' || actionNeedsComment(cols, t, a)) openTask(t.id);
+    else step.mutate({ t, action: a });
+  };
 
   // Перетаскивание: нажатие → сдвиг больше DRAG_PX → карточка едет за указателем; отпускание над колонкой меняет статус.
   // Без сдвига это щелчок — открывается карточка.
@@ -172,7 +203,9 @@ export function TasksPage() {
         openTask(d.task.id);
         return;
       }
-      if (d.over && d.over !== d.task.status.id) move.mutate({ t: d.task, statusId: d.over });
+      if (!d.over || d.over === d.task.status.id) return;
+      if (needsComment(cols, d.task.status.id, d.over)) setPendingMove({ t: d.task, statusId: d.over, comment: '' });
+      else move.mutate({ t: d.task, statusId: d.over });
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp, { once: true });
@@ -187,7 +220,6 @@ export function TasksPage() {
   const list = tasks.data?.items ?? [];
   const counts = (categoryId ? all.data : tasks.data)?.categories ?? [];
   const totalCount = counts.reduce((s, c) => s + c.count, 0);
-  const cols = statuses.data?.items ?? [];
   const submitQuick = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
   const filterCats = (categories.data?.items ?? []).filter((c) => counts.some((x) => x.categoryId === c.id) || c.id === categoryId || !c.archived);
   const automations = (automationId ? all.data ?? tasks.data : tasks.data)?.automations ?? [];
@@ -200,7 +232,10 @@ export function TasksPage() {
       <div className="head">
         <div>
           <h1>Задачи</h1>
-          <p>Почта, проекты, оперплан и автоматизации реестров попадают на одну доску. Нажмите на карточку, чтобы изменить её или прокомментировать. Перетащите карточку, чтобы сменить статус.</p>
+          <p>
+            Почта, проекты, оперплан и автоматизации реестров попадают на одну доску. Нажмите на карточку, чтобы изменить её или прокомментировать.
+            {canOverride ? ' Перетащите карточку, чтобы сменить статус.' : ' Статус меняется кнопками в карточке. Перетаскивание — у пользователей с правом «Задачи: свободная смена статуса».'}
+          </p>
         </div>
         <div className="row">
           <button className="btn primary" type="button" onClick={() => setMailOpen(true)}>Задача из письма</button>
@@ -251,9 +286,12 @@ export function TasksPage() {
           <select className="inp" value={quickCategory} onChange={(e) => setQuick({ ...quick, categoryId: e.target.value })} aria-label="Категория">
             {quickCategories.map((c) => <option key={c.id} value={c.id}>{c.value}</option>)}
           </select>
-          <select className="inp" value={quick.assigneeId} onChange={(e) => setQuick({ ...quick, assigneeId: e.target.value })} aria-label="Ответственный">
+          <select className="inp" value={quick.assigneeId} onChange={(e) => setQuick({ ...quick, assigneeId: e.target.value })} aria-label="Ответственный"
+            title={canAssign ? undefined : 'Поставить задачу другому может пользователь с правом «Задачи: постановка другим»'}>
             <option value="">— не назначен</option>
-            {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+            {canAssign
+              ? people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)
+              : <option value={me.id}>{me.fullName} (я)</option>}
           </select>
           <input className="inp" type="date" value={quick.dueDate} onChange={(e) => setQuick({ ...quick, dueDate: e.target.value })} aria-label="Срок" />
           <button className="btn primary" type="submit" disabled={create.isPending || !quickCategory}>Назначить</button>
@@ -268,10 +306,10 @@ export function TasksPage() {
               <div key={c.id} className={`col${drag?.moving && drag.over === c.id && drag.task.status.id !== c.id ? ' over' : ''}`} data-status={c.id} aria-label={`Колонка «${c.value}»`}>
                 <div className="col-h"><span>{c.value}</span><span className="mono">{items.length}</span></div>
                 {items.map((t) => (
-                  <Card key={t.id} t={t} today={today} archived={archived} drag={drag} onPointerDown={onPointerDown} onOpen={openTask}
-                    picking={picking} picked={picked.has(t.id)} onPick={togglePick} />
+                  <Card key={t.id} t={t} today={today} archived={archived} drag={drag} canDrag={canOverride} onPointerDown={onPointerDown} onOpen={openTask}
+                    onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} />
                 ))}
-                {tasks.isSuccess && items.length === 0 && <div className="hint col-empty">{archived ? 'Пусто' : 'Перетащите сюда карточку'}</div>}
+                {tasks.isSuccess && items.length === 0 && <div className="hint col-empty">{archived || !canOverride ? 'Пусто' : 'Перетащите сюда карточку'}</div>}
               </div>
             );
           })}
@@ -299,7 +337,26 @@ export function TasksPage() {
       </div>
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}
-      {mailOpen && <MailDrawer meId={me.id} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}
+      {mailOpen && <MailDrawer meId={me.id} canAssign={canAssign} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}
+      {pendingMove && (
+        <Overlay>
+          <div className="backdrop" role="presentation">
+            <form className="modal panel" role="dialog" aria-modal="true" aria-labelledby="mv-title"
+              onSubmit={(e) => { e.preventDefault(); move.mutate({ t: pendingMove.t, statusId: pendingMove.statusId, comment: pendingMove.comment }); }}>
+              <h2 id="mv-title">Комментарий к переходу</h2>
+              <p className="hint">
+                «{pendingMove.t.title}»: {pendingMove.t.status.value} → {cols.find((c) => c.id === pendingMove.statusId)?.value}. Для этой колонки комментарий обязателен.
+              </p>
+              <textarea className="inp" required maxLength={4000} autoFocus aria-label="Комментарий к переходу" value={pendingMove.comment}
+                onChange={(e) => setPendingMove({ ...pendingMove, comment: e.target.value })} />
+              <div className="row end mt12">
+                <button className="btn" type="button" onClick={() => setPendingMove(null)} disabled={move.isPending}>Отмена</button>
+                <button className="btn primary" type="submit" disabled={move.isPending || !pendingMove.comment.trim()}>Перенести</button>
+              </div>
+            </form>
+          </div>
+        </Overlay>
+      )}
     </>
   );
 }

@@ -11,7 +11,8 @@ const EXAMPLE = 'От: Отдел кадров <hr@example.tj>\nОтправле
  * «Почта → задача» (правило 9): вставить письмо целиком → разобрать → проверить черновик → создать.
  * Пока черновик не проверен, ничего не сохраняется.
  */
-export function MailDrawer({ meId, onClose, onCreated }: { meId: string; onClose: () => void; onCreated: (id: string) => void }) {
+/** canAssign — право «Задачи: постановка другим» (релиз 1.2.0): без него ответственный — только «я» или «не назначен». */
+export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: string; canAssign: boolean; onClose: () => void; onCreated: (id: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const people = useQuery({ queryKey: ['settings', 'userOptions'], queryFn: settingsApi.userOptions });
@@ -30,7 +31,7 @@ export function MailDrawer({ meId, onClose, onCreated }: { meId: string; onClose
     mutationFn: () => tasksApi.mailDraft(raw),
     onSuccess: (d) => {
       setParsed(d);
-      setForm({ title: d.title, assigneeId: d.assignee?.id ?? meId, dueDate: d.dueDate, priorityId: d.priorityId, description: d.body });
+      setForm({ title: d.title, assigneeId: !d.assignee ? meId : canAssign || d.assignee.id === meId ? d.assignee.id : '', dueDate: d.dueDate, priorityId: d.priorityId, description: d.body });
     },
     onError: (e) => toast(e instanceof Error ? e.message : 'Не удалось разобрать письмо', 'error'),
   });
@@ -73,9 +74,14 @@ export function MailDrawer({ meId, onClose, onCreated }: { meId: string; onClose
                 <label>Ответственный
                   <select className="inp" value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}>
                     <option value="">— не назначен</option>
-                    {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+                    {canAssign
+                      ? people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)
+                      : <option value={meId}>Я</option>}
                   </select>
                   <span className="why">{parsed.rule ? `Категория письма «${parsed.rule.label}» · ` : ''}{parsed.assigneeReason}</span>
+                  {!canAssign && parsed.assignee && parsed.assignee.id !== meId && (
+                    <span className="why">Поставить задачу «{parsed.assignee.fullName}» может пользователь с правом «Задачи: постановка другим»</span>
+                  )}
                 </label>
                 <label>Срок
                   <input className="inp" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />

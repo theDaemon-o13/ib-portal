@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { categoryTone, dueLabel, initials, sortColumn, workload } from './logic';
+import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -30,5 +30,40 @@ describe('доска задач', () => {
     const a = { id: 'a', fullName: 'Анна' };
     expect(workload([task(1, { assignee: a }), task(2, { assignee: a }), task(3), task(4, { assignee: a, completedAt: 'x' })]))
       .toEqual([{ name: 'Анна', count: 2 }, { name: 'Не назначен', count: 1 }]);
+  });
+});
+
+describe('процесс по кнопкам', () => {
+  const cols = [
+    { id: 'n', systemKey: 'new', commentForward: false, commentReturn: false },
+    { id: 'a', systemKey: 'assigned', commentForward: false, commentReturn: false },
+    { id: 'w', systemKey: 'work', commentForward: false, commentReturn: true },
+    { id: 'x', systemKey: null, commentForward: true, commentReturn: false },
+    { id: 'r', systemKey: 'review', commentForward: true, commentReturn: false },
+    { id: 'd', systemKey: 'done', commentForward: true, commentReturn: false },
+  ];
+  const st = (id: string, systemKey: string) => ({ id, value: id, color: null, systemKey });
+
+  it('комментарий — по признаку колонки: вперёд и при возврате, по порядку колонок', () => {
+    expect(needsComment(cols, 'a', 'w')).toBe(false);
+    expect(needsComment(cols, 'w', 'r')).toBe(true);
+    expect(needsComment(cols, 'r', 'w')).toBe(true);
+    expect(needsComment(cols, 'd', 'a')).toBe(false);
+    expect(needsComment(cols, 'w', 'x')).toBe(true);
+    expect(actionNeedsComment(cols, { status: st('a', 'assigned') }, 'start')).toBe(false);
+    expect(actionNeedsComment(cols, { status: st('r', 'review') }, 'accept')).toBe(true);
+  });
+
+  it('кнопка на карточке: своя работа или «Проверить»; подсказка, когда кнопок нет', () => {
+    expect(cardStep({ actions: ['take'] })).toEqual({ action: 'take', label: 'Взять себе' });
+    expect(cardStep({ actions: ['submit'] })).toEqual({ action: 'submit', label: 'На проверку' });
+    expect(cardStep({ actions: ['accept', 'return'] })).toEqual({ action: 'review', label: 'Проверить' });
+    expect(cardStep({ actions: [] })).toBeNull();
+    const me = { id: 'me', fullName: 'Я' };
+    const review = { status: st('r', 'review'), assignee: me, actions: [], archived: false };
+    expect(processHint(review, 'me', ['tasks.review'])).toMatch(/Свою задачу нельзя принять/);
+    expect(processHint({ ...review, assignee: { id: 'b', fullName: 'Б' } }, 'me', ['tasks.review'])).toMatch(/автор задачи или руководитель исполнителя$/);
+    expect(processHint({ ...review, status: st('w', 'work'), assignee: { id: 'b', fullName: 'Б' } }, 'me', [])).toMatch(/исполнитель/);
+    expect(processHint({ ...review, actions: ['accept'] }, 'me', [])).toBeNull();
   });
 });
