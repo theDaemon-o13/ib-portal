@@ -45,5 +45,6 @@ export const keys = {
   allUserOptions: ['settings', 'userOptions', 'all'] as const,
   roles: ['settings', 'roles'] as const,
   permissions: ['settings', 'permissions'] as const,
-  journal: ['settings', 'journal'] as const,
+  /** Раздел «Журнал»: изменения настроек сразу видны там. */
+  journal: ['audit'] as const,
 };

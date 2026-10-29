@@ -173,6 +173,8 @@ model AuditLog {
 
   @@index([at])
   @@index([entity, entityId])
+  /// Раздел «Журнал»: фильтр по пользователю (релиз 1.2.0).
+  @@index([userId, at])
   @@map("audit_log")
 }
 

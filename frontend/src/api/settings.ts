@@ -26,8 +26,6 @@ export type UserPage = Res<'/api/v1/users', 'get'>;
 export type UserOption = Res<'/api/v1/users/options', 'get'>['items'][number];
 export type Role = Res<'/api/v1/roles', 'get'>['items'][number];
 export type Permission = Res<'/api/v1/permissions', 'get'>['items'][number];
-export type JournalPage = Res<'/api/v1/settings/journal', 'get'>;
-export type JournalEntry = JournalPage['items'][number];
 export type WithTemporaryPassword = Res<'/api/v1/users', 'post', 201>;
 
 const enc = encodeURIComponent;
@@ -91,6 +89,4 @@ export const settingsApi = {
   setPermission: (roleId: string, code: string, granted: boolean) =>
     request<Role>('PUT', `/api/v1/roles/${roleId}/permissions/${enc(code)}`, { granted }),
 
-  journal: (cursor?: string) =>
-    request<JournalPage>('GET', `/api/v1/settings/journal?limit=50${cursor ? `&cursor=${enc(cursor)}` : ''}`),
 };

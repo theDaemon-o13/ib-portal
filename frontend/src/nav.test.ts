@@ -15,6 +15,13 @@ describe('меню по правам', () => {
     expect(homePath([])).toBe('/documents');
   });
 
+  it('«Журнал» — только с правом «Журнал действий», ib.work для него не нужен (релиз 1.2.0)', () => {
+    expect(visibleNav(['ib.work']).map((i) => i.title)).not.toContain('Журнал');
+    expect(visibleNav(['ib.work', 'audit.view']).map((i) => i.title)).toContain('Журнал');
+    expect(visibleNav(['audit.view', 'docs.approve.head']).map((i) => i.title)).toEqual(['Документы', 'Журнал']);
+    expect(visibleNav(['monitor.kiosk', 'audit.view']).map((i) => i.title)).toEqual(['Мониторинг']);
+  });
+
   it('настенный монитор видит только «Мониторинг»', () => {
     expect(visibleNav(['monitor.kiosk']).map((i) => i.title)).toEqual(['Мониторинг']);
     expect(homePath(['monitor.kiosk'])).toBe('/monitor');

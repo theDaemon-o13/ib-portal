@@ -365,8 +365,12 @@ describe('Пользователи', () => {
     await action('Отключить', $.row(login), 'POST', '/disable');
   });
 
-  it('журнал изменений показывает действия теста', async () => {
+  it('журнал (раздел «Журнал», фильтр «Настройки — всё») показывает действия теста', async () => {
     await ui.goto('/settings/journal');
-    await ui.waitFor(`document.querySelector('.list .li')?.textContent.includes(${JSON.stringify(`e2e.${RUN}`)})`, 'последняя запись журнала про тестового пользователя');
+    await ui.waitFor(`location.pathname === '/audit'`, 'вкладка журнала настроек ведёт в раздел «Журнал»');
+    const settingsGroup = await ui.evaluate(`fetch('/api/v1/audit/facets').then((r) => r.json()).then((j) => j.entities.find((e) => e.label === 'Настройки — всё')?.code)`);
+    assert.ok(settingsGroup, 'пункт «Настройки — всё» в фильтре раздела');
+    await ui.goto(`/audit?entity=${encodeURIComponent(settingsGroup)}`);
+    await ui.waitFor(`document.querySelector('.audit-tbl tbody tr[data-audit]')?.textContent.includes(${JSON.stringify(`e2e.${RUN}`)})`, 'последняя запись журнала про тестового пользователя');
   });
 });

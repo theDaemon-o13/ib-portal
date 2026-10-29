@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { SearchPage } from './pages/search/SearchPage';
 import { HomeRedirect, MonitorRoute, ProtectedShell, RequireUser, Section } from './components/guards';
 import { NAV } from './nav';
+import { AuditPage } from './pages/audit/AuditPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { DocumentsPage } from './pages/documents/DocumentsPage';
@@ -32,6 +33,8 @@ export function App() {
             <Route key={item.path} path="/documents" element={<Section item={item}><DocumentsPage /></Section>} />
           ) : item.path === '/evidence' ? (
             <Route key={item.path} path="/evidence" element={<Section item={item}><EvidencePage /></Section>} />
+          ) : item.path === '/audit' ? (
+            <Route key={item.path} path="/audit" element={<Section item={item}><AuditPage /></Section>} />
           ) : item.path === '/registers' ? (
             <Route key={item.path} path="/registers/:registerId?/:tab?" element={<Section item={item}><RegistersPage /></Section>} />
           ) : (

@@ -43,6 +43,12 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M8.5 12l2.5 2.5 4.5-5" />
     </>
   ),
+  journal: (
+    <>
+      <path d="M6 3h11a1 1 0 011 1v16a1 1 0 01-1 1H6z" />
+      <path d="M9 3v18M12 8h3M12 12h3M12 16h2" />
+    </>
+  ),
   settings: (
     <>
       <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />

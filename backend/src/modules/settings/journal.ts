@@ -1,5 +1,6 @@
 // Журнал изменений настроек строится из audit_log (CLAUDE.md, раздел 3.5): кто, когда,
 // с какими ролями и что поменял. Отдельной таблицы нет, записи не перезаписываются.
+// С релиза 1.2.0 — по праву audit.view; в интерфейсе заменён разделом «Журнал» (фильтр «Настройки»).
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
@@ -56,7 +57,7 @@ export async function listJournal(db: Db, q: { limit: number; cursor?: string })
 
 export const journalRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get('/settings/journal', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requirePerm('audit.view'),
     schema: {
       tags: ['settings'],
       summary: 'Журнал изменений настроек',

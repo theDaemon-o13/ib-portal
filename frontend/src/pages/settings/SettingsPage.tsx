@@ -5,7 +5,6 @@ import { settingsApi } from '../../api/settings';
 import { CalendarEditor } from './CalendarEditor';
 import { CatalogValues } from './CatalogValues';
 import { FormTemplatesEditor } from './FormTemplatesEditor';
-import { JournalTab } from './JournalTab';
 import { MonitorSlides } from './MonitorSlides';
 import { RolesMatrix } from './RolesMatrix';
 import { UsersTable } from './UsersTable';
@@ -16,7 +15,6 @@ const TABS = [
   { key: 'users', title: 'Пользователи и роли' },
   // Слайды настенных мониторов (релиз 1.1.0): видно и правится по праву «Настройки».
   { key: 'monitor', title: 'Экран мониторинга', perm: 'settings.manage' },
-  { key: 'journal', title: 'Журнал изменений' },
 ] as const;
 
 /** Особые разделы в списке справочников: устроены иначе, чем «значение и цвет». */
@@ -68,6 +66,8 @@ export function SettingsPage() {
   const { tab } = useParams();
   const canCatalogs = me.permissions.includes('settings.manage');
   const tabs = TABS.filter((t) => !('perm' in t) || me.permissions.includes(t.perm));
+  // Журнал изменений настроек переехал в раздел «Журнал» (релиз 1.2.0): старые ссылки ведут туда.
+  if (tab === 'journal') return <Navigate to={me.permissions.includes('audit.view') ? '/audit' : '/settings/catalogs'} replace />;
   if (!tabs.some((t) => t.key === tab)) return <Navigate to="/settings/catalogs" replace />;
   const canUsers = me.permissions.includes('users.manage');
 
@@ -97,7 +97,6 @@ export function SettingsPage() {
         </div>
       )}
       {tab === 'monitor' && <MonitorSlides />}
-      {tab === 'journal' && <JournalTab />}
     </>
   );
 }

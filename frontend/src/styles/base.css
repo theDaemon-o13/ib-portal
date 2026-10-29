@@ -727,3 +727,15 @@ body.mon-idle .mon{cursor:none}
 .search-hit:hover{background:var(--fill-2)}
 .snippet mark{background:var(--accent-soft,rgba(0,122,255,.18));color:inherit;border-radius:3px;padding:0 1px}
 .grow{flex:1;min-width:0}
+
+/* Раздел «Журнал» (релиз 1.2.0) */
+.audit-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.audit-filters label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.audit-filters .inp{min-width:140px}
+.audit-filters label.grow{min-width:220px}
+.audit-tbl tr.clickable{cursor:pointer}
+.audit-tbl tr.clickable:hover td{background:var(--fill-2)}
+.audit-tbl td.nowrap{white-space:nowrap}
+.audit-tbl th:last-child{width:auto}
+.audit-open td{background:var(--fill-2)}
+.audit-details pre{margin:8px 0 0;max-height:320px;overflow:auto;font-size:12px;white-space:pre-wrap;word-break:break-word}

@@ -31,6 +31,7 @@ import { IMPORT_BODY_LIMIT, registerRoutes, XLSX_TYPE } from './modules/register
 import { roleRoutes } from './modules/roles/routes.js';
 import { searchRoutes } from './modules/search/routes.js';
 import { journalRoutes } from './modules/settings/journal.js';
+import { auditRoutes } from './modules/audit/routes.js';
 import { userRoutes } from './modules/users/routes.js';
 import { vulnRoutes } from './modules/vulns/routes.js';
 import { installAuth } from './plugins/auth.js';
@@ -101,6 +102,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });
   await app.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(journalRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(auditRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
