@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildApp, type App } from '../../app.js';
 import { createPrisma } from '../../lib/db.js';
 import { parseIpList } from '../../lib/ip-list.js';
-import { SESSION_IDLE_MS, SESSION_MAX_AGE_MS } from '../../lib/session-token.js';
+import { KIOSK_SESSION_MAX_AGE_MS, SESSION_IDLE_MS, SESSION_MAX_AGE_MS } from '../../lib/session-token.js';
 import { FakeClock, TEST_PORTAL_URL, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
 import { MemoryAuditWriter } from '../audit/audit.js';
 import { MemoryAuthRepository } from './repository.memory.js';
@@ -88,11 +88,14 @@ describe('вход настенного монитора', () => {
 });
 
 describe('сессия настенного монитора', () => {
-  it('не завершается по бездействию, но живёт не дольше 12 часов', async () => {
+  it('не завершается по бездействию и работает сутками, но не дольше 7 суток', async () => {
     const cookie = cookieOf(await login('wall', viaNginx(WALL)));
     clock.advance(SESSION_IDLE_MS + 60_000);
     expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie }) })).statusCode).toBe(200);
-    clock.advance(SESSION_MAX_AGE_MS);
+    // Двое суток подряд — сессия жива (раньше предел был 12 часов).
+    clock.advance(2 * 24 * 60 * 60 * 1000);
+    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie }) })).statusCode).toBe(200);
+    clock.advance(KIOSK_SESSION_MAX_AGE_MS - 2 * 24 * 60 * 60 * 1000);
     const late = await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie }) });
     expect(late.statusCode).toBe(401);
     expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'max_age' } });
@@ -106,6 +109,28 @@ describe('сессия настенного монитора', () => {
       expect(r.statusCode).toBe(200);
       expect(r.headers['x-session-idle-ms']).toBeUndefined();
     }
+  });
+
+  it('у обычного пользователя абсолютный срок — по-прежнему 12 часов, даже при постоянной активности', async () => {
+    const cookie = cookieOf(await login('ivanov', viaNginx(OTHER)));
+    for (let t = 0; t < SESSION_MAX_AGE_MS - 20 * 60_000; t += 20 * 60_000) {
+      clock.advance(20 * 60_000);
+      expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(OTHER, { cookie }) })).statusCode).toBe(200);
+    }
+    clock.advance(20 * 60_000);
+    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(OTHER, { cookie }) })).statusCode).toBe(401);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'max_age' } });
+  });
+
+  it('смена пароля монитора закрывает его остальные сессии', async () => {
+    const wallScreen = cookieOf(await login('wall', viaNginx(WALL)));
+    const second = cookieOf(await login('wall', viaNginx(WALL)));
+    const changed = await app.inject({
+      method: 'POST', url: '/api/v1/auth/change-password', ...viaNginx(WALL, { cookie: second }),
+      payload: { currentPassword: PASSWORD, newPassword: 'Screen-Kiosk-Pass-77' },
+    });
+    expect(changed.statusCode, changed.body).toBe(200);
+    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie: wallScreen }) })).statusCode).toBe(401);
   });
 
   it('у обычного пользователя бездействие по-прежнему завершает сессию', async () => {

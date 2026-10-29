@@ -10,7 +10,7 @@ import { passwordExpiresAt } from '../../lib/password-policy.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
-import { assertKioskExclusive, assertUsersManageKept, lockRbac } from '../roles/invariant.js';
+import { assertKioskExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 
 const include = {
@@ -189,6 +189,7 @@ export async function updateUser(
     }
     const beforeRoles = u.roles.map((r) => r.role);
     let afterRoles = beforeRoles;
+    const wasKiosk = input.roleIds !== undefined && await hasKioskRole(tx, id);
     if (input.roleIds !== undefined) {
       const next = await resolveRoles(tx, input.roleIds);
       const nextIds = new Set(next.map((r) => r.id));
@@ -201,6 +202,8 @@ export async function updateUser(
         afterRoles = next;
         changes.push(`роли ${roleList(beforeRoles)} → ${roleList(next)}`);
       }
+      // Сняли роль настенного монитора — его 7-суточные сессии закрываются сразу (ADR-0012).
+      if (wasKiosk && !(await hasKioskRole(tx, id)) && (await revokeKioskSessions(tx, [id]))) changes.push('сессии монитора закрыты');
     }
     // Руководитель и подчинённые — только сотрудники ИБ: без ib.work руководитель снимается, подчинённые мешают.
     const ibWork = await hasIbWork(tx, id);

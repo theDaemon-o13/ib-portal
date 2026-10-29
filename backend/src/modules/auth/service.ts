@@ -12,6 +12,7 @@ import type { PasswordHasher } from '../../lib/passwords.js';
 import { ADMIN_PERMISSIONS, KIOSK_PERMISSION } from '../../lib/permissions.js';
 import {
   SESSION_IDLE_MS,
+  KIOSK_SESSION_MAX_AGE_MS,
   SESSION_MAX_AGE_MS,
   SESSION_TOUCH_INTERVAL_MS,
   newSessionToken,
@@ -153,7 +154,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       id: sessionId,
       userId: user.id,
       createdAt: at,
-      expiresAt: new Date(at.getTime() + SESSION_MAX_AGE_MS),
+      expiresAt: new Date(at.getTime() + (authUser.kiosk ? KIOSK_SESSION_MAX_AGE_MS : SESSION_MAX_AGE_MS)),
       ip: client.ip,
       userAgent: client.userAgent,
     });
@@ -193,6 +194,8 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     // Настенный монитор не завершается по бездействию (только абсолютный срок, 12 часов),
     // но работает только с разрешённого адреса: перенесённая на другой ПК сессия закрывается.
     if (!authUser.kiosk && idle) return expire('idle');
+    // 7 суток — только у монитора: если роль сняли, а сессия ещё открыта, действует общий предел 12 часов.
+    if (!authUser.kiosk && at.getTime() - session.createdAt.getTime() >= SESSION_MAX_AGE_MS) return expire('max_age');
     if (authUser.kiosk && !kioskIpAllowed(client.ip)) {
       await repo.revokeSession(sessionId, at);
       await audit.write({

@@ -1,9 +1,9 @@
 // Роли и матрица «право × роль» (CLAUDE.md, раздел 5).
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
-import { APPROVAL_PERMISSIONS, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode } from '../../lib/permissions.js';
+import { APPROVAL_PERMISSIONS, KIOSK_PERMISSION, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode } from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
-import { assertKioskExclusive, assertUsersManageKept, lockRbac } from './invariant.js';
+import { assertKioskExclusive, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
 
 export async function listPermissions(db: Db) {
   return db.permission.findMany({ orderBy: { sortOrder: 'asc' }, select: { code: true, name: true, description: true } });
@@ -143,13 +143,19 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     await tx.role.update({ where: { id: roleId }, data: { version: { increment: 1 } } });
     if (!granted) await assertUsersManageKept(tx, actor.id);
     if (granted) await assertKioskExclusive(tx);
+    // Сняли право «Настенный монитор» с роли — 7-суточные сессии её пользователей закрываются (ADR-0012).
+    let closed = 0;
+    if (!granted && perm === KIOSK_PERMISSION) {
+      const holders = await tx.userRole.findMany({ where: { roleId }, select: { userId: true } });
+      closed = await revokeKioskSessions(tx, holders.map((h) => h.userId));
+    }
     const permName = (await tx.permission.findUnique({ where: { code: perm } }))?.name ?? perm;
     await auditSettings(tx, actor, {
       action: granted ? 'role.permission.granted' : 'role.permission.revoked',
       entity: 'role',
       entityId: roleId,
-      summary: `Роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»`,
-      after: { permission: perm, granted },
+      summary: `Роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»${closed ? `, закрыто сессий монитора: ${closed}` : ''}`,
+      after: { permission: perm, granted, ...(closed ? { sessionsClosed: closed } : {}) },
     });
     return toDto(await getRole(tx, roleId));
   });

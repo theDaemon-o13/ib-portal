@@ -5,6 +5,7 @@
 // отключение пользователя, удаление роли.
 import type { Db } from '../../lib/db.js';
 import { conflict } from '../../lib/errors.js';
+import { KIOSK_PERMISSION } from '../../lib/permissions.js';
 
 /** Последовательная обработка изменений прав: две параллельные правки не обойдут проверку. */
 export async function lockRbac(tx: Db): Promise<void> {
@@ -60,4 +61,19 @@ export async function assertKioskExclusive(tx: Db): Promise<void> {
       `Учётная запись настенного монитора не получает других ролей (${mixedUsers[0]?.full_name}). Для работы в портале заведите отдельного пользователя`,
     );
   }
+}
+
+/** Есть ли у пользователя право настенного монитора (сумма прав его ролей). */
+export async function hasKioskRole(db: Db, userId: string): Promise<boolean> {
+  return (await db.rolePermission.count({ where: { permissionCode: KIOSK_PERMISSION, role: { users: { some: { userId } } } } })) > 0;
+}
+
+/**
+ * Сессии монитора живут 7 суток (ADR-0012): сняли роль или право «Настенный монитор» — открытые сессии этих
+ * пользователей закрываются сразу, а не по общему пределу. Возвращает число закрытых сессий.
+ */
+export async function revokeKioskSessions(db: Db, userIds: readonly string[]): Promise<number> {
+  if (!userIds.length) return 0;
+  const res = await db.session.updateMany({ where: { userId: { in: [...userIds] }, revokedAt: null }, data: { revokedAt: new Date() } });
+  return res.count;
 }
