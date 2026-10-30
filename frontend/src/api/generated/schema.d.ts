@@ -23223,12 +23223,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -23731,12 +23739,20 @@ export interface paths {
                                 actor: string;
                                 stageName: string;
                                 comment: string;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                    mime: string;
+                                } | null;
                             } | null;
                             files: {
                                 id: string;
                                 /** @enum {string} */
                                 kind: "draft" | "head_approved" | "final";
                                 kindName: string;
+                                marks: string[];
                                 round: number;
                                 file: {
                                     id: string;
@@ -24122,12 +24138,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -24516,12 +24540,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -24913,12 +24945,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -25307,12 +25347,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -25702,12 +25750,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -26097,12 +26153,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -26490,12 +26554,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -26887,12 +26959,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -27290,12 +27370,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -27681,12 +27769,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -28078,12 +28174,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -28474,12 +28578,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -28869,12 +28981,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -29266,12 +29386,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -29669,12 +29797,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -30060,12 +30196,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -30456,12 +30600,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -30852,12 +31004,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -31247,12 +31407,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -31643,12 +31811,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -32037,12 +32213,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -32434,12 +32618,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -32827,12 +33019,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;
@@ -33220,12 +33420,20 @@ export interface paths {
                                     actor: string;
                                     stageName: string;
                                     comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                 } | null;
                                 files: {
                                     id: string;
                                     /** @enum {string} */
                                     kind: "draft" | "head_approved" | "final";
                                     kindName: string;
+                                    marks: string[];
                                     round: number;
                                     file: {
                                         id: string;

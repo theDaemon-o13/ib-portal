@@ -11,7 +11,7 @@ import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDeadlineChanged } from './notify.js';
-import { cleanComment, forbiddenWith, notifyWaiting, rolesOf, routeContext } from './service.js';
+import { cleanComment, forbiddenWith, inPickOrder, notifyWaiting, rolesOf, routeContext } from './service.js';
 import { stageName } from './status.js';
 
 export const LANGUAGE_MAX = 100;
@@ -167,7 +167,7 @@ export async function addTranslationFiles(db: Db, actor: Actor, id: string, tran
     const { d, w, t } = await uploadContext(tx, actor, id, translationId, input);
     const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: TRANSLATION_MIME, what: 'Перевод' });
     if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл перевода');
-    await tx.documentFile.createMany({ data: files.map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'translation', translationId, fileId: f.id, addedBy: actor.id })) });
+    await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'translation', translationId, fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
     await auditSettings(tx, actor, {
       action: 'document.files_added', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,

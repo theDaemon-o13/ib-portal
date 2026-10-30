@@ -63992,13 +63992,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -64025,6 +64063,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -64075,6 +64119,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -65829,13 +65874,51 @@
                             },
                             "comment": {
                               "type": "string"
+                            },
+                            "file": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "type": "string"
+                                    },
+                                    "size": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "mime": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name",
+                                    "sha256",
+                                    "size",
+                                    "mime"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
                             "at",
                             "actor",
                             "stageName",
-                            "comment"
+                            "comment",
+                            "file"
                           ],
                           "additionalProperties": false
                         },
@@ -65862,6 +65945,12 @@
                           },
                           "kindName": {
                             "type": "string"
+                          },
+                          "marks": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           },
                           "round": {
                             "type": "integer",
@@ -65912,6 +66001,7 @@
                           "id",
                           "kind",
                           "kindName",
+                          "marks",
                           "round",
                           "file",
                           "addedBy",
@@ -67477,13 +67567,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -67510,6 +67638,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -67560,6 +67694,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -69138,13 +69273,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -69171,6 +69344,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -69221,6 +69400,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -70785,13 +70965,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -70818,6 +71036,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -70868,6 +71092,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -72420,13 +72645,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -72453,6 +72716,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -72503,6 +72772,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -74067,13 +74337,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -74100,6 +74408,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -74150,6 +74464,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -75713,13 +76028,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -75746,6 +76099,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -75796,6 +76155,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -77342,13 +77702,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -77375,6 +77773,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -77425,6 +77829,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -78992,13 +79397,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -79025,6 +79468,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -79075,6 +79524,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -80654,13 +81104,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -80687,6 +81175,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -80737,6 +81231,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -82300,13 +82795,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -82333,6 +82866,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -82383,6 +82922,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -83959,13 +84499,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -83992,6 +84570,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -84042,6 +84626,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -85616,13 +86201,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -85649,6 +86272,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -85699,6 +86328,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -87262,13 +87892,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -87295,6 +87963,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -87345,6 +88019,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -88912,13 +89587,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -88945,6 +89658,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -88995,6 +89714,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -90574,13 +91294,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -90607,6 +91365,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -90657,6 +91421,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -92220,13 +92985,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -92253,6 +93056,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -92303,6 +93112,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -93877,13 +94687,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -93910,6 +94758,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -93960,6 +94814,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -95533,13 +96388,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -95566,6 +96459,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -95616,6 +96515,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -97174,13 +98074,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -97207,6 +98145,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -97257,6 +98201,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -98825,13 +99770,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -98858,6 +99841,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -98908,6 +99897,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -100459,13 +101449,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -100492,6 +101520,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -100542,6 +101576,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -102105,13 +103140,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -102138,6 +103211,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -102188,6 +103267,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -103735,13 +104815,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -103768,6 +104886,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -103818,6 +104942,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",
@@ -105365,13 +106490,51 @@
                                     },
                                     "comment": {
                                       "type": "string"
+                                    },
+                                    "file": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "type": "string"
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "mime": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name",
+                                            "sha256",
+                                            "size",
+                                            "mime"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "at",
                                     "actor",
                                     "stageName",
-                                    "comment"
+                                    "comment",
+                                    "file"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -105398,6 +106561,12 @@
                                   },
                                   "kindName": {
                                     "type": "string"
+                                  },
+                                  "marks": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
                                   },
                                   "round": {
                                     "type": "integer",
@@ -105448,6 +106617,7 @@
                                   "id",
                                   "kind",
                                   "kindName",
+                                  "marks",
                                   "round",
                                   "file",
                                   "addedBy",

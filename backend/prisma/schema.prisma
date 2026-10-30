@@ -1005,11 +1005,15 @@ model DocumentApproval {
   comment    String   @default("")
   /// sha256 PDF версии на момент решения (этап 7): какой именно текст согласован.
   pdfSha256  String?  @map("pdf_sha256") @db.Char(64)
+  /// Файл к возврату на доработку (1.4.0, по желанию): записка начальника ИБ. Колонкой в решении, а не видом
+  /// document_files, — backend 1.3.0 после отката её не читает (вид файла в document_files ломал бы его карточку).
+  fileId     String?  @map("file_id") @db.Uuid
   actorId    String   @map("actor_id") @db.Uuid
   at         DateTime @default(now()) @db.Timestamptz(3)
 
   document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
   version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  file     File?           @relation(fields: [fileId], references: [id], onDelete: Restrict)
   actor    User            @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([documentId, at])
@@ -1195,6 +1199,7 @@ model File {
   decisions     RegisterDecision[]
   versions      DocumentVersion[]
   documentLinks DocumentFile[]
+  approvalNotes DocumentApproval[]
   evidenceLinks EvidenceFile[]
   recordLinks   RegisterRecordFile[]
   imports       RegisterImport[]

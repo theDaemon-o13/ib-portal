@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocDetail } from '../../api/documents';
-import { approversLabel, historyText, holdersLabel, reviewLabel, stageHint, versionLabel } from './logic';
+import { approversLabel, authorFiles, historyText, holdersLabel, reviewLabel, stageHint, versionLabel } from './logic';
 
 const h = (extra: Partial<DocDetail['history'][number]>): DocDetail['history'][number] => ({
   id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, toStage: null, toStageName: null, selfApproved: false, ...extra,
@@ -47,5 +47,15 @@ describe('«Сейчас у» (1.4.0)', () => {
     expect(holdersLabel(null)).toBe('');
     expect(approversLabel({ approvers: [], missingHead: true })).toBe('Начальник ИБ не назначен');
     expect(approversLabel({ approvers: ['Автор'], missingHead: false })).toBe('Автор');
+  });
+});
+
+describe('13 → 14: файлы автора (1.4.0)', () => {
+  const f = (id: string, marks: string[], addedAt: string) => ({ id, kind: 'draft', kindName: '', marks, round: 1, file: { id: `f${id}`, name: id, sha256: '', size: 1, mime: '' }, addedBy: '', addedAt, removable: false });
+  it('только файлы автора; по умолчанию — последний загруженный', () => {
+    const files = [f('a', ['Файл драфта'], '2026-10-30T10:00:00Z'), f('b', ['Финальная версия'], '2026-10-30T12:00:00Z'), f('c', ['Файл драфта'], '2026-10-30T11:00:00Z')] as Parameters<typeof authorFiles>[0];
+    const r = authorFiles(files);
+    expect([r.list.map((x) => x.id), r.latest?.id]).toEqual([['a', 'c'], 'c']);
+    expect(authorFiles([]).latest).toBeNull();
   });
 });

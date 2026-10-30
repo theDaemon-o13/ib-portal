@@ -27,8 +27,16 @@ async function fixture(tx: Tx) {
   const head = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник ИБ', isIbHead: true });
   const legal = await makeUser(tx, ['doc_reader'], { fullName: 'Юрист' });
   const as = async (u: User): Promise<Actor> => actorFor(tx, u.id);
-  const create = async (title = 'Политика информационной безопасности', ownerId = owner.id) =>
-    svc.createDocument(tx, await as(admin), { title, typeId: type.id, ownerId, onlyofficeUrl: URL1, edition: '1.0' });
+  /** Документ на «Драфте»; withFile — с файлом автора (без него не уйти дальше этапа 12, 1.4.0). */
+  const create = async (title = 'Политика информационной безопасности', ownerId = owner.id, withFile = true) => {
+    const id = await svc.createDocument(tx, await as(admin), { title, typeId: type.id, ownerId, onlyofficeUrl: URL1, edition: '1.0' });
+    if (withFile) {
+      const d = await tx.document.findUniqueOrThrow({ where: { id }, include: { workingVersion: true } });
+      const f = await makeFileRow(tx, admin.id, { name: 'Политика.docx', mime: MIME_BY_EXT.docx });
+      await svc.addDraftFiles(tx, await as(admin), id, { version: d.version, stage: d.workingVersion?.stage ?? 11, fileIds: [f.id] });
+    }
+    return id;
+  };
   return { type, admin, chief, owner, staff, head, legal, as, create };
 }
 type Fx = Awaited<ReturnType<typeof fixture>>;
@@ -41,9 +49,13 @@ async function cur(tx: Tx, id: string) {
 
 const docxFile = (tx: Tx, u: User) => makeFileRow(tx, u.id, { name: 'Версия.docx', mime: MIME_BY_EXT.docx });
 
-/** Действие маршрута; для 13 → 14 и 14 → 15 файл версии загружает тот, кто действует (если fileId не задан). */
+/**
+ * Действие маршрута; для 14 → 15 финальную версию загружает тот, кто действует (если fileId не задан).
+ * 13 → 14 (1.4.0) — без загрузки: fileId — выбранный файл автора, по умолчанию последний.
+ */
 async function move(tx: Tx, u: User, id: string, action: DocAction, opts: { comment?: string; fileId?: string | null } = {}) {
-  const fileId = opts.fileId === null ? undefined : opts.fileId ?? (FIXED_FILE[action] ? (await docxFile(tx, u)).id : undefined);
+  const upload = action !== 'approve' && FIXED_FILE[action];
+  const fileId = opts.fileId === null ? undefined : opts.fileId ?? (upload ? (await docxFile(tx, u)).id : undefined);
   return svc.moveDocument(tx, await actorFor(tx, u.id), id, action, { ...(await cur(tx, id)), comment: opts.comment, fileId });
 }
 
@@ -59,10 +71,20 @@ async function moveTo(tx: Tx, x: Fx, id: string, stage: number) {
   };
   for (let s = (await cur(tx, id)).stage; s < stage; s = (await cur(tx, id)).stage) {
     const [u, a] = must(next[s], `шаг с этапа ${s}`);
+    // 12 → 13 — только с файлом автора (1.4.0): у новой версии (пересмотр) его ещё нет — автор прикладывает.
+    if (a === 'to_head') await ensureAuthorFile(tx, x, id);
     // 14 → 15 — когда ответственные лица согласовали (этап Г3): одно лицо, согласование отмечает начальник ИБ.
     if (a === 'ack_final') await approveParties(tx, x, id);
     await move(tx, u, id, a);
   }
+}
+
+/** Файл автора у рабочей версии (этапы 11–12): нет — автор прикладывает. */
+async function ensureAuthorFile(tx: Tx, x: Fx, id: string) {
+  const versionId = must((await tx.document.findUniqueOrThrow({ where: { id } })).workingVersionId);
+  if (await tx.documentFile.count({ where: { versionId, kind: 'draft', removedAt: null } })) return;
+  const f = await makeFileRow(tx, x.owner.id, { name: 'Политика.docx', mime: MIME_BY_EXT.docx });
+  await svc.addDraftFiles(tx, await actorFor(tx, x.owner.id), id, { ...(await cur(tx, id)), fileIds: [f.id] });
 }
 
 /** Все ответственные лица рабочей версии согласовали (нет ни одного — добавить одно). */
@@ -140,10 +162,9 @@ describe('документы: маршрут 1.2.0 (ADR-0024)', () => {
       expect((await view(tx, x.chief, id)).can.actions).toEqual(['to_head']);
       await move(tx, x.chief, id, 'to_head');
 
-      // 13 → 14: начальник ИБ с файлом версии (pdf или docx).
+      // 13 → 14 (1.4.0): начальник ИБ ничего не загружает — согласует файл автора; чужой файл — не выбрать.
       await expectCode(move(tx, x.owner, id, 'approve'), 'FORBIDDEN');
-      await expectCode(move(tx, x.head, id, 'approve', { fileId: null }), 'FILE_REQUIRED');
-      await expectCode(move(tx, x.head, id, 'approve', { fileId: (await makeFileRow(tx, x.head.id, { name: 'а.xlsx', mime: MIME_BY_EXT.xlsx })).id }), 'BAD_FILE_TYPE');
+      await expectCode(move(tx, x.head, id, 'approve', { fileId: (await makeFileRow(tx, x.head.id, { name: 'Своя.pdf' })).id }), 'BAD_FILE');
       expect((await view(tx, x.head, id)).waitingForMe).toBe(true);
       await move(tx, x.head, id, 'approve');
 
@@ -175,8 +196,10 @@ describe('документы: маршрут 1.2.0 (ADR-0024)', () => {
         [11, 'done', 'Автор Документа'], [12, 'done', 'Руководитель автора'], [13, 'done', 'Начальник ИБ'],
         [14, 'done', 'Начальник ИБ'], [15, 'done', 'Руководитель автора'], [16, 'done', 'Автор Документа'],
       ]);
-      // Все три зафиксированных файла видны в карточке.
-      expect(d.files.map((f) => [f.kind, f.file.name])).toEqual([['head_approved', 'Версия.docx'], ['final', 'Финал.pdf']]);
+      // Файл автора, согласованный начальником ИБ (одна строка, две отметки), и финальная версия.
+      expect(d.files.map((f) => [f.file.name, f.marks])).toEqual([
+        ['Политика.docx', ['Файл драфта', 'Версия при согласовании начальником ИБ']], ['Финал.pdf', ['Финальная версия']],
+      ]);
       expect(d.history.map((h) => `${h.decision}:${h.stage}→${h.toStage ?? ''}`)).toEqual([
         'signed:16→', 'moved:15→16', 'approved:14→15', 'approved:13→14', 'moved:12→13', 'moved:11→12',
       ]);
@@ -192,10 +215,9 @@ describe('документы: маршрут 1.2.0 (ADR-0024)', () => {
       const id = await x.create();
       await moveTo(tx, x, id, 13);
       const seen = await cur(tx, id);
-      const file = async () => (await docxFile(tx, x.head)).id;
-      await svc.moveDocument(tx, await x.as(x.head), id, 'approve', { ...seen, fileId: await file() });
-      await expectCode(svc.moveDocument(tx, await x.as(x.head), id, 'approve', { ...seen, fileId: await file() }), 'VERSION_CONFLICT');
-      await expectCode(svc.moveDocument(tx, await x.as(x.head), id, 'approve', { ...(await cur(tx, id)), stage: 13, fileId: await file() }), 'STAGE_CHANGED');
+      await svc.moveDocument(tx, await x.as(x.head), id, 'approve', seen);
+      await expectCode(svc.moveDocument(tx, await x.as(x.head), id, 'approve', seen), 'VERSION_CONFLICT');
+      await expectCode(svc.moveDocument(tx, await x.as(x.head), id, 'approve', { ...(await cur(tx, id)), stage: 13 }), 'STAGE_CHANGED');
       await expectCode(move(tx, x.head, id, 'to_signing'), 'WRONG_STAGE');
     }));
 
@@ -280,38 +302,101 @@ describe('документы: возврат на доработку', () => {
       expect((await tx.task.findUniqueOrThrow({ where: { id: task.id } })).completedAt).not.toBeNull();
       await moveTo(tx, x, id, 15);
       // Файлы фиксируются в каждом круге заново: по одному на круг.
-      expect((await view(tx, x.owner, id)).files.filter((f) => f.kind === 'head_approved').map((f) => f.round)).toEqual([1, 2]);
+      // Согласование в каждом круге — своя отметка «версия при согласовании» (привязка head_approved круга).
+      expect((await tx.documentFile.findMany({ where: { documentId: id, kind: 'head_approved' }, orderBy: { round: 'asc' } })).map((f) => f.round)).toEqual([1, 2]);
       await move(tx, x.head, id, 'return', { comment: 'Перевод не нужен' });
       expect((await tx.task.findFirstOrThrow({ where: { documentId: id, documentReason: 'returned', completedAt: null } })).id).not.toBe(task.id);
     }));
 });
 
 describe('документы: файлы драфта и комментарии', () => {
-  it('файлы драфта — автор на этапе 11; зафиксированные файлы не снимаются (триггер)', () =>
+  it('файлы автора — на этапах 11 и 12; согласованный файл — одна строка с двумя отметками; зафиксированные не снимаются', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
-      const id = await x.create();
+      const id = await x.create('Политика', x.owner.id, false);
       const add = async (u: User, fileIds: string[]) => svc.addDraftFiles(tx, await x.as(u), id, { ...(await cur(tx, id)), fileIds });
       await expectCode(add(x.staff, [(await docxFile(tx, x.staff)).id]), 'FORBIDDEN');
       await expectCode(add(x.owner, [(await makeFileRow(tx, x.owner.id, { name: 'а.png', mime: MIME_BY_EXT.png })).id]), 'BAD_FILE_TYPE');
-      await add(x.owner, [(await docxFile(tx, x.owner)).id, (await makeFileRow(tx, x.owner.id)).id]);
+      // 11 → 12 — без файла можно; 12 → 13 — нет (1.4.0).
+      await move(tx, x.owner, id, 'to_review');
+      await expectCode(move(tx, x.owner, id, 'to_head'), 'AUTHOR_FILE_REQUIRED');
+      expect((await view(tx, x.owner, id)).can.actions).toEqual([]);
+      // На этапе 12 автор добавляет и заменяет файлы.
+      await add(x.owner, [(await docxFile(tx, x.owner)).id, (await makeFileRow(tx, x.owner.id, { name: 'Политика.pdf' })).id]);
       let d = await view(tx, x.owner, id);
+      expect(d.can.draftFiles).toBe(true);
       expect(d.files.map((f) => [f.kind, f.removable])).toEqual([['draft', true], ['draft', true]]);
       const first = must(d.files[0]);
       await svc.removeDraftFile(tx, await x.as(x.owner), id, first.id, await cur(tx, id));
       expect((await tx.file.findUniqueOrThrow({ where: { id: first.file.id } })).deletedAt).not.toBeNull();
       d = await view(tx, x.owner, id);
-      expect(d.files).toHaveLength(1);
+      expect(d.files.map((f) => f.file.name)).toEqual(['Политика.pdf']);
 
       await moveTo(tx, x, id, 14);
       d = await view(tx, x.owner, id);
-      expect(d.files.map((f) => [f.kind, f.removable])).toEqual([['draft', false], ['head_approved', false]]);
+      // Файл автора согласован начальником ИБ — одна строка с обеими отметками (уточнение 3).
+      expect(d.files.map((f) => [f.file.name, f.marks, f.removable])).toEqual([['Политика.pdf', ['Файл драфта', 'Версия при согласовании начальником ИБ'], false]]);
+      expect(d.history.find((h) => h.stage === 13)?.pdfSha256).toBe(must(d.files[0]).file.sha256);
       await expectCode(add(x.owner, [(await docxFile(tx, x.owner)).id]), 'FORBIDDEN');
       await expectCode(svc.removeDraftFile(tx, await x.as(x.owner), id, must(d.files[0]).id, await cur(tx, id)), 'FORBIDDEN');
-      const fixed = must(d.files[1]);
+      const fixed = await tx.documentFile.findFirstOrThrow({ where: { documentId: id, kind: 'head_approved' } });
       expect(await sqlError(tx, `UPDATE document_files SET removed_at = now() WHERE id = '${fixed.id}'`)).toMatch(/document_files_removed_check/);
       expect(await sqlError(tx, `DELETE FROM document_files WHERE id = '${fixed.id}'`)).toMatch(/permission denied/);
-      expect(await sqlError(tx, `UPDATE files SET deleted_at = now() WHERE id = '${fixed.file.id}'`)).toMatch(/есть ссылки/);
+      expect(await sqlError(tx, `UPDATE files SET deleted_at = now() WHERE id = '${fixed.fileId}'`)).toMatch(/есть ссылки/);
+    }));
+
+  it('несколько файлов автора: по умолчанию согласуется последний; начальник ИБ может выбрать другой', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, 12);
+      const later = await makeFileRow(tx, x.owner.id, { name: 'Политика v2.pdf' });
+      await svc.addDraftFiles(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), fileIds: [later.id] });
+      await moveTo(tx, x, id, 13);
+      const first = must((await view(tx, x.head, id)).files.find((f) => f.file.name === 'Политика.docx'));
+      await move(tx, x.head, id, 'approve', { fileId: first.file.id });
+      const fixed = await tx.documentFile.findFirstOrThrow({ where: { documentId: id, kind: 'head_approved' } });
+      expect(fixed.fileId).toBe(first.file.id);
+
+      const id2 = await x.create('Вторая');
+      await moveTo(tx, x, id2, 12);
+      const newest = await makeFileRow(tx, x.owner.id, { name: 'Последний.pdf' });
+      await svc.addDraftFiles(tx, await x.as(x.owner), id2, { ...(await cur(tx, id2)), fileIds: [newest.id] });
+      await moveTo(tx, x, id2, 14);
+      expect((await tx.documentFile.findFirstOrThrow({ where: { documentId: id2, kind: 'head_approved' } })).fileId).toBe(newest.id);
+    }));
+
+  it('13 без файла автора → только возврат (с запиской по желанию) → на 11 автор прикладывает файл → снова 12 → 13 → согласование', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Старый маршрут', x.owner.id, false);
+      // Документ из старого маршрута: был на «Начальнике ИБ» — перенесён на 13 без файла автора.
+      const v = must((await tx.document.findUniqueOrThrow({ where: { id } })).workingVersionId);
+      await tx.documentVersion.update({ where: { id: v }, data: { stage: 13 } });
+      let d = await view(tx, x.head, id);
+      expect(d.can.actions).toEqual(['return']);
+      expect(d.blockedReason).toMatch(/Нет файла автора/);
+      await expectCode(move(tx, x.head, id, 'approve'), 'NO_AUTHOR_FILE');
+      await expectCode(move(tx, x.head, id, 'return'), 'EMPTY_COMMENT');
+      const note = await makeFileRow(tx, x.head.id, { name: 'Замечания.pdf' });
+      await move(tx, x.head, id, 'return', { comment: 'Приложите файл документа', fileId: note.id });
+      d = await view(tx, x.owner, id);
+      expect([d.stage, d.returned?.comment, d.returned?.file?.name]).toEqual([11, 'Приложите файл документа', 'Замечания.pdf']);
+      expect((await tx.documentApproval.findFirstOrThrow({ where: { documentId: id, decision: 'returned' } })).fileId).toBe(note.id);
+      // Записку видит автор (файл привязан к решению по документу).
+      expect((await svc.versionVisible(tx, await svc.accessOf(tx, x.owner.id), v))).toBe(true);
+
+      await move(tx, x.owner, id, 'to_review');
+      await expectCode(move(tx, x.owner, id, 'to_head'), 'AUTHOR_FILE_REQUIRED');
+      await svc.addDraftFiles(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), fileIds: [(await docxFile(tx, x.owner)).id] });
+      await move(tx, x.owner, id, 'to_head');
+      expect((await view(tx, x.head, id)).can.actions).toEqual(['approve', 'return']);
+      await move(tx, x.head, id, 'approve');
+      expect((await cur(tx, id)).stage).toBe(14);
+      // Возврат без файла — можно; файл записки — только pdf или docx.
+      await expectCode(move(tx, x.head, id, 'return', { comment: 'x', fileId: (await makeFileRow(tx, x.head.id, { name: 'а.xlsx', mime: MIME_BY_EXT.xlsx })).id }), 'BAD_FILE_TYPE');
+      await move(tx, x.head, id, 'return', { comment: 'Ещё раз' });
+      expect((await view(tx, x.owner, id)).returned).toMatchObject({ comment: 'Ещё раз', file: null });
     }));
 
   it('комментарии — сотрудники ИБ на этапе 12; не правятся и не удаляются', () =>

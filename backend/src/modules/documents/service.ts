@@ -103,14 +103,16 @@ export interface RouteFacts {
   /** Этап 15 (Г4): языки перевода и сколько из них без файла. */
   translations: number;
   missingTranslations: number;
+  /** Файлы автора (драфт, pdf или docx, не сняты) — нужны на 12 → 13 и для согласования 13 → 14 (1.4.0). */
+  authorFiles: number;
 }
-const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0 };
+const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, authorFiles: 0 };
 
 async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<string, RouteFacts>> {
   const map = new Map<string, RouteFacts>();
   if (!versionIds.length) return map;
   const ids = [...new Set(versionIds)];
-  const [parties, blockers, translations] = await Promise.all([
+  const [parties, blockers, translations, drafts] = await Promise.all([
     db.$queryRaw<{ version_id: string; total: bigint; pending: bigint; due: Date | null }[]>`
       SELECT version_id::text, count(*) AS total, count(*) FILTER (WHERE approved_at IS NULL) AS pending,
              min(due_date) FILTER (WHERE approved_at IS NULL) AS due
@@ -122,10 +124,14 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
       SELECT t.version_id::text,
              EXISTS (SELECT 1 FROM document_files f WHERE f.translation_id = t.id AND f.removed_at IS NULL) AS has_file
       FROM document_translations t WHERE t.version_id = ANY(${ids}::uuid[]) AND t.removed_at IS NULL`,
+    db.$queryRaw<{ version_id: string; n: bigint }[]>`
+      SELECT version_id::text, count(*) AS n FROM document_files
+      WHERE version_id = ANY(${ids}::uuid[]) AND kind = 'draft' AND removed_at IS NULL GROUP BY version_id`,
   ]);
   const get = (id: string) => map.get(id) ?? { ...NO_FACTS };
   for (const p of parties) map.set(p.version_id, { ...get(p.version_id), parties: Number(p.total), pending: Number(p.pending), nearestDue: p.due?.toISOString().slice(0, 10) ?? null });
   for (const b of blockers) map.set(b.version_id, { ...get(b.version_id), openBlockers: Number(b.open) });
+  for (const x of drafts) map.set(x.version_id, { ...get(x.version_id), authorFiles: Number(x.n) });
   for (const t of translations) {
     const f = get(t.version_id);
     map.set(t.version_id, {
@@ -244,6 +250,12 @@ function gate(w: Who, d: DocRow, action: DocAction | 'sign'): { code: string; re
   if (!v || action === 'return') return null;
   const f = w.facts.get(v.id) ?? NO_FACTS;
   if (f.openBlockers > 0) return { code: 'BLOCKERS_OPEN', reason: `Открытых блокеров: ${f.openBlockers}. Снимите их, чтобы двигать документ дальше` };
+  // Файл автора (pdf или docx) — обязателен на 12 → 13 (и для документов из старого маршрута); на 13 без него —
+  // только возврат на доработку: автор приложит файл на этапе «Драфт» (1.4.0, решение владельца 8).
+  if (action === 'to_head' && f.authorFiles === 0) return { code: 'AUTHOR_FILE_REQUIRED', reason: 'Приложите файл документа (pdf или docx): без него документ не уходит начальнику ИБ' };
+  if (action === 'approve' && f.authorFiles === 0) {
+    return { code: 'NO_AUTHOR_FILE', reason: 'Нет файла автора (pdf или docx): согласовать нечего. Верните документ на доработку — автор приложит файл на этапе «Драфт»' };
+  }
   if (action === 'ack_final' && f.parties === 0) return { code: 'NO_PARTIES', reason: 'Добавьте ответственных лиц и отметьте их согласование' };
   if (action === 'ack_final' && f.pending > 0) return { code: 'PARTIES_PENDING', reason: `Не все ответственные лица согласовали: осталось ${f.pending}` };
   if (action === 'to_signing' && f.missingTranslations > 0) {
@@ -462,6 +474,34 @@ const FILE_KIND_NAMES: Record<string, string> = {
   final: FIXED_FILE.ack_final?.name ?? '',
 };
 
+type FileRow = {
+  id: string; kind: string; round: number; addedAt: Date; fileId: string; adder: { fullName: string };
+  file: { id: string; originalName: string; sha256: string; size: bigint; mime: string };
+};
+
+/**
+ * Файлы версии в карточке (1.4.0): один файл — одна строка. Файл автора, согласованный начальником ИБ, привязан
+ * дважды (draft и head_approved) — показывается один раз с обеими отметками (marks). id и kind — первой привязки;
+ * снять можно, пока он — файл автора на этапах 11–12 (снимается привязка draft, отметка согласования остаётся).
+ */
+function mergeFileRows(rows: readonly FileRow[], authorFiles: boolean) {
+  const byFile = new Map<string, FileRow[]>();
+  for (const r of rows) byFile.set(r.fileId, [...(byFile.get(r.fileId) ?? []), r]);
+  return [...byFile.values()].map((group) => {
+    const first = group[0] as FileRow;
+    const draftRow = group.find((r) => r.kind === 'draft');
+    return {
+      id: (draftRow ?? first).id, kind: first.kind as 'draft' | 'head_approved' | 'final', kindName: FILE_KIND_NAMES[first.kind] ?? first.kind,
+      /** Все отметки файла: «Файл драфта», «Версия при согласовании начальником ИБ», «Финальная версия». */
+      marks: group.map((r) => FILE_KIND_NAMES[r.kind] ?? r.kind),
+      round: first.round,
+      file: { id: first.file.id, name: first.file.originalName, sha256: first.file.sha256, size: Number(first.file.size), mime: first.file.mime },
+      addedBy: first.adder.fullName, addedAt: first.addedAt.toISOString(),
+      removable: authorFiles && !!draftRow,
+    };
+  });
+}
+
 export async function getDocument(db: Db, a: DocAccess, id: string) {
   const today = todayIso();
   const d = await getRow(db, id);
@@ -476,7 +516,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
   const visibleIds = new Set(visibleVersions.map((v) => v.id));
   const history = await db.documentApproval.findMany({
     where: { documentId: id, versionId: { in: [...visibleIds] } },
-    include: { actor: { select: { fullName: true } } },
+    include: { actor: { select: { fullName: true } }, file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } },
     orderBy: [{ at: 'desc' }, { id: 'desc' }],
   });
 
@@ -504,7 +544,11 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
   // Последнее решение по показанной версии — возврат: замечание видно в карточке и без права на историю (ADR-0021).
   const lastAct = history.find((h) => h.versionId === shown.id);
   const returned = lastAct?.decision === 'returned'
-    ? { at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment }
+    ? {
+      at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment,
+      /** Записка к возврату (1.4.0), если приложена. */
+      file: lastAct.file ? { id: lastAct.file.id, name: lastAct.file.originalName, sha256: lastAct.file.sha256, size: Number(lastAct.file.size), mime: lastAct.file.mime } : null,
+    }
     : null;
 
   const [fileRows, commentRows, partyRows, blockerRows, translationRows] = await Promise.all([
@@ -554,14 +598,15 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
   const author = roles.has('author');
   const active = d.archivedAt === null;
   const draft = workingShown && working.stage === FIRST_STAGE && author;
+  const authorFiles = workingShown && AUTHOR_FILE_STAGES.includes(working.stage) && author;
   const sign = workingShown && canSign(who, d);
   const can = {
     edit: draft,
     /** Действия маршрута (MOVES): кнопки карточки. */
     actions,
     sign,
-    /** Файлы драфта (.docx, .pdf): добавить и снять — автор на этапе 11. */
-    draftFiles: draft,
+    /** Файлы автора (.docx, .pdf): добавить и снять — автор на этапах 11 и 12 (1.4.0). */
+    draftFiles: authorFiles,
     /** Комментарии сотрудников — на этапе 12. */
     comment: workingShown && working.stage === 12 && a.ibWork,
     revise: active && d.approvedVersion !== null && working === null && author,
@@ -593,12 +638,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
       : !stuck ? null
       : `Этап «${stageName(working.stage)}» — ${HINTS[working.stage] ?? ''}`,
     returned,
-    files: fileRows.map((f) => ({
-      id: f.id, kind: f.kind as 'draft' | 'head_approved' | 'final', kindName: FILE_KIND_NAMES[f.kind] ?? f.kind, round: f.round,
-      file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
-      addedBy: f.adder.fullName, addedAt: f.addedAt.toISOString(),
-      removable: draft && f.kind === 'draft',
-    })),
+    files: mergeFileRows(fileRows, authorFiles),
     comments: commentRows.map((c) => ({ id: c.id, author: c.author.fullName, body: c.body, at: c.createdAt.toISOString() })),
     parties: partyRows.map((p) => {
       const due = isoDay(p.dueDate) ?? '';
@@ -853,7 +893,11 @@ export interface MoveInput {
   /** Этап, который пользователь видел на экране: если документ уже на другом этапе — 409. */
   stage: number;
   comment?: string;
-  /** 13 → 14 и 14 → 15: файл версии (pdf или docx), загруженный через POST /files. */
+  /**
+   * 13 → 14: файл автора (id файла драфта), который начальник ИБ согласует; не указан — последний загруженный.
+   * 14 → 15: финальная версия (pdf или docx), загруженная через POST /files.
+   * Возврат: записка к возврату по желанию (pdf или docx, POST /files).
+   */
   fileId?: string;
 }
 
@@ -916,7 +960,27 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
 
     const fixed = FIXED_FILE[action];
     let sha256: string | null = null;
-    if (fixed) {
+    let returnFileId: string | null = null;
+    if (action === 'approve') {
+      // 13 → 14 без загрузки (1.4.0): фиксируется файл автора — выбранный или последний; та же строка files,
+      // вторая привязка вида head_approved («версия при согласовании начальником ИБ»), sha256 — в решении.
+      const drafts = await tx.documentFile.findMany({
+        where: { versionId: w.id, kind: 'draft', removedAt: null }, include: { file: { select: { id: true, sha256: true } } },
+        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
+      });
+      const chosen = input.fileId ? drafts.find((x) => x.fileId === input.fileId) : drafts[0];
+      if (!chosen) throw badRequest('BAD_FILE', 'Выберите один из файлов автора этой версии');
+      try {
+        await withTx(tx, (t) => t.documentFile.create({ data: { documentId: id, versionId: w.id, round: w.round, kind: 'head_approved', fileId: chosen.fileId, addedBy: actor.id } }));
+      } catch (err) {
+        if (isUniqueViolation(err)) throw versionConflict();
+        throw err;
+      }
+      sha256 = chosen.file.sha256;
+    } else if (action === 'return' && input.fileId) {
+      const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: VERSION_FILE_MIME, what: 'Записка к возврату' });
+      returnFileId = f?.id ?? null;
+    } else if (fixed) {
       if (!input.fileId) throw badRequest('FILE_REQUIRED', `Приложите файл: ${fixed.name.toLowerCase()} (pdf или docx)`);
       const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: VERSION_FILE_MIME, what: fixed.name });
       if (!f) throw badRequest('FILE_REQUIRED', `Приложите файл: ${fixed.name.toLowerCase()}`);
@@ -933,7 +997,7 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
     const decision = action === 'return' ? 'returned' : fixed ? 'approved' : 'moved';
     await addDecision(tx, {
       documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, toStage: rule.to,
-      decision, comment, actorId: actor.id, pdfSha256: sha256, selfApproved,
+      decision, comment, actorId: actor.id, pdfSha256: sha256, selfApproved, fileId: returnFileId,
     });
     const back = action === 'return';
     await tx.documentVersion.update({ where: { id: w.id }, data: { stage: rule.to, ...(back ? { round: w.round + 1 } : {}) } });
@@ -960,7 +1024,7 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
       summary: back
         ? `Документ #${d.number} «${w.title}» (версия ${w.no}) возвращён на доработку с этапа «${stageName(w.stage)}»`
         : `Документ #${d.number} «${w.title}» (версия ${w.no}): «${rule.label}» («${stageName(w.stage)}» → «${stageName(rule.to)}»)${self}`,
-      after: { action, versionNo: w.no, round: w.round, from: w.stage, to: rule.to, comment, fileSha256: sha256, selfApproved },
+      after: { action, versionNo: w.no, round: w.round, from: w.stage, to: rule.to, comment, fileSha256: sha256, selfApproved, returnFileId },
     });
   });
 }
@@ -1035,16 +1099,28 @@ export async function cancelRevision(db: Db, actor: Actor, id: string, input: { 
   });
 }
 
-/** Файлы драфта (pdf, docx): добавляет и снимает автор на этапе 11. */
+/**
+ * Файлы одного запроса — в порядке выбора: added_at с шагом 1 мс. Иначе у привязок одинаковое время, и порядок файлов
+ * в карточке (и какой из них «последний» для согласования) случаен.
+ */
+export function inPickOrder<T extends { id: string }>(files: readonly T[], fileIds: readonly string[]): (T & { addedAt: Date })[] {
+  const base = Date.now();
+  return [...files].sort((a, b) => fileIds.indexOf(a.id) - fileIds.indexOf(b.id)).map((f, i) => ({ ...f, addedAt: new Date(base + i) }));
+}
+
+/** Этапы, на которых автор добавляет и заменяет файлы (1.4.0): «Драфт» и «Проверка сотрудниками». */
+export const AUTHOR_FILE_STAGES: readonly number[] = [FIRST_STAGE, 12];
+
+/** Файлы автора (pdf, docx): добавляет и снимает автор на этапах 11 и 12. */
 export async function addDraftFiles(db: Db, actor: Actor, id: string, input: { version: number; stage: number; fileIds: string[] }) {
   return withTx(db, async (tx) => {
     const { d, w, who } = await routeContext(tx, actor, id, input);
-    if (w.stage !== FIRST_STAGE || !rolesOf(who, d).has('author')) {
-      throw forbiddenWith('FORBIDDEN', `Файлы драфта прикладывает ${HINTS[FIRST_STAGE]} на этапе «${stageName(FIRST_STAGE)}»`);
+    if (!AUTHOR_FILE_STAGES.includes(w.stage) || !rolesOf(who, d).has('author')) {
+      throw forbiddenWith('FORBIDDEN', `Файлы документа прикладывает ${HINTS[FIRST_STAGE]} на этапах «${stageName(11)}» и «${stageName(12)}»`);
     }
     const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: VERSION_FILE_MIME, what: 'Файл драфта' });
     if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл');
-    await tx.documentFile.createMany({ data: files.map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'draft', fileId: f.id, addedBy: actor.id })) });
+    await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'draft', fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
     await auditSettings(tx, actor, {
       action: 'document.files_added', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): файлы драфта — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
@@ -1056,8 +1132,8 @@ export async function addDraftFiles(db: Db, actor: Actor, id: string, input: { v
 export async function removeDraftFile(db: Db, actor: Actor, id: string, linkId: string, input: { version: number; stage: number }) {
   return withTx(db, async (tx) => {
     const { d, w, who } = await routeContext(tx, actor, id, input);
-    if (w.stage !== FIRST_STAGE || !rolesOf(who, d).has('author')) {
-      throw forbiddenWith('FORBIDDEN', `Файлы драфта снимает ${HINTS[FIRST_STAGE]} на этапе «${stageName(FIRST_STAGE)}»`);
+    if (!AUTHOR_FILE_STAGES.includes(w.stage) || !rolesOf(who, d).has('author')) {
+      throw forbiddenWith('FORBIDDEN', `Файлы документа снимает ${HINTS[FIRST_STAGE]} на этапах «${stageName(11)}» и «${stageName(12)}»`);
     }
     const link = await tx.documentFile.findFirst({ where: { id: linkId, versionId: w.id, kind: 'draft', removedAt: null }, include: { file: { select: { originalName: true } } } });
     if (!link) throw notFound('Файл драфта');

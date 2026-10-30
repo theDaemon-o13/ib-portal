@@ -83,9 +83,12 @@ export function stageHolders(stage: number, c: HolderCtx): Holders {
   return { people: [], missingHead: false };
 }
 
-/** Переход фиксирует файл версии (pdf или docx): 13 → 14 — «одобрена начальником ИБ», 14 → 15 — «финальная». */
+/**
+ * Переход фиксирует файл версии (pdf или docx): 13 → 14 — файл автора как «версия при согласовании начальником ИБ»
+ * (без загрузки, 1.4.0), 14 → 15 — «финальная» (загружает начальник ИБ).
+ */
 export const FIXED_FILE: Partial<Record<DocAction, { kind: 'head_approved' | 'final'; name: string }>> = {
-  approve: { kind: 'head_approved', name: 'Версия, одобренная начальником ИБ' },
+  approve: { kind: 'head_approved', name: 'Версия при согласовании начальником ИБ' },
   ack_final: { kind: 'final', name: 'Финальная версия' },
 };
 

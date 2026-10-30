@@ -757,6 +757,9 @@ body.mon-idle .mon{cursor:none}
 .tr-chip{margin-left:6px;font-size:10.5px}
 .report-dialog{width:min(640px,calc(100vw - 32px))}
 .report-dialog label.chk{display:flex;font-size:13px;color:var(--fg);font-weight:400}
+/* 13 → 14: выбор файла автора (1.4.0). */
+.pick-file{border:0;margin:0;padding:0;display:grid;gap:6px}.pick-file legend{font-size:13px;font-weight:600;margin-bottom:4px}
+.pick-file label.chk{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400;color:var(--fg)}
 
 /* Уведомления (релиз 1.2.0, ADR-0023) */
 .rail-top{display:flex;align-items:center;justify-content:space-between;gap:6px}

@@ -72,10 +72,17 @@ async function apiAs(u, method, path, body) {
   return api(method, path, body);
 }
 
-/** Действие маршрута через API; для 13 → 14 и 14 → 15 файл версии загружает тот, кто действует. */
+/**
+ * Действие маршрута через API. 12 → 13 — с файлом автора (1.4.0): нет — автор прикладывает. 13 → 14 — без загрузки
+ * (согласуется последний файл автора); 14 → 15 — финальную версию загружает тот, кто действует.
+ */
 async function routeStep(u, id, action, comment) {
-  const d = await apiAs(u, 'GET', `/api/v1/documents/${id}`);
-  const fileId = action === 'approve' || action === 'ack_final' ? (await uploadViaApi(ui, `Версия ${id.slice(0, 8)}.pdf`, tinyPdf())).id : undefined;
+  let d = await apiAs(u, 'GET', `/api/v1/documents/${id}`);
+  if (action === 'to_head' && !d.files.some((f) => f.marks.includes('Файл драфта'))) {
+    const up = await uploadViaApi(ui, `Документ ${id.slice(0, 8)}.pdf`, tinyPdf());
+    d = (await api('POST', `/api/v1/documents/${id}/files`, { version: d.version, stage: d.working.stage, fileIds: [up.id] })).document;
+  }
+  const fileId = action === 'ack_final' ? (await uploadViaApi(ui, `Версия ${id.slice(0, 8)}.pdf`, tinyPdf())).id : undefined;
   return api('POST', `/api/v1/documents/${id}/actions/${action}`, { version: d.version, stage: d.working.stage, comment, fileId });
 }
 
@@ -225,7 +232,7 @@ describe('Документы: маршрут 1.2.0', () => {
     await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent.startsWith('Ждут вас'))`);
     await ui.waitFor(`!!${row(title)}`, 'документ в «Ждут вас» у автора');
     await ui.click(row(title));
-    await ui.click($.button('Приложить файлы драфта', panel));
+    await ui.click($.button('Приложить файл документа', panel));
     await pickInForm('Файлы драфта', 'Драфт.pdf');
     await act('Приложить', 'POST', `/api/v1/documents/${id}/files`);
     await ui.waitFor(`!!${panel}.querySelector('[data-file-kind=draft]')`, 'файл драфта в карточке');
@@ -262,13 +269,17 @@ describe('Документы: маршрут 1.2.0', () => {
     assert.match(await stageWho(13), new RegExp(`: ${users.head.fullName}$`));
     assert.match(await stageWho(16), new RegExp(`: ${users.owner.fullName}$`));
     assert.match(await ui.text(`${panel}.querySelector('.vstep[data-stage="12"] .vr')`), new RegExp(users.chief.fullName), 'пройденный этап — кто и когда');
+    // 13 → 14 (1.4.0): начальник ИБ ничего не загружает — выбран последний файл автора, он подтверждает.
     await ui.click($.button('Согласовать', panel));
-    assert.equal(await ui.evaluate(`!!${$.button('Согласовать', `${panel}.querySelector('form')`)}`), false, 'без файла кнопка неактивна');
-    await pickInForm('Согласовать', 'Одобрено.pdf');
+    const form = `${panel}.querySelector('form[aria-label="Согласовать"]')`;
+    await ui.waitFor(`!!${form}?.querySelector('input[name=approve-file]:checked')`, 'файл автора выбран по умолчанию');
+    assert.equal(await ui.evaluate(`!!${form}.querySelector('input[type=file]')`), false, 'загрузки нет');
+    const chosen = await ui.evaluate(`${form}.querySelector('input[name=approve-file]:checked').value`);
     req = await act('Согласовать', 'POST', `/api/v1/documents/${id}/actions/approve`);
-    assert.ok(req.json.fileId, 'согласование несёт файл версии');
+    assert.equal(req.json.fileId, chosen, 'согласован выбранный файл автора');
     await ui.waitFor(`${stepState('Согласование с ответственными лицами')}?.includes('cur')`, 'этап — ответственные лица');
-    await ui.waitFor(`!!${panel}.querySelector('[data-file-kind=head_approved]')`, 'версия, одобренная начальником ИБ, — в карточке');
+    // Один файл — одна строка с обеими отметками.
+    await ui.waitFor(`[...${panel}.querySelectorAll('[data-testid=file-marks]')].some((m) => m.textContent.startsWith('Файл драфта · Версия при согласовании начальником ИБ'))`, 'файл автора с отметкой согласования');
 
     // Этап 14: «Ознакомлен» появится, когда ответственные лица согласуют.
     assert.equal(await ui.evaluate(`!!${$.button('Ознакомлен с финальной версией', panel)}`), false, 'без лиц шага нет');
@@ -343,7 +354,7 @@ describe('Документы: маршрут 1.2.0', () => {
     await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'документ подписан');
     assert.equal(await ui.evaluate(`[...${panel}.querySelectorAll('.vstep .step')].every((s) => s.classList.contains('done'))`), true, 'все этапы пройдены');
     assert.match(await ui.text(`${panel}.querySelector('.row.gap-lg')`), new RegExp(ru(plusYear()).replace(/\./g, '\\.')), 'пересмотр через 12 месяцев от подписания');
-    assert.deepEqual(await ui.evaluate(`[...${panel}.querySelectorAll('[data-file-kind]')].map((f) => f.dataset.fileKind)`), ['draft', 'head_approved', 'final']);
+    assert.deepEqual(await ui.evaluate(`[...${panel}.querySelectorAll('[data-file-kind]')].map((f) => f.dataset.fileKind)`), ['draft', 'final']);
     const steps = await ui.text(panel);
     assert.ok(steps.includes(users.chief.fullName) && steps.includes(users.head.fullName), 'в маршруте — кто прошёл этапы');
     assert.ok(!steps.includes('История согласования'), 'без права подробной истории нет');
@@ -417,8 +428,12 @@ describe('Документы: возврат на доработку', () => {
     assert.equal(await ui.evaluate(`!!${$.button('Вернуть автору', panel)}`), false, 'без комментария кнопка неактивна');
     const comment = 'Добавьте раздел о пересмотре прав раз в полгода';
     await ui.type(`${panel}.querySelector('form textarea')`, comment);
+    // Записка к возврату — по желанию (1.4.0).
+    await pickInForm('Вернуть на доработку', 'Замечания.pdf');
     const req = await act('Вернуть автору', 'POST', `/api/v1/documents/${doc.id}/actions/return`);
     assert.equal(req.json.comment, comment);
+    assert.ok(req.json.fileId, 'возврат несёт записку');
+    await ui.waitFor(`${panel}.querySelector('[data-testid=return-note]')?.textContent === 'Замечания.pdf'`, 'записка в блоке возврата');
     await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Черновик'`, 'документ снова на «Драфт»');
     assert.ok((await ui.text(panel)).includes('круг 2'), 'маршрут начат заново: круг 2');
 

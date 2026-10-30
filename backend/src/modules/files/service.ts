@@ -49,7 +49,7 @@ export interface FileRef {
 
 /** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
 export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
-  const [links, decisions, versions, records, compares, docFiles] = await Promise.all([
+  const [links, decisions, versions, records, compares, docFiles, returnNotes] = await Promise.all([
     db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
     db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
     db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
@@ -61,6 +61,8 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
     db.registerImport.findMany({ where: { fileId }, select: { id: true, createdAt: true, register: { select: { id: true, name: true } } } }),
     // Файлы версии документа (1.2.0): драфт, одобренная начальником ИБ, финальная.
     db.documentFile.findMany({ where: { fileId, removedAt: null }, select: { kind: true, documentId: true, versionId: true, version: { select: { no: true, title: true } } } }),
+    // Записка к возврату на доработку (1.4.0): колонка решения document_approvals.file_id.
+    db.documentApproval.findMany({ where: { fileId }, select: { documentId: true, versionId: true, version: { select: { no: true, title: true } } } }),
   ]);
   return [
     ...records.map((r) => ({ kind: 'record' as const, id: r.record.id, label: `«${r.record.register.name}», запись #${r.record.number}: ${r.field.label}` })),
@@ -70,6 +72,10 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
     ...docFiles.map((x) => ({
       kind: 'document_file' as const, id: x.documentId, versionId: x.versionId,
       label: `${DOC_FILE_KIND[x.kind] ?? 'Файл'} версии ${x.version.no} «${x.version.title}»`,
+    })),
+    ...returnNotes.map((x) => ({
+      kind: 'document_file' as const, id: x.documentId, versionId: x.versionId,
+      label: `Записка к возврату версии ${x.version.no} «${x.version.title}»`,
     })),
     ...compares.map((c) => ({
       kind: 'compare' as const, id: c.register.id,

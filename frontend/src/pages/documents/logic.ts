@@ -27,10 +27,19 @@ export const ACTION_LABEL: Record<DocAction, string> = {
 };
 
 /** Переход фиксирует файл версии (pdf или docx). */
+/** Действия, где файл загружается (14 → 15). 13 → 14 с 1.4.0 — без загрузки: выбирается файл автора. */
 export const FIXED_FILE_LABEL: Partial<Record<DocAction, string>> = {
-  approve: 'Версия, одобренная начальником ИБ (pdf или docx)',
   ack_final: 'Финальная версия (pdf или docx)',
 };
+
+type VersionFile = DocDetail['files'][number];
+
+/** Файлы автора для согласования 13 → 14 (pdf, docx); по умолчанию — последний загруженный. */
+export function authorFiles(files: readonly VersionFile[]): { list: VersionFile[]; latest: VersionFile | null } {
+  const list = files.filter((f) => f.marks.includes('Файл драфта'));
+  const latest = [...list].sort((a, b) => (a.addedAt < b.addedAt ? 1 : a.addedAt > b.addedAt ? -1 : 0))[0] ?? null;
+  return { list, latest };
+}
 
 /** Уведомление после действия. */
 export const ACTION_DONE: Record<DocAction, string> = {

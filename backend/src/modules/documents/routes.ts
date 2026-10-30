@@ -88,10 +88,16 @@ const DocDetail = DocItem.extend({
   }),
   blockedReason: z.string().nullable(),
   /** Показанную версию вернули на доработку, и с тех пор её не отправляли: кто, когда, с какого этапа, замечание. Видят все, кто видит документ. */
-  returned: z.object({ at: z.string(), actor: z.string(), stageName: z.string(), comment: z.string() }).nullable(),
+  returned: z.object({
+    at: z.string(), actor: z.string(), stageName: z.string(), comment: z.string(),
+    /** Записка к возврату (1.4.0), если приложена. */
+    file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }).nullable(),
+  }).nullable(),
   /** Файлы показанной версии: драфт, одобренная начальником ИБ, финальная. */
   files: z.array(z.object({
-    id: z.string(), kind: z.enum(['draft', 'head_approved', 'final']), kindName: z.string(), round: z.number().int(),
+    id: z.string(), kind: z.enum(['draft', 'head_approved', 'final']), kindName: z.string(),
+    /** Все отметки файла (1.4.0): файл автора, согласованный начальником ИБ, — одна строка с двумя отметками. */
+    marks: z.array(z.string()), round: z.number().int(),
     file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }),
     addedBy: z.string(), addedAt: z.string(), removable: z.boolean(),
   })),

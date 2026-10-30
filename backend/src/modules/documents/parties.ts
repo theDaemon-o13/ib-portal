@@ -12,7 +12,7 @@ import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDeadlineChanged, notifyPartiesDone } from './notify.js';
-import { cleanComment, forbiddenWith, rolesOf, routeContext } from './service.js';
+import { cleanComment, forbiddenWith, inPickOrder, rolesOf, routeContext } from './service.js';
 import { stageName } from './status.js';
 
 export const NAME_MAX = 300;
@@ -155,7 +155,7 @@ export async function approveParty(db: Db, actor: Actor, id: string, partyId: st
     const files = await claimFiles(tx, actor.id, input.fileIds ?? [], { mimes: RESPONSE_MIME, what: 'Ответ' });
     await tx.documentParty.update({ where: { id: partyId }, data: { approvedAt: new Date(), approvedBy: actor.id, approveComment: comment } });
     if (files.length) {
-      await tx.documentFile.createMany({ data: files.map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'response', partyId, fileId: f.id, addedBy: actor.id })) });
+      await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds ?? []).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'response', partyId, fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
     }
     await auditSettings(tx, actor, {
       action: 'document.party_approved', entity: 'document', entityId: id,
@@ -173,7 +173,7 @@ export async function addResponseFiles(db: Db, actor: Actor, id: string, partyId
     const p = await getParty(tx, w.id, partyId);
     const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: RESPONSE_MIME, what: 'Ответ' });
     if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл');
-    await tx.documentFile.createMany({ data: files.map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'response', partyId, fileId: f.id, addedBy: actor.id })) });
+    await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds ?? []).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'response', partyId, fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
     await auditSettings(tx, actor, {
       action: 'document.files_added', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}»: ответ ${p.fullName} — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
