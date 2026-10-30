@@ -78,6 +78,19 @@ export function reviewLabel(d: Pick<DocItem, 'reviewDue' | 'status'>): string {
 }
 
 /** Подпись под точками маршрута: «ждёт вас», название текущего этапа или ничего. */
+/** «Сейчас у» (1.4.0): кто действует на этапе; этап начальника ИБ без отметки — «Начальник ИБ не назначен». */
+export function holdersLabel(h: { people: readonly { fullName: string }[]; missingHead: boolean } | null): string {
+  if (!h) return '';
+  if (h.missingHead) return 'Начальник ИБ не назначен';
+  return h.people.length ? h.people.map((p) => p.fullName).join(', ') : 'никто';
+}
+
+/** Под этапом карточки: кто действует; пустая строка — показывать нечего (старый маршрут). */
+export function approversLabel(r: { approvers: readonly string[]; missingHead: boolean }): string {
+  if (r.missingHead) return 'Начальник ИБ не назначен';
+  return r.approvers.join(', ');
+}
+
 export function stageHint(d: Pick<DocItem, 'waitingForMe' | 'stageName'>): string {
   if (d.waitingForMe) return 'ждёт вас';
   return d.stageName ?? '';

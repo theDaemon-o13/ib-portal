@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocDetail } from '../../api/documents';
-import { historyText, reviewLabel, stageHint, versionLabel } from './logic';
+import { approversLabel, historyText, holdersLabel, reviewLabel, stageHint, versionLabel } from './logic';
 
 const h = (extra: Partial<DocDetail['history'][number]>): DocDetail['history'][number] => ({
   id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, toStage: null, toStageName: null, selfApproved: false, ...extra,
@@ -36,5 +36,16 @@ describe('документы: подписи', () => {
     expect(stageHint({ waitingForMe: true, stageName: 'Начальник ИБ' })).toBe('ждёт вас');
     expect(stageHint({ waitingForMe: false, stageName: 'Начальник ИБ' })).toBe('Начальник ИБ');
     expect(stageHint({ waitingForMe: false, stageName: null })).toBe('');
+  });
+});
+
+describe('«Сейчас у» (1.4.0)', () => {
+  it('люди через запятую; этап начальника ИБ без отметки; никого', () => {
+    expect(holdersLabel({ people: [{ fullName: 'Начальник' }, { fullName: 'Руководитель' }], missingHead: false })).toBe('Начальник, Руководитель');
+    expect(holdersLabel({ people: [], missingHead: true })).toBe('Начальник ИБ не назначен');
+    expect(holdersLabel({ people: [], missingHead: false })).toBe('никто');
+    expect(holdersLabel(null)).toBe('');
+    expect(approversLabel({ approvers: [], missingHead: true })).toBe('Начальник ИБ не назначен');
+    expect(approversLabel({ approvers: ['Автор'], missingHead: false })).toBe('Автор');
   });
 });

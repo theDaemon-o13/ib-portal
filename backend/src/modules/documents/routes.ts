@@ -37,6 +37,8 @@ const DocItem = z.object({
   stage: z.number().int().nullable(),
   stageName: z.string().nullable(),
   waitingForMe: z.boolean(),
+  /** «Сейчас у» (1.4.0): кто действует на текущем этапе; missingHead — этап начальника ИБ, отметка никому не стоит. */
+  holders: z.object({ people: z.array(z.object({ id: z.string(), fullName: z.string() })), missingHead: z.boolean() }).nullable(),
   /** Этап 14: ближайший срок несогласовавшего ответственного лица и просрочка (сотрудникам ИБ). */
   partiesDue: z.string().nullable(),
   partiesOverdue: z.boolean(),
@@ -62,7 +64,8 @@ const DocDetail = DocItem.extend({
   approved: Version_.nullable(),
   route: z.array(z.object({
     stage: z.number().int(), name: z.string(), state: z.enum(['done', 'current', 'todo']),
-    approvers: z.array(z.string()), hint: z.string(), actedBy: z.string().nullable(), actedAt: z.string().nullable(),
+    /** Кто действует на этапе (та же функция, что «Сейчас у»); missingHead — «Начальник ИБ не назначен». */
+    approvers: z.array(z.string()), missingHead: z.boolean(), hint: z.string(), actedBy: z.string().nullable(), actedAt: z.string().nullable(),
     /** Этап не требуется (старый маршрут: согласовать мог только владелец): причина. */
     skipped: z.string().nullable(),
     /** Этап 13 согласовал сам автор — начальник ИБ, без независимого согласования. */

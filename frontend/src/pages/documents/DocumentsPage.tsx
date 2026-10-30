@@ -5,7 +5,7 @@ import type { Me } from '../../api/client';
 import { docsApi, dkeys, type DocItem, type DocQuery, type DocStatus } from '../../api/documents';
 import { formatDate } from '../registers/logic';
 import { DocumentPanel } from './DocumentPanel';
-import { reviewLabel, STATUS_TONE, stageHint, versionLabel } from './logic';
+import { holdersLabel, reviewLabel, STATUS_TONE, stageHint, versionLabel } from './logic';
 import { NewDocumentDrawer } from './NewDocumentDrawer';
 
 const STATUS_FILTERS: { key: DocStatus; title: string }[] = [
@@ -129,6 +129,9 @@ export function DocumentsPage() {
                     <td>
                       <RouteDots d={d} />
                       {stageHint(d) && <div className={`hint${d.waitingForMe ? ' tone-accent w600' : ''}`}>{stageHint(d)}</div>}
+                      {d.holders && (
+                        <div className={`hint${d.holders.missingHead ? ' late-t' : ''}`} data-testid="doc-holders">Сейчас у: {holdersLabel(d.holders)}</div>
+                      )}
                       {d.partiesDue && <div className={`hint mono${d.partiesOverdue ? ' late-t' : ''}`} title="Ближайший срок ответственного лица">лица: до {formatDate(d.partiesDue)}</div>}
                       {d.openBlockers > 0 && <div><span className="chip crit" title="Открытые блокеры">блокер{d.openBlockers > 1 ? ` · ${d.openBlockers}` : ''}</span></div>}
                     </td>

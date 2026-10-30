@@ -254,6 +254,14 @@ describe('Документы: маршрут 1.2.0', () => {
     await loginAs(users.head);
     await openDocs(id);
     await ui.waitFor(`Number(document.querySelector('[data-testid=nav-docs-n]')?.textContent) >= 1`, 'счётчик «ждёт вас» у «Документы»');
+    // «Сейчас у» (1.4.0): в реестре и в карточке — начальник ИБ; под этапом — кто действует, у пройденных — кто и когда.
+    const nowAt = `Сейчас у: ${users.head.fullName}`;
+    await ui.waitFor(`document.querySelector('tr[data-doc="${id}"] [data-testid=doc-holders]')?.textContent === ${JSON.stringify(nowAt)}`, '«Сейчас у» в реестре');
+    await ui.waitFor(`${panel}.querySelector('[data-testid=doc-now-at]')?.textContent === ${JSON.stringify(nowAt)}`, '«Сейчас у» в карточке');
+    const stageWho = (stage) => ui.evaluate(`${panel}.querySelector('.vstep[data-stage="${stage}"] [data-testid=stage-who]')?.textContent ?? ''`);
+    assert.match(await stageWho(13), new RegExp(`: ${users.head.fullName}$`));
+    assert.match(await stageWho(16), new RegExp(`: ${users.owner.fullName}$`));
+    assert.match(await ui.text(`${panel}.querySelector('.vstep[data-stage="12"] .vr')`), new RegExp(users.chief.fullName), 'пройденный этап — кто и когда');
     await ui.click($.button('Согласовать', panel));
     assert.equal(await ui.evaluate(`!!${$.button('Согласовать', `${panel}.querySelector('form')`)}`), false, 'без файла кнопка неактивна');
     await pickInForm('Согласовать', 'Одобрено.pdf');

@@ -22946,6 +22946,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -23102,6 +23109,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -23179,6 +23193,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -23604,6 +23619,13 @@ export interface paths {
                             stage: number | null;
                             stageName: string | null;
                             waitingForMe: boolean;
+                            holders: {
+                                people: {
+                                    id: string;
+                                    fullName: string;
+                                }[];
+                                missingHead: boolean;
+                            } | null;
                             partiesDue: string | null;
                             partiesOverdue: boolean;
                             openBlockers: number;
@@ -23681,6 +23703,7 @@ export interface paths {
                                 /** @enum {string} */
                                 state: "done" | "current" | "todo";
                                 approvers: string[];
+                                missingHead: boolean;
                                 hint: string;
                                 actedBy: string | null;
                                 actedAt: string | null;
@@ -23989,6 +24012,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -24066,6 +24096,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -24377,6 +24408,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -24454,6 +24492,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -24768,6 +24807,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -24845,6 +24891,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -25156,6 +25203,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -25233,6 +25287,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -25545,6 +25600,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -25622,6 +25684,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -25934,6 +25997,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -26011,6 +26081,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -26321,6 +26392,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -26398,6 +26476,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -26714,6 +26793,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -26791,6 +26877,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -27113,6 +27200,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -27190,6 +27284,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -27498,6 +27593,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -27575,6 +27677,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -27889,6 +27992,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -27966,6 +28076,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -28279,6 +28390,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -28356,6 +28474,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -28668,6 +28787,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -28745,6 +28871,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -29060,6 +29187,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -29137,6 +29271,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -29458,6 +29593,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -29535,6 +29677,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -29843,6 +29986,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -29920,6 +30070,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -30233,6 +30384,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -30310,6 +30468,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -30623,6 +30782,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -30700,6 +30866,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -31012,6 +31179,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -31089,6 +31263,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -31402,6 +31577,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -31479,6 +31661,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -31790,6 +31973,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -31867,6 +32057,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -32181,6 +32372,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -32258,6 +32456,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -32568,6 +32767,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -32645,6 +32851,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;
@@ -32955,6 +33162,13 @@ export interface paths {
                                 stage: number | null;
                                 stageName: string | null;
                                 waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
                                 partiesDue: string | null;
                                 partiesOverdue: boolean;
                                 openBlockers: number;
@@ -33032,6 +33246,7 @@ export interface paths {
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
                                     approvers: string[];
+                                    missingHead: boolean;
                                     hint: string;
                                     actedBy: string | null;
                                     actedAt: string | null;

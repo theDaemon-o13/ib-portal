@@ -45,6 +45,43 @@ export const MOVES: Record<DocAction, { from: readonly number[]; to: number; lab
   return: { from: [13, 14, 15], to: 11, label: 'Вернуть на доработку', who: ['head'] },
 };
 
+/** Человек в «Сейчас у» и под этапом карточки. */
+export interface Person { id: string; fullName: string }
+
+/** Кто действует на этапе: люди; missingHead — этап начальника ИБ, а отметка «Начальник ИБ» никому не стоит. */
+export interface Holders { people: Person[]; missingHead: boolean }
+
+export interface HolderCtx {
+  owner: Person;
+  /** Держатель отметки «Является начальником ИБ» (активный); null — не назначен. */
+  head: Person | null;
+  /** Активные старшие над владельцем (ADR-0020). */
+  seniors: readonly Person[];
+  /** Переводчики языков без файла перевода. */
+  pendingTranslators: readonly Person[];
+}
+
+const uniq = (list: readonly Person[]) => list.filter((p, i) => list.findIndex((x) => x.id === p.id) === i);
+
+/**
+ * «Сейчас у» (релиз 1.4.0, шаг 5): кто действует на этапе. Одна функция для «Сейчас у» в списке и карточке, для
+ * «кто действует» под этапами и для «ждут вас» (цифра у «Документы»): документ ждёт пользователя, только если он здесь.
+ *   11, 12, 16 — автор (владелец): правит драфт, отправляет дальше, подписывает. На 12 перевести дальше может и старший
+ *               над автором, на 16 подписать — и начальник ИБ, но ждёт документ автора (решение владельца 8);
+ *   13, 14     — начальник ИБ (отметка); нет отметки — «Начальник ИБ не назначен»;
+ *   15         — переводчики языков без файла; файлы есть (или языков нет) — начальник ИБ и старшие над автором.
+ */
+export function stageHolders(stage: number, c: HolderCtx): Holders {
+  if (stage === 13 || stage === 14) return c.head ? { people: [c.head], missingHead: false } : { people: [], missingHead: true };
+  if (stage === 15) {
+    if (c.pendingTranslators.length) return { people: uniq(c.pendingTranslators), missingHead: false };
+    const people = uniq([...(c.head ? [c.head] : []), ...c.seniors]);
+    return { people, missingHead: people.length === 0 };
+  }
+  if (stage === 11 || stage === 12 || stage === SIGN_STAGE) return { people: [c.owner], missingHead: false };
+  return { people: [], missingHead: false };
+}
+
 /** Переход фиксирует файл версии (pdf или docx): 13 → 14 — «одобрена начальником ИБ», 14 → 15 — «финальная». */
 export const FIXED_FILE: Partial<Record<DocAction, { kind: 'head_approved' | 'final'; name: string }>> = {
   approve: { kind: 'head_approved', name: 'Версия, одобренная начальником ИБ' },

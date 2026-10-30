@@ -62907,6 +62907,45 @@
                           "waitingForMe": {
                             "type": "boolean"
                           },
+                          "holders": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "people": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "fullName": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "fullName"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "people",
+                                  "missingHead"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "partiesDue": {
                             "type": [
                               "string",
@@ -62948,6 +62987,7 @@
                           "stage",
                           "stageName",
                           "waitingForMe",
+                          "holders",
                           "partiesDue",
                           "partiesOverdue",
                           "openBlockers",
@@ -63369,6 +63409,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -63771,6 +63850,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -63801,6 +63883,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -64560,6 +64643,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -65172,6 +65256,45 @@
                     "waitingForMe": {
                       "type": "boolean"
                     },
+                    "holders": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "people": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "missingHead": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "people",
+                            "missingHead"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "partiesDue": {
                       "type": [
                         "string",
@@ -65574,6 +65697,9 @@
                               "type": "string"
                             }
                           },
+                          "missingHead": {
+                            "type": "boolean"
+                          },
                           "hint": {
                             "type": "string"
                           },
@@ -65604,6 +65730,7 @@
                           "name",
                           "state",
                           "approvers",
+                          "missingHead",
                           "hint",
                           "actedBy",
                           "actedAt",
@@ -66363,6 +66490,7 @@
                     "stage",
                     "stageName",
                     "waitingForMe",
+                    "holders",
                     "partiesDue",
                     "partiesOverdue",
                     "openBlockers",
@@ -66786,6 +66914,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -67188,6 +67355,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -67218,6 +67388,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -67977,6 +68148,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -68413,6 +68585,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -68815,6 +69026,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -68845,6 +69059,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -69604,6 +69819,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -70026,6 +70242,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -70428,6 +70683,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -70458,6 +70716,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -71217,6 +71476,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -71627,6 +71887,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -72029,6 +72328,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -72059,6 +72361,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -72818,6 +73121,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -73240,6 +73544,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -73642,6 +73985,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -73672,6 +74018,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -74431,6 +74778,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -74852,6 +75200,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -75254,6 +75641,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -75284,6 +75674,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -76043,6 +76434,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -76447,6 +76839,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -76849,6 +77280,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -76879,6 +77313,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -77638,6 +78073,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -78079,6 +78515,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -78481,6 +78956,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -78511,6 +78989,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -79270,6 +79749,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -79723,6 +80203,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -80125,6 +80644,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -80155,6 +80677,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -80914,6 +81437,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -81335,6 +81859,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -81737,6 +82300,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -81767,6 +82333,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -82526,6 +83093,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -82960,6 +83528,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -83362,6 +83969,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -83392,6 +84002,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -84151,6 +84762,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -84583,6 +85195,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -84985,6 +85636,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -85015,6 +85669,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -85774,6 +86429,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -86195,6 +86851,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -86597,6 +87292,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -86627,6 +87325,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -87386,6 +88085,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -87813,6 +88513,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -88215,6 +88954,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -88245,6 +88987,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -89004,6 +89747,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -89442,6 +90186,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -89844,6 +90627,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -89874,6 +90660,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -90633,6 +91420,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -91054,6 +91842,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -91456,6 +92283,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -91486,6 +92316,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -92245,6 +93076,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -92677,6 +93509,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -93079,6 +93950,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -93109,6 +93983,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -93868,6 +94743,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -94299,6 +95175,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -94701,6 +95616,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -94731,6 +95649,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -95490,6 +96409,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -95906,6 +96826,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -96308,6 +97267,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -96338,6 +97300,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -97097,6 +98060,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -97523,6 +98487,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -97925,6 +98928,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -97955,6 +98961,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -98714,6 +99721,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -99123,6 +100131,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -99525,6 +100572,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -99555,6 +100605,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -100314,6 +101365,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -100735,6 +101787,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -101137,6 +102228,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -101167,6 +102261,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -101926,6 +103021,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -102331,6 +103427,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -102733,6 +103868,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -102763,6 +103901,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -103522,6 +104661,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",
@@ -103927,6 +105067,45 @@
                             "waitingForMe": {
                               "type": "boolean"
                             },
+                            "holders": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "people": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "fullName": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "fullName"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "missingHead": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "people",
+                                    "missingHead"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "partiesDue": {
                               "type": [
                                 "string",
@@ -104329,6 +105508,9 @@
                                       "type": "string"
                                     }
                                   },
+                                  "missingHead": {
+                                    "type": "boolean"
+                                  },
                                   "hint": {
                                     "type": "string"
                                   },
@@ -104359,6 +105541,7 @@
                                   "name",
                                   "state",
                                   "approvers",
+                                  "missingHead",
                                   "hint",
                                   "actedBy",
                                   "actedAt",
@@ -105118,6 +106301,7 @@
                             "stage",
                             "stageName",
                             "waitingForMe",
+                            "holders",
                             "partiesDue",
                             "partiesOverdue",
                             "openBlockers",

@@ -11,7 +11,7 @@ import { DOCUMENT_TYPES_CATALOG } from '../../lib/catalogs.js';
 import { withTx, isUniqueViolation, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { MIME_BY_EXT } from '../../lib/file-type.js';
-import { subordinateIdsOf } from '../../lib/hierarchy.js';
+import { seniorIdsOf, subordinateIdsOf } from '../../lib/hierarchy.js';
 import { PERMISSIONS } from '../../lib/permissions.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
@@ -21,7 +21,8 @@ import { notifyDocComment, notifyReturned, notifyStage } from './notify.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
 import {
   addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
-  ROUTE, SIGN_STAGE, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
+  ROUTE, SIGN_STAGE, stageHolders, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
+  type HolderCtx, type Holders, type Person,
 } from './status.js';
 
 export const TITLE_MAX = 300;
@@ -149,6 +150,10 @@ interface Who {
   acted: ReadonlyMap<string, readonly number[]>;
   /** Условия переходов по рабочим версиям. */
   facts: ReadonlyMap<string, RouteFacts>;
+  /** Кто действует на текущем этапе («Сейчас у», шаг 5 релиза 1.4.0) — по документам, переданным в whoOf. */
+  holders: ReadonlyMap<string, Holders>;
+  /** Из чего считаны holders: для «кто действует» под каждым этапом карточки. */
+  holderCtx: ReadonlyMap<string, HolderCtx>;
 }
 
 /** Начальник ИБ — по отметке; супер-администратору её не ставят (409), проверка здесь — на случай испорченных данных. */
@@ -156,17 +161,64 @@ const isHead = (a: DocAccess) => a.ibHead && !a.superAdmin;
 
 const HEADS_WHERE: Prisma.UserWhereInput = { isActive: true, isIbHead: true };
 
-async function whoOf(db: Db, a: DocAccess, versionIds: readonly string[], factIds: readonly string[] = versionIds): Promise<Who> {
+/**
+ * docs — документы, для которых нужны «Сейчас у» и «ждут вас» (stageHolders). Старшие над владельцем запрашиваются
+ * только там, где они действуют (этап 15 без переводов в работе) или для всего маршрута карточки (allStages).
+ */
+async function whoOf(
+  db: Db, a: DocAccess, versionIds: readonly string[], factIds: readonly string[] = versionIds,
+  docs: readonly DocRow[] = [], allStages = false,
+): Promise<Who> {
   const [subs, rows, facts] = await Promise.all([
     subordinateIdsOf(db, a.userId),
     versionIds.length
       ? db.documentApproval.findMany({ where: { actorId: a.userId, versionId: { in: [...versionIds] }, decision: { not: 'migrated' } }, select: { versionId: true, round: true } })
       : [],
-    routeFacts(db, factIds),
+    routeFacts(db, [...new Set([...factIds, ...docs.flatMap((d) => (d.workingVersionId ? [d.workingVersionId] : []))])]),
   ]);
   const acted = new Map<string, number[]>();
   for (const r of rows) acted.set(r.versionId, [...(acted.get(r.versionId) ?? []), r.round]);
-  return { a, subordinates: new Set(subs), acted, facts };
+  const { holders, ctx } = await holdersOf(db, docs, facts, allStages);
+  return { a, subordinates: new Set(subs), acted, facts, holders, holderCtx: ctx };
+}
+
+/** «Сейчас у» по документам: начальник ИБ (одна отметка), старшие над владельцем, переводчики без файла. */
+async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<string, RouteFacts>, allStages: boolean) {
+  const holders = new Map<string, Holders>();
+  const ctx = new Map<string, HolderCtx>();
+  const live = docs.flatMap((d) => {
+    const v = activeWorking(d);
+    return v || allStages ? [{ d, v, f: (v && facts.get(v.id)) || NO_FACTS }] : [];
+  });
+  if (!live.length) return { holders, ctx };
+  const needSeniors = new Set(live.filter(({ v, f }) => allStages || (v?.stage === 15 && f.pendingTranslators.length === 0)).map(({ d }) => d.ownerId));
+  const owners = [...needSeniors];
+  const [head, seniorLists] = await Promise.all([
+    db.user.findFirst({ where: HEADS_WHERE, select: { id: true, fullName: true } }),
+    Promise.all(owners.map((o) => seniorIdsOf(db, o))),
+  ]);
+  const seniorIds = new Map(owners.map((o, i) => [o, seniorLists[i] ?? []]));
+  const translatorIds = live.flatMap(({ f }) => f.pendingTranslators);
+  const peopleIds = [...new Set([...seniorIds.values()].flat().concat(translatorIds))];
+  const people = peopleIds.length
+    ? await db.user.findMany({ where: { id: { in: peopleIds } }, select: { id: true, fullName: true, isActive: true } })
+    : [];
+  const person = (id: string): Person | null => {
+    const u = people.find((x) => x.id === id);
+    return u ? { id: u.id, fullName: u.fullName } : null;
+  };
+  for (const { d, v, f } of live) {
+    const c: HolderCtx = {
+      owner: { id: d.owner.id, fullName: d.owner.fullName },
+      head: head ? { id: head.id, fullName: head.fullName } : null,
+      // Старшие — только активные: отключённый не переведёт документ дальше.
+      seniors: (seniorIds.get(d.ownerId) ?? []).flatMap((id) => (people.find((x) => x.id === id)?.isActive ? [person(id) as Person] : [])),
+      pendingTranslators: f.pendingTranslators.flatMap((id) => person(id) ?? []),
+    };
+    ctx.set(d.id, c);
+    if (v) holders.set(d.id, stageHolders(v.stage, c));
+  }
+  return { holders, ctx };
 }
 
 export function rolesOf(w: Who, d: DocRow): Set<DocRole> {
@@ -220,17 +272,13 @@ function signRole(w: Who, d: DocRow): boolean {
 const canSign = (w: Who, d: DocRow) => signRole(w, d) && gate(w, d, 'sign') === null;
 
 /**
- * «Ждёт вас»: этапы автора (11, 12, 16) — только владельцу; остальные — тем, кто может действовать.
- * docs.manage и начальник ИБ могут действовать за автора, но документ их не ждёт.
+ * «Ждёт вас» (цифра у «Документы» и пометка в реестре): пользователь среди тех, кто действует на текущем этапе
+ * (stageHolders — та же функция, что «Сейчас у»). Право видеть документ не считается: читателя без действия
+ * документ не ждёт. docs.manage может действовать за автора, но документ его не ждёт.
  */
 function waitsFor(w: Who, d: DocRow): boolean {
-  const v = activeWorking(d);
-  if (!v) return false;
-  if (v.stage === 11 || v.stage === 12 || v.stage === SIGN_STAGE) return d.ownerId === w.a.userId;
-  // Этап 15: переводчика ждёт его язык, пока нет файла перевода (Г4).
-  if (v.stage === 15 && (w.facts.get(v.id)?.pendingTranslators ?? []).includes(w.a.userId)) return true;
-  // Только возврат (свой документ при другом начальнике ИБ) — не ждёт: ждут тех, кто может перевести дальше.
-  return actionsOf(w, d).some((x) => x !== 'return');
+  if (!activeWorking(d)) return false;
+  return (w.holders.get(d.id)?.people ?? []).some((p) => p.id === w.a.userId);
 }
 
 /**
@@ -288,6 +336,8 @@ function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
     stage: working?.stage ?? null,
     stageName: working ? stageName(working.stage) : null,
     waitingForMe: waitsFor(w, d),
+    /** «Сейчас у»: кто действует на текущем этапе (если рабочая версия видна); missingHead — «Начальник ИБ не назначен». */
+    holders: working ? (w.holders.get(d.id) ?? null) : null,
     /** Этап 14: ближайший срок несогласовавшего ответственного лица и просрочен ли он (сотрудникам ИБ). */
     partiesDue: working && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? null) : null,
     partiesOverdue: working && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? today) < today : false,
@@ -315,7 +365,7 @@ export interface DocListQuery {
 async function loadVisible(db: Db, a: DocAccess, where: Prisma.DocumentWhereInput) {
   const rows = await db.document.findMany({ where: { ...where, deletedAt: null }, include: docInclude, orderBy: { number: 'asc' } });
   const working = rows.flatMap((d) => (d.workingVersionId ? [d.workingVersionId] : []));
-  const who = await whoOf(db, a, a.ibWork ? [] : working, working);
+  const who = await whoOf(db, a, a.ibWork ? [] : working, working, rows);
   const out: { d: DocRow; shown: VersionRow }[] = [];
   for (const d of rows) {
     const shown = shownVersion(who, d);
@@ -387,7 +437,7 @@ const FILE_KIND_NAMES: Record<string, string> = {
 export async function getDocument(db: Db, a: DocAccess, id: string) {
   const today = todayIso();
   const d = await getRow(db, id);
-  const who = await whoOf(db, a, d.workingVersionId ? [d.workingVersionId] : []);
+  const who = await whoOf(db, a, d.workingVersionId ? [d.workingVersionId] : [], undefined, [d], true);
   const shown = shownVersion(who, d);
   if (!shown) throw notFound('Документ');
   const working = activeWorking(d);
@@ -406,14 +456,15 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
   const legacy = shown.stage <= 3;
   const stages = legacy ? Object.keys(LEGACY_STAGE_NAMES).map(Number) : ROUTE.map((s) => s.stage);
   const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && PASSED.includes(h.decision));
-  const heads = legacy ? [] : (await db.user.findMany({ where: HEADS_WHERE, select: { fullName: true }, orderBy: { fullName: 'asc' } })).map((u) => u.fullName);
+  const holderCtx = who.holderCtx.get(d.id);
   const route = stages.map((stage) => {
     const act = roundActs.find((h) => h.stage === stage);
     const state = shown.approvedAt !== null || stage < shown.stage ? 'done' : stage === shown.stage ? 'current' : 'todo';
-    const approvers = legacy ? [] : stage === 13 || stage === 14 || stage === 15 ? heads : [d.owner.fullName];
+    // Кто действует на этапе — та же stageHolders, что «Сейчас у»; пройденный — кто и когда (actedBy, actedAt).
+    const h = legacy || !holderCtx ? { people: [], missingHead: false } : stageHolders(stage, holderCtx);
     return {
       stage, name: stageName(stage), state: state as 'done' | 'current' | 'todo',
-      approvers, hint: legacy ? '' : HINTS[stage] ?? '',
+      approvers: h.people.map((p) => p.fullName), missingHead: h.missingHead, hint: legacy ? '' : HINTS[stage] ?? '',
       actedBy: act && act.decision !== 'skipped' ? act.actor.fullName : null, actedAt: act ? act.at.toISOString() : null,
       /** Этап пропущен (старый маршрут: согласовать мог только владелец). */
       skipped: act?.decision === 'skipped' ? act.comment : null,
@@ -581,7 +632,7 @@ export async function versionVisible(db: Db, a: DocAccess, versionId: string): P
   if (!v) return false;
   const d = await db.document.findFirst({ where: { id: v.documentId, deletedAt: null }, include: docInclude });
   if (!d) return false;
-  const shown = shownVersion(await whoOf(db, a, d.workingVersionId ? [d.workingVersionId] : []), d);
+  const shown = shownVersion(await whoOf(db, a, d.workingVersionId ? [d.workingVersionId] : [], undefined, [d]), d);
   if (!shown) return false;
   return a.ibWork || v.approvedAt !== null || shown.id === versionId;
 }

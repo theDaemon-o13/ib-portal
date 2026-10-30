@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addMonthsIso, allowedActions, checkDocUrlPrefix, docStatus, isDocUrl, ROUTE_FROM_LEGACY, stageName, type DocRole } from './status.js';
+import { addMonthsIso, allowedActions, checkDocUrlPrefix, docStatus, isDocUrl, ROUTE_FROM_LEGACY, stageHolders, stageName, type DocRole, type HolderCtx } from './status.js';
 
 describe('статус документа', () => {
   const today = '2026-10-27';
@@ -83,5 +83,26 @@ describe('ссылка OnlyOffice', () => {
     expect(checkDocUrlPrefix('ftp://office.example.local/')).toMatch(/http/);
     expect(checkDocUrlPrefix('https://office.example.local/?a=1')).toMatch(/параметров/);
     expect(checkDocUrlPrefix('office.example.local')).toMatch(/адрес/);
+  });
+});
+
+describe('stageHolders — «Сейчас у» (1.4.0)', () => {
+  const owner = { id: 'o', fullName: 'Автор' };
+  const head = { id: 'h', fullName: 'Начальник' };
+  const chief = { id: 'c', fullName: 'Руководитель' };
+  const tr = { id: 't', fullName: 'Переводчик' };
+  const base: HolderCtx = { owner, head, seniors: [chief], pendingTranslators: [] };
+  const names = (stage: number, c = base) => stageHolders(stage, c).people.map((p) => p.fullName);
+
+  it('по этапам; несколько человек — на 15; никого — «Начальник ИБ не назначен»', () => {
+    expect([11, 12, 16].map((s) => names(s))).toEqual([['Автор'], ['Автор'], ['Автор']]);
+    expect([names(13), names(14)]).toEqual([['Начальник'], ['Начальник']]);
+    expect(names(15)).toEqual(['Начальник', 'Руководитель']);
+    expect(names(15, { ...base, pendingTranslators: [tr, tr] })).toEqual(['Переводчик']);
+    expect(stageHolders(13, { ...base, head: null })).toEqual({ people: [], missingHead: true });
+    expect(stageHolders(15, { ...base, head: null })).toEqual({ people: [chief], missingHead: false });
+    expect(stageHolders(15, { ...base, head: null, seniors: [] })).toEqual({ people: [], missingHead: true });
+    // Начальник ИБ — сам старший над автором: в списке один раз.
+    expect(names(15, { ...base, seniors: [head, chief] })).toEqual(['Начальник', 'Руководитель']);
   });
 });

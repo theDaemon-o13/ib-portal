@@ -507,6 +507,8 @@ textarea.mail-raw{min-height:150px}
 .route .link.done{background:var(--low)}
 .doc-detail{display:grid;gap:14px}
 .vsteps{display:grid;gap:0}
+/* «Сейчас у» над маршрутом карточки (1.4.0). */
+.now-at{font-size:13px;margin:4px 0 8px}
 .vstep{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 0}
 .vstep .step{margin-top:3px}
 .vstep b{font-weight:600;font-size:13px;display:block}

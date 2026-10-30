@@ -855,3 +855,88 @@ describe('документы: уведомления (Г5)', () => {
       expect(await inbox(tx, x.owner, id)).toHaveLength(mine.length);
     }));
 });
+
+describe('«Сейчас у» и «ждут вас» — одна функция (1.4.0, шаг 5)', () => {
+  /** «Сейчас у» в реестре и «кто действует» под этапом карточки — глазами сотрудника ИБ. */
+  const nowAt = async (tx: Tx, x: Fx, id: string) => {
+    const item = must((await list(tx, x.staff)).find((d) => d.id === id));
+    return { names: item.holders?.people.map((p) => p.fullName) ?? null, missingHead: item.holders?.missingHead ?? null };
+  };
+  /** Цифра у «Документы» = числу строк реестра с «ждёт вас» (одна функция). */
+  const sameCount = async (tx: Tx, u: User) => {
+    const n = (await svc.documentSummary(tx, await svc.accessOf(tx, u.id))).waitingForMe;
+    expect(n).toBe((await list(tx, u)).filter((d) => d.waitingForMe).length);
+    return n;
+  };
+
+  it('по этапам: 11, 12, 16 — автор; 13, 14 — начальник ИБ; 15 — переводчики, затем начальник ИБ и старшие; пройденные — кто и когда', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      expect(await nowAt(tx, x, id)).toEqual({ names: ['Автор Документа'], missingHead: false });
+      await moveTo(tx, x, id, 12);
+      expect((await nowAt(tx, x, id)).names).toEqual(['Автор Документа']);
+      expect([await sameCount(tx, x.owner), await sameCount(tx, x.chief)]).toEqual([1, 0]); // старший может, но ждут автора
+      await moveTo(tx, x, id, 13);
+      expect((await nowAt(tx, x, id)).names).toEqual(['Начальник ИБ']);
+      expect([await sameCount(tx, x.head), await sameCount(tx, x.owner)]).toEqual([1, 0]);
+      // Открытый блокер шаг вперёд останавливает, но этап по-прежнему у начальника ИБ: снять блокер или вернуть — его действие.
+      await parties.addBlocker(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), text: 'Ждём ДИКТ' });
+      expect(await sameCount(tx, x.head)).toBe(1);
+      const b = must((await view(tx, x.head, id)).blockers[0]);
+      await parties.resolveBlocker(tx, await x.as(x.head), id, b.id, { ...(await cur(tx, id)), comment: 'ДИКТ ответил' });
+      await moveTo(tx, x, id, 14);
+      expect((await nowAt(tx, x, id)).names).toEqual(['Начальник ИБ']);
+      await moveTo(tx, x, id, 15);
+      // Языков нет — перевести дальше: начальник ИБ и старший над автором.
+      expect((await nowAt(tx, x, id)).names).toEqual(['Начальник ИБ', 'Руководитель автора']);
+      expect([await sameCount(tx, x.head), await sameCount(tx, x.chief), await sameCount(tx, x.owner)]).toEqual([1, 1, 0]);
+      await moveTo(tx, x, id, 16);
+      expect((await nowAt(tx, x, id)).names).toEqual(['Автор Документа']);
+
+      const card = await view(tx, x.staff, id);
+      expect(card.holders?.people.map((p) => p.fullName)).toEqual(['Автор Документа']);
+      const byStage = new Map(card.route.map((r) => [r.stage, r]));
+      expect(byStage.get(13)).toMatchObject({ state: 'done', approvers: ['Начальник ИБ'], actedBy: 'Начальник ИБ', missingHead: false });
+      expect(byStage.get(13)?.actedAt).not.toBeNull();
+      expect(byStage.get(15)?.approvers).toEqual(['Начальник ИБ', 'Руководитель автора']);
+      expect(byStage.get(16)).toMatchObject({ state: 'current', approvers: ['Автор Документа'], actedBy: null });
+    }));
+
+  it('отметка «Начальник ИБ» никому не стоит: на этапах 13 и 14 — «Начальник ИБ не назначен» в реестре и карточке; документ не ждёт никого', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, 13);
+      await tx.user.update({ where: { id: x.head.id }, data: { isIbHead: false } });
+      expect(await nowAt(tx, x, id)).toEqual({ names: [], missingHead: true });
+      const card = await view(tx, x.staff, id);
+      expect(card.holders).toEqual({ people: [], missingHead: true });
+      expect(card.route.find((r) => r.stage === 14)).toMatchObject({ approvers: [], missingHead: true });
+      expect(card.route.find((r) => r.stage === 11)).toMatchObject({ approvers: ['Автор Документа'], missingHead: false });
+      expect(await sameCount(tx, x.head)).toBe(0);
+    }));
+
+  it('п. 1: видимость не считается — читатель без права действия видит документ, но цифра 0; переводчик с файлом в работе — 1', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      // Подписанный документ на пересмотре, рабочая версия у начальника ИБ: читатель видит подписанную версию.
+      const signed = await x.create('Подписанная политика');
+      await signAll(tx, x, signed);
+      await svc.reviseDocument(tx, await x.as(x.owner), signed, { version: (await cur(tx, signed)).version, edition: '2.0' });
+      await moveTo(tx, x, signed, 13);
+      const seen = (await list(tx, x.legal)).find((d) => d.id === signed);
+      expect(seen).toMatchObject({ waitingForMe: false, holders: null });
+      expect(await sameCount(tx, x.legal)).toBe(0);
+
+      // Тот же читатель — переводчик языка без файла на этапе 15: может приложить перевод — документ его ждёт.
+      const id = await x.create('Политика с переводом');
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorId: x.legal.id, dueDate: '2026-11-20' });
+      await moveTo(tx, x, id, 15);
+      expect(await nowAt(tx, x, id)).toEqual({ names: ['Юрист'], missingHead: false });
+      expect(await sameCount(tx, x.legal)).toBe(1);
+      // Пока перевод не готов, начальника ИБ этот документ не ждёт (его ждёт только первый — на этапе 13).
+      expect((await list(tx, x.head)).find((d) => d.id === id)?.waitingForMe).toBe(false);
+      expect(await sameCount(tx, x.head)).toBe(1);
+    }));
+});
