@@ -49,6 +49,13 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M9 3v18M12 8h3M12 12h3M12 16h2" />
     </>
   ),
+  // Как в прототипе: щит с галочкой (docs/prototype/portal-demo.html, icons.assess).
+  assess: (
+    <>
+      <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
+      <path d="M8.5 12l2.5 2.5 4.5-5" />
+    </>
+  ),
   settings: (
     <>
       <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />

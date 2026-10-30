@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { SearchPage } from './pages/search/SearchPage';
 import { HomeRedirect, MonitorRoute, ProtectedShell, RequireUser, Section } from './components/guards';
 import { NAV } from './nav';
+import { AssessmentPage } from './pages/assessment/AssessmentPage';
 import { AuditPage } from './pages/audit/AuditPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
@@ -35,6 +36,8 @@ export function App() {
             <Route key={item.path} path="/evidence" element={<Section item={item}><EvidencePage /></Section>} />
           ) : item.path === '/audit' ? (
             <Route key={item.path} path="/audit" element={<Section item={item}><AuditPage /></Section>} />
+          ) : item.path === '/assessment' ? (
+            <Route key={item.path} path="/assessment/:tab?" element={<Section item={item}><AssessmentPage /></Section>} />
           ) : item.path === '/registers' ? (
             <Route key={item.path} path="/registers/:registerId?/:tab?" element={<Section item={item}><RegistersPage /></Section>} />
           ) : (

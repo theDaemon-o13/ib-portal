@@ -21,6 +21,13 @@ describe('меню по правам', () => {
     expect(visibleNav(['monitor.kiosk', 'audit.view']).map((i) => i.title)).toEqual(['Мониторинг']);
   });
 
+  it('«Самооценка» — только с правом «Самооценка», над «Настройками», ib.work не нужен (этап Д)', () => {
+    expect(visibleNav(['ib.work', 'audit.view', 'users.manage']).map((i) => i.title)).not.toContain('Самооценка');
+    expect(visibleNav(['assessment.manage']).map((i) => i.title)).toEqual(['Документы', 'Самооценка']);
+    expect(visibleNav(['ib.work', 'assessment.manage']).map((i) => i.title).slice(-2)).toEqual(['Самооценка', 'Настройки']);
+    expect(visibleNav(['monitor.kiosk', 'assessment.manage']).map((i) => i.title)).toEqual(['Мониторинг']);
+  });
+
   it('настенный монитор видит только «Мониторинг»', () => {
     expect(visibleNav(['monitor.kiosk']).map((i) => i.title)).toEqual(['Мониторинг']);
     expect(homePath(['monitor.kiosk'])).toBe('/monitor');

@@ -1,14 +1,14 @@
 // Разделы сайдбара как в прототипе. Скрытие по правам — только удобство:
 // доступ всегда проверяет backend.
 
-export type IconName = 'dash' | 'monitor' | 'builder' | 'tasks' | 'docs' | 'evidence' | 'journal' | 'settings';
+export type IconName = 'dash' | 'monitor' | 'builder' | 'tasks' | 'docs' | 'evidence' | 'journal' | 'assess' | 'settings';
 
 export interface NavItem {
   path: string;
   title: string;
   icon: IconName;
   /** Право, без которого пункт скрыт. undefined — виден всем вошедшим. */
-  perm?: 'ib.work' | 'audit.view';
+  perm?: 'ib.work' | 'audit.view' | 'assessment.manage';
   /** Доступен учётной записи настенного монитора (monitor.kiosk). */
   kiosk?: boolean;
 }
@@ -26,6 +26,8 @@ export const NAV: NavItem[] = [
   { path: '/evidence', title: 'Доказательства', icon: 'evidence', perm: 'ib.work' },
   // Журнал действий (релиз 1.2.0, ADR-0021): только по праву «Журнал действий», ib.work не нужен.
   { path: '/audit', title: 'Журнал', icon: 'journal', perm: 'audit.view' },
+  // Самооценка (этап Д, ADR-0026): личный раздел, только по праву «Самооценка», ib.work не нужен.
+  { path: '/assessment', title: 'Самооценка', icon: 'assess', perm: 'assessment.manage' },
   { path: '/settings', title: 'Настройки', icon: 'settings', perm: 'ib.work' },
 ];
 

@@ -11,6 +11,7 @@ import { ToastProvider } from './components/Toast';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/assessment.css';
 
 initTheme();
 installInputTracking();
