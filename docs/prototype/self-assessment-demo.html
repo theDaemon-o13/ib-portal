@@ -1,0 +1,1350 @@
+<title>Самооценка КБ — прототип</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: the IS Portal shell (floating glass rail + work area on glass panels); the self-assessment section is one page with four tabs.
+   Tokens are copied from the portal prototype so the section can be merged into it without restyling. */
+:root{
+  --bg:#F2F2F7;
+  --amb-a:rgba(0,122,255,.20); --amb-b:rgba(90,200,250,.18); --amb-c:rgba(175,82,222,.12);
+  --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.82);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 42%);
+  --glass-line:rgba(255,255,255,.80); --hl:rgba(255,255,255,.95);
+  --line:rgba(60,60,67,.12); --line-2:rgba(60,60,67,.20);
+  --shadow:0 1px 2px rgba(20,30,60,.04),0 12px 32px rgba(20,40,80,.07);
+  --shadow-lg:0 24px 70px rgba(20,40,80,.20),0 2px 8px rgba(20,40,80,.06);
+  --fill:rgba(118,118,128,.12); --fill-2:rgba(118,118,128,.07); --hover:rgba(118,118,128,.08);
+  --solid:#FAFAFC; --solid-2:#F3F3F7; --seg-on:#FFFFFF;
+  --fg:#1D1D1F; --muted:#6E6E73; --faint:#AEAEB2;
+  --accent:#007AFF; --accent-2:#3395FF; --accent-soft:rgba(0,122,255,.12); --accent-fg:#FFFFFF;
+  --crit:#E0352B; --high:#C65D00; --med:#977000; --low:#248A3D; --info:#5856D6;
+  --crit-soft:rgba(255,59,48,.12); --high-soft:rgba(255,149,0,.14); --med-soft:rgba(255,204,0,.18); --low-soft:rgba(52,199,89,.14);
+  --scrim:rgba(0,0,0,.20); --toast-bg:rgba(29,29,31,.86); --toast-fg:#FFFFFF;
+  --f-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  --f-body:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  --blur:blur(28px) saturate(180%);
+  --r-lg:22px; --r-md:16px; --r-sm:11px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#000000;
+  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.90);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
+  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
+  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
+  --solid:#0E0E10; --solid-2:#141416; --seg-on:#3A3A3C;
+  --fg:#F5F5F7; --muted:#98989D; --faint:#636366;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF;
+  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
+  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
+  --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000;
+  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.90);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
+  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
+  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
+  --solid:#0E0E10; --solid-2:#141416; --seg-on:#3A3A3C;
+  --fg:#F5F5F7; --muted:#98989D; --faint:#636366;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF;
+  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
+  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
+  --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;letter-spacing:-.005em;-webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(60vw 50vh at 8% 0%,var(--amb-a),transparent 70%),
+  radial-gradient(50vw 45vh at 100% 30%,var(--amb-b),transparent 70%),
+  radial-gradient(55vw 50vh at 45% 105%,var(--amb-c),transparent 70%)}
+button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default}
+:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft),0 0 0 1px var(--accent)!important}
+.num{font-family:var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+.rail,.panel,.toast,.sheet{-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.app{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100%}
+.rail{margin:12px 0 12px 12px;background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:26px;padding:18px 12px;display:flex;flex-direction:column;gap:20px;position:sticky;top:12px;height:calc(100vh - 24px);z-index:5}
+.brand{display:flex;align-items:center;gap:11px;padding:2px 8px}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(160deg,var(--accent-2),var(--accent));color:var(--accent-fg);display:grid;place-items:center;font-family:var(--f-display);font-size:13px;font-weight:700}
+.brand b{font-family:var(--f-display);font-weight:600;font-size:15px;display:block}
+.brand small{color:var(--muted);font-size:11.5px;display:block}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:11px;padding:8px 11px;border:0;background:none;border-radius:11px;text-align:left;color:var(--fg);font-weight:500;font-size:13.5px}
+.nav button svg{width:18px;height:18px;flex:none;color:var(--accent)}
+.nav button.dim{color:var(--muted)}
+.nav button.dim svg{color:var(--faint)}
+.nav button:hover{background:var(--hover)}
+.nav button[aria-current="page"]{background:var(--accent);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 14px var(--accent-soft)}
+.nav button[aria-current="page"] svg{color:currentColor}
+.rail-foot{margin-top:auto;display:grid;gap:8px;font-size:12px;color:var(--muted);padding:0 4px;min-width:0}
+.me{display:grid;gap:4px;padding:9px 10px;border-radius:14px;background:var(--fill-2);min-width:0}
+.me label{font-size:10.5px;color:var(--faint)}
+.me select{border:0;background:none;font-weight:600;font-size:12.5px;padding:0;color:var(--fg);cursor:pointer;width:100%;min-width:0}
+.me small{font-size:11px;line-height:1.35}
+.seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--fill);gap:2px;width:100%}
+.seg button{flex:1;border:0;background:none;border-radius:8px;padding:4px 6px;font-size:12px;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.demo-tag{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--fill-2);width:max-content}
+option{background-color:var(--solid);color:var(--fg)}
+
+main{padding-block:26px 64px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));min-width:0}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.head h1{font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1.1;margin:0;letter-spacing:-.025em}
+.head p{margin:6px 0 0;color:var(--muted);max-width:70ch}
+.bar-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.bar-top .sp{flex:1}
+.inp,select.inp{background:var(--fill);border:1px solid transparent;border-radius:9px;padding:6px 10px;min-width:0}
+.inp:focus{outline:none;background:var(--solid);box-shadow:0 0 0 3px var(--accent-soft),0 0 0 1px var(--accent)}
+textarea.inp{width:100%;min-height:64px;resize:vertical;line-height:1.45}
+.btn{border:0;background:var(--fill);padding:7px 15px;border-radius:999px;font-weight:500;font-size:13.5px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--accent);transition:background .18s,transform .12s}
+.btn:hover{background:var(--fill-2)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 14px var(--accent-soft)}
+.btn.sm{padding:4px 11px;font-size:12.5px}
+.btn.ghost{background:none;padding-inline:8px}
+.btn.ghost:hover{background:var(--accent-soft)}
+.btn.danger-t{color:var(--crit)}
+.btn:disabled{opacity:.45;transform:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--fill-2);color:var(--muted)}
+.chip.crit{background:var(--crit-soft);color:var(--crit)}.chip.high{background:var(--high-soft);color:var(--high)}
+.chip.med{background:var(--med-soft);color:var(--med)}.chip.low{background:var(--low-soft);color:var(--low)}
+.chip.acc{background:var(--accent-soft);color:var(--accent)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.hint{font-size:12px;color:var(--muted)}
+.note{padding:11px 14px;border-radius:var(--r-sm);background:var(--accent-soft);font-size:13px}
+.note.warn{background:var(--high-soft)}
+.note.ro{background:var(--fill-2);color:var(--muted)}
+
+.tabs{display:flex;gap:2px;padding:2px;border-radius:11px;background:var(--fill);width:fit-content;max-width:100%;overflow-x:auto;margin-bottom:14px}
+.tabs button{border:0;background:none;padding:6px 16px;font-weight:500;font-size:13px;border-radius:9px;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+
+.panel{background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:var(--r-lg);min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-h h3{margin:0;font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:-.015em}
+.panel-b{padding:14px 18px 16px}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+.grid>*{min-width:0}
+.w4{grid-column:span 4}.w5{grid-column:span 5}.w6{grid-column:span 6}.w7{grid-column:span 7}.w8{grid-column:span 8}.w12{grid-column:span 12}
+
+/* level card */
+.lvl{display:grid;gap:14px;padding:18px 20px 20px}
+.lvl-top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-end}
+.lvl-name{font-family:var(--f-display);font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.05}
+.lvl-sub{color:var(--muted);margin-top:4px;max-width:60ch;font-size:13px}
+.lvl-score{text-align:right}
+.lvl-score b{font-family:var(--f-display);font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.lvl-score span{color:var(--muted);font-size:15px}
+.scale{position:relative;padding-top:26px}
+.scale-track{display:flex;height:12px;border-radius:999px;overflow:hidden;gap:2px}
+.scale-track i{display:block;height:100%}
+.scale-lbl{display:flex;gap:2px;margin-top:7px}
+.scale-lbl span{font-size:11.5px;color:var(--muted);line-height:1.25}
+.scale-lbl b{display:block;color:var(--fg);font-weight:600;font-size:12px}
+.mk{position:absolute;top:0;transform:translateX(-50%);display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.mk::after{content:"";width:2px;height:20px;border-radius:2px;background:currentColor}
+.mk.cur{color:var(--fg)}
+.mk.prev{color:var(--faint)}
+.z1{background:var(--crit)}.z2{background:var(--high)}.z3{background:var(--accent)}.z4{background:var(--low)}
+.z1,.z2,.z3,.z4{opacity:.85}
+
+.ring{display:flex;gap:14px;align-items:center}
+.keys{display:grid;gap:6px;margin-top:12px}
+.key{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px;padding:7px 10px;border-radius:10px;background:var(--fill-2)}
+.key button{border:0;background:none;padding:0;text-align:left;color:var(--fg)}
+.key button:hover{color:var(--accent)}
+.ok{color:var(--low)}.no{color:var(--crit)}
+
+svg text{fill:var(--muted);font-family:var(--f-body)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+
+.dbars{display:grid;gap:9px}
+.dbar{display:grid;grid-template-columns:minmax(0,1fr) 120px 36px 48px;gap:10px;align-items:center;font-size:12.5px;border:0;background:none;padding:2px 0;text-align:left;color:var(--fg)}
+.dbar:hover .t{color:var(--accent)}
+.dbar .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbar .track{height:8px;background:var(--fill);border-radius:999px;position:relative;overflow:hidden}
+.dbar .track i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}
+.dbar .track u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--faint);text-decoration:none}
+.dbar .n{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.delta{font-size:11.5px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.delta.up{color:var(--low)}.delta.dn{color:var(--crit)}.delta.eq{color:var(--faint)}
+
+.weak{display:grid}
+.weak button{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;border:0;background:none;border-bottom:1px solid var(--line);padding:9px 2px;text-align:left;color:var(--fg);font-size:13px}
+.weak button:last-child{border-bottom:0}
+.weak button:hover{background:var(--hover)}
+.code{font-family:var(--f-display);font-weight:600;font-variant-numeric:tabular-nums;color:var(--muted)}
+
+/* checklist */
+.cl{display:grid;grid-template-columns:264px minmax(0,1fr);gap:12px;align-items:start}
+.doms{padding:8px;display:grid;gap:2px;position:sticky;top:12px}
+.doms button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center}
+.doms button:hover{background:var(--hover)}
+.doms button[aria-pressed="true"]{background:var(--accent-soft)}
+.doms button[aria-pressed="true"] b{color:var(--accent)}
+.doms b{font-weight:600;font-size:13px}
+.doms small{color:var(--muted);font-size:11.5px;grid-column:1}
+.doms .avg{grid-row:1/3;grid-column:2;font-family:var(--f-display);font-weight:600;font-variant-numeric:tabular-nums;font-size:15px}
+.prog{height:4px;background:var(--fill);border-radius:999px;overflow:hidden;grid-column:1/-1;margin-top:3px}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.prog i.full{background:var(--low)}
+.secs{display:grid;gap:12px}
+.dom-h{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:2px 4px}
+.dom-h h2{margin:0;font-family:var(--f-display);font-size:21px;font-weight:700;letter-spacing:-.02em}
+.sec{scroll-margin-top:16px}
+.sec.flash{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
+.sec-h{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;padding:14px 18px 10px;flex-wrap:wrap}
+.sec-h h3{margin:0;font-family:var(--f-display);font-size:16px;font-weight:600;letter-spacing:-.015em}
+.sec-h h3 .code{margin-right:6px}
+details.target{margin:0 18px;border-radius:var(--r-sm);background:var(--fill-2);padding:9px 12px;font-size:13px}
+details.target summary{cursor:pointer;color:var(--muted);font-weight:500;font-size:12.5px}
+details.target p{white-space:pre-line;margin:8px 0 2px}
+.opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px 18px}
+.opt{border:1px solid var(--line);background:var(--solid);border-radius:var(--r-md);padding:10px 12px;text-align:left;display:grid;gap:6px;align-content:start;font-size:12.5px;line-height:1.45;color:var(--fg);transition:border-color .15s,background .15s,box-shadow .15s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt .oh{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.opt .oh i{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:700;background:var(--fill);color:var(--muted);flex:none}
+.opt .ot{white-space:pre-line;color:var(--muted)}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
+.opt[aria-pressed="true"] .oh i{background:var(--accent);color:var(--accent-fg)}
+.opt[aria-pressed="true"] .ot{color:var(--fg)}
+.opt.tgt:not([aria-pressed="true"]){border-style:dashed;border-color:var(--low)}
+.opt:disabled{cursor:default}
+.sec-f{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:4px 18px 14px;align-items:start}
+.sec-f label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500;min-width:0}
+.sec-x{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:10px 18px 14px;border-top:1px solid var(--line)}
+.tasks{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tk{display:inline-flex;gap:6px;align-items:center;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--fill-2)}
+.mini{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto auto;gap:8px;padding:12px 18px;border-top:1px solid var(--line);background:var(--fill-2);border-radius:0 0 var(--r-lg) var(--r-lg)}
+.hist{font-size:11.5px;color:var(--muted)}
+
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--hover)}
+td select{font-size:12.5px;padding:4px 8px}
+td .btn.ghost{white-space:normal;text-align:left;justify-content:flex-start}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.kpi{padding:14px 16px;display:grid;gap:4px}
+.kpi .v{font-family:var(--f-display);font-size:30px;font-weight:600;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--muted);font-size:12.5px;font-weight:500}
+.lvlpill{display:inline-flex;gap:4px;align-items:center;font-variant-numeric:tabular-nums}
+.lvlpill i{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:#FFFFFF}
+.l1{background:var(--crit)}.l2{background:var(--high)}.l3{background:var(--accent)}.l4{background:var(--low)}.l0{background:var(--faint)}
+
+/* inline sheet (confirmations, import preview) */
+.sheet{background:var(--sheen),var(--glass-strong);border:1px solid var(--glass-line);border-radius:var(--r-lg);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);padding:16px 18px;display:grid;gap:12px;margin-bottom:14px}
+.sheet h3{margin:0;font-family:var(--f-display);font-size:16px}
+.sheet .fl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sheet label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+input[type=file]{font-size:12.5px;max-width:100%}
+input[type=file]::file-selector-button{border:0;background:var(--fill);color:var(--accent);border-radius:999px;padding:5px 12px;margin-right:10px;font:inherit;font-weight:500;cursor:pointer}
+.empty{padding:40px 24px;text-align:center;display:grid;gap:8px;justify-items:center}
+.empty h2{margin:0;font-family:var(--f-display);font-size:22px}
+.log{display:grid;gap:0}
+.log div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.log div:last-child{border-bottom:0}
+.log span{color:var(--muted);font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);background:var(--toast-bg);color:var(--toast-fg);padding:10px 18px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);transform:translate(-50%,16px);opacity:0;transition:transform .3s,opacity .2s;pointer-events:none;z-index:50;max-width:min(460px,calc(100vw - 40px));text-align:center}
+.toast.on{transform:translate(-50%,0);opacity:1}
+
+/* presentation */
+.pres{position:fixed;inset:0;z-index:60;background:radial-gradient(60vw 55vh at 5% 0%,var(--amb-a),transparent 70%),radial-gradient(50vw 50vh at 100% 100%,var(--amb-c),transparent 70%),var(--bg);display:grid;place-items:center;overflow:auto;
+  padding:calc(5vh + env(safe-area-inset-top,0px)) max(6vw,env(safe-area-inset-right,0px)) calc(12vh + env(safe-area-inset-bottom,0px)) max(6vw,env(safe-area-inset-left,0px));font-size:clamp(14px,calc(.9vh + .55vw),22px)}
+.ps-slide{width:min(1200px,100%);display:grid;gap:2.4vh;align-content:center}
+.ps-slide h2{margin:0;font-family:var(--f-display);font-size:2em;font-weight:700;letter-spacing:-.025em}
+.ps-title h1{margin:.2em 0 .4em;font-family:var(--f-display);font-size:2.6em;font-weight:700;letter-spacing:-.03em;line-height:1.05}
+.ps-big b{font-family:var(--f-display);font-size:6em;font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.ps-big span{font-size:1.6em;color:var(--muted);margin-left:.3em}
+.ps-lvl{font-family:var(--f-display);font-size:2.2em;font-weight:700;color:var(--accent);margin-top:.2em}
+.ps-title p{max-width:60ch;color:var(--muted);margin:.6em 0}
+.ps-scale{padding-top:3.2em;font-size:1em}
+.ps-scale .scale-track{height:1.2em}
+.ps-scale .mk{font-size:.9em}.ps-scale .mk::after{height:2.2em}
+.ps-scale .scale-lbl span{font-size:.85em}.ps-scale .scale-lbl b{font-size:1em}
+.ps-keys .key{font-size:1em}
+.ps-chart svg{max-width:100%!important;max-height:62vh}
+.ps-bars .dbar{font-size:1em;grid-template-columns:minmax(0,1fr) 40% 3em 3.5em}
+.ps-bars .track{height:.75em}
+.ps-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:4vw;align-items:center}
+.ps-w{display:grid;grid-template-columns:3em minmax(0,1fr) auto auto;gap:1em;align-items:center;padding:.55em 0;border-bottom:1px solid var(--line)}
+.ps-plan .ps-w{grid-template-columns:3em minmax(0,1fr) auto 8em}
+.ps-sign{position:fixed;right:max(2.2vw,env(safe-area-inset-right,0px));bottom:calc(2.2vh + env(safe-area-inset-bottom,0px));font-size:.78em;color:var(--muted);text-align:right;max-width:46vw}
+.ps-ctl{position:fixed;left:max(2.2vw,env(safe-area-inset-left,0px));bottom:calc(1.6vh + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:4px;padding:5px;border-radius:999px;background:var(--glass-strong);border:1px solid var(--glass-line);box-shadow:var(--shadow);font-size:13px;color:var(--muted)}
+.ps-ctl button{width:36px;height:36px;border-radius:50%;border:0;background:none;color:var(--fg);font-size:17px}
+.ps-ctl button:hover{background:var(--hover)}
+.ps-ctl span{padding:0 8px;white-space:nowrap}
+@media (max-width:860px){.ps-two{grid-template-columns:1fr}.ps-sign{max-width:60vw}.ps-ctl span{display:none}}
+@media (max-width:1240px){.opts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1100px){.w4,.w5,.w6,.w7,.w8{grid-column:span 12}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{min-width:0}
+  .rail{position:static;height:auto;margin:8px max(8px,env(safe-area-inset-left,0px)) 0;padding:10px;gap:10px;border-radius:20px}
+  .nav{flex-direction:row;overflow-x:auto}
+  .nav button{white-space:nowrap}
+  .brand small{display:none}
+  .rail-foot{margin-top:0}
+  main{padding-block:18px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .head h1{font-size:25px}
+  .cl{grid-template-columns:1fr}
+  .doms{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sec-f,.mini,.sheet .fl{grid-template-columns:1fr}
+  .lvl-score{text-align:left}
+  .scale-lbl span{font-size:10px}
+  .scale-lbl b{font-size:10.5px}
+}
+@media (max-width:560px){.opts{grid-template-columns:1fr}.doms{grid-template-columns:1fr}.dbar{grid-template-columns:minmax(0,1fr) 70px 32px 40px}.kpis{grid-template-columns:1fr 1fr}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.rail,.panel,.sheet{background:var(--solid)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><div class="brand-mark">ИБ</div><div><b>Портал ИБ</b><small>Отдел информационной безопасности</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rail-foot">
+      <div class="me">
+        <label for="role">Демо: войти как</label>
+        <select id="role">
+          <option value="owner">Ш. Березин — роль «Самооценка»</option>
+          <option value="none">И. Машарипов — Сотрудник ИБ</option>
+        </select>
+        <small id="perms"></small>
+      </div>
+      <div class="seg" id="theme" role="group" aria-label="Оформление">
+        <button type="button" data-th="auto" aria-pressed="true">Авто</button>
+        <button type="button" data-th="light" aria-pressed="false">Светлая</button>
+        <button type="button" data-th="dark" aria-pressed="false">Чёрная</button>
+      </div>
+      <span class="demo-tag">Прототип · хранится в этой вкладке</span>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const METH = {
+ "code": "cyber-express-v1",
+ "name": "Экспресс-оценка уровня кибербезопасности организации",
+ "version": 1,
+ "scale": [
+  {
+   "level": 1,
+   "name": "Базовый"
+  },
+  {
+   "level": 2,
+   "name": "Средний"
+  },
+  {
+   "level": 3,
+   "name": "Высокий"
+  },
+  {
+   "level": 4,
+   "name": "Продвинутый"
+  }
+ ],
+ "maturity": [
+  {
+   "code": "hygiene",
+   "name": "Цифровая гигиена",
+   "min": 0,
+   "max": 43,
+   "description": "Нет выделенного подразделения по КБ, процессы в стадии начального формирования, безопасность обеспечивается преимущественно штатными средствами (ОС, СУБД, приложений)."
+  },
+  {
+   "code": "classic",
+   "name": "Классическая ИБ",
+   "min": 44,
+   "max": 66,
+   "description": "Функция КБ выделена, процессы частично выстроены, выбор защитных мер ориентирован преимущественно на требования регуляторов."
+  },
+  {
+   "code": "transform",
+   "name": "Трансформируемая КБ",
+   "min": 67,
+   "max": 85,
+   "description": "Руководство вовлечено в ключевые инициативы, специалисты регулярно повышают экспертизу, процессы выстроены и частично автоматизированы."
+  },
+  {
+   "code": "effective",
+   "name": "Результативная КБ",
+   "min": 86,
+   "max": 96,
+   "description": "Руководство активно участвует в инициативах, сценарии недопустимых событий учтены в архитектуре, отсутствие возможности их реализации регулярно подтверждается практически."
+  }
+ ],
+ "rules": {
+  "effectiveRequiresMaxIn": [
+   "1.2",
+   "4.2",
+   "10.1"
+  ],
+  "fallbackLevel": "transform",
+  "criterionThresholdPct": 85
+ },
+ "domains": [
+  {
+   "no": 1,
+   "name": "Целеполагание",
+   "sections": [
+    {
+     "code": "1.1",
+     "name": "Стратегия",
+     "target": "В организации утверждена стратегия КБ [1], которая учитывает общую стратегию организации, ИТ-стратегию, стратегию цифровой трансформации и т. д.\n\nТоп-менеджмент:\n - понимает цели, задачи и необходимость КБ;\n - проявляет лидерство в отношении формирования целей и задач результативной КБ;\n - осведомлен и поддерживает стратегические инициативы в области КБ.\n\nСтратегия и ключевые документы по КБ согласованы и утверждены топ-менеджментом. Исполнение инициатив контролируется на регулярной основе.",
+     "criteria": {
+      "4": "Утверждена стратегия КБ, учитывающая общую стратегию организации, ИТ-стратегию, стратегию цифровой трансформации и т. д.\nТоп-менеджмент понимает цели, задачи и необходимость КБ и активно вовлекается в ключевые инициативы в области КБ.\nСтратегия и ключевые документы по КБ утверждены топ-менеджментом.\nТоп-менеджмент контролирует исполнение ключевых инициатив.",
+      "3": "Разработана стратегия КБ.\nТоп-менеджмент на стратегическом уровне понимает цели и задачи КБ, но все связанные с ней вопросы делегирует операционным руководителям.\nТоп-менеджмент осуществляет формальное согласование (подписание) ключевых инициатив.",
+      "2": "Отсутствует стратегия КБ.\nТоп-менеджмент не вовлекается в вопросы КБ, осуществляет только формальное согласование (подписание) ключевых инициатив.",
+      "1": "Топ-менеджмент не вовлекается в вопросы КБ. Функция КБ не включена в стратегические инициативы организации."
+     },
+     "key": false
+    },
+    {
+     "code": "1.2",
+     "name": "Управление недопустимыми событиями / ключевыми рисками КБ",
+     "target": "В организации определены недопустимые события [2] или ключевые риски КБ.\nВ определении недопустимых событий / ключевых рисков КБ участвуют топ-менеджмент, операционные руководители, ответственные за ключевые функции организации, представители ИТ и КБ.\n\nНедопустимые события / ключевые риски КБ пересматриваются через запланированные интервалы времени, а также в случае существенных изменений бизнес-процессов.\n\nМероприятия по предотвращению недопустимых событий / ключевых рисков КБ учитываются при формировании стратегических инициатив.",
+     "criteria": {
+      "4": "В организации утвержден перечень НС / ключевых рисков КБ.\nТоп-менеджмент, операционные руководители, ответственные за ключевые функции организации, совместно с представителями ИТ и ИБ\nучаствуют в определении недопустимых событий / ключевых рисков КБ.\nНа регулярной основе осуществляется пересмотр перечня НС / ключевых рисков КБ.\nМероприятия по предотвращению недопустимых событий / ключевых рисков КБ учитываются при формировании стратегических инициатив.",
+      "3": "Функция КБ (подразделение ИБ) определяет риски, связанные с КБ, привлекая подразделение ИТ, операционных руководителей, ответственных за ключевые функции организации, и они управляют ими совместно, включая контроль мер по снижению рисков КБ.\nОсуществляется периодический пересмотр рисков КБ.\nМероприятия по снижению рисков КБ учитываются при формировании стратегических инициатив.",
+      "2": "Функция КБ (подразделение ИБ) совместно с ИТ-подразделением определила риски, связанные с КБ, и управляет ими самостоятельно.\nПересмотр рисков КБ не осуществляется на периодической основе.",
+      "1": "В организации отсутствует процесс управления рисками либо он не включает в себя управление рисками КБ."
+     },
+     "key": true
+    },
+    {
+     "code": "1.3",
+     "name": "Функция кибербезопасности",
+     "target": "В организации выделена функция КБ, которая находится в прямом подчинении топ-менеджмента.\n\nВ организации выделен и функционирует специальный комитет (рабочая группа), включающий в себя представителей топ-менеджмента, который регулярно рассматривает вопросы КБ.\n\nТекущих ресурсов и компетенций достаточно для эффективного выполнения возложенных функций в области КБ.\n\nСпециалисты по КБ регулярно развивают экспертизу и практические навыки в области КБ (например, посредством участия в киберучениях, прохождения специализированных курсов и т. д.).",
+     "criteria": {
+      "4": "Функция КБ выделена в отдельную структуру, подчиняется напрямую топ-менеджменту.\nВопросы КБ регулярно рассматриваются в рамках специального комитета (рабочей группы), включающего представителей топ-менеджмента.\nКоличество задействованных специалистов по КБ соответствует объему выполняемых задач по КБ.\nВыстроен процесс постоянного развития экспертизы и отработки практических навыков специалистов по КБ.",
+      "3": "Функция КБ выделена в отдельную структуру, подчиняется напрямую топ-менеджменту.\nКоличества задействованных специалистов по КБ недостаточно для эффективного выполнения всех задач в области КБ.\nСпециалисты по КБ проходят регулярное обучение на специализированных курсах.",
+      "2": "Функция КБ выделена в отдельную структуру или входит в состав ИТ-подразделения / службы безопасности, но не подчиняется напрямую топ-менеджменту (подчиняется руководителю ИТ-подразделения / службы безопасности). Специалисты по КБ посещают тематические конференции и воркшопы по КБ.",
+      "1": "Назначен работник, формально ответственный за обеспечение КБ.\nФункции КБ частично выполняются ИТ-подразделением или службой безопасности."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 2,
+   "name": "Управление активами",
+   "sections": [
+    {
+     "code": "2.1",
+     "name": "Процесс",
+     "target": "Процедуры управления активами регламентированы как в верхнеуровневых документах (политиках), так и в операционных (регламентах, процедурах, инструкциях). Документы актуальны и достаточны для работы участников процесса.\n\nОпределены роли и назначены ответственные за управление активами (например, владелец/менеджер процесса, ответственный за приоритизацию/классификацию и поддержание в актуальном состоянии базы активов, владелец/администратор актива и т. д.).\n\nДля оценки эффективности процесса установлены и применяются показатели (метрики). Показатели (метрики) процесса пересматриваются на регулярной основе.",
+     "criteria": {
+      "4": "Процесс формализован, автоматизирован и исполняется в соответствии с регламентами.\nДокументы актуальны и достаточны для работы участников процесса.\nВсе участники процесса знают свои роли и задачи.\nДля оценки процесса установлены и применяются показатели (метрики). Показатели (метрики) процесса пересматриваются на регулярной основе.",
+      "3": "Процесс формализован в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.\nДля оценки процесса разработаны показатели (метрики).",
+      "2": "Процесс формализован частично в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.",
+      "1": "Процесс не формализован, выполняются отдельные операции процесса.\nРоли и ответственность по процессу не определены и не закреплены за участниками процесса."
+     },
+     "key": false
+    },
+    {
+     "code": "2.2",
+     "name": "Инвентаризация активов",
+     "target": "В организации используется единая база активов, которая содержит всю необходимую информацию по всем активам и непрерывно актуализируется с помощью средств автоматизации.\n\nНовые активы вносятся в базу активов без существенных задержек, начиная с этапа ввода в эксплуатацию.\nВсе активы имеют владельцев как со стороны бизнеса, так и со стороны ИТ.\n\nДля каждого актива определено назначение и сформировано описание, в каких бизнес-процессах он участвует.",
+     "criteria": {
+      "4": "Учет активов ведется в единой базе, которая содержит всю информацию обо всех активах (без исключений) организации.\nАктуализация базы активов осуществляется в автоматическом режиме (автоматизированными средствами).\nДля всех активов назначены владельцы со стороны бизнеса и ИТ, владельцы активов понимают, в каких бизнес-процессах участвуют активы (назначение актива).",
+      "3": "Учет активов ведется в единой базе. Сбор и актуализация сведений об активах автоматизировано частично.\nНе для всех активов назначен владелец и определено назначение.",
+      "2": "Отсутствует единая база активов, сведения хранятся разрозненно. Актуализация сведений об активах осуществляется нерегулярно.\nВладельцы активов не назначены.",
+      "1": "Учет активов не осуществляется."
+     },
+     "key": false
+    },
+    {
+     "code": "2.3",
+     "name": "Классификация и определение значимости активов",
+     "target": "Осуществляется классификация и приоритизация активов с учетом результатов анализа недопустимых событий / оценки ключевых рисков КБ.\n\nПересмотр значимости активов выполняется на регулярной основе и при существенных изменениях инфраструктуры или бизнес-процессов.",
+     "criteria": {
+      "4": "Осуществляется классификация и приоритизация активов с учетом результатов анализа недопустимых событий / оценки ключевых рисков КБ.\nВсе новые активы проходят классификацию на этапе ввода в эксплуатацию.\nПересмотр значимости активов выполняется регулярно и при существенных изменениях инфраструктуры или бизнес-процессов.",
+      "3": "Не все активы проходят процедуру классификации и приоритизации. Подход к определению значимости активов учитывает недопустимые события / ключевые риски КБ.",
+      "2": "Не все активы проходят процедуру классификации и приоритизации. При определении значимости актива не учитываются недопустимые события / ключевые риски КБ.",
+      "1": "Подход к определению значимости активов не определен, классификация и приоритизация активов не осуществляется."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 3,
+   "name": "Мониторинг событий",
+   "sections": [
+    {
+     "code": "3.1",
+     "name": "Процесс",
+     "target": "Процедуры мониторинга событий ИБ регламентированы как в верхнеуровневых документах (политиках), так и в операционных (регламентах, процедурах, инструкциях). Документы актуальны и достаточны для работы участников процесса.\n\nОпределены роли и назначены ответственные за мониторинг событий (например, владелец/менеджер процесса, дежурная смена мониторинга, технические специалисты и т. д.).\n\nДля оценки эффективности процесса установлены и применяются показатели (метрики). Показатели  (метрики) процесса пересматриваются на регулярной основе.",
+     "criteria": {
+      "4": "Процесс формализован, автоматизирован и исполняется в соответствии с регламентами.\nДокументы актуальны и достаточны для работы участников процесса.\nВсе участники процесса знают свои роли и задачи.\nДля оценки процесса установлены и применяются показатели (метрики). Показатели (метрики) процесса пересматриваются на регулярной основе.",
+      "3": "Процесс формализован в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.\nДля оценки процесса разработаны показатели (метрики).",
+      "2": "Процесс формализован частично в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.",
+      "1": "Процесс не формализован, выполняются отдельные операции процесса.\nРоли и ответственность по процессу не определены и не закреплены за участниками процесса."
+     },
+     "key": false
+    },
+    {
+     "code": "3.2",
+     "name": "Область мониторинга событий ИБ",
+     "target": "Определен перечень источников, связанных с недопустимыми событиями / ключевыми рисками КБ, который формирует область покрытия мониторингом и в полной мере описывает объект защиты.\nОпределен перечень собираемых событий и параметры их регистрации.\n\nИсточники событий ИБ подключены к решению класса SIEM [3], осуществляется регулярный контроль сбора событий ИБ, поступающих с источников (в полном объеме и без ошибок).\nОсуществляется анализ сетевого трафика c помощью решения класса NTA [4], результаты анализа сетевого трафика поступают в SIEM для централизованного мониторинга событий ИБ.\n\nОбласть мониторинга пересматривается на регулярной основе и учитывает результаты анализа недопустимых событий / ключевых рисков КБ.",
+     "criteria": {
+      "4": "Определена область мониторинга событий ИБ (перечень источников событий ИБ, перечень собираемых событий и параметров регистрации) с учетом результатов  анализа недопустимых событий / ключевых рисков КБ.\nРегистрация событий ИБ осуществляется автоматизированно со всех активов (источников событий) из области мониторинга, также осуществляется анализ сетевого трафика.\nОсуществляется централизованный мониторинг событий ИБ (с помощью решения класса SIEM).\nНепрерывность сбора событий контролируется.\nОбласть мониторинга пересматривается на регулярной основе и учитывает результаты анализа недопустимых событий / ключевых рисков КБ.",
+      "3": "Определена область мониторинга  событий ИБ (перечень источников событий ИБ, перечень собираемых событий и параметров регистрации) с учетом результатов анализа рисков, связанных с КБ.\nРегистрация событий ИБ осуществляется автоматизированно с большинства критически значимых систем / активов (источников событий) из области мониторинга, также осуществляется анализ сетевого трафика.",
+      "2": "Определен перечень источников событий ИБ, с которых должен осуществляться сбор событий ИБ, перечень собираемых событий и параметров регистрации.\nИсточники событий ИБ частично подключены к решению класса SIEM.",
+      "1": "Мониторинг событий не автоматизирован, события ИБ регистрируются штатными средствами (журналами)."
+     },
+     "key": false
+    },
+    {
+     "code": "3.3",
+     "name": "Обработка и анализ событий ИБ",
+     "target": "Обработка событий ИБ осуществляется с помощью автоматизированных наборов правил (use cases), учитывающих специфику ИТ-инфраструктуры и перечень утвержденных недопустимых событий / ключевых рисков КБ.\n\nНаборы правил актуализируются на регулярной основе, а также в случаях существенных изменений ИТ-инфраструктуры, бизнес-процессов и при появлении новых векторов атак.",
+     "criteria": {
+      "4": "Обработка событий ИБ осуществляется с помощью автоматизированных наборов правил (use cases), учитывающих специфику ИТ-инфраструктуры и перечень утвержденных недопустимых событий / ключевых рисков КБ.\nНаборы правил регулярно актуализируются.",
+      "3": "Обработка событий ИБ осуществляется с помощью автоматизированных наборов правил (use cases), учитывающих специфику ИТ-инфраструктуры.\nНаборы правил периодически актуализируются.",
+      "2": "Используются базовые правила обработки событий, предустановленные в автоматизированном решении.",
+      "1": "Обработка событий не автоматизирована. В случае необходимости осуществляется анализ журналов регистрации событий в ручном режиме."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 4,
+   "name": "Управление инцидентами",
+   "sections": [
+    {
+     "code": "4.1",
+     "name": "Процесс",
+     "target": "Процедуры управления инцидентами ИБ регламентированы как в верхнеуровневых документах (политиках), так и в операционных (регламентах, процедурах, инструкциях). Документы актуальны и достаточны для работы участников процесса.\n\nОпределены роли и назначены ответственные за управление инцидентами ИБ (например, владелец/менеджер процесса, аналитики, технические специалисты и т. д.).\n\nДля оценки эффективности процесса установлены и применяются показатели (метрики). Показатели  (метрики) процесса пересматриваются на регулярной основе.",
+     "criteria": {
+      "4": "Процесс формализован, автоматизирован и исполняется в соответствии с регламентами.\nДокументы актуальны и достаточны для работы участников процесса.\nВсе участники процесса знают свои роли и задачи.\nДля оценки процесса установлены и применяются показатели (метрики). Показатели (метрики) процесса пересматриваются на регулярной основе.",
+      "3": "Процесс формализован в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.\nДля оценки процесса разработаны показатели (метрики).",
+      "2": "Процесс формализован частично в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.",
+      "1": "Процесс не формализован, выполняются отдельные операции процесса.\nРоли и ответственность по процессу не определены и не закреплены за участниками процесса."
+     },
+     "key": false
+    },
+    {
+     "code": "4.2",
+     "name": "Реагирование на инциденты",
+     "target": "Внедрено и используется решение класса IRP [6]/SOAR [7].\n\nРазработаны сценарии реагирования (плейбуки) на типовые инциденты ИБ, сценарии реагирования регулярно тестируются практическим способом (например, в рамках киберучений, внутренних учений с привлечением команд защиты и нападения и т. д.).\n\nОпыт, полученный по результатам реагирования на инциденты, фиксируется в базе знаний.",
+     "criteria": {
+      "4": "Внедрено и используется решение класса IRP/SOAR. Разработаны сценарии реагирования (плейбуки) на типовые инциденты ИБ, сценарии реагирования регулярно тестируются практическим способом в ходе киберучений.\nОпыт, полученный по результатам реагирования на инциденты, фиксируется в базе знаний.",
+      "3": "Для обработки инцидентов ИБ используется система тикетов (service desk). Разработаны сценарии реагирования (плейбуки) на типовые инциденты ИБ, сценарии реагирования регулярно тестируются (например, в ходе командных (штабных) учений).",
+      "2": "Управление инцидентами ИБ осуществляется вручную. Разработаны верхнеуровневые планы реагирования на инциденты ИБ.",
+      "1": "Управление инцидентами ИБ осуществляется вручную, без использования специализированных технических решений.\nСценарии/планы реагирования на инциденты ИБ отсутствуют."
+     },
+     "key": true
+    }
+   ]
+  },
+  {
+   "no": 5,
+   "name": "Управление уязвимостями",
+   "sections": [
+    {
+     "code": "5.1",
+     "name": "Процесс",
+     "target": "Процедуры управления уязвимостями регламентированы как в верхнеуровневых документах (политиках), так и в операционных (регламентах, процедурах, инструкциях). Документы актуальны и достаточны для работы участников процесса.\n\nОпределены роли и назначены ответственные за управление уязвимостями (например, владелец/менеджер процесса, аналитики, технические специалисты и т. д.).\n\nДля оценки эффективности процесса установлены и применяются показатели (метрики). Показатели  (метрики) процесса пересматриваются на регулярной основе.",
+     "criteria": {
+      "4": "Процесс формализован, автоматизирован и исполняется в соответствии с регламентами.\nДокументы актуальны и достаточны для работы участников процесса.\nВсе участники процесса знают свои роли и задачи.\nДля оценки процесса установлены и применяются показатели (метрики). Показатели (метрики) процесса пересматриваются на регулярной основе.",
+      "3": "Процесс формализован в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.\nДля оценки процесса разработаны показатели (метрики).",
+      "2": "Процесс формализован частично в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.",
+      "1": "Процесс не формализован, выполняются отдельные операции процесса.\nРоли и ответственность по процессу не определены и не закреплены за участниками процесса."
+     },
+     "key": false
+    },
+    {
+     "code": "5.2",
+     "name": "Анализ уязвимостей",
+     "target": "Осуществляется регулярное сканирование активов на наличие уязвимостей с использованием решения класса vulnerability management (VM) [8].\n\nВ область сканирования включены все активы, обеспечивающие критически значимые процессы организации.\n\nОсуществляется приоритизация обработки выявленных уязвимостей, которая учитывает значимость активов, возможные последствия эксплуатации уязвимости, наличие эксплойта, метрики CVSS и т. п.\n\nОбласть сканирования пересматривается на регулярной основе, учитывает результаты анализа недопустимых событий / ключевых рисков КБ, а также данные, получаемые в ходе процесса управления ИТ-активами.",
+     "criteria": {
+      "4": "Осуществляется регулярное сканирование активов на наличие уязвимостей с использованием решения класса vulnerability management (VM).\nВ область сканирования включены все активы, обеспечивающие критически значимые процессы организации.\nОсуществляется приоритизация обработки выявленных уязвимостей, которая учитывает значимость активов, возможные последствия эксплуатации уязвимости, наличие эксплойта, метрики CVSS и т. п.\nОбласть сканирования пересматривается на регулярной основе, учитывает результаты анализа недопустимых событий / ключевых рисков КБ, а также данные, получаемые в ходе процесса управления ИТ-активами.",
+      "3": "Осуществляется регулярное сканирование на наличие уязвимостей с использованием решения класса vulnerability management (VM).\nВ область сканирования включены активы, обеспечивающие критически значимые процессы организации.\nОсуществляется приоритизация обработки выявленных уязвимостей.",
+      "2": "Сканирование на наличие уязвимостей осуществляется периодически и покрывает не все критически значимые активы.\nОсуществляется приоритизация обработки выявленных уязвимостей.",
+      "1": "Выявление уязвимостей не автоматизировано и не осуществляется на регулярной основе."
+     },
+     "key": false
+    },
+    {
+     "code": "5.3",
+     "name": "Контроль устранения уязвимостей",
+     "target": "Установлены и соблюдаются сроки по устранению уязвимостей.\n\nКонтроль устранения уязвимостей осуществляется на регулярной основе и автоматизирован с помощью решения класса vulnerability management (VM).",
+     "criteria": {
+      "4": "Установлены и соблюдаются сроки по устранению уязвимостей.\nКонтроль устранения уязвимостей осуществляется на регулярной основе и автоматизирован с помощью решения класса vulnerability management (VM).",
+      "3": "Установлены и соблюдаются сроки по устранению уязвимостей.\nКонтроль устранения уязвимостей осуществляется на регулярной основе.",
+      "2": "Установлены сроки по устранению уязвимостей\nКонтроль устранения уязвимостей осуществляется периодически.",
+      "1": "Уязвимости не устраняются или устраняются нерегулярно и несвоевременно.\nКонтроль устранения не осуществляется."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 6,
+   "name": "Управление доступом",
+   "sections": [
+    {
+     "code": "6.1",
+     "name": "Процесс",
+     "target": "Процедуры управления доступом регламентированы как в верхнеуровневых документах (политиках), так и в операционных (регламентах, процедурах, инструкциях). Документы актуальны и достаточны для работы участников процесса.\n\nОпределены роли и назначены ответственные за управление доступом (например, владелец/менеджер процесса, аналитики, технические специалисты и т. д.).\n\nДля оценки эффективности процесса установлены и применяются показатели (метрики). Показатели  (метрики) процесса пересматриваются на регулярной основе.",
+     "criteria": {
+      "4": "Процесс формализован, автоматизирован и исполняется в соответствии с регламентами.\nДокументы актуальны и достаточны для работы участников процесса.\nВсе участники процесса знают свои роли и задачи.\nДля оценки процесса установлены и применяются показатели (метрики). Показатели (метрики) процесса пересматриваются на регулярной основе.",
+      "3": "Процесс формализован в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.\nДля оценки процесса разработаны показатели (метрики).",
+      "2": "Процесс формализован частично в верхнеуровневых документах и исполняется.\nРоли по процессу закреплены за участниками, однако функции и обязанности не детализированы.",
+      "1": "Процесс не формализован, выполняются отдельные операции процесса.\nРоли и ответственность по процессу не определены и не закреплены за участниками процесса."
+     },
+     "key": false
+    },
+    {
+     "code": "6.2",
+     "name": "Права доступа и учетные записи",
+     "target": "Назначение прав доступа осуществляется согласно роли и должностным (функциональным) обязанностям. Для каждой роли установлены минимально необходимые права доступа.\n\nПредоставление доступа осуществляется автоматизированно с использованием решения класса identity management (IDM) [9].\n\nКонтроль действий привилегированных пользователей  осуществляется на регулярной основе и автоматизирован с помощью решения класса privileged account management (PAM) [10].\n\nДоступ к административным и сервисным УЗ строго ограничен. Для работы с системами используются отдельные персонифицированные УЗ с определенными наборами ролей и прав доступа к системам.\n\nБлокирование (отключение) учетных записей осуществляется не позднее 24 часов после прекращения или изменения обязанностей сотрудника (или подрядчика). Отключение учетных записей осуществляется после определенного периода бездействия.\n\nПересмотр активных учетных записей и прав доступа осуществляется на регулярной основе.",
+     "criteria": {
+      "4": "Назначение прав доступа осуществляется согласно роли и должностным (функциональным) обязанностям. Для каждой роли установлены минимально необходимые права доступа.\nПредоставление доступа осуществляется автоматизированно с использованием решения класса identity management (IdM).\nКонтроль действий привилегированных пользователей  осуществляется на регулярной основе и автоматизирован с помощью решения класса privileged account management (PAM).\nДоступ к административным и сервисным УЗ строго ограничен. Для работы с системами используются отдельные персонифицированные УЗ с определенными наборами ролей и прав доступа к системам.\nБлокирование (отключение) учетных записей осуществляется не позднее 24 часов после прекращения или изменения обязанностей сотрудника (или подрядчика). Отключение учетных записей осуществляется после определенного периода бездействия.\nПересмотр активных учетных записей и прав доступа осуществляется на регулярной основе.",
+      "3": "Назначение и предоставление прав доступа осуществляется согласно роли и должностным (функциональным) обязанностям.\nКонтроль действий привилегированных пользователей  осуществляется периодически.\nБлокирование (отключение) учетных записей осуществляется не позднее 24 часов после прекращения или изменения обязанностей пользователя.\nОтключение учетных записей осуществляется после определенного периода бездействия.\nПересмотр активных учетных записей и прав доступа осуществляется на регулярной основе.",
+      "2": "Назначение прав доступа осуществляется согласно роли и должностным (функциональным) обязанностям.\nОтключение учетных записей осуществляется после определенного периода бездействия.\nПересмотр активных учетных записей и прав доступа осуществляется периодически.",
+      "1": "Порядок назначения прав доступа не формализован, назначение прав доступа осуществляется по запросу сотрудника или его руководителя.\nКонтроль отключения учетных записей не осуществляется."
+     },
+     "key": false
+    },
+    {
+     "code": "6.3",
+     "name": "Удаленный доступ",
+     "target": "Разработаны и внедрены сценарные условия удаленного доступа к системам и приложениям организации.\n\nУдаленный доступ к системам и приложениям осуществляется с использованием специализированных механизмов защиты (VPN).\n\nДля удаленного доступа к системам и приложениям используется многофакторная аутентификация.\n\nОсуществляется отключение сеансов удаленного доступа после определенного периода бездействия.\n\nОсуществляется блокирование одновременных удаленных сеансов пользователя.",
+     "criteria": {
+      "4": "Разработаны и внедрены сценарные условия удаленного доступа к системам и приложениям организации.\nУдаленный доступ к системам и приложениям осуществляется с использованием специализированных механизмов защиты (VPN).\nДля удаленного доступа к системам и приложениям используется многофакторная аутентификация.\nОсуществляется отключение сеансов удаленного доступа после определенного периода бездействия.\nОсуществляется блокирование одновременных удаленных сеансов пользователя.",
+      "3": "Удаленный доступ к системам и приложениям осуществляется с использованием специализированных механизмов защиты (VPN).\nДля удаленного доступа к системам и приложениям используется многофакторная аутентификация.\nОсуществляется отключение сеансов удаленного доступа после определенного периода бездействия.\nОсуществляется блокирование одновременных удаленных сеансов пользователя.",
+      "2": "Удаленный доступ к системам и приложениям осуществляется с использованием специализированных механизмов защиты (например, VPN, IP whitelisting и т. д.).\nОсуществляется отключение сеансов удаленного доступа после определенного периода бездействия.",
+      "1": "Удаленный доступ к системам и приложениям осуществляется стандартными средствами, без использования дополнительных механизмов защиты."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 7,
+   "name": "Управление конфигурациями",
+   "sections": [
+    {
+     "code": "7.1",
+     "name": "Безопасные конфигурации",
+     "target": "Разработаны и применяются стандарты безопасных конфигураций [11].\n\nОсуществляется непрерывный автоматизированный контроль соответствия конфигураций установленным требованиям безопасности.\n\nТребования к настройке безопасных конфигураций регулярно пересматриваются и поддерживаются в актуальном состоянии.",
+     "criteria": {
+      "4": "Разработаны и применяются стандарты безопасных конфигураций.\nОсуществляется непрерывный автоматизированный контроль соответствия конфигураций установленным требованиям безопасности.\nТребования к настройке безопасных конфигураций регулярно пересматриваются и поддерживаются в актуальном состоянии.",
+      "3": "Разработаны и применяются стандарты безопасных конфигураций для большинства критически значимых систем/активов.\nОсуществляется периодический контроль соответствия конфигураций установленным требованиям безопасности.\nТребования к настройке безопасных конфигураций регулярно пересматриваются и поддерживаются в актуальном состоянии.",
+      "2": "Разработаны и применяются стандарты безопасных конфигураций.\nТребования к настройке безопасных конфигураций периодически пересматриваются.",
+      "1": "Стандарты безопасных конфигураций не разработаны и не применяются."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 8,
+   "name": "Технологическая устойчивость",
+   "sections": [
+    {
+     "code": "8.1",
+     "name": "Технологическая устойчивость",
+     "target": "Обеспечивается поддержка на уровне вендора для всего используемого ПО, сервисов и средств защиты (техническая поддержка, выпуск обновлений безопасности и т. д.).\n\nВедется учет иностранных систем (ПО, сервисов и средств защиты).\n\nДля всех иностранных систем проработаны, согласованы и реализуются мероприятия по минимизации рисков, связанных с потенциальным прекращением их поддержки со стороны вендоров или нарушением применимых требований законодательства (например, замена на отечественные аналоги, локализация систем, принятие соответствующих рисков и т. д.).",
+     "criteria": {
+      "4": "Обеспечивается поддержка на уровне вендора для всего используемого ПО, сервисов и средств защиты (техническая поддержка, выпуск обновлений безопасности и т. д.).\nВедется учет иностранных систем (ПО, сервисов и средств защиты).\nДля всех иностранных систем проработаны, согласованы и реализуются мероприятия по минимизации рисков, связанных с потенциальным прекращением их поддержки со стороны вендоров или нарушением применимых требований законодательства (например, замена на отечественные аналоги, локализация систем, принятие соответствующих рисков и т. д.).",
+      "3": "Поддержка вендора обеспечивается для большинства критически значимого ПО, сервисов и средств защиты.\nДля части иностранных систем определены и находятся в стадии применения планы по минимизации рисков, связанные с прекращением их поддержки.",
+      "2": "Для большинства критически значимого ПО, сервисов и средств защиты обеспечивается поддержка вендора.\nРиски, связанные с прекращением поддержки иностранных систем, не учитываются.",
+      "1": "Поддержка вендора обеспечивается для части используемого ПО, сервисов и средств защиты.\nУчет иностранных систем не осуществляется."
+     },
+     "key": false
+    },
+    {
+     "code": "8.2",
+     "name": "Безопасность унаследованных систем",
+     "target": "Унаследованные (legacy) системы [12] отсутствуют в организации или ведется учет унаследованных (legacy) систем.\n\nРазработаны, согласованы и реализуются планы по минимизации рисков, связанных с эксплуатацией унаследованных систем (например, миграция данных в новые системы, применение компенсирующих контролей для legacy-систем: использование промежуточного ПО для взаимодействия с системой, ограничение доступа к системам на уровне подсетей, пользователей и т. д.).\n\nПеречень legacy-систем поддерживается в актуальном состоянии, меры по минимизации рисков, связанных с эксплуатацией унаследованных систем, регулярно пересматриваются.",
+     "criteria": {
+      "4": "Унаследованные (legacy) системы отсутствуют в организации или ведется учет унаследованных (legacy) систем. Разработаны, согласованы и реализуются планы по минимизации рисков, связанных с эксплуатацией унаследованных систем (например, миграция данных в новые системы, применение компенсирующих контролей для legacy-систем: использование  промежуточного ПО для взаимодействия с системой, ограничение доступа к системам на уровне подсетей, пользователей и т. д.).\nПеречень legacy-систем поддерживается в актуальном состоянии, меры по минимизации рисков, связанных с эксплуатацией унаследованных систем, регулярно пересматриваются.",
+      "3": "Ведется учет унаследованных (legacy) систем.\nРазработаны, согласованы и реализуются планы по минимизации рисков, связанных с эксплуатацией унаследованных систем (например, миграция данных в новые системы, применение компенсирующих контролей для legacy-систем: использование промежуточного ПО для взаимодействия с системой, ограничение доступа к системам на уровне подсетей, пользователей и т. д.).",
+      "2": "Ведется учет унаследованных (legacy) систем.\nРазработаны планы по минимизации рисков, связанных с эксплуатацией унаследованных систем (например, миграция данных в новые системы, применение компенсирующих контролей для legacy-систем: использование промежуточного ПО для взаимодействия с системой, ограничение доступа к системам на уровне подсетей, пользователей и т. д.).",
+      "1": "Риски, связанные с эксплуатацией унаследованных систем, не учитываются."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 9,
+   "name": "Сетевая и инфраструктурная безопасность",
+   "sections": [
+    {
+     "code": "9.1",
+     "name": "Сетевая безопасность",
+     "target": "Сети разделены на отдельные сегменты в соответствии с их функциональным назначением.\n\nСетевое взаимодействие между сегментами ограничивается минимально необходимым и достаточным набором открытых портов в соответствии с требованиями функционирования систем в данных сегментах.\n\nДля авторизации доступа и контроля информационных потоков в сетях используются средства обеспечения сетевой безопасности (например, межсетевые экраны, системы NTA [4], IPS/IDS [13], защита от DDoS и т. д.).\n\nОбеспечивается безопасность для сетевых соединений (в том числе удаленных) с сотрудниками и третьими лицами (например, с использованием VPN, двухфакторной аутентификации и т. д.).",
+     "criteria": {
+      "4": "Сети разделены на отдельные сегменты в соответствии с их функциональным назначением.\nСетевое взаимодействие между сегментами ограничивается минимально необходимым и достаточным набором открытых портов в соответствии с требованиями функционирования систем в данных сегментах.\nДля авторизации доступа и контроля информационных потоков в сетях используются средства обеспечения сетевой безопасности (межсетевые экраны, системы NTA, IPS/IDS, защита от DDoS и т. д.).\nОбеспечивается безопасность для сетевых соединений (в том числе удаленных) с сотрудниками и третьими лицами (например, с использованием VPN, двухфакторной аутентификации и т. д.).",
+      "3": "Сети разделены на отдельные сегменты в соответствии с их функциональным назначением.\nДля авторизации доступа и контроля информационных потоков в сетях используются средства обеспечения сетевой безопасности (межсетевые экраны, системы NTA, IPS/IDS, защита от DDoS и т. д.).\nОбеспечивается безопасность для сетевых соединений (в том числе удаленных) с сотрудниками и третьими лицами (например, с использованием VPN, двухфакторной аутентификации и т. д.).",
+      "2": "Сеть сегментирована.\nПрименяются средства межсетевого экранирования на границе сети.\nПрименяются технологии безопасного соединения пользователей с корпоративной сетью (например, с использованием VPN, двухфакторной аутентификации и т. д.).",
+      "1": "Сеть сегментирована.\nПрименяются средства межсетевого экранирования на границе сети."
+     },
+     "key": false
+    },
+    {
+     "code": "9.2",
+     "name": "Защита конечных точек",
+     "target": "Используются решения для защиты конечных точек от комплексных угроз (решения класса EDR [14]).\nДля всех конечных точек обеспечивается наличие работающего антивирусного ПО с актуальными базами сигнатур вредоносного кода.\n\nОпределен и поддерживается в актуальном состоянии перечень ПО, разрешенного/запрещенного к использованию.\nУстановлены ограничения на установку ПО и изменение конфигурации конечных точек.",
+     "criteria": {
+      "4": "Используются решения для защиты конечных точек от комплексных угроз (EDR).\nДля всех конечных точек обеспечивается наличие работающего антивирусного ПО с актуальными базами сигнатур вредоносного кода.\nОпределен и поддерживается в актуальном состоянии перечень ПО, разрешенного/запрещенного к использованию.\nУстановлены ограничения на установку ПО и изменение конфигурации конечных точек.",
+      "3": "Для всех конечных точек обеспечивается наличие работающего антивирусного ПО с актуальными базами сигнатур вредоносного кода.\nОпределен перечень ПО, разрешенного/запрещенного к использованию.\nУстановлены ограничения на установку ПО и изменение конфигурации конечных точек.",
+      "2": "Для конечных точек обеспечивается наличие антивирусного ПО с актуальными базами сигнатур вредоносного кода. Установлены ограничения на установку ПО.",
+      "1": "Для защиты конечных точек используются встроенные механизмы защиты (например, механизмы ОС и ППО [15])."
+     },
+     "key": false
+    },
+    {
+     "code": "9.3",
+     "name": "Безопасность приложений",
+     "target": "Осуществляется учет приложений, список приложений поддерживается в актуальном состоянии, осуществляется контроль версий ПО.\n\nПроводится регулярный анализ защищенности приложений.\n\nОсуществляется разделение сред для разработки, тестирования и развертывания приложений (DEV-TEST-PROD).\n\nДля защиты веб-приложений от сетевых атак используются решения класса WAF [16].\n\nДля приложений собственной разработки используются специализированные инструменты для статического и динамического анализа (SAST/DAST). Ошибки (уязвимости), выявленные в ходе анализа, своевременно исправляются.",
+     "criteria": {
+      "4": "Осуществляется учет приложений, список приложений поддерживается в актуальном состоянии, осуществляется контроль версий ПО.\nПроводится регулярный анализ защищенности приложений.\nОсуществляется разделение сред для разработки, тестирования и развертывания приложений (DEV-TEST-PROD).\nДля защиты веб-приложений от сетевых атак используются решения класса WAF.\nДля приложений собственной разработки используются специализированные инструменты для статического и динамического анализа (SAST/DAST). Ошибки (уязвимости), выявленные в ходе анализа, своевременно исправляются.",
+      "3": "Осуществляется учет приложений, список приложений поддерживается в актуальном состоянии, осуществляется контроль версий ПО.\nПроводится периодический анализ защищенности приложений.\nОсуществляется разделение сред для разработки, тестирования и развертывания приложений (DEV-TEST-PROD).\nДля защиты веб-приложений от сетевых атак используются решения класса WAF.\nДля приложений собственной разработки используются специализированные инструменты для статического и динамического анализа (SAST/DAST). Ошибки (уязвимости), выявленные в ходе анализа, своевременно исправляются.",
+      "2": "Осуществляется учет приложений и контроль версий ПО. Осуществляется разделение сред для разработки, тестирования и развертывания приложений (DEV-TEST-PROD).\nДля защиты веб-приложений от сетевых атак используются решения класса WAF.",
+      "1": "Определен список используемых приложений."
+     },
+     "key": false
+    }
+   ]
+  },
+  {
+   "no": 10,
+   "name": "Контроль защищенности",
+   "sections": [
+    {
+     "code": "10.1",
+     "name": "Контроль защищенности",
+     "target": "Проводятся регулярные (не реже одного раза в год) практические проверки (киберучения [17]) на ИТ-инфраструктуре организации с привлечением внутренней команды защиты и независимой команды нападения.",
+     "criteria": {
+      "4": "Проводятся регулярные (не реже одного раза в год) практические проверки (киберучения) на ИТ-инфраструктуре организации с привлечением внутренней команды защиты и независимой команды нападения.",
+      "3": "Проводится регулярное тестирование на проникновение. Проводятся периодические штабные учения по реагированию на инциденты ИБ.",
+      "2": "Проводятся периодические штабные учения по реагированию на инциденты ИБ.\nПроводятся периодические оценки соответствия требованиям ИБ с привлечением внешних организаций.",
+      "1": "Контроль защищенности не осуществляется или проводятся периодические оценки соответствия требованиями ИБ."
+     },
+     "key": true
+    }
+   ]
+  }
+ ]
+};
+const A2025 = {
+ "title": "Экспресс-оценка 2025",
+ "date": "2025-07-07",
+ "organization": "ЗАО МДО \"Хумо\"",
+ "respondent": "Березин Сергей",
+ "position": "Руководитель отдела по информационной безопасности",
+ "employees": 1800,
+ "answers": {
+  "1.1": {
+   "level": 2,
+   "comment": null
+  },
+  "1.2": {
+   "level": 1,
+   "comment": null
+  },
+  "1.3": {
+   "level": 2,
+   "comment": null
+  },
+  "2.1": {
+   "level": 1,
+   "comment": null
+  },
+  "2.2": {
+   "level": 2,
+   "comment": null
+  },
+  "2.3": {
+   "level": 1,
+   "comment": null
+  },
+  "3.1": {
+   "level": 2,
+   "comment": null
+  },
+  "3.2": {
+   "level": 2,
+   "comment": null
+  },
+  "3.3": {
+   "level": 1,
+   "comment": null
+  },
+  "4.1": {
+   "level": 1,
+   "comment": null
+  },
+  "4.2": {
+   "level": 1,
+   "comment": null
+  },
+  "5.1": {
+   "level": 1,
+   "comment": null
+  },
+  "5.2": {
+   "level": 1,
+   "comment": null
+  },
+  "5.3": {
+   "level": 1,
+   "comment": null
+  },
+  "6.1": {
+   "level": 1,
+   "comment": null
+  },
+  "6.2": {
+   "level": 1,
+   "comment": null
+  },
+  "6.3": {
+   "level": 3,
+   "comment": null
+  },
+  "7.1": {
+   "level": 1,
+   "comment": null
+  },
+  "8.1": {
+   "level": 1,
+   "comment": null
+  },
+  "8.2": {
+   "level": 1,
+   "comment": null
+  },
+  "9.1": {
+   "level": 2,
+   "comment": null
+  },
+  "9.2": {
+   "level": 2,
+   "comment": null
+  },
+  "9.3": {
+   "level": 2,
+   "comment": null
+  },
+  "10.1": {
+   "level": 1,
+   "comment": null
+  }
+ }
+};
+</script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtD=iso=>{if(!iso)return '—';const [y,m,d]=iso.split('-');return d+'.'+m+'.'+y};
+const nowStr=()=>{const t=new Date();return String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+' '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')};
+const todayIso=()=>{const t=new Date();return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')};
+const n1=x=>x==null||isNaN(x)?'—':x.toFixed(1).replace('.',',');
+
+const SECTIONS=[];METH.domains.forEach(d=>d.sections.forEach(s=>{s.domain=d.no;SECTIONS.push(s)}));
+const SEC=Object.fromEntries(SECTIONS.map(s=>[s.code,s]));
+const KEYS=METH.rules.effectiveRequiresMaxIn;
+const LVL={1:'Базовый',2:'Средний',3:'Высокий',4:'Продвинутый'};
+const PEOPLE=['Ш. Березин','И. Машарипов','Д. Ромашов','С. Калинова'];
+const ROLES={
+  owner:{name:'Ш. Березин',role:'Самооценка',perms:['view','edit']},
+  none:{name:'И. Машарипов',role:'Сотрудник ИБ',perms:[]}
+};
+const STATUS={draft:['Черновик','acc'],approved:['Зафиксирована','low'],archived:['Архив','']};
+const TASK_ST=['Новые','В работе','На проверке','Готово'];
+
+/* ---------- data ---------- */
+let seq=1;
+function blankAnswers(){return Object.fromEntries(SECTIONS.map(s=>[s.code,{level:null,target:null,comment:'',owner:null,hist:[]}]))}
+const a1={id:'a'+seq++,title:'Экспресс-оценка 2025',date:A2025.date,status:'approved',example:false,
+  profile:{org:A2025.organization,respondent:A2025.respondent,position:A2025.position,employees:A2025.employees},
+  approvedBy:'Ш. Березин',approvedAt:A2025.date,answers:blankAnswers(),
+  log:[{at:fmtD(A2025.date),txt:'Импорт из файла «Чек-лист оценки уровня кибербезопасности.xlsx»'},{at:fmtD(A2025.date),txt:'Зафиксирована: 34 из 96 · Ш. Березин'}]};
+for(const [c,v] of Object.entries(A2025.answers)){a1.answers[c].level=v.level;a1.answers[c].comment=v.comment||''}
+
+const a2={id:'a'+seq++,title:'Экспресс-оценка 2026',date:todayIso(),status:'draft',example:true,
+  profile:{...a1.profile},answers:JSON.parse(JSON.stringify(a1.answers)),log:[{at:'01.10 09:12',txt:'Создана копией «Экспресс-оценка 2025» · Ш. Березин'}]};
+Object.values(a2.answers).forEach(x=>{x.comment='';x.hist=[]});
+const ch={'5.1':[2,'Процедура управления уязвимостями утверждена'],'5.3':[2,'Сроки устранения установлены, контроль через реестр в портале'],'3.3':[2,''],'6.2':[2,''],'9.2':[3,'']};
+for(const [c,[l,cm]] of Object.entries(ch)){a2.answers[c].hist.push({who:'Ш. Березин',at:'02.10 11:40',from:a2.answers[c].level,to:l});a2.answers[c].level=l;a2.answers[c].comment=cm}
+a2.answers['8.2'].level=null;
+const tg={'1.2':3,'2.3':2,'3.3':3,'4.2':3,'5.2':3,'5.3':3,'7.1':2,'10.1':2};
+for(const [c,t] of Object.entries(tg))a2.answers[c].target=t;
+const S={pres:null,role:'owner',tab:'overview',cur:a2.id,dom:1,mini:null,sheet:null,cmpA:a1.id,cmpB:a2.id,
+  list:[a1,a2],
+  tasks:[
+    {id:'t1',aid:a2.id,code:'5.3',title:'5.3 Контроль устранения уязвимостей: с 2 до 3',who:'И. Машарипов',due:'2026-12-15',st:'В работе'},
+    {id:'t2',aid:a2.id,code:'4.2',title:'4.2 Реагирование на инциденты: плейбуки на типовые инциденты',who:'Д. Ромашов',due:'2027-02-01',st:'Новые'},
+    {id:'t3',aid:a2.id,code:'10.1',title:'10.1 Контроль защищённости: внешний пентест',who:'С. Калинова',due:'2026-11-30',st:'На проверке'}
+  ]};
+let tseq=4;
+
+const me=()=>ROLES[S.role];
+const can=p=>me().perms.includes(p);
+const curA=()=>S.list.find(a=>a.id===S.cur);
+const prevOf=a=>S.list.filter(x=>x.id!==a.id&&x.status==='approved'&&x.date<=a.date).sort((x,y)=>y.date.localeCompare(x.date))[0]||null;
+const editable=a=>can('edit')&&a.status==='draft';
+
+/* ---------- scoring (mirror of lib/assessment-score.ts) ---------- */
+function score(a){
+  const doms=METH.domains.map(d=>{
+    const lv=d.sections.map(s=>a.answers[s.code].level).filter(v=>v!=null);
+    const tv=d.sections.map(s=>{const x=a.answers[s.code];return Math.max(x.target||0,x.level||0)||null}).filter(v=>v!=null);
+    const sum=lv.reduce((p,c)=>p+c,0);
+    return {no:d.no,name:d.name,n:d.sections.length,done:lv.length,sum,max:d.sections.length*4,avg:lv.length?sum/lv.length:null,tavg:tv.length?tv.reduce((p,c)=>p+c,0)/tv.length:null};
+  });
+  const done=SECTIONS.filter(s=>a.answers[s.code].level!=null).length;
+  const total=doms.reduce((p,d)=>p+d.sum,0);
+  const dist=[1,2,3,4].map(l=>SECTIONS.filter(s=>a.answers[s.code].level===l).length);
+  return {doms,done,complete:done===SECTIONS.length,total,dist,maturity:maturity(total,a)};
+}
+function maturity(total,a){
+  const m=METH.maturity;
+  if(total>=86){return KEYS.every(k=>a.answers[k].level===4)?m[3]:m[2]}
+  if(total>=67)return m[2];
+  if(total>=44)return m[1];
+  return m[0];
+}
+const gaps=a=>SECTIONS.filter(s=>{const x=a.answers[s.code];return x.target&&x.target>(x.level||0)});
+
+/* ---------- shell ---------- */
+const IC={
+  dash:'<path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/>',
+  reg:'<path d="M4 5h16M4 10h16M4 15h16M4 20h10"/>',
+  task:'<path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
+  doc:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6"/>',
+  ev:'<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"/>',
+  sa:'<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  set:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'
+};
+const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+function renderNav(){
+  const items=[['dash','Дашборд'],['reg','Реестры'],['task','Задачи'],['doc','Документы'],['ev','Доказательства']];
+  let h=items.map(([k,l])=>`<button type="button" class="dim" data-other="${l}">${svgI(k)}${l}</button>`).join('');
+  if(can('view'))h+=`<button type="button" aria-current="page">${svgI('sa')}Самооценка</button>`;
+  h+=`<button type="button" class="dim" data-other="Настройки">${svgI('set')}Настройки</button>`;
+  $('#nav').innerHTML=h;
+  const p=me().perms;
+  $('#perms').textContent=p.length?'Право: assessment.manage':'Нет права assessment.manage — пункта меню нет';
+}
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-other]');if(b)toast('В этом прототипе только раздел «Самооценка». «'+b.dataset.other+'» — в демо портала')});
+
+/* ---------- render ---------- */
+function render(){
+  renderNav();
+  const m=$('#main');
+  if(!can('view')){
+    m.innerHTML=`<div class="panel empty"><h2>У этого пользователя раздела нет</h2><p class="hint" style="max-width:54ch">Самооценка — личный раздел одного сотрудника. Без права assessment.manage пункта нет в меню, а API отвечает 403. Задачи, созданные из самооценки, остальные видят на доске как обычные задачи, без баллов и ссылки на раздел.</p><button class="btn" type="button" id="back-head">Войти как владелец раздела</button></div>`;
+    $('#back-head').onclick=()=>{S.role='owner';$('#role').value='owner';render()};
+    return;
+  }
+  const a=curA(),sc=score(a);
+  const st=STATUS[a.status];
+  m.innerHTML=`
+  <div class="head"><div><h1>Самооценка уровня кибербезопасности</h1>
+    <p>Личный раздел. Экспресс-оценка по 10 доменам и 24 разделам: баллы 1–4, итог от 24 до 96, уровень считается сам.</p></div></div>
+  <div class="bar-top">
+    <select class="inp" id="pick" aria-label="Оценка">${S.list.filter(x=>x.status!=='archived'||x.id===a.id).map(x=>`<option value="${x.id}" ${x.id===a.id?'selected':''}>${esc(x.title)} · ${fmtD(x.date)}</option>`).join('')}</select>
+    <span class="chip ${st[1]}"><span class="dot"></span>${st[0]}</span>
+    ${a.example?'<span class="chip">пример: ответы условные</span>':''}
+    <span class="sp"></span>
+    ${actions(a,sc)}
+  </div>
+  <div id="sheet-slot">${sheet(a,sc)}</div>
+  <div class="tabs" role="tablist">${[['overview','Обзор'],['check','Чек-лист'],['plan','План улучшений'],['hist','История']].map(([k,l])=>`<button role="tab" type="button" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join('')}</div>
+  <div id="view"></div>`;
+  ({overview:vOverview,check:vCheck,plan:vPlan,hist:vHist})[S.tab](a,sc);
+}
+
+function actions(a,sc){
+  const b=[];
+  const open=S.list.some(x=>x.status==='draft');
+  if(can('edit')&&a.status==='draft'){
+    b.push(`<button class="btn" type="button" data-act="import">Импорт Excel</button>`);
+    b.push(`<button class="btn primary" type="button" data-act="approve">Зафиксировать</button>`);
+  }
+  if(can('edit')&&a.status==='approved')b.push(`<button class="btn ghost" type="button" data-act="reopen">Вернуть в черновик</button>`);
+  if(can('edit')&&!open)b.push(`<button class="btn primary" type="button" data-act="new">Новая оценка</button>`);
+  b.push(`<button class="btn" type="button" data-act="pres">Презентация</button>`);
+  b.push(`<button class="btn ghost" type="button" data-act="export" title="Все оценки в виде таблиц для анализа">Выгрузить .xlsx</button>`);
+  return b.join('');
+}
+
+function sheet(a,sc){
+  const k=S.sheet;if(!k)return '';
+  if(k==='reopen')return `<div class="sheet"><h3>Вернуть оценку в черновик</h3>
+    <label>Комментарий (необязательно)<textarea class="inp" id="sh-c" placeholder="Например: уточнить раздел 6.3 после аудита"></textarea></label>
+    <p class="hint" style="margin:0">Итог перестанет быть зафиксированным. Действие попадёт в журнал оценки.</p>
+    <div class="row"><button class="btn primary" type="button" data-act="reopen-ok">Вернуть в черновик</button><button class="btn" type="button" data-act="close">Отмена</button></div></div>`;
+  if(k==='new'){const last=S.list.filter(x=>x.status==='approved').sort((x,y)=>y.date.localeCompare(x.date))[0];
+    return `<div class="sheet"><h3>Новая оценка</h3><div class="fl">
+    <label>Название<input class="inp" id="nw-t" value="Экспресс-оценка ${new Date().getFullYear()+1}"></label>
+    <label>Дата проведения<input class="inp" type="date" id="nw-d" value="${todayIso()}"></label>
+    <label>Начать с<select class="inp" id="nw-c">${last?`<option value="${last.id}">Копии «${esc(last.title)}» (ответы и цели)</option>`:''}<option value="">Пустого чек-листа</option></select></label></div>
+    <div class="row"><button class="btn primary" type="button" data-act="new-ok">Создать</button><button class="btn" type="button" data-act="close">Отмена</button></div></div>`}
+  if(k==='import'){return `<div class="sheet"><h3>Импорт из Excel</h3>
+    <p class="hint" style="margin:0">Файл шаблона «Чек-лист оценки уровня кибербезопасности». Портал найдёт ответы по разделам, покажет изменения и ничего не запишет без подтверждения.</p>
+    <input type="file" id="imp-f" accept=".xlsx">
+    <div id="imp-res"></div>
+    <div class="row"><button class="btn" type="button" data-act="close">Закрыть</button></div></div>`}
+  return '';
+}
+
+/* ---------- overview ---------- */
+function vOverview(a,sc){
+  const p=prevOf(a),ps=p?score(p):null;
+  const m=sc.maturity, d=ps?sc.total-ps.total:null;
+  const lo=24,hi=96,pct=v=>((Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*100);
+  const zones=[[24,43],[44,66],[67,85],[86,96]];
+  const weak=SECTIONS.filter(s=>a.answers[s.code].level===1).sort((x,y)=>(y.key-x.key));
+  const unanswered=SECTIONS.filter(s=>a.answers[s.code].level==null);
+  $('#view').innerHTML=`
+  <div class="grid">
+    <section class="panel w8"><div class="lvl">
+      <div class="lvl-top">
+        <div><div class="hint">Уровень КБ${sc.complete?'':' · предварительно'}</div><div class="lvl-name">${m.name}</div><div class="lvl-sub">${esc(m.description)}</div></div>
+        <div class="lvl-score"><b>${sc.total}</b> <span>из 96</span>
+          <div class="delta ${d==null?'eq':d>0?'up':d<0?'dn':'eq'}" style="font-size:12.5px;margin-top:4px">${d==null?'нет прошлой оценки':(d>0?'+':'')+d+' к '+esc(p.title).replace('Экспресс-оценка ','')}</div></div>
+      </div>
+      <div class="scale" role="img" aria-label="Шкала уровней: ${sc.total} баллов">
+        ${ps?`<div class="mk prev" style="left:${pct(ps.total)}%">${ps.total}</div>`:''}
+        <div class="mk cur" style="left:${pct(sc.total)}%">${sc.total}</div>
+        <div class="scale-track">${zones.map((z,i)=>`<i class="z${i+1}" style="flex:${z[1]-z[0]+1}"></i>`).join('')}</div>
+        <div class="scale-lbl">${zones.map((z,i)=>`<span style="flex:${z[1]-z[0]+1}"><b>${METH.maturity[i].name}</b>${z[0]}–${z[1]}</span>`).join('')}</div>
+      </div>
+    </div></section>
+
+    <section class="panel w4"><div class="panel-h"><h3>Готовность</h3><span class="hint">${STATUS[a.status][0]}</span></div><div class="panel-b">
+      <div class="ring">${ring(sc.done,24)}<div><b class="num" style="font-size:20px">${sc.done} из 24</b><div class="hint">${sc.complete?'Все разделы заполнены':'Не заполнено: '+unanswered.map(s=>s.code).join(', ')}</div></div></div>
+      <div class="keys"><div class="hint">Для «Результативной КБ» нужно 86+ баллов и 4 в ключевых разделах:</div>
+        ${KEYS.map(k=>{const v=a.answers[k].level;return `<div class="key"><span class="${v===4?'ok':'no'}">${v===4?'✓':'✗'}</span><button type="button" data-goto="${k}"><span class="code">${k}</span> ${esc(SEC[k].name)}</button>${lvlPill(v)}</div>`}).join('')}
+      </div></div></section>
+
+    <section class="panel w6"><div class="panel-h"><h3>Профиль по доменам</h3>
+      <div class="legend"><span><i style="background:var(--accent)"></i>${esc(a.title.replace('Экспресс-оценка ',''))}</span>${ps?`<span><i style="background:var(--faint)"></i>${esc(p.title.replace('Экспресс-оценка ',''))}</span>`:''}${sc.doms.some(x=>x.tavg)?'<span><i style="background:var(--low)"></i>Цель</span>':''}</div></div>
+      <div class="panel-b">${radar(sc,ps)}</div></section>
+
+    <section class="panel w6"><div class="panel-h"><h3>Средний балл по доменам</h3><span class="hint">из 4${ps?' · штрих — прошлая оценка':''}</span></div>
+      <div class="panel-b dbars">${sc.doms.map((x,i)=>{const pv=ps?ps.doms[i].avg:null;const dd=(x.avg!=null&&pv!=null)?x.avg-pv:null;
+        return `<button type="button" class="dbar" data-dom="${x.no}"><span class="t">${x.no}. ${esc(x.name)}</span><span class="track"><i style="width:${(x.avg||0)/4*100}%"></i>${pv!=null?`<u style="left:calc(${pv/4*100}% - 1px)"></u>`:''}</span><span class="n">${n1(x.avg)}</span><span class="delta ${dd==null||Math.abs(dd)<.01?'eq':dd>0?'up':'dn'}">${dd==null?'':Math.abs(dd)<.01?'0':(dd>0?'+':'')+n1(dd)}</span></button>`}).join('')}
+      </div></section>
+
+    <section class="panel w5"><div class="panel-h"><h3>Распределение ответов</h3><span class="hint">разделов на уровне</span></div><div class="panel-b">${donut(sc.dist)}</div></section>
+
+    <section class="panel w7"><div class="panel-h"><h3>Слабые места</h3><span class="hint">разделы на базовом уровне, ключевые первыми</span></div>
+      <div class="panel-b weak">${weak.length?weak.slice(0,8).map(s=>{const x=a.answers[s.code];return `<button type="button" data-goto="${s.code}"><span class="code">${s.code}</span><span>${esc(s.name)} <span class="hint">· ${esc(METH.domains[s.domain-1].name)}</span></span><span class="row">${s.key?'<span class="chip high">ключевой</span>':''}${x.target?`<span class="chip low">цель ${x.target}</span>`:''}</span></button>`}).join('')+(weak.length>8?`<div class="hint" style="padding-top:8px">и ещё ${weak.length-8}</div>`:''):'<p class="hint">Разделов на базовом уровне нет.</p>'}</div></section>
+  </div>`;
+}
+function ring(v,t){const r=26,c=2*Math.PI*r,f=v/t;return `<svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--fill)" stroke-width="7"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${f>=1?'var(--low)':'var(--accent)'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c*f} ${c}" transform="rotate(-90 32 32)"/></svg>`}
+function lvlPill(v){return `<span class="lvlpill"><i class="l${v||0}">${v||'–'}</i></span>`}
+function radar(sc,ps){
+  const W=520,H=330,cx=W/2,cy=H/2+4,R=118,N=10;
+  const pt=(i,v)=>{const ang=-Math.PI/2+i*2*Math.PI/N;return [cx+Math.cos(ang)*R*v/4,cy+Math.sin(ang)*R*v/4]};
+  const poly=vals=>vals.map((v,i)=>pt(i,v||0).map(n=>n.toFixed(1)).join(',')).join(' ');
+  let g='';
+  for(let l=1;l<=4;l++)g+=`<polygon points="${poly(Array(N).fill(l))}" fill="none" stroke="var(--line-2)" stroke-width="1"/>`;
+  for(let i=0;i<N;i++){const [x,y]=pt(i,4);g+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`}
+  for(let l=1;l<=4;l++){const [x,y]=pt(0,l);g+=`<text x="${x+4}" y="${y+3}" font-size="9.5">${l}</text>`}
+  const short=['Целеполагание','Активы','Мониторинг','Инциденты','Уязвимости','Доступ','Конфигурации','Устойчивость','Сеть и инфр.','Контроль защищ.'];
+  for(let i=0;i<N;i++){const [x,y]=pt(i,4.62);const anchor=Math.abs(x-cx)<8?'middle':x>cx?'start':'end';g+=`<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" font-size="11" text-anchor="${anchor}">${i+1}. ${short[i]}</text>`}
+  const tv=sc.doms.map(d=>d.tavg);
+  if(tv.some(v=>v))g+=`<polygon points="${poly(tv.map((v,i)=>v||sc.doms[i].avg||0))}" fill="none" stroke="var(--low)" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+  if(ps)g+=`<polygon points="${poly(ps.doms.map(d=>d.avg))}" fill="none" stroke="var(--faint)" stroke-width="1.6"/>`;
+  g+=`<polygon points="${poly(sc.doms.map(d=>d.avg))}" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>`;
+  sc.doms.forEach((d,i)=>{const [x,y]=pt(i,d.avg||0);g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--accent)"/>`});
+  return `<div class="tbl-wrap"><svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W+40}px;display:block;margin:auto;min-width:340px" role="img" aria-label="Радар средних баллов по доменам">${g}</svg></div>`;
+}
+function donut(dist){
+  const tot=dist.reduce((p,c)=>p+c,0)||1,r=52,c=2*Math.PI*r;let off=0,arcs='';
+  const col=['var(--crit)','var(--high)','var(--accent)','var(--low)'];
+  dist.forEach((v,i)=>{if(!v)return;const len=c*v/tot;arcs+=`<circle cx="70" cy="70" r="${r}" fill="none" stroke="${col[i]}" stroke-width="18" stroke-dasharray="${Math.max(len-2,0)} ${c}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;off+=len});
+  const answered=dist.reduce((p,q)=>p+q,0);
+  return `<div class="row" style="gap:22px;align-items:center"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Распределение ответов"><circle cx="70" cy="70" r="${r}" fill="none" stroke="var(--fill)" stroke-width="18"/>${arcs}<text x="70" y="68" text-anchor="middle" font-size="24" font-weight="600" style="fill:var(--fg)">${answered}</text><text x="70" y="86" text-anchor="middle" font-size="11">ответов</text></svg>
+  <div style="display:grid;gap:8px;min-width:0">${dist.map((v,i)=>`<div class="row" style="gap:10px;font-size:13px">${lvlPill(i+1)}<span style="min-width:96px">${LVL[i+1]}</span><b class="num">${v}</b><span class="hint">${Math.round(v/tot*100)}%</span></div>`).join('')}</div></div>`;
+}
+
+/* ---------- checklist ---------- */
+function vCheck(a,sc){
+  const d=METH.domains[S.dom-1],ds=sc.doms[S.dom-1],ed=editable(a);
+  const why=a.status==='approved'?'Оценка зафиксирована. Чтобы изменить ответы, верните её в черновик.':a.status==='archived'?'Оценка в архиве.':'';
+  $('#view').innerHTML=`<div class="cl">
+    <nav class="panel doms" aria-label="Домены">${sc.doms.map(x=>`<button type="button" data-dom="${x.no}" aria-pressed="${x.no===S.dom}"><b>${x.no}. ${esc(x.name)}</b><span class="avg">${n1(x.avg)}</span><small>${x.done}/${x.n} · ${x.sum} из ${x.max}</small><span class="prog"><i class="${x.done===x.n?'full':''}" style="width:${x.done/x.n*100}%"></i></span></button>`).join('')}</nav>
+    <div class="secs">
+      <div class="dom-h"><h2>${d.no}. ${esc(d.name)}</h2><span class="hint">Сумма ${ds.sum} из ${ds.max} · средний ${n1(ds.avg)}</span></div>
+      ${why?`<div class="note ro">${why}</div>`:`<div class="note">Выберите один вариант на раздел. Идите от базового уровня к продвинутому: критерий выполнен, если описание совпадает с текущим состоянием на 85% и более. Сохраняется сразу.</div>`}
+      ${d.sections.map(s=>secCard(a,s,ed)).join('')}
+    </div></div>`;
+}
+function secCard(a,s,ed){
+  const x=a.answers[s.code];
+  const tks=S.tasks.filter(t=>t.aid===a.id&&t.code===s.code);
+  const h=x.hist[x.hist.length-1];
+  return `<article class="panel sec" id="sec-${s.code.replace('.','-')}">
+    <div class="sec-h"><h3><span class="code">${s.code}</span>${esc(s.name)}</h3><div class="row">${s.key?'<span class="chip high">ключевой</span>':''}${x.level?`<span class="chip acc">${x.level} · ${LVL[x.level]}</span>`:'<span class="chip crit">нет ответа</span>'}${x.target&&x.target>(x.level||0)?`<span class="chip low">цель ${x.target}</span>`:''}</div></div>
+    <details class="target"><summary>Целевое состояние</summary><p>${esc(s.target)}</p></details>
+    <div class="opts" role="group" aria-label="Уровень раздела ${s.code}">${[1,2,3,4].map(l=>`<button type="button" class="opt ${x.target===l?'tgt':''}" data-lvl="${l}" data-code="${s.code}" aria-pressed="${x.level===l}" ${ed?'':'disabled'}><span class="oh"><i>${l}</i>${LVL[l]}${x.target===l&&x.level!==l?' <span class="chip low">цель</span>':''}</span><span class="ot">${esc(s.criteria[l])}</span></button>`).join('')}</div>
+    <div class="sec-f">
+      <label>Целевой уровень<select class="inp" data-f="target" data-code="${s.code}" ${ed?'':'disabled'}><option value="">—</option>${[1,2,3,4].map(l=>`<option value="${l}" ${x.target===l?'selected':''}>${l} · ${LVL[l]}</option>`).join('')}</select></label>
+      <label>Комментарий<textarea class="inp" data-f="comment" data-code="${s.code}" rows="2" placeholder="${ed?'Обоснование ответа, ссылки на документы':''}" ${ed?'':'disabled'}>${esc(x.comment)}</textarea></label>
+    </div>
+    <div class="sec-x"><div class="tasks">${tks.map(t=>`<span class="tk"><span class="dot" style="color:${t.st==='Готово'?'var(--low)':t.st==='Новые'?'var(--faint)':'var(--accent)'}"></span>${esc(t.title.length>60?t.title.slice(0,58)+'…':t.title)} · ${t.st}</span>`).join('')||'<span class="hint">Задач нет</span>'}
+      ${can('edit')&&a.status!=='archived'?`<button class="btn sm" type="button" data-mini="${s.code}">Создать задачу</button>`:''}</div>
+      <span class="hist">${h?`Изменено: ${esc(h.who)}, ${h.at}: ${h.from??'—'} → ${h.to??'—'}`:''}</span></div>
+    ${S.mini===s.code?`<div class="mini">
+      <input class="inp" id="mt-t" value="${esc(s.code+' '+s.name+(x.target?': с '+(x.level||'—')+' до '+x.target:''))}" aria-label="Название задачи">
+      <select class="inp" id="mt-w" aria-label="Исполнитель">${PEOPLE.map(p=>`<option>${p}</option>`).join('')}</select>
+      <input class="inp" type="date" id="mt-d" aria-label="Срок">
+      <button class="btn primary sm" type="button" data-act="task-ok" data-code="${s.code}">Создать</button><button class="btn sm" type="button" data-act="task-x">Отмена</button><span class="hint" style="grid-column:1/-1">Задача будет видна всем на доске «Задачи»: название, исполнитель, срок. Баллы и ссылка на самооценку туда не попадают.</span></div>`:''}
+  </article>`;
+}
+
+/* ---------- plan ---------- */
+function vPlan(a,sc){
+  const g=gaps(a);
+  const tk=S.tasks.filter(t=>t.aid===a.id);
+  const done=tk.filter(t=>t.st==='Готово').length;
+  const noTask=g.filter(s=>!tk.some(t=>t.code===s.code)).length;
+  const sumGap=g.reduce((p,s)=>p+(a.answers[s.code].target-(a.answers[s.code].level||0)),0);
+  $('#view').innerHTML=`
+  <div class="kpis">
+    <div class="panel kpi"><span class="v">${g.length}</span><span class="l">разделов с разрывом</span></div>
+    <div class="panel kpi"><span class="v">+${sumGap}</span><span class="l">баллов к итогу при достижении целей</span></div>
+    <div class="panel kpi"><span class="v" style="color:${noTask?'var(--high)':'inherit'}">${noTask}</span><span class="l">разрывов без задачи</span></div>
+    <div class="panel kpi"><span class="v">${done} / ${tk.length}</span><span class="l">задач выполнено</span></div>
+  </div>
+  <section class="panel"><div class="panel-h"><h3>Разрывы и задачи</h3><span class="hint">Целевой уровень задаётся в чек-листе. Задачи живут на общей доске «Задачи».</span></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Раздел</th><th>Сейчас → цель</th><th>Задача</th><th>Исполнитель</th><th>Срок</th><th>Статус задачи</th></tr></thead><tbody>
+  ${g.length?g.map(s=>{const x=a.answers[s.code];const ts=tk.filter(t=>t.code===s.code);
+    if(!ts.length)return `<tr><td><button class="btn ghost sm" type="button" data-goto="${s.code}"><span class="code">${s.code}</span> ${esc(s.name)}</button></td><td>${lvlPill(x.level)} → ${lvlPill(x.target)}</td><td colspan="4">${can('edit')&&a.status!=='archived'?`<button class="btn sm" type="button" data-goto-mini="${s.code}">Создать задачу</button>`:'<span class="hint">Задачи нет</span>'}</td></tr>`;
+    return ts.map((t,i)=>`<tr>${i===0?`<td rowspan="${ts.length}"><button class="btn ghost sm" type="button" data-goto="${s.code}"><span class="code">${s.code}</span> ${esc(s.name)}</button></td><td rowspan="${ts.length}">${lvlPill(x.level)} → ${lvlPill(x.target)}</td>`:''}<td style="min-width:220px">${esc(t.title)}</td><td>${esc(t.who)}</td><td class="num">${fmtD(t.due)}</td><td><select class="inp" data-tst="${t.id}" ${can('edit')?'':'disabled'} aria-label="Статус задачи">${TASK_ST.map(z=>`<option ${t.st===z?'selected':''}>${z}</option>`).join('')}</select></td></tr>`).join('')}).join('')
+  :'<tr><td colspan="6" class="hint">Целевые уровни не заданы. Задайте их в чек-листе, и здесь появятся разрывы.</td></tr>'}
+  </tbody></table></div></section>`;
+}
+
+/* ---------- history ---------- */
+function vHist(a,sc){
+  const A=S.list.find(x=>x.id===S.cmpA),B=S.list.find(x=>x.id===S.cmpB);
+  const opt=sel=>S.list.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.title)}</option>`).join('');
+  $('#view').innerHTML=`<div class="grid">
+  <section class="panel w12"><div class="panel-h"><h3>Оценки</h3></div><div class="tbl-wrap"><table><thead><tr><th>Оценка</th><th>Дата</th><th>Статус</th><th>Итог</th><th>Уровень</th><th>Зафиксирована</th><th></th></tr></thead><tbody>
+  ${S.list.map(x=>{const s=score(x);return `<tr><td><b>${esc(x.title)}</b>${x.example?' <span class="chip">пример</span>':''}</td><td class="num">${fmtD(x.date)}</td><td><span class="chip ${STATUS[x.status][1]}">${STATUS[x.status][0]}</span></td><td class="num"><b>${s.total}</b> / 96${s.complete?'':' <span class="hint">· '+s.done+'/24</span>'}</td><td>${s.maturity.name}</td><td class="num">${x.approvedAt?fmtD(x.approvedAt):'—'}</td><td><div class="row" style="flex-wrap:nowrap">${x.id!==S.cur?`<button class="btn sm" type="button" data-open="${x.id}">Открыть</button>`:'<span class="hint">открыта</span>'}${can('edit')&&x.status==='approved'&&x.id!==a1.id?`<button class="btn ghost sm" type="button" data-arch="${x.id}">В архив</button>`:''}</div></td></tr>`}).join('')}
+  </tbody></table></div></section>
+  <section class="panel w8"><div class="panel-h"><h3>Сравнение</h3><div class="row"><select class="inp" id="cmp-a" aria-label="Первая оценка">${opt(S.cmpA)}</select><span class="hint">→</span><select class="inp" id="cmp-b" aria-label="Вторая оценка">${opt(S.cmpB)}</select></div></div>
+    <div class="tbl-wrap" style="max-height:520px;overflow:auto"><table><thead><tr><th>Раздел</th><th>${esc(A.title.replace('Экспресс-оценка ',''))}</th><th>${esc(B.title.replace('Экспресс-оценка ',''))}</th><th>Изменение</th></tr></thead><tbody>
+    ${SECTIONS.map(s=>{const va=A.answers[s.code].level,vb=B.answers[s.code].level,dd=(va&&vb)?vb-va:null;return `<tr><td><span class="code">${s.code}</span> ${esc(s.name)}</td><td>${lvlPill(va)}</td><td>${lvlPill(vb)}</td><td class="delta ${dd==null||dd===0?'eq':dd>0?'up':'dn'}" style="text-align:left">${dd==null?'—':dd===0?'без изменений':(dd>0?'+':'')+dd}</td></tr>`}).join('')}
+    <tr><td><b>Итого</b></td><td class="num"><b>${score(A).total}</b></td><td class="num"><b>${score(B).total}</b></td><td class="delta ${score(B).total-score(A).total>0?'up':score(B).total-score(A).total<0?'dn':'eq'}" style="text-align:left">${(score(B).total-score(A).total>0?'+':'')+(score(B).total-score(A).total)}</td></tr>
+    </tbody></table></div></section>
+  <section class="panel w4"><div class="panel-h"><h3>Журнал: ${esc(a.title.replace('Экспресс-оценка ',''))}</h3></div><div class="panel-b log">${a.log.slice().reverse().map(l=>`<div><span>${esc(l.at)}</span>${esc(l.txt)}</div>`).join('')}</div></section>
+  </div>`;
+}
+
+/* ---------- actions ---------- */
+function logA(a,txt){a.log.push({at:nowStr(),txt:txt+' · '+me().name})}
+function setAnswer(a,code,patch){
+  const x=a.answers[code];
+  if('level' in patch&&patch.level!==x.level){x.hist.push({who:me().name,at:nowStr(),from:x.level,to:patch.level});logA(a,`Раздел ${code}: ${x.level??'—'} → ${patch.level??'—'}`)}
+  if('target' in patch&&patch.target!==x.target)logA(a,`Раздел ${code}: цель ${patch.target??'—'}`);
+  Object.assign(x,patch);
+}
+function gotoSec(code,mini){
+  S.tab='check';S.dom=SEC[code].domain;S.mini=mini?code:null;render();
+  const el=document.getElementById('sec-'+code.replace('.','-'));
+  if(el){el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1600)}
+}
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('button,[data-tab]');if(!t||!$('#main').contains(t))return;
+  const a=curA();
+  if(t.dataset.tab){S.tab=t.dataset.tab;S.mini=null;render();return}
+  if(t.dataset.goto){gotoSec(t.dataset.goto);return}
+  if(t.dataset.gotoMini){gotoSec(t.dataset.gotoMini,true);return}
+  if(t.dataset.dom&&t.classList.contains('dbar')){S.tab='check';S.dom=+t.dataset.dom;render();window.scrollTo({top:0});return}
+  if(t.dataset.dom){S.dom=+t.dataset.dom;S.mini=null;render();return}
+  if(t.dataset.open){S.cur=t.dataset.open;S.sheet=null;render();return}
+  if(t.dataset.arch){const x=S.list.find(z=>z.id===t.dataset.arch);x.status='archived';logA(x,'Отправлена в архив');toast('Оценка в архиве');render();return}
+  if(t.dataset.lvl){if(!editable(a))return;const l=+t.dataset.lvl,c=t.dataset.code;setAnswer(a,c,{level:a.answers[c].level===l?null:l});const s=score(a);toast(`Сохранено. Итог ${s.total} из 96 · ${s.maturity.name}`);render();
+    const el=document.getElementById('sec-'+c.replace('.','-'));if(el)el.scrollIntoView({block:'nearest'});return}
+  if(t.dataset.mini){S.mini=S.mini===t.dataset.mini?null:t.dataset.mini;const c=t.dataset.mini;render();const el=document.getElementById('sec-'+c.replace('.','-'));if(el)el.scrollIntoView({block:'nearest'});return}
+  const act=t.dataset.act;if(!act)return;
+  if(act==='task-x'){S.mini=null;render();return}
+  if(act==='task-ok'){const c=t.dataset.code,title=$('#mt-t').value.trim();if(!title){toast('Введите название задачи');return}
+    S.tasks.push({id:'t'+tseq++,aid:a.id,code:c,title,who:$('#mt-w').value,due:$('#mt-d').value||'',st:'Новые'});logA(a,`Задача по разделу ${c}`);S.mini=null;toast('Задача создана на доске «Задачи»');render();return}
+  if(act==='close'){S.sheet=null;render();return}
+  if(['reopen','new','import'].includes(act)){S.sheet=S.sheet===act?null:act;render();return}
+  if(act==='approve'){const s=score(a);if(!s.complete){toast(`Заполните все разделы: осталось ${24-s.done}`);gotoSec(SECTIONS.find(x=>a.answers[x.code].level==null).code);return}
+    a.status='approved';a.approvedBy=me().name;a.approvedAt=todayIso();a.result=s;logA(a,`Зафиксирована: ${s.total} из 96, «${s.maturity.name}»`);toast('Оценка зафиксирована');render();return}
+  if(act==='reopen-ok'){const c=$('#sh-c').value.trim();
+    a.status='draft';a.result=undefined;logA(a,'Возвращена в черновик'+(c?': '+c:''));
+    S.sheet=null;toast('Оценка снова в черновике');render();return}
+  if(act==='new-ok'){const cp=$('#nw-c').value,src=S.list.find(x=>x.id===cp);
+    const n={id:'a'+seq++,title:$('#nw-t').value.trim()||'Новая оценка',date:$('#nw-d').value||todayIso(),status:'draft',example:true,profile:{...(src?src.profile:a1.profile)},answers:blankAnswers(),log:[]};
+    if(src)for(const c in src.answers){n.answers[c].level=src.answers[c].level;n.answers[c].target=src.answers[c].target}
+    n.log.push({at:nowStr(),txt:(src?'Создана копией «'+src.title+'»':'Создана пустой')+' · '+me().name});
+    S.list.push(n);S.cur=n.id;S.sheet=null;S.tab='check';S.dom=1;toast('Оценка создана');render();return}
+  if(act==='imp-ok'){applyImport(a);return}
+  if(act==='export'){exportXlsx();return}
+  if(act==='pres'){S.pres=0;renderPres();return}
+});
+document.addEventListener('change',e=>{
+  const t=e.target,a=curA();
+  if(t.id==='role'){S.role=t.value;S.sheet=null;S.mini=null;render();return}
+  if(t.id==='pick'){S.cur=t.value;S.sheet=null;S.mini=null;render();return}
+  if(t.id==='cmp-a'){S.cmpA=t.value;render();return}
+  if(t.id==='cmp-b'){S.cmpB=t.value;render();return}
+  if(t.dataset.tst){const tk=S.tasks.find(x=>x.id===t.dataset.tst);tk.st=t.value;toast('Статус задачи: '+t.value);render();return}
+  if(t.dataset.f&&editable(a)){const c=t.dataset.code,f=t.dataset.f;let v=t.value;if(f==='target')v=v?+v:null;if(f==='owner')v=v||null;
+    setAnswer(a,c,{[f]:v});toast('Сохранено');if(f==='target')render();return}
+  if(t.id==='imp-f'&&t.files[0])readImport(t.files[0]);
+});
+
+/* ---------- Excel import (same parsing rules as the backend spec, section 9) ---------- */
+let pending=null;
+function readImport(file){
+  const fr=new FileReader();
+  fr.onload=()=>{try{
+    const wb=XLSX.read(new Uint8Array(fr.result),{type:'array',cellStyles:true,cellDates:true});
+    const ws=wb.Sheets['Чек-лист'];if(!ws)throw new Error('В файле нет листа «Чек-лист». Нужен шаблон экспресс-оценки.');
+    const rng=XLSX.utils.decode_range(ws['!ref']),rows=ws['!rows']||[];
+    const v=(r,c)=>{const x=ws[XLSX.utils.encode_cell({r,c})];return x?x.v:undefined};
+    const hidden=r=>rows[r]&&rows[r].hidden;
+    const found={},errs=[];
+    for(let r=1;r<=rng.e.r;r++){
+      if(v(r,4)!=='Дополнительный комментарий'||hidden(r))continue;
+      let code=null;
+      for(let k=r-1;k>=0;k--){const c=v(k,2);if(hidden(k))continue;const mm=c&&String(c).match(/^(\d+)\.(\d+)\.?\s*/);if(mm){code=mm[1]+'.'+mm[2];break}}
+      if(!code||!SEC[code]){errs.push('Строка '+(r+1)+': раздел не найден');continue}
+      const raw=v(r-1,4),cm=v(r+1,4);
+      let level=null;
+      if(raw!==undefined&&raw!==''&&raw!=='Выбрать ответ'){level=Number(raw);if(![1,2,3,4].includes(level)){errs.push(code+': значение «'+raw+'» вне 1–4');level=null}}
+      found[code]={level,comment:cm?String(cm):''};
+    }
+    const gi=wb.Sheets['Общая информация'],gv=a=>gi&&gi[a]?gi[a].v:undefined;
+    const prof={org:gv('E7'),respondent:gv('E11'),position:gv('E13'),employees:gv('E32'),date:gv('E9')};
+    pending={found,prof};
+    const a=curA();
+    const diff=SECTIONS.filter(s=>found[s.code]&&found[s.code].level!==a.answers[s.code].level);
+    const miss=SECTIONS.filter(s=>!found[s.code]).map(s=>s.code);
+    $('#imp-res').innerHTML=`<div class="note">Найдено разделов: <b>${Object.keys(found).length} из 24</b>${prof.respondent?` · респондент ${esc(prof.respondent)}`:''}${prof.date instanceof Date?` · дата ${prof.date.toLocaleDateString('ru-RU')}`:''}.
+      ${miss.length?' Не найдены: '+miss.join(', ')+'.':''}${errs.length?'<br>'+errs.map(esc).join('<br>'):''}</div>
+      ${diff.length?`<div class="tbl-wrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>Раздел</th><th>Было</th><th>Станет</th></tr></thead><tbody>${diff.map(s=>`<tr><td><span class="code">${s.code}</span> ${esc(s.name)}</td><td>${lvlPill(a.answers[s.code].level)}</td><td>${lvlPill(found[s.code].level)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="row"><button class="btn primary" type="button" data-act="imp-ok">Применить ${diff.length} изменени${diff.length%10===1&&diff.length!==11?'е':(diff.length%10>=2&&diff.length%10<=4&&(diff.length<12||diff.length>14))?'я':'й'}</button></div>`:'<p class="hint">Ответы в файле совпадают с оценкой. Менять нечего.</p>'}`;
+  }catch(err){$('#imp-res').innerHTML=`<div class="note warn">${esc(err.message||'Не удалось прочитать файл')}</div>`}};
+  fr.readAsArrayBuffer(file);
+}
+function applyImport(a){
+  if(!pending||!editable(a))return;
+  let n=0;
+  for(const [c,v] of Object.entries(pending.found)){
+    if(v.level!==a.answers[c].level){a.answers[c].hist.push({who:me().name,at:nowStr(),from:a.answers[c].level,to:v.level});a.answers[c].level=v.level;n++}
+    if(v.comment)a.answers[c].comment=v.comment;
+  }
+  const p=pending.prof;['org','respondent','position','employees'].forEach(k=>{if(p[k]!=null)a.profile[k]=p[k]});
+  logA(a,`Импорт из Excel: изменено разделов ${n}`);pending=null;S.sheet=null;toast(`Импортировано: изменено ${n} разделов`);render();
+}
+
+/* ---------- Excel export: flat tables for analysis (one row = one fact), all assessments ---------- */
+function sheetOf(rows,cols){const ws=XLSX.utils.aoa_to_sheet(rows,{cellDates:true});ws['!cols']=cols.map(w=>({wch:w}));
+  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(rows.length-1,0),c:rows[0].length-1}})};return ws}
+const asDate=iso=>iso?new Date(iso+'T00:00:00'):'';
+async function exportXlsx(){
+  const wb=XLSX.utils.book_new(),list=S.list.filter(x=>x.status!=='archived');
+  const r1=[['ID оценки','Оценка','Дата','Статус','Итог','Максимум','Заполнено разделов','Уровень КБ','Итог предварительный','Дата фиксации']];
+  const r2=[['ID оценки','Оценка','Дата','Домен №','Домен','Код','Раздел','Ключевой','Балл','Уровень','Целевой балл','Разрыв','Комментарий','Задач','Задач выполнено']];
+  const r3=[['ID оценки','Оценка','Дата','Домен №','Домен','Разделов','Отвечено','Сумма','Максимум','Средний балл','Средний целевой']];
+  const r4=[['ID оценки','Оценка','Код','Раздел','Задача','Исполнитель','Срок','Статус']];
+  list.forEach(a=>{const s=score(a);
+    r1.push([a.id,a.title,asDate(a.date),STATUS[a.status][0],s.total,96,s.done,s.maturity.name,s.complete?'нет':'да',asDate(a.approvedAt)]);
+    SECTIONS.forEach(sec=>{const x=a.answers[sec.code],tk=S.tasks.filter(t=>t.aid===a.id&&t.code===sec.code);
+      r2.push([a.id,a.title,asDate(a.date),sec.domain,METH.domains[sec.domain-1].name,sec.code,sec.name,sec.key?'да':'нет',x.level??'',x.level?LVL[x.level]:'',x.target??'',x.target&&x.target>(x.level||0)?x.target-(x.level||0):0,x.comment||'',tk.length,tk.filter(t=>t.st==='Готово').length])});
+    s.doms.forEach(d=>r3.push([a.id,a.title,asDate(a.date),d.no,d.name,d.n,d.done,d.sum,d.max,d.avg==null?'':+d.avg.toFixed(2),d.tavg==null?'':+d.tavg.toFixed(2)]));
+    S.tasks.filter(t=>t.aid===a.id).forEach(t=>r4.push([a.id,a.title,t.code,SEC[t.code]?SEC[t.code].name:'',t.title,t.who,asDate(t.due),t.st]));
+  });
+  const r5=[['Домен №','Домен','Код','Раздел','Ключевой','Целевое состояние','1 Базовый','2 Средний','3 Высокий','4 Продвинутый']];
+  SECTIONS.forEach(s=>r5.push([s.domain,METH.domains[s.domain-1].name,s.code,s.name,s.key?'да':'нет',s.target,s.criteria[1],s.criteria[2],s.criteria[3],s.criteria[4]]));
+  XLSX.utils.book_append_sheet(wb,sheetOf(r1,[9,26,11,14,7,9,10,22,12,12]),'Оценки');
+  XLSX.utils.book_append_sheet(wb,sheetOf(r2,[9,26,11,8,30,6,44,9,6,12,8,7,44,6,8]),'Ответы');
+  XLSX.utils.book_append_sheet(wb,sheetOf(r3,[9,26,11,8,34,9,9,7,9,10,10]),'Домены');
+  XLSX.utils.book_append_sheet(wb,sheetOf(r4,[9,26,6,36,50,16,11,12]),'Задачи');
+  XLSX.utils.book_append_sheet(wb,sheetOf(r5,[8,30,6,40,9,60,50,50,50,50]),'Методика');
+  const data=XLSX.write(wb,{type:'array',bookType:'xlsx'});
+  let dl=null;try{dl=await window.claude?.use?.('downloads')}catch(e){}
+  if(!dl){toast('Скачивание недоступно в этом просмотре. В продукте файл отдаёт backend');return}
+  try{await dl.save({filename:'Самооценка_КБ_'+todayIso()+'.xlsx',data:new Uint8Array(data)});toast('Файл сохранён')}
+  catch(err){if(err&&err.code!=='declined')toast('Не удалось сохранить файл')}
+}
+
+/* ---------- presentation: full-screen slides from the same charts, signature in the corner ---------- */
+const SIGNATURE='Спроектировано: И. Машарипов · Отдел информационной безопасности'; // в продукте: «Настройки → Презентация», право settings.manage
+function slides(a){
+  const sc=score(a),p=prevOf(a),ps=p?score(p):null,m=sc.maturity,d=ps?sc.total-ps.total:null;
+  const yr=x=>esc(x.title.replace('Экспресс-оценка ',''));
+  const lo=24,hi=96,pct=v=>((Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*100),zones=[[24,43],[44,66],[67,85],[86,96]];
+  const weak=SECTIONS.filter(s=>a.answers[s.code].level===1).sort((x,y)=>(y.key-x.key));
+  const g=gaps(a);
+  return [
+   {t:'Итог',h:`<div class="ps-title"><div class="hint">${esc(a.profile.org||'')} · ${fmtD(a.date)}${sc.complete?'':' · предварительно'}</div><h1>${esc(a.title)}</h1>
+     <div class="ps-big"><b>${sc.total}</b><span>из 96</span></div><div class="ps-lvl">${m.name}</div><p>${esc(m.description)}</p>
+     ${d!=null?`<div class="delta ${d>0?'up':d<0?'dn':'eq'}" style="font-size:1.1em;text-align:left">${(d>0?'+':'')+d} баллов к ${yr(p)}</div>`:''}</div>`},
+   {t:'Шкала уровней',h:`<h2>Где мы на шкале</h2><div class="scale ps-scale">${ps?`<div class="mk prev" style="left:${pct(ps.total)}%">${yr(p)}: ${ps.total}</div>`:''}<div class="mk cur" style="left:${pct(sc.total)}%">${yr(a)}: ${sc.total}</div>
+     <div class="scale-track">${zones.map((z,i)=>`<i class="z${i+1}" style="flex:${z[1]-z[0]+1}"></i>`).join('')}</div>
+     <div class="scale-lbl">${zones.map((z,i)=>`<span style="flex:${z[1]-z[0]+1}"><b>${METH.maturity[i].name}</b>${z[0]}–${z[1]}</span>`).join('')}</div></div>
+     <div class="keys ps-keys"><div class="hint">«Результативная КБ» требует 86+ баллов и 4 в ключевых разделах</div>${KEYS.map(k=>{const v=a.answers[k].level;return `<div class="key"><span class="${v===4?'ok':'no'}">${v===4?'✓':'✗'}</span><span><span class="code">${k}</span> ${esc(SEC[k].name)}</span>${lvlPill(v)}</div>`}).join('')}</div>`},
+   {t:'Профиль по доменам',h:`<h2>Профиль по доменам</h2><div class="legend"><span><i style="background:var(--accent)"></i>${yr(a)}</span>${ps?`<span><i style="background:var(--faint)"></i>${yr(p)}</span>`:''}${sc.doms.some(x=>x.tavg)?'<span><i style="background:var(--low)"></i>Цель</span>':''}</div><div class="ps-chart">${radar(sc,ps)}</div>`},
+   {t:'Средний балл',h:`<h2>Средний балл по доменам</h2><div class="dbars ps-bars">${sc.doms.map((x,i)=>{const pv=ps?ps.doms[i].avg:null,dd=(x.avg!=null&&pv!=null)?x.avg-pv:null;return `<div class="dbar"><span class="t">${x.no}. ${esc(x.name)}</span><span class="track"><i style="width:${(x.avg||0)/4*100}%"></i>${pv!=null?`<u style="left:calc(${pv/4*100}% - 1px)"></u>`:''}</span><span class="n">${n1(x.avg)}</span><span class="delta ${dd==null||Math.abs(dd)<.01?'eq':dd>0?'up':'dn'}">${dd==null||Math.abs(dd)<.01?'':(dd>0?'+':'')+n1(dd)}</span></div>`}).join('')}</div>`},
+   {t:'Распределение и слабые места',h:`<h2>Распределение ответов и слабые места</h2><div class="ps-two"><div>${donut(sc.dist)}</div><div class="weak">${weak.slice(0,7).map(s=>`<div class="ps-w"><span class="code">${s.code}</span><span>${esc(s.name)}</span>${s.key?'<span class="chip high">ключевой</span>':'<span></span>'}</div>`).join('')}</div></div>`},
+   {t:'План',h:`<h2>План улучшений</h2>${g.length?`<div class="ps-plan">${g.map(s=>{const x=a.answers[s.code],tk=S.tasks.filter(t=>t.aid===a.id&&t.code===s.code);return `<div class="ps-w"><span class="code">${s.code}</span><span>${esc(s.name)}</span><span class="row">${lvlPill(x.level)} → ${lvlPill(x.target)}</span><span class="hint">${tk.length?esc(tk[0].st):'задачи нет'}</span></div>`}).join('')}</div><p class="hint">При достижении целей: +${g.reduce((p,s)=>p+(a.answers[s.code].target-(a.answers[s.code].level||0)),0)} баллов.</p>`:'<p class="hint">Целевые уровни не заданы.</p>'}`}
+  ];
+}
+function renderPres(){
+  let el=$('#pres');
+  if(S.pres==null){if(el)el.remove();document.removeEventListener('keydown',presKey);return}
+  const a=curA(),sl=slides(a),i=Math.max(0,Math.min(S.pres,sl.length-1));S.pres=i;
+  if(!el){el=document.createElement('div');el.id='pres';el.className='pres';el.setAttribute('role','dialog');el.setAttribute('aria-label','Презентация самооценки');document.body.appendChild(el);document.addEventListener('keydown',presKey)}
+  el.innerHTML=`<div class="ps-slide">${sl[i].h}</div>
+   <div class="ps-sign">${esc(SIGNATURE)}<br>Подготовил: ${esc(me().name)}</div>
+   <div class="ps-ctl"><button type="button" data-ps="prev" aria-label="Назад">‹</button><span>${i+1} / ${sl.length} · ${esc(sl[i].t)}</span><button type="button" data-ps="next" aria-label="Вперёд">›</button><button type="button" data-ps="fs" aria-label="На весь экран">⤢</button><button type="button" data-ps="x" aria-label="Закрыть">✕</button></div>`;
+}
+function presKey(e){if(S.pres==null)return;if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();S.pres++;renderPres()}else if(e.key==='ArrowLeft'){S.pres=Math.max(0,S.pres-1);renderPres()}else if(e.key==='Escape'){closePres()}}
+function closePres(){S.pres=null;try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}renderPres()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ps]');if(!b)return;const k=b.dataset.ps;
+  if(k==='next'){S.pres++;renderPres()}else if(k==='prev'){S.pres=Math.max(0,S.pres-1);renderPres()}else if(k==='x')closePres();
+  else if(k==='fs'){const el=$('#pres');try{document.fullscreenElement?document.exitFullscreen():el.requestFullscreen().catch(()=>toast('Полный экран недоступен в этом просмотре'))}catch(err){toast('Полный экран недоступен в этом просмотре')}}});
+
+/* ---------- theme, toast ---------- */
+let tt;function toast(m){const el=$('#toast');el.textContent=m;el.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('on'),2600)}
+$('#theme').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const th=b.dataset.th;
+  if(th==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',th);
+  [...$('#theme').children].forEach(x=>x.setAttribute('aria-pressed',x===b))});
+render();
+})();
+</script>

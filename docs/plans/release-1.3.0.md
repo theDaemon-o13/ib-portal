@@ -1,6 +1,6 @@
 # Релиз 1.3.0 — этап Д «Самооценка уровня кибербезопасности» (план на «ок»)
 
-Главный документ — `docs/self-assessment.md` (спецификация). Методика — `backend/prisma/seed/assessment-methodology.json`, прототип — `docs/prototype/self-assessment-demo.html`, исходный файл для тестов — `backend/test/fixtures/Chek_list_oczenki_urovnya_kiberbezopasnosti_9b2960eda6.xlsx`.
+Главный документ — `docs/self-assessment.md` (спецификация). Методика — `backend/prisma/seed/assessment-methodology.json`, прототип — `docs/prototype/self-assessment-demo.html`, исходный файл для тестов — `backend/test/fixtures/cyber-checklist-2025.xlsx`.
 
 Правила работы — как в 1.2.0: план до кода, один коммит на задачу и push после каждого; после каждого — typecheck, lint, test, test:db, check:integrity, e2e затронутого (весь e2e — в конце этапа); миграции только расширяют схему и совместимы с backend 1.2.0, у каждой — «Влияние на данные»; документация вместе с кодом; выкладки нет. В конце: VERSION 1.3.0, CHANGELOG, тег v1.3.0, `dist/changes-1.3.0.zip`.
 
