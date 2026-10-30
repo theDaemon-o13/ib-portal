@@ -37,9 +37,21 @@ export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName
   });
 }
 
+/** Переводчик языка без файла у документа на этапе 15 (1.2.0): может загрузить файл перевода и без прав. */
+export async function isPendingTranslator(db: Db, userId: string): Promise<boolean> {
+  const rows = await db.$queryRaw<{ ok: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1 FROM document_translations t
+      JOIN documents d ON d.working_version_id = t.version_id AND d.deleted_at IS NULL AND d.archived_at IS NULL
+      JOIN document_versions v ON v.id = t.version_id AND v.stage = 15
+      WHERE t.translator_id = ${userId}::uuid AND t.removed_at IS NULL
+    ) AS ok`;
+  return rows[0]?.ok === true;
+}
+
 // ---------------------------------------------------------------- ссылки и доступ
 
-const DOC_FILE_KIND: Record<string, string> = { draft: 'Файл драфта', head_approved: 'Одобренная начальником ИБ', final: 'Финальная' };
+const DOC_FILE_KIND: Record<string, string> = { draft: 'Файл драфта', head_approved: 'Одобренная начальником ИБ', final: 'Финальная', response: 'Ответ ответственного лица', translation: 'Перевод' };
 
 export interface FileRef {
   kind: 'evidence' | 'decision' | 'document_pdf' | 'document_file' | 'record' | 'compare';

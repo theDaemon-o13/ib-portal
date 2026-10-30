@@ -66,6 +66,9 @@ model User {
   approvedDocParties   DocumentParty[]      @relation("DocumentPartyApprover")
   removedDocParties    DocumentParty[]      @relation("DocumentPartyRemover")
   documentDeadlineChanges DocumentDeadlineChange[]
+  translatedDocs       DocumentTranslation[] @relation("DocumentTranslator")
+  addedDocTranslations DocumentTranslation[] @relation("DocumentTranslationAdder")
+  removedDocTranslations DocumentTranslation[] @relation("DocumentTranslationRemover")
   openedDocBlockers    DocumentBlocker[]    @relation("DocumentBlockerOpener")
   resolvedDocBlockers  DocumentBlocker[]    @relation("DocumentBlockerResolver")
   deletedFiles         File[]               @relation("FileDeleter")
@@ -911,6 +914,7 @@ model Document {
   comments        DocumentComment[]
   files           DocumentFile[]
   parties         DocumentParty[]
+  translations    DocumentTranslation[]
   deadlineChanges DocumentDeadlineChange[]
   blockers        DocumentBlocker[]
   events          AutomationEvent[]
@@ -959,6 +963,7 @@ model DocumentVersion {
   comments   DocumentComment[]
   files      DocumentFile[]
   parties    DocumentParty[]
+  translations DocumentTranslation[]
   blockers   DocumentBlocker[]
 
   @@unique([documentId, no])
@@ -1013,7 +1018,7 @@ model DocumentComment {
 
 /// Файлы версии документа (релиз 1.2.0): draft — файлы драфта (снимаются на этапе 11), head_approved — версия,
 /// одобренная начальником ИБ (13 → 14), final — финальная версия (14 → 15), response — ответ ответственного лица
-/// (этап 14, party_id). Зафиксированные файлы не снимаются.
+/// (этап 14, party_id), translation — файл перевода (этап 15, translation_id). Зафиксированные файлы не снимаются.
 model DocumentFile {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   documentId String    @map("document_id") @db.Uuid
@@ -1028,10 +1033,13 @@ model DocumentFile {
   removedBy  String?   @map("removed_by") @db.Uuid
   /// Ответ ответственного лица (kind = response).
   partyId    String?   @map("party_id") @db.Uuid
+  /// Файл перевода (kind = translation).
+  translationId String? @map("translation_id") @db.Uuid
 
   document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
   version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
   party    DocumentParty?  @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  translation DocumentTranslation? @relation(fields: [translationId], references: [id], onDelete: Restrict)
   file     File            @relation(fields: [fileId], references: [id], onDelete: Restrict)
   adder    User            @relation("DocumentFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
   remover  User?           @relation("DocumentFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
@@ -1079,6 +1087,7 @@ model DocumentDeadlineChange {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   documentId String   @map("document_id") @db.Uuid
   partyId    String?  @map("party_id") @db.Uuid
+  translationId String? @map("translation_id") @db.Uuid
   fromDate   DateTime @map("from_date") @db.Date
   toDate     DateTime @map("to_date") @db.Date
   comment    String
@@ -1087,10 +1096,38 @@ model DocumentDeadlineChange {
 
   document Document       @relation(fields: [documentId], references: [id], onDelete: Restrict)
   party    DocumentParty? @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  translation DocumentTranslation? @relation(fields: [translationId], references: [id], onDelete: Restrict)
   actor    User           @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([documentId, at])
   @@map("document_deadline_changes")
+}
+
+/// Переводы этапа 15 (релиз 1.2.0, этап Г4): язык, переводчик — пользователь портала, срок; перевод готов, когда
+/// приложен файл (document_files, вид translation). 15 → 16 — когда у каждого языка есть файл.
+model DocumentTranslation {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId   String    @map("document_id") @db.Uuid
+  versionId    String    @map("version_id") @db.Uuid
+  language     String
+  translatorId String    @map("translator_id") @db.Uuid
+  dueDate      DateTime  @map("due_date") @db.Date
+  addedBy      String    @map("added_by") @db.Uuid
+  addedAt      DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy    String?   @map("removed_by") @db.Uuid
+
+  document        Document                 @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version         DocumentVersion          @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  translator      User                     @relation("DocumentTranslator", fields: [translatorId], references: [id], onDelete: Restrict)
+  adder           User                     @relation("DocumentTranslationAdder", fields: [addedBy], references: [id], onDelete: Restrict)
+  remover         User?                    @relation("DocumentTranslationRemover", fields: [removedBy], references: [id], onDelete: Restrict)
+  files           DocumentFile[]
+  deadlineChanges DocumentDeadlineChange[]
+
+  @@index([versionId])
+  @@index([translatorId])
+  @@map("document_translations")
 }
 
 /// Блокеры документа (релиз 1.2.0): что мешает двигать документ дальше. Открывают и снимают автор, старшие над автором

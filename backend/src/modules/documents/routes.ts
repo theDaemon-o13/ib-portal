@@ -6,6 +6,7 @@ import { requireAuth, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as svc from './service.js';
+import * as translations from './translations.js';
 import { DOC_ACTIONS, DOC_STATUSES } from './status.js';
 
 const tags = ['documents'];
@@ -79,6 +80,7 @@ const DocDetail = DocItem.extend({
     parties: z.boolean(),
     approveParties: z.boolean(),
     blockers: z.boolean(),
+    translations: z.boolean(),
     manage: z.boolean(),
   }),
   blockedReason: z.string().nullable(),
@@ -99,6 +101,13 @@ const DocDetail = DocItem.extend({
     files: z.array(z.object({ id: z.string(), file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }) })),
     /** История сроков: было, стало, комментарий. */
     deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
+  })),
+  /** Переводы этапа 15 (сотрудникам ИБ и переводчикам): готов, когда приложен файл. */
+  translations: z.array(z.object({
+    id: z.string(), language: z.string(), translator: Person, dueDate: z.string(), done: z.boolean(), overdue: z.boolean(),
+    files: z.array(z.object({ id: z.string(), file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }) })),
+    deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
+    canUpload: z.boolean(),
   })),
   blockers: z.array(z.object({
     id: z.string(), text: z.string(), openedBy: z.string(), openedAt: z.string(),
@@ -365,6 +374,62 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     schema: { tags, summary: 'Снять файл ответа ответственного лица', params: IdParams.extend({ linkId: z.string().uuid() }), body: At, response: { 200: Result, ...errors } },
   }, async (request) => {
     await parties.removeResponseFile(db, actorOf(request), request.params.id, request.params.linkId, request.body);
+    return result(request, request.params.id);
+  });
+
+  const TrParams = IdParams.extend({ translationId: z.string().uuid() });
+  app.post('/documents/:id/translations', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, docs.approve.head; этапы 11–15',
+      params: IdParams,
+      body: At.extend({ language: z.string().max(translations.LANGUAGE_MAX), translatorId: z.string().uuid(), dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await translations.addTranslation(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.patch('/documents/:id/translations/:translationId', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Правка перевода; смена срока — только с комментарием (история сроков)', params: TrParams,
+      body: At.extend({
+        language: z.string().max(translations.LANGUAGE_MAX).optional(), translatorId: z.string().uuid().optional(),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), comment: z.string().max(svc.COMMENT_MAX).optional(),
+      }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await translations.updateTranslation(db, actorOf(request), request.params.id, request.params.translationId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/translations/:translationId/remove', {
+    preHandler: anyUser,
+    schema: { tags, summary: 'Снять язык без файла перевода', params: TrParams, body: At, response: { 200: Result, ...errors } },
+  }, async (request) => {
+    await translations.removeTranslation(db, actorOf(request), request.params.id, request.params.translationId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/translations/:translationId/files', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, docs.approve.head', params: TrParams,
+      body: At.extend({ fileIds: z.array(z.string().uuid()).min(1).max(20) }), response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await translations.addTranslationFiles(db, actorOf(request), request.params.id, request.params.translationId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/translations/:translationId/files/:linkId/remove', {
+    preHandler: anyUser,
+    schema: { tags, summary: 'Снять файл перевода', params: TrParams.extend({ linkId: z.string().uuid() }), body: At, response: { 200: Result, ...errors } },
+  }, async (request) => {
+    await translations.removeTranslationFile(db, actorOf(request), request.params.id, request.params.translationId, request.params.linkId, request.body);
     return result(request, request.params.id);
   });
 

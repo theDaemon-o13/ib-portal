@@ -62,6 +62,13 @@ export const docsApi = {
   removeParty: (id: string, partyId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/remove`, body),
   approveParty: (id: string, partyId: string, body: At & { comment?: string; fileIds?: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/approve`, body),
   removeResponse: (id: string, linkId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/responses/${linkId}/remove`, body),
+  /** Этап 15: переводы — язык, переводчик (пользователь портала), срок, файл перевода. */
+  addTranslation: (id: string, body: At & { language: string; translatorId: string; dueDate: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
+  updateTranslation: (id: string, tid: string, body: At & { language?: string; translatorId?: string; dueDate?: string; comment?: string }) =>
+    request<DocResult>('PATCH', `/api/v1/documents/${id}/translations/${tid}`, body),
+  removeTranslation: (id: string, tid: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/remove`, body),
+  addTranslationFiles: (id: string, tid: string, body: At & { fileIds: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/files`, body),
+  removeTranslationFile: (id: string, tid: string, linkId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/files/${linkId}/remove`, body),
   addBlocker: (id: string, body: At & { text: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers`, body),
   resolveBlocker: (id: string, blockerId: string, body: At & { comment: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers/${blockerId}/resolve`, body),
   revise: (id: string, body: DocRevise) => request<DocResult>('POST', `/api/v1/documents/${id}/revise`, body),

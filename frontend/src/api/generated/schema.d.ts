@@ -22732,6 +22732,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -22795,6 +22796,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -23204,6 +23234,7 @@ export interface paths {
                                 parties: boolean;
                                 approveParties: boolean;
                                 blockers: boolean;
+                                translations: boolean;
                                 manage: boolean;
                             };
                             blockedReason: string | null;
@@ -23267,6 +23298,35 @@ export interface paths {
                                     actor: string;
                                     at: string;
                                 }[];
+                            }[];
+                            translations: {
+                                id: string;
+                                language: string;
+                                translator: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                dueDate: string;
+                                done: boolean;
+                                overdue: boolean;
+                                files: {
+                                    id: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                }[];
+                                deadlines: {
+                                    from: string;
+                                    to: string;
+                                    comment: string;
+                                    actor: string;
+                                    at: string;
+                                }[];
+                                canUpload: boolean;
                             }[];
                             blockers: {
                                 id: string;
@@ -23559,6 +23619,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -23622,6 +23683,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -23917,6 +24007,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -23980,6 +24071,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -24278,6 +24398,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -24341,6 +24462,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -24636,6 +24786,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -24699,6 +24850,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -24995,6 +25175,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -25058,6 +25239,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -25354,6 +25564,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -25417,6 +25628,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -25711,6 +25951,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -25774,6 +26015,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -26074,6 +26344,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -26137,6 +26408,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -26443,6 +26743,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -26506,6 +26807,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -26798,6 +27128,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -26861,6 +27192,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -27159,6 +27519,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -27222,6 +27583,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -27519,6 +27909,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -27582,6 +27973,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -27878,6 +28298,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -27941,6 +28362,1990 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, docs.approve.head; этапы 11–15 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        language: string;
+                        /** Format: uuid */
+                        translatorId: string;
+                        dueDate: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/translations/{translationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Правка перевода; смена срока — только с комментарием (история сроков) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    translationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        language?: string;
+                        /** Format: uuid */
+                        translatorId?: string;
+                        dueDate?: string;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/translations/{translationId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Снять язык без файла перевода */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    translationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/translations/{translationId}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, docs.approve.head */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    translationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        fileIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/translations/{translationId}/files/{linkId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Снять файл перевода */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    translationId: string;
+                    linkId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -28237,6 +30642,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -28300,6 +30706,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -28597,6 +31032,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -28660,6 +31096,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -28955,6 +31420,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -29018,6 +31484,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -29316,6 +31811,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -29379,6 +31875,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -29673,6 +32198,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -29736,6 +32262,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;
@@ -30030,6 +32585,7 @@ export interface paths {
                                     parties: boolean;
                                     approveParties: boolean;
                                     blockers: boolean;
+                                    translations: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -30093,6 +32649,35 @@ export interface paths {
                                         actor: string;
                                         at: string;
                                     }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translator: {
+                                        id: string;
+                                        fullName: string;
+                                    };
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
                                 }[];
                                 blockers: {
                                     id: string;

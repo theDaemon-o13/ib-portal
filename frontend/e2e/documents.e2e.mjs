@@ -281,7 +281,36 @@ describe('Документы: маршрут 1.2.0', () => {
     await pickInForm('Ознакомлен с финальной версией', 'Финальная.pdf');
     await act('Ознакомлен с финальной версией', 'POST', `/api/v1/documents/${id}/actions/ack_final`);
     await ui.waitFor(`${stepState('Перевод')}?.includes('cur')`, 'этап — перевод');
-    await routeStep(users.head, id, 'to_signing');
+
+    // Этап 15: язык и переводчик — читатель документов (пользователь портала без ib.work).
+    await ui.click($.button('Добавить язык', panel));
+    const tf = `${panel}.querySelector('form[aria-label="Язык перевода"]')`;
+    await ui.type(label('Язык', tf), 'Таджикский');
+    await ui.waitFor(`!!${label('Переводчик', tf)}?.querySelector('option[value="${users.legal.id}"]')`, 'переводчик в списке');
+    await ui.select(label('Переводчик', tf), users.legal.id);
+    await ui.evaluate(`(() => { const el = ${label('Срок перевода', tf)};
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(portalToday())});
+      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
+    await ui.waitFor(`!!${panel}.querySelector('[data-translation="Таджикский"]')`, 'язык в карточке');
+    assert.equal(await ui.evaluate(`!!${$.button('На подписание', panel)}`), false, 'без перевода шага нет');
+    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /файл перевода: осталось 1/);
+
+    // Переводчик: документ «ждёт вас», прикладывает перевод.
+    await loginAs(users.legal);
+    await openDocs(id);
+    await ui.waitFor(`${row(title)}?.textContent.includes('ждёт вас')`, 'у переводчика — «ждёт вас»');
+    const trRow = `${panel}.querySelector('[data-translation="Таджикский"]')`;
+    await ui.click($.button('Приложить перевод', trRow));
+    await pickInForm('Файл перевода', 'Таджикский.pdf');
+    await act('Приложить', 'POST', '/files');
+    await ui.waitFor(`${trRow}?.textContent.includes('перевод приложен')`, 'перевод приложен');
+
+    // Руководитель автора переводит на подписание.
+    await loginAs(users.chief);
+    await openDocs(id);
+    await ui.click($.button('На подписание', panel));
+    await act('На подписание', 'POST', `/api/v1/documents/${id}/actions/to_signing`);
 
     // Автор загружает подписанный PDF и дату подписания.
     await loginAs(users.owner);

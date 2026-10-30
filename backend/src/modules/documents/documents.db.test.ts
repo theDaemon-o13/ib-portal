@@ -8,6 +8,7 @@ import { todayIso } from '../../lib/today.js';
 import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from '../../test/db.js';
 import type { Actor } from '../settings/common.js';
 import * as parties from './parties.js';
+import * as tr from './translations.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
 import { addMonthsIso, FIXED_FILE, type DocAction } from './status.js';
@@ -712,5 +713,71 @@ describe('документы: блокеры (Г3)', () => {
       await open(x.head, 'Ждём оригинал с подписью');
       await expectCode(sign(tx, x.owner, id), 'BLOCKERS_OPEN');
       expect((await view(tx, x.owner, id)).can.sign).toBe(false);
+    }));
+});
+
+describe('документы: этап 15 — перевод (Г4)', () => {
+  it('15 → 16 — когда у каждого языка есть файл; переводчик — пользователь портала, видит документ и прикладывает перевод', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      const add = async (u: User, language: string, translatorId: string, dueDate = '2026-11-20') =>
+        tr.addTranslation(tx, await x.as(u), id, { ...(await cur(tx, id)), language, translatorId, dueDate });
+      await expectCode(add(x.staff, 'Таджикский', x.legal.id), 'FORBIDDEN');
+      await add(x.owner, 'Таджикский', x.legal.id);
+      await expectCode(add(x.owner, ' таджикский ', x.staff.id), 'DUPLICATE');
+      await add(x.chief, 'Английский', x.staff.id);
+      const kiosk = await makeUser(tx, ['kiosk']);
+      await expectCode(add(x.owner, 'Узбекский', kiosk.id), 'BAD_TRANSLATOR');
+
+      // Читатель-переводчик до этапа 15 документа не видит как «ждёт вас», но видит его на маршруте.
+      expect((await list(tx, x.legal)).find((d) => d.id === id)).toMatchObject({ waitingForMe: false });
+      await moveTo(tx, x, id, 15);
+      expect((await list(tx, x.legal)).find((d) => d.id === id)).toMatchObject({ waitingForMe: true, stage: 15 });
+      await expectCode(move(tx, x.head, id, 'to_signing'), 'TRANSLATIONS_MISSING');
+      let d = await view(tx, x.head, id);
+      expect(d.blockedReason).toMatch(/осталось 2/);
+      const [tj, en] = [must(d.translations[0]), must(d.translations[1])];
+
+      const file = async (u: User, name = 'Перевод.docx') => (await makeFileRow(tx, u.id, { name, mime: MIME_BY_EXT.docx })).id;
+      const upload = async (u: User, tid: string, fid: string) => tr.addTranslationFiles(tx, await x.as(u), id, tid, { ...(await cur(tx, id)), fileIds: [fid] });
+      await expectCode(upload(x.staff, tj.id, await file(x.staff)), 'FORBIDDEN');
+      await expectCode(upload(x.legal, tj.id, (await makeFileRow(tx, x.legal.id, { name: 'а.png', mime: MIME_BY_EXT.png })).id), 'BAD_FILE_TYPE');
+      const reader = await view(tx, x.legal, id, { history: false });
+      expect(reader.translations.find((t) => t.id === tj.id)?.canUpload).toBe(true);
+      await upload(x.legal, tj.id, await file(x.legal, 'Таджикский.docx'));
+      expect((await list(tx, x.legal)).find((i) => i.id === id)?.waitingForMe).toBe(false);
+      await expectCode(move(tx, x.head, id, 'to_signing'), 'TRANSLATIONS_MISSING');
+      await upload(x.staff, en.id, await file(x.staff, 'English.docx'));
+      d = await view(tx, x.head, id);
+      expect(d.translations.map((t) => [t.language, t.done, t.files.map((f) => f.file.name)])).toEqual([
+        ['Таджикский', true, ['Таджикский.docx']], ['Английский', true, ['English.docx']],
+      ]);
+      expect(d.files.some((f) => f.file.name === 'English.docx')).toBe(false);
+      // Язык с файлом не снимается.
+      await expectCode(tr.removeTranslation(tx, await x.as(x.owner), id, en.id, await cur(tx, id)), 'HAS_FILES');
+      await move(tx, x.chief, id, 'to_signing');
+      expect((await cur(tx, id)).stage).toBe(16);
+      // После этапа 15 файлы перевода не меняются.
+      await expectCode(upload(x.staff, en.id, await file(x.staff)), 'WRONG_STAGE');
+    }));
+
+  it('срок перевода меняется только с комментарием, в общую историю сроков; язык без файла снимается', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorId: x.staff.id, dueDate: '2020-01-10' });
+      const t = must((await view(tx, x.owner, id)).translations[0]);
+      expect(t.overdue).toBe(true);
+      const patch = async (body: { dueDate?: string; comment?: string; translatorId?: string }) =>
+        tr.updateTranslation(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), ...body });
+      await expectCode(patch({ dueDate: '2020-01-20' }), 'EMPTY_COMMENT');
+      await patch({ dueDate: '2020-01-20', comment: 'Переводчик в отпуске', translatorId: x.chief.id });
+      const after = must((await view(tx, x.owner, id)).translations[0]);
+      expect(after).toMatchObject({ dueDate: '2020-01-20', translator: { fullName: 'Руководитель автора' } });
+      expect(after.deadlines).toEqual([expect.objectContaining({ from: '2020-01-10', to: '2020-01-20', comment: 'Переводчик в отпуске' })]);
+      await tr.removeTranslation(tx, await x.as(x.owner), id, t.id, await cur(tx, id));
+      expect((await view(tx, x.owner, id)).translations).toEqual([]);
+      expect(await sqlError(tx, `DELETE FROM document_translations WHERE id = '${t.id}'`)).toMatch(/permission denied/);
     }));
 });

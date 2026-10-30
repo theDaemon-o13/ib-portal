@@ -1,11 +1,11 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
-import { badRequest } from '../../lib/errors.js';
+import { badRequest, forbidden } from '../../lib/errors.js';
 import { MAX_FILE_BYTES } from '../../lib/file-type.js';
 import type { FileStore } from '../../lib/file-store.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requireAnyPerm, requireAuth } from '../../plugins/rbac.js';
+import { requireAuth } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -24,9 +24,11 @@ export const FileOut = z.object({
   deleted: z.boolean(),
 });
 
-// Загружают сотрудники ИБ (доказательства, решения) и участники документооборота (файлы версии, подписанный PDF).
+// Загружают сотрудники ИБ (доказательства, решения), участники документооборота (файлы версии, подписанный PDF)
+// и переводчики документа на этапе 15 — даже без прав (1.2.0, ADR-0024): проверка — в обработчике.
 // Читать файл может любой вошедший (и «Читатель документов» без прав, 1.2.0) — дальше решают ссылки на файл (сервис).
-const uploaders = requireAnyPerm(['ib.work', 'docs.manage', 'docs.approve.head']);
+const UPLOAD_PERMS = ['ib.work', 'docs.manage', 'docs.approve.head'] as const;
+const signedIn = requireAuth();
 const readers = requireAuth();
 
 /** Имя для Content-Disposition: ASCII-запасное и полное в UTF-8 (RFC 6266 / 5987). */
@@ -38,7 +40,7 @@ function disposition(name: string): string {
 
 export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
   app.post('/files', {
-    preHandler: uploaders,
+    preHandler: signedIn,
     bodyLimit: MAX_FILE_BYTES,
     schema: {
       tags,
@@ -48,6 +50,8 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
       response: { 201: FileOut, ...errors },
     },
   }, async (request, reply) => {
+    const actor = actorOf(request);
+    if (!UPLOAD_PERMS.some((c) => request.user?.permissions.has(c)) && !(await svc.isPendingTranslator(db, actor.id))) throw forbidden();
     const body = request.body;
     if (!Buffer.isBuffer(body)) throw badRequest('BAD_BODY', 'Файл передаётся телом запроса (application/octet-stream)');
     let name: string;
@@ -56,7 +60,7 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
     } catch {
       throw badRequest('BAD_FILE_NAME', 'Имя файла передано неверно');
     }
-    return reply.status(201).send(await svc.uploadFile(db, store, actorOf(request), name, body));
+    return reply.status(201).send(await svc.uploadFile(db, store, actor, name, body));
   });
 
   app.get('/files/:id', {

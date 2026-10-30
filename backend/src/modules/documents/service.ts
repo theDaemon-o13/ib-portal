@@ -91,14 +91,21 @@ export interface RouteFacts {
   /** Ближайший срок несогласовавшего лица (YYYY-MM-DD). */
   nearestDue: string | null;
   openBlockers: number;
+  /** Этап 15 (Г4): языки перевода и сколько из них без файла. */
+  translations: number;
+  missingTranslations: number;
+  /** Переводчики языков без файла: документ ждёт их. */
+  pendingTranslators: readonly string[];
+  /** Все переводчики версии: им виден документ на маршруте. */
+  translators: readonly string[];
 }
-const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0 };
+const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, pendingTranslators: [], translators: [] };
 
 async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<string, RouteFacts>> {
   const map = new Map<string, RouteFacts>();
   if (!versionIds.length) return map;
   const ids = [...new Set(versionIds)];
-  const [parties, blockers] = await Promise.all([
+  const [parties, blockers, translations] = await Promise.all([
     db.$queryRaw<{ version_id: string; total: bigint; pending: bigint; due: Date | null }[]>`
       SELECT version_id::text, count(*) AS total, count(*) FILTER (WHERE approved_at IS NULL) AS pending,
              min(due_date) FILTER (WHERE approved_at IS NULL) AS due
@@ -106,10 +113,24 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
     db.$queryRaw<{ version_id: string; open: bigint }[]>`
       SELECT version_id::text, count(*) AS open FROM document_blockers
       WHERE version_id = ANY(${ids}::uuid[]) AND resolved_at IS NULL GROUP BY version_id`,
+    db.$queryRaw<{ version_id: string; translator_id: string; has_file: boolean }[]>`
+      SELECT t.version_id::text, t.translator_id::text,
+             EXISTS (SELECT 1 FROM document_files f WHERE f.translation_id = t.id AND f.removed_at IS NULL) AS has_file
+      FROM document_translations t WHERE t.version_id = ANY(${ids}::uuid[]) AND t.removed_at IS NULL`,
   ]);
   const get = (id: string) => map.get(id) ?? { ...NO_FACTS };
   for (const p of parties) map.set(p.version_id, { ...get(p.version_id), parties: Number(p.total), pending: Number(p.pending), nearestDue: p.due?.toISOString().slice(0, 10) ?? null });
   for (const b of blockers) map.set(b.version_id, { ...get(b.version_id), openBlockers: Number(b.open) });
+  for (const t of translations) {
+    const f = get(t.version_id);
+    map.set(t.version_id, {
+      ...f,
+      translations: f.translations + 1,
+      missingTranslations: f.missingTranslations + (t.has_file ? 0 : 1),
+      pendingTranslators: t.has_file ? f.pendingTranslators : [...f.pendingTranslators, t.translator_id],
+      translators: [...f.translators, t.translator_id],
+    });
+  }
   return map;
 }
 
@@ -181,6 +202,9 @@ function gate(w: Who, d: DocRow, action: DocAction | 'sign'): { code: string; re
   if (f.openBlockers > 0) return { code: 'BLOCKERS_OPEN', reason: `Открытых блокеров: ${f.openBlockers}. Снимите их, чтобы двигать документ дальше` };
   if (action === 'ack_final' && f.parties === 0) return { code: 'NO_PARTIES', reason: 'Добавьте ответственных лиц и отметьте их согласование' };
   if (action === 'ack_final' && f.pending > 0) return { code: 'PARTIES_PENDING', reason: `Не все ответственные лица согласовали: осталось ${f.pending}` };
+  if (action === 'to_signing' && f.missingTranslations > 0) {
+    return { code: 'TRANSLATIONS_MISSING', reason: `Не у всех языков есть файл перевода: осталось ${f.missingTranslations}` };
+  }
   return null;
 }
 
@@ -206,6 +230,8 @@ function waitsFor(w: Who, d: DocRow): boolean {
   const v = activeWorking(d);
   if (!v) return false;
   if (v.stage === 11 || v.stage === 12 || v.stage === SIGN_STAGE) return d.ownerId === w.a.userId;
+  // Этап 15: переводчика ждёт его язык, пока нет файла перевода (Г4).
+  if (v.stage === 15 && (w.facts.get(v.id)?.pendingTranslators ?? []).includes(w.a.userId)) return true;
   // Только возврат (свой документ при другом начальнике ИБ) — не ждёт: ждут тех, кто может перевести дальше.
   return actionsOf(w, d).some((x) => x !== 'return');
 }
@@ -218,9 +244,12 @@ function shownVersion(w: Who, d: DocRow): VersionRow | null {
   if (w.a.ibWork) return activeWorking(d) ?? d.workingVersion ?? d.approvedVersion;
   if (d.archivedAt) return null;
   const v = activeWorking(d);
-  if (v && (waitsFor(w, d) || (w.acted.get(v.id) ?? []).includes(v.round))) return v;
+  if (v && (waitsFor(w, d) || (w.acted.get(v.id) ?? []).includes(v.round) || isTranslator(w, v))) return v;
   return d.approvedVersion;
 }
+
+/** Переводчик языка этой версии (Г4): ему документ виден и без ib.work. */
+const isTranslator = (w: Who, v: VersionRow) => (w.facts.get(v.id)?.translators ?? []).includes(w.a.userId);
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 const isoDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null;
@@ -402,9 +431,10 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     ? { at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment }
     : null;
 
-  const [fileRows, commentRows, partyRows, blockerRows] = await Promise.all([
+  const translatorHere = workingShown && isTranslator(who, working);
+  const [fileRows, commentRows, partyRows, blockerRows, translationRows] = await Promise.all([
     db.documentFile.findMany({
-      where: { versionId: shown.id, removedAt: null, kind: { not: 'response' } },
+      where: { versionId: shown.id, removedAt: null, kind: { notIn: ['response', 'translation'] } },
       include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } }, adder: { select: { fullName: true } } },
       orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
     }),
@@ -429,6 +459,18 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
         where: { versionId: shown.id },
         include: { opener: { select: { fullName: true } }, resolver: { select: { fullName: true } } },
         orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+      })
+      : [],
+    // Переводы (Г4) — сотрудникам ИБ и переводчикам этой версии.
+    a.ibWork || translatorHere
+      ? db.documentTranslation.findMany({
+        where: { versionId: shown.id, removedAt: null },
+        include: {
+          translator: { select: { id: true, fullName: true } },
+          files: { where: { removedAt: null }, include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } }, orderBy: { addedAt: 'asc' } },
+          deadlineChanges: { include: { actor: { select: { fullName: true } } }, orderBy: { at: 'desc' } },
+        },
+        orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
       })
       : [],
   ]);
@@ -458,6 +500,8 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     approveParties: workingShown && working.stage === 14 && (author || roles.has('head')),
     /** Блокеры: автор, старшие над автором, начальник ИБ — на любом этапе маршрута. */
     blockers: workingShown && (author || roles.has('senior') || roles.has('head')),
+    /** Переводы: языки ведут автор, старшие над автором и начальник ИБ на этапах 11–15. */
+    translations: workingShown && working.stage >= 11 && working.stage <= 15 && (author || roles.has('senior') || roles.has('head')),
     manage: a.manage,
   };
   const stuck = workingShown && actions.length === 0 && !sign;
@@ -494,6 +538,21 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
           id: f.id, file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
         })),
         deadlines: p.deadlineChanges.map((c) => ({ from: isoDay(c.fromDate) ?? '', to: isoDay(c.toDate) ?? '', comment: c.comment, actor: c.actor.fullName, at: c.at.toISOString() })),
+      };
+    }),
+    translations: translationRows.map((t) => {
+      const due = isoDay(t.dueDate) ?? '';
+      const manager = author || roles.has('senior') || roles.has('head');
+      return {
+        id: t.id, language: t.language, translator: t.translator, dueDate: due,
+        done: t.files.length > 0,
+        overdue: t.files.length === 0 && due < today,
+        files: t.files.map((f) => ({
+          id: f.id, file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
+        })),
+        deadlines: t.deadlineChanges.map((c) => ({ from: isoDay(c.fromDate) ?? '', to: isoDay(c.toDate) ?? '', comment: c.comment, actor: c.actor.fullName, at: c.at.toISOString() })),
+        /** Приложить и снять файл перевода — на этапе 15: переводчик, автор, старший над автором, начальник ИБ. */
+        canUpload: workingShown && working.stage === 15 && (t.translatorId === a.userId || manager),
       };
     }),
     blockers: blockerRows.map((b) => ({

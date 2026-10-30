@@ -1,4 +1,4 @@
-// Этап 14 «Согласование с ответственными лицами» и блокеры документа (релиз 1.2.0, этап Г3, ADR-0024).
+// Этапы 14 и 15 и блокеры документа (релиз 1.2.0, этапы Г3–Г4, ADR-0024): ответственные лица, переводы, блокеры.
 // Решает всегда backend: кнопки видны по d.can, ошибки — через onError карточки.
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -30,7 +30,7 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
   const [form, setForm] = useState(empty);
   const [comment, setComment] = useState('');
   const [files, setFiles] = useState<FileInfo[]>([]);
-  const people = useQuery({ queryKey: ['settings', 'userOptions'], queryFn: settingsApi.userOptions, enabled: mode?.kind === 'add' });
+  const people = useQuery({ queryKey: ['settings', 'userOptions', 'all'], queryFn: settingsApi.allUserOptions, enabled: mode?.kind === 'add' });
 
   const close = () => { setMode(null); setForm(empty); setComment(''); setFiles([]); };
   const done = async (r: DocResult, text: string) => { close(); await onDone(r, text); };
@@ -169,6 +169,94 @@ export function DocumentBlockers({ d, at, onDone, onError }: Omit<Props, 'onPrev
           </label>
           <div className="row">
             <button className="btn primary" type="submit" disabled={busy || !text.trim()}>{mode.kind === 'add' ? 'Открыть блокер' : 'Снять блокер'}</button>
+            <button className="btn" type="button" onClick={close}>Отмена</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+type Translation = DocDetail['translations'][number];
+type TrMode = { kind: 'add' } | { kind: 'due' | 'upload'; t: Translation } | null;
+
+/** Этап 15 «Перевод» (Г4): языки, переводчики, сроки; 15 → 16 — когда у каждого языка есть файл. */
+export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Props) {
+  const [mode, setMode] = useState<TrMode>(null);
+  const [form, setForm] = useState({ language: '', translatorId: '', dueDate: '' });
+  const [comment, setComment] = useState('');
+  const [files, setFiles] = useState<FileInfo[]>([]);
+  const people = useQuery({ queryKey: ['settings', 'userOptions', 'all'], queryFn: settingsApi.allUserOptions, enabled: mode?.kind === 'add' });
+  const close = () => { setMode(null); setForm({ language: '', translatorId: '', dueDate: '' }); setComment(''); setFiles([]); };
+  const done = async (r: DocResult, text: string) => { close(); await onDone(r, text); };
+  const add = useMutation({ mutationFn: () => docsApi.addTranslation(d.id, { ...at, ...form }), onSuccess: (r) => done(r, 'Язык перевода добавлен'), onError });
+  const due = useMutation({ mutationFn: (t: Translation) => docsApi.updateTranslation(d.id, t.id, { ...at, dueDate: form.dueDate, comment }), onSuccess: (r) => done(r, 'Срок перевода изменён'), onError });
+  const remove = useMutation({ mutationFn: (t: Translation) => docsApi.removeTranslation(d.id, t.id, at), onSuccess: (r) => done(r, 'Язык снят'), onError });
+  const upload = useMutation({ mutationFn: (t: Translation) => docsApi.addTranslationFiles(d.id, t.id, { ...at, fileIds: files.map((f) => f.id) }), onSuccess: (r, t) => done(r, `Перевод на ${t.language} приложен`), onError });
+  const removeFile = useMutation({ mutationFn: (x: { t: Translation; linkId: string }) => docsApi.removeTranslationFile(d.id, x.t.id, x.linkId, at), onSuccess: (r) => done(r, 'Файл перевода снят'), onError });
+  const busy = add.isPending || due.isPending || remove.isPending || upload.isPending || removeFile.isPending;
+  if (!d.translations.length && !d.can.translations) return null;
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+
+  return (
+    <div aria-label="Перевод">
+      <div className="eyebrow">Перевод</div>
+      {d.translations.length === 0 && <div className="hint">Языки не указаны: если перевод не нужен, документ пройдёт этап «Перевод» без файлов.</div>}
+      <div className="hist">
+        {d.translations.map((t) => (
+          <div key={t.id} className="hist-item" data-translation={t.language}>
+            <div><b>{t.language}</b> · переводчик {t.translator.fullName}</div>
+            <div className="row">
+              <span className={`mono${t.overdue ? ' late-t' : ''}`}>срок {formatDate(t.dueDate)}{t.overdue ? ' — просрочен' : ''}</span>
+              <span className={`chip${t.done ? ' low' : ''}`}>{t.done ? 'перевод приложен' : 'ждём перевод'}</span>
+              {!mode && t.canUpload && <button type="button" className="btn sm primary" disabled={busy} onClick={() => setMode({ kind: 'upload', t })}>Приложить перевод</button>}
+              {!mode && d.can.translations && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => { setForm({ ...form, dueDate: t.dueDate }); setMode({ kind: 'due', t }); }}>Срок</button>}
+              {!mode && d.can.translations && !t.done && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => remove.mutate(t)}>Снять</button>}
+            </div>
+            {t.files.map((f) => (
+              <div key={f.id} className="row">
+                <button type="button" className="btn ghost sm" onClick={() => onPreview({ id: f.file.id, name: f.file.name, mime: f.file.mime, size: f.file.size })}>{f.file.name}</button>
+                {t.canUpload && !mode && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => removeFile.mutate({ t, linkId: f.id })}>Снять</button>}
+              </div>
+            ))}
+            {t.deadlines.map((c) => <div key={c.at} className="hint">{formatDateTime(c.at)} · {c.actor}: срок {formatDate(c.from)} → {formatDate(c.to)} — {c.comment}</div>)}
+          </div>
+        ))}
+      </div>
+      {!mode && d.can.translations && <div className="row"><button type="button" className="btn sm" onClick={() => setMode({ kind: 'add' })}>Добавить язык</button></div>}
+      {mode?.kind === 'add' && (
+        <form className="task-form" aria-label="Язык перевода" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
+          <div className="fgrid">
+            <label>Язык<input className="inp" required maxLength={100} placeholder="например, таджикский" value={form.language} onChange={set('language')} /></label>
+            <label>Переводчик
+              <select className="inp" required value={form.translatorId} onChange={set('translatorId')}>
+                <option value="">— выберите —</option>
+                {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+              </select>
+            </label>
+            <label>Срок перевода<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
+          </div>
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy || !form.language.trim() || !form.translatorId || !form.dueDate}>Добавить</button>
+            <button className="btn" type="button" onClick={close}>Отмена</button>
+          </div>
+        </form>
+      )}
+      {mode?.kind === 'due' && (
+        <form className="task-form" aria-label="Срок перевода" onSubmit={(e) => { e.preventDefault(); due.mutate(mode.t); }}>
+          <label>Новый срок<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
+          <label>Почему меняется срок<textarea className="inp" required maxLength={4000} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy || !comment.trim() || !form.dueDate || form.dueDate === mode.t.dueDate}>Изменить срок</button>
+            <button className="btn" type="button" onClick={close}>Отмена</button>
+          </div>
+        </form>
+      )}
+      {mode?.kind === 'upload' && (
+        <form className="task-form" aria-label="Файл перевода" onSubmit={(e) => { e.preventDefault(); upload.mutate(mode.t); }}>
+          <FileUpload label={`Перевод на ${mode.t.language} (pdf или docx)`} accept=".pdf,.docx" allowed={['pdf', 'docx']} value={files} onChange={setFiles} required />
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy || !files.length}>Приложить</button>
             <button className="btn" type="button" onClick={close}>Отмена</button>
           </div>
         </form>
