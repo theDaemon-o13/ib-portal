@@ -18303,6 +18303,1036 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vulns/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Счётчики раздела: по узлам (открыто, просрочено, критических, не передано ИКТ), сканы узлов, сканы, ждущие передачи */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            nodes: {
+                                nodeId: string;
+                                open: number;
+                                overdue: number;
+                                critical: number;
+                                notHandedOver: number;
+                                fixed: number;
+                                total: number;
+                                lastScan: {
+                                    id: string;
+                                    scanDate: string;
+                                    handedOver: boolean;
+                                } | null;
+                                scans: {
+                                    id: string;
+                                    scanDate: string;
+                                    fileName: string;
+                                    handedOver: boolean;
+                                }[];
+                            }[];
+                            awaiting: {
+                                id: string;
+                                nodeId: string;
+                                nodeLabel: string;
+                                scanDate: string;
+                                fileName: string;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/nodes/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Реестр узла: поиск, Критичность, статус (просрочена, не передано ИКТ, в работе, устранена, риск принят; open — все открытые). Сортировка: просроченные, не переданные, в работе, закрытые, внутри — Критичность и Оценка */
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    crit?: string;
+                    state?: "overdue" | "not_handed" | "in_work" | "fixed" | "accepted" | "open" | "all";
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                number: number;
+                                values: {
+                                    [key: string]: string | number | string[];
+                                };
+                                display: {
+                                    [key: string]: string;
+                                };
+                                calc: {
+                                    [key: string]: string | number | null;
+                                };
+                                decisions: {
+                                    [key: string]: {
+                                        optionId: string;
+                                        label: string;
+                                        documentTitle: string;
+                                        documentNumber: string;
+                                        documentDate: string;
+                                        hasFile: boolean;
+                                        fileId: string;
+                                        reviewDue: string | null;
+                                        decidedAt: string;
+                                        decidedBy: string;
+                                    } | null;
+                                };
+                                closed: boolean;
+                                archived: boolean;
+                                manualFieldIds: string[];
+                                deadline: {
+                                    date: string | null;
+                                    daysLeft: number | null;
+                                    /** @enum {string} */
+                                    state: "overdue" | "soon" | "ok" | "closed" | "none";
+                                } | null;
+                                openTasks: number;
+                                files: {
+                                    [key: string]: {
+                                        linkId: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            mime: string;
+                                            size: number;
+                                            sha256: string;
+                                            uploadedAt: string;
+                                            uploadedBy: {
+                                                id: string;
+                                                fullName: string;
+                                            };
+                                            deleted: boolean;
+                                        };
+                                        addedAt: string;
+                                        addedBy: {
+                                            id: string;
+                                            fullName: string;
+                                        };
+                                    }[];
+                                };
+                                links: {
+                                    [key: string]: {
+                                        id: string;
+                                        registerId: string;
+                                        number: number;
+                                        title: string;
+                                        deleted: boolean;
+                                    }[];
+                                };
+                                basis: {
+                                    [key: string]: {
+                                        /** @enum {string} */
+                                        state: "ok" | "none" | "expired" | "closed";
+                                        permission: {
+                                            id: string;
+                                            number: number;
+                                            docNumber: string;
+                                            until: string | null;
+                                        } | null;
+                                        text: string;
+                                    };
+                                };
+                                locked: {
+                                    [key: string]: "locked" | "reason";
+                                };
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                vuln: {
+                                    /** @enum {string} */
+                                    state: "overdue" | "not_handed" | "in_work" | "fixed" | "accepted";
+                                    reopened: boolean;
+                                    cycle: number;
+                                };
+                            }[];
+                            total: number;
+                            nextCursor: string | null;
+                            stateCounts: {
+                                overdue: number;
+                                not_handed: number;
+                                in_work: number;
+                                fixed: number;
+                                accepted: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Карточка записи: узел, база срока, продления, итог, в каких сканах встречалась */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            node: {
+                                id: string;
+                                label: string;
+                                legacy: boolean;
+                            };
+                            /** @enum {string} */
+                            state: "overdue" | "not_handed" | "in_work" | "fixed" | "accepted";
+                            cycle: number;
+                            reopenedAt: string | null;
+                            deadline: {
+                                /** @enum {string} */
+                                source: "legacy" | "procedure" | "none";
+                                base: string | null;
+                                days: number | null;
+                                scan: {
+                                    id: string;
+                                    scanDate: string;
+                                    handedOverOn: string | null;
+                                } | null;
+                                decision: {
+                                    measures: string;
+                                    due: string;
+                                } | null;
+                                extendedDays: number;
+                                final: string | null;
+                            };
+                            scans: {
+                                id: string;
+                                scanDate: string;
+                                fileName: string;
+                                outcome: string;
+                                cycle: number;
+                                handedOver: boolean;
+                                changes: {
+                                    label: string;
+                                    from: string;
+                                    to: string;
+                                }[];
+                            }[];
+                            firstScanDate: string | null;
+                            lastScanDate: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/nodes/{id}/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Итоги сканирования узла: новые сверху */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                nodeId: string;
+                                scanDate: string;
+                                fileName: string;
+                                fileId: string | null;
+                                coverageTitle: string;
+                                hostsCount: number;
+                                findingsCount: number;
+                                counts: {
+                                    new: number;
+                                    reopened: number;
+                                    changed: number;
+                                    unchanged: number;
+                                    gone: number;
+                                } | null;
+                                critCounts: {
+                                    key: string;
+                                    label: string;
+                                    count: number;
+                                }[];
+                                legacy: boolean;
+                                createdBy: string;
+                                createdAt: string;
+                                handover: {
+                                    date: string;
+                                    to: string;
+                                    fileId: string | null;
+                                    by: string;
+                                    at: string;
+                                } | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/scans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Скан: факты, передача ИКТ, сравнение, снимок находок, охват */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            nodeId: string;
+                            scanDate: string;
+                            fileName: string;
+                            fileId: string | null;
+                            coverageTitle: string;
+                            hostsCount: number;
+                            findingsCount: number;
+                            counts: {
+                                new: number;
+                                reopened: number;
+                                changed: number;
+                                unchanged: number;
+                                gone: number;
+                            } | null;
+                            critCounts: {
+                                key: string;
+                                label: string;
+                                count: number;
+                            }[];
+                            legacy: boolean;
+                            createdBy: string;
+                            createdAt: string;
+                            handover: {
+                                date: string;
+                                to: string;
+                                fileId: string | null;
+                                by: string;
+                                at: string;
+                            } | null;
+                            node: {
+                                id: string;
+                                label: string;
+                            };
+                            previousScan: {
+                                id: string;
+                                scanDate: string;
+                                fileName: string;
+                            } | null;
+                            legacyArchived: boolean;
+                            hosts: {
+                                name: string;
+                                ip: string;
+                                os: string;
+                                /** @enum {string} */
+                                status: "new" | "same" | "gone";
+                            }[];
+                            findings: {
+                                [key: string]: unknown;
+                            }[];
+                            comparison: {
+                                groups: {
+                                    [key: string]: {
+                                        [key: string]: unknown;
+                                    }[];
+                                };
+                                archived: {
+                                    [key: string]: unknown;
+                                }[];
+                                inFileDuplicates: number;
+                                errorRows: number;
+                                errors: {
+                                    [key: string]: unknown;
+                                }[];
+                                notes: {
+                                    [key: string]: unknown;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/scans/{id}/handover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Передача ИКТ — один раз: дата от даты скана до сегодня, кому (по умолчанию «ОИКТ»), файл по желанию. От неё начинается срок записей скана */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        date: string;
+                        to?: string | null;
+                        fileId?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            started: number;
+                            keptLegacy: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/registers/{id}/file-imports": {
         parameters: {
             query?: never;
@@ -38816,7 +39846,7 @@ export interface paths {
                             deleted: boolean;
                             refs: {
                                 /** @enum {string} */
-                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare";
+                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare" | "vuln_scan";
                                 id: string;
                                 label: string;
                             }[];

@@ -632,7 +632,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     }
     if (seen.length) await tx.vulnRecordScan.createMany({ data: seen });
 
-    await tx.registerImport.update({ where: { id: importId }, data: { status: 'applied', appliedAt: new Date(), fileId: payload.fileId } });
+    await tx.registerImport.update({ where: { id: importId }, data: { status: 'applied', appliedAt: new Date() } });
     const result = {
       scanId: scan.id, created: chosen.new.size, reopened: chosen.reopened.size, changed: chosen.changed.size,
       unchanged: c.items.unchanged.length, gone: chosen.gone.size, skipped: summary.errorRows,

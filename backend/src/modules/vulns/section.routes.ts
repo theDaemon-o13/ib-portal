@@ -8,10 +8,12 @@ import { badRequest } from '../../lib/errors.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { runAutomations } from '../automations/service.js';
-import { IMPORT_BODY_LIMIT } from '../registers/routes.js';
+import { IMPORT_BODY_LIMIT, RegisterRecord } from '../registers/routes.js';
 import { actorOf } from '../settings/common.js';
 import * as groups from './groups.service.js';
 import * as scanImport from './scan-import.service.js';
+import * as scans from './scans.service.js';
+import * as section from './section.service.js';
 import { SCAN_MAX_ROWS } from './scan-parser.js';
 import * as transfer from './transfer.service.js';
 
@@ -79,6 +81,41 @@ const ScanSummary = z.object({
   systemId: z.string().nullable(),
 });
 const NodeScanPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ScanSummary });
+
+const Handover = z.object({ date: z.string(), to: z.string(), fileId: z.string().nullable(), by: z.string(), at: z.string() });
+const ScanBrief = z.object({
+  id: z.string(), nodeId: z.string(), scanDate: z.string(), fileName: z.string(), fileId: z.string().nullable(), coverageTitle: z.string(),
+  hostsCount: z.number().int(), findingsCount: z.number().int(),
+  counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), gone: z.number().int() }).nullable(),
+  critCounts: z.array(z.object({ key: z.string(), label: z.string(), count: z.number().int() })),
+  legacy: z.boolean(), createdBy: z.string(), createdAt: z.string(), handover: Handover.nullable(),
+});
+const ScanDetail = ScanBrief.extend({
+  node: z.object({ id: z.string(), label: z.string() }),
+  previousScan: z.object({ id: z.string(), scanDate: z.string(), fileName: z.string() }).nullable(),
+  legacyArchived: z.boolean(),
+  hosts: z.array(z.object({ name: z.string(), ip: z.string(), os: z.string(), status: z.enum(['new', 'same', 'gone']) })),
+  findings: z.array(z.record(z.string(), z.unknown())),
+  comparison: z.object({
+    groups: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))),
+    archived: z.array(z.record(z.string(), z.unknown())),
+    inFileDuplicates: z.number().int(), errorRows: z.number().int(),
+    errors: z.array(z.record(z.string(), z.unknown())), notes: z.array(z.record(z.string(), z.unknown())),
+  }).nullable(),
+});
+const NodeStats = z.object({
+  nodeId: z.string(), open: z.number().int(), overdue: z.number().int(), critical: z.number().int(), notHandedOver: z.number().int(),
+  fixed: z.number().int(), total: z.number().int(),
+  lastScan: z.object({ id: z.string(), scanDate: z.string(), handedOver: z.boolean() }).nullable(),
+  scans: z.array(z.object({ id: z.string(), scanDate: z.string(), fileName: z.string(), handedOver: z.boolean() })),
+});
+const STATES = ['overdue', 'not_handed', 'in_work', 'fixed', 'accepted'] as const;
+const NodeRecords = z.object({
+  items: z.array(RegisterRecord.extend({ vuln: z.object({ state: z.enum(STATES), reopened: z.boolean(), cycle: z.number().int() }) })),
+  total: z.number().int(),
+  nextCursor: z.string().nullable(),
+  stateCounts: z.object({ overdue: z.number().int(), not_handed: z.number().int(), in_work: z.number().int(), fixed: z.number().int(), accepted: z.number().int() }),
+});
 
 const view = requirePerm('ib.work');
 const structure = requirePerm('registers.manage');
@@ -180,6 +217,74 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
       await runAutomations(db, { registerId: imp.registerId, trigger: 'import', actorId: request.user?.id ?? null });
     } catch (err) {
       request.log.error({ err }, 'автоматизации после импорта скана не выполнены');
+    }
+    return result;
+  });
+
+  app.get('/vulns/overview', {
+    preHandler: view,
+    schema: {
+      tags: ['vulns'], summary: 'Счётчики раздела: по узлам (открыто, просрочено, критических, не передано ИКТ), сканы узлов, сканы, ждущие передачи',
+      response: {
+        200: z.object({
+          nodes: z.array(NodeStats),
+          awaiting: z.array(z.object({ id: z.string(), nodeId: z.string(), nodeLabel: z.string(), scanDate: z.string(), fileName: z.string(), createdAt: z.string() })),
+        }),
+        ...errors,
+      },
+    },
+  }, async () => section.overview(db));
+
+  app.get('/vulns/nodes/:id/records', {
+    preHandler: view,
+    schema: {
+      tags: ['vulns'],
+      summary: 'Реестр узла: поиск, Критичность, статус (просрочена, не передано ИКТ, в работе, устранена, риск принят; open — все открытые). Сортировка: просроченные, не переданные, в работе, закрытые, внутри — Критичность и Оценка',
+      params: IdParams,
+      querystring: z.object({
+        search: z.string().max(200).optional(), crit: z.string().uuid().optional(),
+        state: z.enum([...STATES, 'open', 'all']).optional(),
+        limit: z.coerce.number().int().min(1).max(200).optional(), cursor: z.string().regex(/^\d+$/).optional(),
+      }),
+      response: { 200: NodeRecords, ...errors },
+    },
+  }, async (request) => (await section.nodeRecords(db, request.params.id, request.query)) as z.infer<typeof NodeRecords>);
+
+  app.get('/vulns/records/:id', {
+    preHandler: view,
+    schema: {
+      tags: ['vulns'], summary: 'Карточка записи: узел, база срока, продления, итог, в каких сканах встречалась',
+      params: IdParams,
+      response: { 200: section.RecordInfo, ...errors },
+    },
+  }, async (request) => section.recordInfo(db, request.params.id));
+
+  app.get('/vulns/nodes/:id/scans', {
+    preHandler: view,
+    schema: { tags: ['vulns'], summary: 'Итоги сканирования узла: новые сверху', params: IdParams, response: { 200: z.object({ items: z.array(ScanBrief) }), ...errors } },
+  }, async (request) => ({ items: await scans.listScans(db, request.params.id) }));
+
+  app.get('/vulns/scans/:id', {
+    preHandler: view,
+    schema: { tags: ['vulns'], summary: 'Скан: факты, передача ИКТ, сравнение, снимок находок, охват', params: IdParams, response: { 200: ScanDetail, ...errors } },
+  }, async (request) => scans.getScan(db, request.params.id));
+
+  app.post('/vulns/scans/:id/handover', {
+    preHandler: edit,
+    schema: {
+      tags: ['vulns'],
+      summary: 'Передача ИКТ — один раз: дата от даты скана до сегодня, кому (по умолчанию «ОИКТ»), файл по желанию. От неё начинается срок записей скана',
+      params: IdParams,
+      body: z.object({ date: IsoDate, to: z.string().max(400).nullable().optional(), fileId: z.string().uuid().nullable().optional() }),
+      response: { 200: z.object({ started: z.number().int(), keptLegacy: z.number().int() }), ...errors },
+    },
+  }, async (request) => {
+    const { registerId, ...result } = await scans.handOverScan(db, actorOf(request), request.params.id, request.body);
+    // Дата передачи может быть давней: просрочка видна сразу, не ждать часового прогона.
+    try {
+      await runAutomations(db, { registerId, trigger: 'import', actorId: request.user?.id ?? null });
+    } catch (err) {
+      request.log.error({ err }, 'автоматизации после передачи ИКТ не выполнены');
     }
     return result;
   });

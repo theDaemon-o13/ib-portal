@@ -42,14 +42,14 @@ export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName
 const DOC_FILE_KIND: Record<string, string> = { draft: 'Файл драфта', head_approved: 'Одобренная начальником ИБ', final: 'Финальная', response: 'Ответ ответственного лица', translation: 'Перевод' };
 
 export interface FileRef {
-  kind: 'evidence' | 'decision' | 'document_pdf' | 'document_file' | 'record' | 'compare';
+  kind: 'evidence' | 'decision' | 'document_pdf' | 'document_file' | 'record' | 'compare' | 'vuln_scan';
   id: string;
   label: string;
 }
 
 /** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
 export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
-  const [links, decisions, versions, records, compares, docFiles, returnNotes] = await Promise.all([
+  const [links, decisions, versions, records, compares, docFiles, returnNotes, scans, handovers] = await Promise.all([
     db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
     db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
     db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
@@ -63,6 +63,9 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
     db.documentFile.findMany({ where: { fileId, removedAt: null }, select: { kind: true, documentId: true, versionId: true, version: { select: { no: true, title: true } } } }),
     // Записка к возврату на доработку (1.4.0): колонка решения document_approvals.file_id.
     db.documentApproval.findMany({ where: { fileId }, select: { documentId: true, versionId: true, version: { select: { no: true, title: true } } } }),
+    // Раздел «Уязвимости» (1.5.0): файл скана и письмо передачи ИКТ.
+    db.vulnScan.findMany({ where: { fileId }, select: { id: true, fileName: true } }),
+    db.vulnScan.findMany({ where: { handoverFileId: fileId }, select: { id: true, fileName: true } }),
   ]);
   return [
     ...records.map((r) => ({ kind: 'record' as const, id: r.record.id, label: `«${r.record.register.name}», запись #${r.record.number}: ${r.field.label}` })),
@@ -81,6 +84,8 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
       kind: 'compare' as const, id: c.register.id,
       label: `Сравнение с реестром «${c.register.name}» от ${c.createdAt.toISOString().slice(0, 10).split('-').reverse().join('.')}`,
     })),
+    ...scans.map((x) => ({ kind: 'vuln_scan' as const, id: x.id, label: `Скан «${x.fileName}»` })),
+    ...handovers.map((x) => ({ kind: 'vuln_scan' as const, id: x.id, label: `Передача ИКТ скана «${x.fileName}»` })),
   ];
 }
 
