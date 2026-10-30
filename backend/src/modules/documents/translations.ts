@@ -9,8 +9,8 @@ import { KIOSK_PERMISSION } from '../../lib/permissions.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
-import { notifyDeadlineChanged, notifyTranslationDone, notifyTranslator } from './notify.js';
-import { cleanComment, forbiddenWith, rolesOf, routeContext } from './service.js';
+import { notifyDeadlineChanged } from './notify.js';
+import { cleanComment, forbiddenWith, notifyWaiting, rolesOf, routeContext } from './service.js';
 import { stageName } from './status.js';
 
 export const LANGUAGE_MAX = 100;
@@ -83,8 +83,8 @@ export async function addTranslation(db: Db, actor: Actor, id: string, input: St
       summary: `Документ #${d.number} «${w.title}»: перевод на ${language} — ${translator.fullName}, срок ${formatDateRu(iso(due))}`,
       after: { translationId: t.id, language, translatorId: translator.id, dueDate: iso(due) },
     });
-    // Язык добавили уже на этапе 15 — переводчика документ ждёт сразу.
-    if (w.stage === UPLOAD_STAGE) await notifyTranslator(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, t, actor.id);
+    // Язык добавили уже на этапе 15 — «ждёт вас» по stageHolders (один раз на состояние).
+    if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
@@ -128,10 +128,8 @@ export async function updateTranslation(db: Db, actor: Actor, id: string, transl
       summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${changes.map((c) => `«${c.label}»`).join(', ')}`,
       after: { translationId, changes, comment: input.comment?.trim() ?? '' },
     });
-    // Новый переводчик на этапе 15 — его ждёт перевод (если файла ещё нет).
-    if (data.translatorId && w.stage === UPLOAD_STAGE && !(await tx.documentFile.count({ where: { translationId, removedAt: null } }))) {
-      await notifyTranslator(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, { language: data.language ?? t.language, translatorId: data.translatorId, dueDate: data.dueDate ?? t.dueDate }, actor.id);
-    }
+    // Новый переводчик на этапе 15 — «ждёт вас» по stageHolders (новому — один раз).
+    if (data.translatorId && w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
@@ -149,7 +147,7 @@ export async function removeTranslation(db: Db, actor: Actor, id: string, transl
       summary: `Документ #${d.number} «${w.title}»: снят перевод на ${t.language}`,
       after: { translationId },
     });
-    if (w.stage === UPLOAD_STAGE) await notifyTranslationDone(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, w.id, actor.id);
+    if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
@@ -176,7 +174,7 @@ export async function addTranslationFiles(db: Db, actor: Actor, id: string, tran
       summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
       after: { translationId, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
     });
-    await notifyTranslationDone(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, w.id, actor.id);
+    await notifyWaiting(tx, id, actor.id);
   });
 }
 

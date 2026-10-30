@@ -62922,6 +62922,9 @@
                                         },
                                         "fullName": {
                                           "type": "string"
+                                        },
+                                        "inactive": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
@@ -63424,6 +63427,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -65271,6 +65277,9 @@
                                   },
                                   "fullName": {
                                     "type": "string"
+                                  },
+                                  "inactive": {
+                                    "type": "boolean"
                                   }
                                 },
                                 "required": [
@@ -66929,6 +66938,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -68600,6 +68612,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -70257,6 +70272,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -71902,6 +71920,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -73559,6 +73580,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -75215,6 +75239,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -76854,6 +76881,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -78530,6 +78560,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -80218,6 +80251,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -81874,6 +81910,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -83543,6 +83582,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -85210,6 +85252,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -86866,6 +86911,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -88528,6 +88576,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -90201,6 +90252,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -91857,6 +91911,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -93524,6 +93581,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -95190,6 +95250,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -96841,6 +96904,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -98502,6 +98568,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -100146,6 +100215,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -101802,6 +101874,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -103442,6 +103517,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
@@ -105082,6 +105160,9 @@
                                           },
                                           "fullName": {
                                             "type": "string"
+                                          },
+                                          "inactive": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [

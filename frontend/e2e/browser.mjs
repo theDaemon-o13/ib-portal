@@ -130,6 +130,15 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await sleep(300);
     },
 
+    /**
+     * Перезагрузить страницу и дождаться новой. Метка на старой странице: иначе ожидание после reload() проверяет
+     * условие ещё на старом документе (там всё уже на месте) и проходит до того, как браузер начал грузить новый.
+     */
+    async reload(what = 'перезагрузка') {
+      await evaluate(`window.__e2eOldPage = true; location.reload()`);
+      await ui.waitFor(`!window.__e2eOldPage && document.readyState === 'complete' && !!document.querySelector('#root > *')`, what);
+    },
+
     /** Ждать, пока выражение в странице станет истинным. */
     async waitFor(expr, what, timeout = 8000) {
       const t0 = Date.now();
@@ -193,7 +202,14 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
 
     /** Очистить поле и ввести текст с клавиатуры. */
     async type(expr, text, what = expr) {
-      await ui.click(expr, what);
+      // Печатать — только когда фокус именно в этом поле: форма могла перестроиться между прицелом и щелчком
+      // (подгрузились списки фильтров), и щелчок попал бы в соседнее поле. Не в нём — щёлкнуть снова.
+      const t0 = Date.now();
+      for (;;) {
+        await ui.click(expr, what);
+        if (await evaluate(`(() => { const el = ${expr}; return !!el && document.activeElement === el; })()`)) break;
+        if (Date.now() - t0 > 8000) throw new Error(`не дождались: фокус в поле ${what}`);
+      }
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', commands: ['selectAll'] });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', code: 'KeyA' });
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
@@ -247,6 +263,18 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     },
 
     /** Обрывать запросы к адресам, содержащим urlPart (сервер недоступен), пока не вызван allowRequests(). */
+    /**
+     * Дождаться, пока запросов к urlPart в пути нет. Новый запрос по событию (фокус вкладки) TanStack Query не отправляет,
+     * если прежний ещё идёт, — присоединяется к нему: блокировка адреса в этот момент не сработала бы.
+     */
+    async settled(urlPart, what = `запросы ${urlPart} завершены`) {
+      const t0 = Date.now();
+      while (requests.some((r) => r.url.includes(urlPart) && !r.done)) {
+        if (Date.now() - t0 > 8000) throw new Error(`не дождались: ${what}`);
+        await sleep(50);
+      }
+    },
+
     async failRequests(urlPart) {
       blocked.push(urlPart);
       await send('Fetch.enable', { patterns: [responsePattern, { urlPattern: `${baseUrl}/api/*`, requestStage: 'Request' }] });

@@ -38,7 +38,7 @@ const DocItem = z.object({
   stageName: z.string().nullable(),
   waitingForMe: z.boolean(),
   /** «Сейчас у» (1.4.0): кто действует на текущем этапе; missingHead — этап начальника ИБ, отметка никому не стоит. */
-  holders: z.object({ people: z.array(z.object({ id: z.string(), fullName: z.string() })), missingHead: z.boolean() }).nullable(),
+  holders: z.object({ people: z.array(z.object({ id: z.string(), fullName: z.string(), inactive: z.boolean().optional() })), missingHead: z.boolean() }).nullable(),
   /** Этап 14: ближайший срок несогласовавшего ответственного лица и просрочка (сотрудникам ИБ). */
   partiesDue: z.string().nullable(),
   partiesOverdue: z.boolean(),

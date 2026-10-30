@@ -17,7 +17,8 @@ import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
-import { notifyDocComment, notifyReturned, notifyStage } from './notify.js';
+import { notifyDocComment, notifyReturned } from './notify.js';
+import { notify } from '../notifications/service.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
 import {
   addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
@@ -84,7 +85,7 @@ const versionSelect = {
 } as const;
 const docInclude = {
   type: { select: { id: true, value: true } },
-  owner: { select: { id: true, fullName: true } },
+  owner: { select: { id: true, fullName: true, isActive: true } },
   approvedVersion: { select: versionSelect },
   workingVersion: { select: versionSelect },
 } as const;
@@ -205,11 +206,12 @@ async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<str
     : [];
   const person = (id: string): Person | null => {
     const u = people.find((x) => x.id === id);
-    return u ? { id: u.id, fullName: u.fullName } : null;
+    return u ? { id: u.id, fullName: u.fullName, ...(u.isActive ? {} : { inactive: true }) } : null;
   };
   for (const { d, v, f } of live) {
     const c: HolderCtx = {
-      owner: { id: d.owner.id, fullName: d.owner.fullName },
+      // Отключённый автор остаётся в «Сейчас у» с пометкой: документ ждёт, пока владельца не сменят.
+      owner: { id: d.owner.id, fullName: d.owner.fullName, ...(d.owner.isActive ? {} : { inactive: true }) },
       head: head ? { id: head.id, fullName: head.fullName } : null,
       // Старшие — только активные: отключённый не переведёт документ дальше.
       seniors: (seniorIds.get(d.ownerId) ?? []).flatMap((id) => (people.find((x) => x.id === id)?.isActive ? [person(id) as Person] : [])),
@@ -348,6 +350,41 @@ function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
 }
 export type DocItem = ReturnType<typeof toItem>;
 
+// ---------------------------------------------------------------- «ждёт вас»: уведомления
+
+/** Текст «ждёт вас» по этапу и фазе этапа 15. */
+const WAITING_TITLE: Record<string, (label: string) => string> = {
+  '12': (l) => `Документ ${l} на проверке сотрудниками: переведите его дальше, когда комментарии учтены`,
+  '13': (l) => `Документ ${l} ждёт вашего согласования`,
+  '14': (l) => `Документ ${l} ждёт согласования с ответственными лицами`,
+  '15:translate': (l) => `Документ ${l} ждёт перевода`,
+  '15:ready': (l) => `Документ ${l}: переводы готовы — можно на подписание`,
+  '16': (l) => `Документ ${l} ждёт подписанного PDF`,
+};
+
+/**
+ * «Ждёт вас» (1.4.0): получатели — stageHolders текущего этапа, та же функция, что «Сейчас у» и цифра «ждут вас».
+ * Одно уведомление на состояние: версия, круг, этап и фаза этапа 15 (перевод / переводы готовы) — dedupe_key.
+ * Блокеры состояние не меняют: открыли и сняли — повторного уведомления нет. Возврат на 11 — новый круг: дальше снова
+ * по одному. О своём действии — нет (notify). Этап 11 — после возврата приходит «вернули на доработку».
+ */
+export async function notifyWaiting(db: Db, docId: string, actorId: string | null): Promise<void> {
+  const d = await db.document.findFirst({ where: { id: docId, deletedAt: null }, include: docInclude });
+  const v = d ? activeWorking(d) : null;
+  if (!d || !v || v.stage === FIRST_STAGE) return;
+  const facts = await routeFacts(db, [v.id]);
+  const people = (await holdersOf(db, [d], facts, false)).holders.get(d.id)?.people ?? [];
+  if (!people.length) return;
+  const phase = v.stage === 15 ? ((facts.get(v.id) ?? NO_FACTS).missingTranslations > 0 ? 'translate' : 'ready') : '';
+  const key = phase ? `${v.stage}:${phase}` : String(v.stage);
+  const title = WAITING_TITLE[key];
+  if (!title) return;
+  await notify(db, {
+    kind: phase === 'translate' ? 'doc_translation' : 'doc_waiting', to: people.map((p) => p.id), documentId: d.id, actorId,
+    title: title(`#${d.number} «${v.title}»`), dedupeKey: `doc_waiting:${v.id}:${v.round}:${key}`,
+  });
+}
+
 // ---------------------------------------------------------------- реестр
 
 export interface DocListQuery {
@@ -464,7 +501,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     const h = legacy || !holderCtx ? { people: [], missingHead: false } : stageHolders(stage, holderCtx);
     return {
       stage, name: stageName(stage), state: state as 'done' | 'current' | 'todo',
-      approvers: h.people.map((p) => p.fullName), missingHead: h.missingHead, hint: legacy ? '' : HINTS[stage] ?? '',
+      approvers: h.people.map((p) => (p.inactive ? `${p.fullName} (отключён)` : p.fullName)), missingHead: h.missingHead, hint: legacy ? '' : HINTS[stage] ?? '',
       actedBy: act && act.decision !== 'skipped' ? act.actor.fullName : null, actedAt: act ? act.at.toISOString() : null,
       /** Этап пропущен (старый маршрут: согласовать мог только владелец). */
       skipped: act?.decision === 'skipped' ? act.comment : null,
@@ -926,7 +963,7 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
     if (action === 'to_review') await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на проверку сотрудникам (версия ${w.no})`);
     const ref = { id, number: d.number, title: w.title, ownerId: d.ownerId };
     if (back) await notifyReturned(tx, ref, actor.id, stageName(w.stage), comment);
-    else await notifyStage(tx, ref, w.id, rule.to, actor.id);
+    else await notifyWaiting(tx, id, actor.id);
 
     const self = selfApproved ? ' — согласовано автором (начальник ИБ), без независимого согласования' : '';
     await auditSettings(tx, actor, {

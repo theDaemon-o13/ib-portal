@@ -277,15 +277,21 @@ describe('экран мониторинга', () => {
     const kpis = await ui.evaluate(`[...document.querySelectorAll('.mon .mk .v')].map((v) => v.textContent).join('|')`);
     const updated = await ui.text(`document.querySelector('.mon-foot span')`);
 
+    // Минутное обновление ускоряем возвратом на вкладку: TanStack Query перечитывает данные при фокусе — но только
+    // если прежний запрос уже завершён (иначе присоединится к нему, и блокировка не сработает).
+    await ui.settled('/api/v1/monitor');
     await ui.failRequests('/api/v1/monitor');
-    // Минутное обновление ускоряем возвратом на вкладку: TanStack Query перечитывает данные при фокусе.
-    await ui.evaluate(`window.dispatchEvent(new Event('visibilitychange'))`);
-    await ui.waitFor(`document.querySelector('.mon-offline')?.textContent.includes('Нет связи с сервером')`, 'плашка «Нет связи»', 15_000);
-    assert.equal(await ui.evaluate(`[...document.querySelectorAll('.mon .mk .v')].map((v) => v.textContent).join('|')`), kpis, 'данные на экране остались');
-    assert.equal(await ui.text(`document.querySelector('.mon-foot span')`), updated, 'время обновления — прежнее');
-    assert.ok(await ui.evaluate(`!!document.querySelector('.mon-slide')`), 'слайд на месте');
-
-    await ui.allowRequests();
+    try {
+      await ui.evaluate(`window.dispatchEvent(new Event('visibilitychange'))`);
+      await ui.waitFor(`document.querySelector('.mon-offline')?.textContent.includes('Нет связи с сервером')`, 'плашка «Нет связи»', 15_000);
+      assert.equal(await ui.evaluate(`[...document.querySelectorAll('.mon .mk .v')].map((v) => v.textContent).join('|')`), kpis, 'данные на экране остались');
+      assert.equal(await ui.text(`document.querySelector('.mon-foot span')`), updated, 'время обновления — прежнее');
+      assert.ok(await ui.evaluate(`!!document.querySelector('.mon-slide')`), 'слайд на месте');
+    } finally {
+      // Блокировка не переживает тест, даже упавший: иначе следующие падают на «Failed to fetch».
+      await ui.allowRequests();
+    }
+    await ui.settled('/api/v1/monitor');
     await ui.evaluate(`window.dispatchEvent(new Event('visibilitychange'))`);
     await ui.waitFor(`!document.querySelector('.mon-offline')`, 'плашка исчезла', 15_000);
   });

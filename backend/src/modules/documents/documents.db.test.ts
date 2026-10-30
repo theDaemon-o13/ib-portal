@@ -793,7 +793,7 @@ describe('документы: уведомления (Г5)', () => {
       await moveTo(tx, x, id, 15);
       // Последнее лицо согласовал сам начальник ИБ — себе уведомления нет; переводчику — его язык.
       expect(await inbox(tx, x.head, id)).toHaveLength(2);
-      expect(await inbox(tx, x.legal, id)).toEqual([expect.stringMatching(/^doc_translation: .* ждёт перевода на Таджикский$/)]);
+      expect(await inbox(tx, x.legal, id)).toEqual([expect.stringMatching(/^doc_translation: .* ждёт перевода$/)]);
       const t = must((await view(tx, x.head, id)).translations[0]);
       await tr.addTranslationFiles(tx, await x.as(x.legal), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.legal.id)).id] });
       expect((await inbox(tx, x.head, id)).at(-1)).toMatch(/переводы готовы — можно на подписание/);
@@ -803,6 +803,25 @@ describe('документы: уведомления (Г5)', () => {
 
       const list = await listNotifications(tx, x.owner.id, {});
       expect(list.items.find((n) => n.kind === 'doc_waiting')?.link).toBe(`/documents?doc=${id}`);
+    }));
+
+  it('«ждёт вас» — по stageHolders, один раз на состояние: блокер открыли и сняли — не повторяется; новый круг — снова', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Политика ИБ');
+      await moveTo(tx, x, id, 13);
+      const waiting = async () => (await inbox(tx, x.head, id)).filter((n) => n.includes('ждёт вашего согласования'));
+      expect(await waiting()).toHaveLength(1);
+      // Блокер открыли и сняли — состояние «ждёт начальника ИБ» то же: второго уведомления нет.
+      await parties.addBlocker(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), text: 'Ждём ДИКТ' });
+      const b = must((await view(tx, x.head, id)).blockers[0]);
+      await parties.resolveBlocker(tx, await x.as(x.chief), id, b.id, { ...(await cur(tx, id)), comment: 'Ответили' });
+      await svc.notifyWaiting(tx, id, x.chief.id);
+      expect(await waiting()).toHaveLength(1);
+      // Вернули на доработку — новый круг: снова на этапе 13 — одно новое уведомление.
+      await move(tx, x.head, id, 'return', { comment: 'Уточнить раздел 3' });
+      await moveTo(tx, x, id, 13);
+      expect(await waiting()).toHaveLength(2);
     }));
 
   it('все лица согласовали — начальнику ИБ (отметка); держатель старого права без отметки уведомлений не получает', () =>
@@ -915,6 +934,16 @@ describe('«Сейчас у» и «ждут вас» — одна функция
       expect(card.route.find((r) => r.stage === 14)).toMatchObject({ approvers: [], missingHead: true });
       expect(card.route.find((r) => r.stage === 11)).toMatchObject({ approvers: ['Автор Документа'], missingHead: false });
       expect(await sameCount(tx, x.head)).toBe(0);
+    }));
+
+  it('отключённый автор остаётся в «Сейчас у» с пометкой inactive и в маршруте — «(отключён)»', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await tx.user.update({ where: { id: x.owner.id }, data: { isActive: false } });
+      const item = must((await list(tx, x.staff)).find((d) => d.id === id));
+      expect(item.holders?.people).toEqual([{ id: x.owner.id, fullName: 'Автор Документа', inactive: true }]);
+      expect((await view(tx, x.staff, id)).route.find((r) => r.stage === 11)?.approvers).toEqual(['Автор Документа (отключён)']);
     }));
 
   it('п. 1: видимость не считается — читатель без права действия видит документ, но цифра 0; переводчик с файлом в работе — 1', () =>

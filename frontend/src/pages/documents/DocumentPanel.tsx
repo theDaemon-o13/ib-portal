@@ -12,7 +12,8 @@ import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
 import { DocumentBlockers, DocumentParties, DocumentTranslations } from './DocumentParties';
-import { ACTION_DONE, ACTION_LABEL, approversLabel, FIXED_FILE_LABEL, historyText, holdersLabel, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
+import { HoldersLine, StageWho } from './Holders';
+import { ACTION_DONE, ACTION_LABEL, FIXED_FILE_LABEL, historyText, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
 
 /** Ошибки, после которых карточку нужно перечитать: документ успели изменить или он ушёл на другой этап. */
 const STALE = new Set(['VERSION_CONFLICT', 'STAGE_CHANGED', 'NOT_IN_ROUTE', 'WRONG_STAGE']);
@@ -183,9 +184,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
 
         <div>
           <div className="eyebrow">Маршрут{d.current.round > 1 ? ` · круг ${d.current.round}` : ''}</div>
-          {d.holders && !d.archived && (
-            <div className={`now-at${d.holders.missingHead ? ' late-t' : ''}`} data-testid="doc-now-at">Сейчас у: <b>{holdersLabel(d.holders)}</b></div>
-          )}
+          {d.holders && !d.archived && <HoldersLine holders={d.holders} testId="doc-now-at" className="now-at" />}
           <div className="vsteps">
             {d.route.map((r) => (
               <div key={r.stage} className="vstep" data-stage={r.stage}>
@@ -193,7 +192,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
                 <div>
                   <b>{r.name}</b>
                   {/* Кто действует на этапе — та же функция, что «Сейчас у»; у пройденного справа — кто и когда. */}
-                  {r.hint && <small data-testid="stage-who">{r.hint}{approversLabel(r) ? `: ${approversLabel(r)}` : ''}</small>}
+                  <StageWho hint={r.hint} approvers={r.approvers} missingHead={r.missingHead} />
                   {r.skipped && <small className="skip-why">{r.skipped}</small>}
                   {r.selfApproved && <small><span className="chip high" data-testid="self-approved">{SELF_APPROVED}</span></small>}
                 </div>

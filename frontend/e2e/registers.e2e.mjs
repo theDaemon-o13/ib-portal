@@ -226,7 +226,7 @@ describe('Реестр', () => {
     assert.equal(await ui.evaluate(tabsRect), onFields, 'переключатель на том же месте');
     await ui.click(tab('Поля'));
     await ui.waitFor(`location.hash === ${JSON.stringify(`#${base.id}/fields`)}`, 'вкладка «Поля»');
-    await ui.evaluate('location.reload()');
+    await ui.reload('обновление страницы');
     await ui.waitFor(`${pickerTitle} === ${JSON.stringify(base.name)} && ${TAB_CONTENT.fields}`, 'после обновления — тот же реестр и вкладка');
     await ui.evaluate('document.fonts.ready.then(() => true)');
     assert.equal(await ui.evaluate(tabsRect), onFields, 'после обновления переключатель на том же месте');

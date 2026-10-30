@@ -1,12 +1,10 @@
 // Уведомления по документам (релиз 1.2.0, этап Г5, ADR-0023, ADR-0024). Тот же механизм, что у задач:
 // в транзакции события, о своих действиях — нет, отключённым — нет (notifications/service.ts, notify).
-//   «ждёт вас»: этап 13 — начальникам ИБ (свой документ — другим, если они есть); этап 14, когда все лица
-//   согласовали, — начальникам ИБ; этап 15 — переводчику его языка; переводы готовы — начальникам ИБ и старшим
-//   над автором; этап 16 — автору;
+//   «ждёт вас» — notifyWaiting в service.ts (1.4.0): получатели по stageHolders, одно на состояние; здесь — «все лица
+//   согласовали» (этап 14) начальнику ИБ;
 //   вернули на доработку, комментарий сотрудника на этапе 12 — автору; сменили срок — переводчику его языка и автору;
 //   «срок ответственного лица завтра» и «просрочен» — автору (часовой прогон, по одному на лицо и срок).
 import type { Db } from '../../lib/db.js';
-import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { addDaysIso, todayIso } from '../../lib/today.js';
 import { notify } from '../notifications/service.js';
@@ -19,42 +17,6 @@ async function headsFor(db: Db): Promise<string[]> {
   return (await db.user.findMany({ where: { isActive: true, isIbHead: true }, select: { id: true } })).map((u) => u.id);
 }
 
-async function pendingTranslations(db: Db, versionId: string) {
-  return db.documentTranslation.findMany({
-    where: { versionId, removedAt: null, files: { none: { removedAt: null } } },
-    select: { id: true, language: true, translatorId: true, dueDate: true },
-  });
-}
-
-/** Переводы готовы (или языков нет) — начальникам ИБ и старшим над автором: можно на подписание. */
-async function notifyTranslationsReady(db: Db, d: DocRef, actorId: string | null) {
-  await notify(db, {
-    kind: 'doc_waiting', to: [...(await headsFor(db)), ...(await seniorIdsOf(db, d.ownerId))], documentId: d.id, actorId,
-    title: `Документ ${label(d)}: переводы готовы — можно на подписание`,
-  });
-}
-
-/** Переводчику — его язык ждёт перевода (этап 15). */
-export async function notifyTranslator(db: Db, d: DocRef, t: { language: string; translatorId: string; dueDate: Date }, actorId: string | null) {
-  await notify(db, {
-    kind: 'doc_translation', to: [t.translatorId], documentId: d.id, actorId,
-    title: `Документ ${label(d)} ждёт перевода на ${t.language}`, body: `Срок — ${formatDateRu(t.dueDate.toISOString().slice(0, 10))}`,
-  });
-}
-
-/** Документ перешёл на этап stage: кого он теперь ждёт. */
-export async function notifyStage(db: Db, d: DocRef, versionId: string, stage: number, actorId: string): Promise<void> {
-  if (stage === 13) {
-    await notify(db, { kind: 'doc_waiting', to: await headsFor(db), documentId: d.id, actorId, title: `Документ ${label(d)} ждёт вашего согласования` });
-  } else if (stage === 15) {
-    const pending = await pendingTranslations(db, versionId);
-    for (const t of pending) await notifyTranslator(db, d, t, actorId);
-    if (!pending.length) await notifyTranslationsReady(db, d, actorId);
-  } else if (stage === 16) {
-    await notify(db, { kind: 'doc_waiting', to: [d.ownerId], documentId: d.id, actorId, title: `Документ ${label(d)} ждёт подписанного PDF` });
-  }
-}
-
 /** Последнее ответственное лицо согласовало (этап 14) — начальникам ИБ: можно ознакомиться с финальной версией. */
 export async function notifyPartiesDone(db: Db, d: DocRef, versionId: string, actorId: string): Promise<void> {
   const left = await db.documentParty.count({ where: { versionId, removedAt: null, approvedAt: null } });
@@ -63,11 +25,6 @@ export async function notifyPartiesDone(db: Db, d: DocRef, versionId: string, ac
     kind: 'doc_waiting', to: await headsFor(db), documentId: d.id, actorId,
     title: `Документ ${label(d)}: все ответственные лица согласовали`, body: 'Ознакомьтесь с финальной версией',
   });
-}
-
-/** Приложен перевод на этапе 15: если файлов больше не ждём — «можно на подписание». */
-export async function notifyTranslationDone(db: Db, d: DocRef, versionId: string, actorId: string): Promise<void> {
-  if ((await pendingTranslations(db, versionId)).length === 0) await notifyTranslationsReady(db, d, actorId);
 }
 
 export async function notifyReturned(db: Db, d: DocRef, actorId: string, stageName: string, comment: string): Promise<void> {

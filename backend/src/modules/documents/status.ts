@@ -45,8 +45,8 @@ export const MOVES: Record<DocAction, { from: readonly number[]; to: number; lab
   return: { from: [13, 14, 15], to: 11, label: 'Вернуть на доработку', who: ['head'] },
 };
 
-/** Человек в «Сейчас у» и под этапом карточки. */
-export interface Person { id: string; fullName: string }
+/** Человек в «Сейчас у» и под этапом карточки; inactive — отключён (показывается «<ФИО> (отключён)»). */
+export interface Person { id: string; fullName: string; inactive?: boolean }
 
 /** Кто действует на этапе: люди; missingHead — этап начальника ИБ, а отметка «Начальник ИБ» никому не стоит. */
 export interface Holders { people: Person[]; missingHead: boolean }
