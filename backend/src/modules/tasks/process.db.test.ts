@@ -247,18 +247,23 @@ describe('процесс задач: кнопки и права (Б2)', () => {
       const done = await statusIdOf(tx, 'done');
       let t = await svc.createTask(tx, x.boss, { title: 'Обход', categoryId: x.project.id, assigneeId: x.staff.id });
       await expectStatus(svc.updateTask(tx, x.actor, t.id, { version: t.version, statusId: done }), 'NO_OVERRIDE', 403);
-      await expectStatus(svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: done }), 'COMMENT_REQUIRED', 400);
-      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: done, comment: 'Закрыта решением начальника' });
-      expect(t.completedAt).not.toBeNull();
+      // У исполнителя есть руководитель: в «Выполнено» — только через проверку, из любой колонки (1.4.0).
+      await expectStatus(svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: done, comment: 'Закрываю' }), 'REVIEW_REQUIRED', 409);
+      // Исполнитель без руководителя (x.other): закрыть и переоткрыть можно, с комментарием по признакам колонки.
+      let u = await svc.createTask(tx, x.boss, { title: 'Обход без руководителя', categoryId: x.project.id, assigneeId: x.other.id });
+      await expectStatus(svc.updateTask(tx, x.boss, u.id, { version: u.version, statusId: done }), 'COMMENT_REQUIRED', 400);
+      u = await svc.updateTask(tx, x.boss, u.id, { version: u.version, statusId: done, comment: 'Закрыта решением начальника' });
+      expect(u.completedAt).not.toBeNull();
       // Переоткрыть — возврат в «В работе»: комментарий по признаку «при возврате».
       const work = await statusIdOf(tx, 'work');
-      await expectStatus(svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: work }), 'COMMENT_REQUIRED', 400);
-      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: work, comment: 'Переоткрыта' });
-      expect(t.completedAt).toBeNull();
-      const last = (await transitions(tx, t.id)).at(-1);
+      await expectStatus(svc.updateTask(tx, x.boss, u.id, { version: u.version, statusId: work }), 'COMMENT_REQUIRED', 400);
+      u = await svc.updateTask(tx, x.boss, u.id, { version: u.version, statusId: work, comment: 'Переоткрыта' });
+      expect(u.completedAt).toBeNull();
+      const last = (await transitions(tx, u.id)).at(-1);
       expect([last?.kind, last?.comment]).toEqual(['override', 'Переоткрыта']);
 
       // Администратор снял признак у «На проверке» — «Отправить на проверку» без комментария.
+      t = await svc.updateTask(tx, x.boss, t.id, { version: t.version, statusId: work });
       await tx.catalogItem.update({ where: { id: await statusIdOf(tx, 'review') }, data: { commentForward: false } });
       expect((await act(tx, x.actor, t, 'submit')).status.systemKey).toBe('review');
     }));
@@ -300,12 +305,17 @@ describe('проверяющий по задаче (1.4.0, ADR-0028)', () => {
     return runAction(tx, assignee, t.id, 'start', { version: t.version });
   };
 
-  it('override: «В работе» → «Выполнено» при руководителе — 409; без — можно; в «На проверке» — с вычислением проверяющего, некому — 409', () =>
+  it('override: в «Выполнено» при руководителе — 409 из любой колонки; без — можно; в «На проверке» — с вычислением проверяющего, некому — 409', () =>
     inTx(async (tx) => {
       const x = await crew(tx);
       const [done, review] = [await statusIdOf(tx, 'done'), await statusIdOf(tx, 'review')];
       const t = await inWork(tx, x.boss, x.actor, x.project.id);
       await expectStatus(svc.updateTask(tx, x.head2, t.id, { version: t.version, statusId: done, comment: 'закрыть' }), 'REVIEW_REQUIRED', 409);
+      const fresh = await svc.createTask(tx, x.boss, { title: 'Поставленная', categoryId: x.project.id, assigneeId: x.actor.id });
+      await expectStatus(svc.updateTask(tx, x.head2, fresh.id, { version: fresh.version, statusId: done, comment: 'отменить' }), 'REVIEW_REQUIRED', 409);
+      // Отменить ненужную задачу — «В архив»: она не попадает в «Выполнено».
+      const arch = await svc.setTaskArchived(tx, x.head2, fresh.id, fresh.version, true);
+      expect([arch.archived, arch.completedAt, arch.status.systemKey]).toEqual([true, null, 'assigned']);
       // Перетащили в «На проверке» — проверяющий вычислен и зафиксирован, ему «ждёт вашей проверки».
       const r = await svc.updateTask(tx, x.head2, t.id, { version: t.version, statusId: review, comment: 'на проверку' });
       expect(r.reviewer?.id).toBe(x.bossU.id);

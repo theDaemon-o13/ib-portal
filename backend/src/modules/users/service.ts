@@ -301,7 +301,8 @@ async function auditIbHead(tx: Db, actor: Actor, u: { id: string }, change: IbHe
 /**
  * Отметка «Является начальником ИБ» (релиз 1.4.0, ADR-0027): не больше одного пользователя (уникальный индекс в БД).
  * Отметка у другого — 409 IB_HEAD_TAKEN с его ФИО; transfer=true — снять у него и поставить этому одной транзакцией.
- * Только активный пользователь с ib.work и без роли «Супер-администратор».
+ * Только активный пользователь с ib.work и без роли «Супер-администратор»; себе — нельзя (409 IB_HEAD_SELF),
+ * снять свою или передать другому — можно.
  */
 export async function setIbHead(db: Db, actor: Actor, id: string, input: { version: number; value: boolean; transfer?: boolean }) {
   return withTx(db, async (tx) => {
@@ -314,6 +315,8 @@ export async function setIbHead(db: Db, actor: Actor, id: string, input: { versi
       await auditIbHead(tx, actor, u, 'cleared', `Пользователи: снята отметка «Начальник ИБ» — ${who(u)}; этап «Начальник ИБ» без исполнителя`);
       return toDto(await getUser(tx, id));
     }
+    // Себе отметку не ставит никто (разделение полномочий); снять свою или передать другому — можно.
+    if (id === actor.id) throw conflict('IB_HEAD_SELF', 'Отметку «Начальник ИБ» нельзя поставить самому себе: её ставит другой администратор');
     if (!u.isActive) throw conflict('INACTIVE', 'Пользователь отключён. Сначала включите его');
     const holder = await tx.user.findFirst({ where: { isIbHead: true }, select: { id: true, login: true, fullName: true } });
     if (holder && !input.transfer) {

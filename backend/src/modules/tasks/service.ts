@@ -419,7 +419,7 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
       }
     }
     // Проверяющий (релиз 1.4.0, ADR-0028): из «На проверке» переносит только он; в «На проверке» — с вычислением
-    // проверяющего; «В работе» → «Выполнено» — только у исполнителя без руководителя (иначе задача проходит проверку).
+    // проверяющего; в «Выполнено» из других колонок — только у исполнителя без руководителя (иначе задача проходит проверку).
     let reviewer: { id: string; fullName: string } | null = null;
     if (typeof data.statusId === 'string') {
       const toKey = data.statusId === t.statusId ? t.status.systemKey : (await tx.catalogItem.findUnique({ where: { id: data.statusId }, select: { systemKey: true } }))?.systemKey ?? null;
@@ -428,7 +428,9 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
         if (t.status.systemKey === 'review' && t.reviewerId && t.reviewerId !== actor.id) {
           throw new AppError(403, 'NOT_REVIEWER', `Из «${t.status.value}» задачу переносит только проверяющий${t.reviewer ? `: ${t.reviewer.fullName}` : ''}. Сменить проверяющего — «Заменить проверяющего»`);
         }
-        if (t.status.systemKey === 'work' && toKey === 'done' && assigneeId && await reviewerFor(tx, assigneeId)) {
+        // Из любой колонки, кроме «На проверке» (оттуда переносит сам проверяющий): закрыть задачу без проверки нельзя.
+        // Отменить ненужную задачу — «В архив» (любой с ib.work) или удаление (tasks.delete): «Выполнено» не ставится.
+        if (t.status.systemKey !== 'review' && toKey === 'done' && assigneeId && await reviewerFor(tx, assigneeId)) {
           throw conflict('REVIEW_REQUIRED', 'У исполнителя есть руководитель: задача закрывается через проверку. Отправьте её «На проверке»');
         }
         if (toKey === 'review') {

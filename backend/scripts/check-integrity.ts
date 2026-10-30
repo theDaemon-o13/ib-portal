@@ -124,11 +124,15 @@ async function main() {
       AND (NOT u.is_active OR t.reviewer_id = t.assignee_id) ORDER BY t.number`;
   check(badReviewers.length === 0, 'задачи на проверке: проверяющий активен и не исполнитель',
     `задачи ${badReviewers.map((r) => `#${r.number}`).join(', ')} — «Заменить проверяющего» в карточке`);
-  const legacyReview = await prisma.$queryRaw<{ n: bigint }[]>`
-    SELECT count(*) AS n FROM tasks t JOIN catalog_items s ON s.id = t.status_id
-    WHERE t.deleted_at IS NULL AND t.completed_at IS NULL AND s.system_key = 'review' AND t.reviewer_id IS NULL`;
-  const legacyN = Number(legacyReview[0]?.n ?? 0);
-  if (legacyN) console.log(`· задач на проверке без проверяющего (правила до 1.4.0, tasks.review): ${legacyN}`);
+  // Не ошибка: без проверяющего задачи принимаются по правилам до 1.4.0 (tasks.review). После отката на 1.3.0 и повторной
+  // выкладки — сюда попадают задачи, отправленные на 1.3.0: им назначают проверяющего вручную (deploy/prechecks/1.4.0.md).
+  const legacyReview = await prisma.$queryRaw<{ number: number }[]>`
+    SELECT t.number FROM tasks t JOIN catalog_items s ON s.id = t.status_id
+    WHERE t.deleted_at IS NULL AND t.completed_at IS NULL AND s.system_key = 'review' AND t.reviewer_id IS NULL ORDER BY t.number`;
+  if (legacyReview.length) {
+    const shown = legacyReview.slice(0, 50).map((r) => `#${r.number}`).join(', ');
+    console.log(`· задач на проверке без проверяющего (правила до 1.4.0, tasks.review): ${legacyReview.length} — ${shown}${legacyReview.length > 50 ? ', …' : ''}`);
+  }
 
   const sysItems = await prisma.catalogItem.findMany({ where: { isSystem: true, deletedAt: null }, select: { catalogCode: true, systemKey: true } });
   const missingItems = SYSTEM_ITEMS.filter((i) => !sysItems.some((x) => x.catalogCode === i.catalog && x.systemKey === i.key)).map((i) => i.value);

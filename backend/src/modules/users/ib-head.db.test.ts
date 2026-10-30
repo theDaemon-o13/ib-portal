@@ -51,7 +51,9 @@ describe('отметка «Является начальником ИБ» (1.4.0
       const { admin, a, actor } = await setup(tx);
       const reader = await makeUser(tx, ['doc_reader']);
       await expectCode(set(tx, actor, reader.id, true), 'IB_HEAD_NOT_IB');
-      await expectCode(set(tx, actor, admin.id, true), 'IB_HEAD_SUPER_ADMIN');
+      // Другой супер-администратор (себе — IB_HEAD_SELF, отдельный тест).
+      expect(admin.id).toBe(actor.id);
+      await expectCode(set(tx, actor, (await makeUser(tx, ['super_admin'])).id, true), 'IB_HEAD_SUPER_ADMIN');
       const off = await makeUser(tx, ['ib_staff'], { isActive: false });
       await expectCode(set(tx, actor, off.id, true), 'INACTIVE');
 
@@ -61,6 +63,25 @@ describe('отметка «Является начальником ИБ» (1.4.0
       await expectCode(users.updateUser(tx, actor, a.id, { version: await version(tx, a.id), roleIds: await roles(['ib_staff', 'ib_head', 'super_admin']) }), 'IB_HEAD_SUPER_ADMIN');
       await expectCode(users.updateUser(tx, actor, a.id, { version: await version(tx, a.id), roleIds: await roles(['ib_head']) }), 'IB_HEAD_NOT_IB');
       await expectCode(setRolePermission(tx, actor, await roleId(tx, 'ib_staff'), 'ib.work', false), 'IB_HEAD_NOT_IB');
+    }));
+
+  it('себе отметку не поставить (409 IB_HEAD_SELF), в том числе передачей; свою — снять или передать другому можно', () =>
+    inTx(async (tx) => {
+      const { a, b, actor } = await setup(tx);
+      // Администратор ИБ (своя роль с users.manage и ib.work, не супер-администратор); право проверяет маршрут.
+      const manager = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Администратор ИБ' });
+      const self = await actorFor(tx, manager.id);
+      await expectCode(set(tx, self, manager.id, true), 'IB_HEAD_SELF');
+      await set(tx, actor, a.id, true);
+      await expectCode(set(tx, self, manager.id, true, true), 'IB_HEAD_SELF');
+      expect((await tx.user.findUniqueOrThrow({ where: { id: a.id } })).isIbHead).toBe(true);
+
+      // Держатель сам передаёт отметку другому и снимает свою.
+      const holder = await actorFor(tx, a.id);
+      expect((await set(tx, holder, b.id, true, true)).isIbHead).toBe(true);
+      expect((await lastAudit(tx)).action).toBe('user.ib_head.transferred');
+      const holderB = await actorFor(tx, b.id);
+      expect((await set(tx, holderB, b.id, false)).isIbHead).toBe(false);
     }));
 
   it('отключение держателя снимает отметку с записью в журнал', () =>

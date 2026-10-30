@@ -93,9 +93,10 @@ describe('уведомления о задачах', () => {
   it('свободная смена статуса — исполнителю: кто перенёс и комментарий; перенёс сам — нет', () =>
     inTx(async (tx) => {
       const x = await team(tx);
-      let t = await tasks.createTask(tx, x.B, { title: 'Перенос', categoryId: x.project.id, assigneeId: x.staff.id });
+      // Исполнитель без руководителя: с руководителем в «Выполнено» — только через проверку (1.4.0).
+      let t = await tasks.createTask(tx, x.B, { title: 'Перенос', categoryId: x.project.id, assigneeId: x.plainAuthor.id });
       t = await tasks.updateTask(tx, x.B, t.id, { version: t.version, statusId: await statusIdOf(tx, 'done'), comment: 'Закрываю сам' });
-      expect((await inbox(tx, x.staff.id)).at(-1)).toBe(`task_moved: Задачу #${t.number} «Перенос» перенесли: «Поставленные» → «Выполнено» | Начальник: Закрываю сам`);
+      expect((await inbox(tx, x.plainAuthor.id)).at(-1)).toBe(`task_moved: Задачу #${t.number} «Перенос» перенесли: «Поставленные» → «Выполнено» | Начальник: Закрываю сам`);
       const mine = await tasks.createTask(tx, x.B, { title: 'Своя', categoryId: x.project.id, assigneeId: x.boss.id });
       await tasks.updateTask(tx, x.B, mine.id, { version: mine.version, statusId: await statusIdOf(tx, 'work') });
       expect(await kinds(tx, x.boss.id)).toEqual([]);

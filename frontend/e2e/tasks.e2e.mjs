@@ -304,7 +304,8 @@ describe('Процесс по кнопкам', () => {
     await ui.click($.button('Перенести', dlg));
     const denied = await ui.request(m, 'PATCH', `/api/v1/tasks/${t.id}`);
     assert.equal(denied.status, 409, denied.body);
-    await ui.waitFor(`document.querySelector('.toast.on')?.textContent?.includes('Проверять некому')`, 'сообщение «Проверять некому»');
+    // Ошибка — в самом окне, окно остаётся открытым.
+    await ui.waitFor(`${dlg}?.querySelector('[data-testid="move-error"]')?.textContent.startsWith('Проверять некому')`, 'ошибка «Проверять некому» в окне');
     await ui.click($.button('Отмена', dlg));
     await ui.waitFor(`${colOf('work')}.contains(${card('без руководителя')}) && ${step('без руководителя')}?.textContent === 'Завершить'`, 'осталась «В работе», кнопка «Завершить»');
 

@@ -141,14 +141,28 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       }
     },
 
-    /** Настоящий щелчок мышью по центру элемента. */
+    /**
+     * Настоящий щелчок мышью по центру элемента. Щёлкаем, только когда элемент готов принять щелчок: он на месте
+     * (положение не меняется между двумя опросами — прокрутка и перерисовка закончились) и в точке щелчка именно он
+     * или его потомок (не перекрыт окном, закрывающимся слоем, другой карточкой). Иначе щелчок ушёл бы мимо.
+     */
     async click(expr, what = expr) {
       await ui.waitFor(`!!(${expr})`, what);
-      const box = await evaluate(`(() => { const el = ${expr}; el.scrollIntoView({ block: 'center' });
+      await evaluate(`(() => { const el = ${expr}; const r = el.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > innerHeight || r.left < 0 || r.right > innerWidth) el.scrollIntoView({ block: 'center' });
+        window.__e2eClickRect = null; })()`);
+      const box = await ui.waitFor(`(() => { const el = ${expr}; if (!el) return null;
         // Центр видимой части: строка широкой таблицы может выходить за край окна.
         const r = el.getBoundingClientRect();
         const left = Math.max(r.left, 0), right = Math.min(r.right, innerWidth), top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight);
-        return { x: (left + right) / 2, y: (top + bottom) / 2 }; })()`);
+        const key = [left, right, top, bottom].map(Math.round).join(',');
+        const prev = window.__e2eClickRect; window.__e2eClickRect = key;
+        if (prev !== key || right <= left || bottom <= top) return null;
+        const x = (left + right) / 2, y = (top + bottom) / 2;
+        const hit = document.elementFromPoint(x, y);
+        // Флажок в подписи: в точке может быть сама подпись — щелчок по ней тоже переключает флажок.
+        const ok = hit && (hit === el || el.contains(hit) || (hit.closest('label')?.contains(el) ?? false));
+        return ok ? { x, y } : null; })()`, `${what}: элемент на месте и не перекрыт`);
       for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
         await send('Input.dispatchMouseEvent', { type, x: box.x, y: box.y, button: 'left', clickCount: 1 });
       }

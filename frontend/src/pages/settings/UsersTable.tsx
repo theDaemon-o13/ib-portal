@@ -171,7 +171,9 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                         ) : (
                           <>
                             <span className="hint">Нет</span>
-                            <button className="btn ghost sm" type="button" onClick={() => ibHead.mutate({ u, value: true })} disabled={ibHead.isPending || !u.isActive}>Отметить</button>
+                            {self
+                              ? <span className="hint">себе отметку ставит другой администратор</span>
+                              : <button className="btn ghost sm" type="button" onClick={() => ibHead.mutate({ u, value: true })} disabled={ibHead.isPending || !u.isActive}>Отметить</button>}
                           </>
                         )}
                         <div className="hint">Выполняет этап «Начальник ИБ» в документах. Отметка — только у одного пользователя</div>

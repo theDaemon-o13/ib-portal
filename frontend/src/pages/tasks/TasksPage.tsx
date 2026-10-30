@@ -179,10 +179,15 @@ export function TasksPage() {
     toast(e instanceof ApiError && e.code === 'VERSION_CONFLICT' ? 'Задачу успели изменить — доска обновлена, повторите' : e instanceof Error ? e.message : 'Не удалось сменить статус', 'error');
   };
   const move = useMutation({
-    mutationFn: ({ t, statusId, comment }: { t: Task; statusId: string; comment?: string }) => tasksApi.update(t.id, { version: t.version, statusId, ...(comment ? { comment } : {}) }),
+    mutationFn: ({ t, statusId, comment }: { t: Task; statusId: string; comment?: string; inDialog?: boolean }) =>
+      tasksApi.update(t.id, { version: t.version, statusId, ...(comment ? { comment } : {}) }),
     onSuccess: moved,
-    onError: moveFailed,
+    // Из окна «Комментарий к переходу» ошибка показывается в самом окне (move.error), без всплывающего сообщения.
+    onError: (e, v) => (v.inDialog ? qc.invalidateQueries({ queryKey: tkeys.all }) : moveFailed(e)),
   });
+  const moveError = move.error
+    ? move.error instanceof ApiError && move.error.code === 'VERSION_CONFLICT' ? 'Задачу успели изменить — доска обновлена. Закройте окно и перенесите снова' : move.error.message
+    : null;
   const step = useMutation({
     mutationFn: ({ t, action }: { t: Task; action: ProcessAction }) => tasksApi.action(t.id, action, t.version),
     onSuccess: moved,
@@ -225,7 +230,10 @@ export function TasksPage() {
         return;
       }
       if (!d.over || d.over === d.task.status.id) return;
-      if (needsComment(cols, d.task.status.id, d.over)) setPendingMove({ t: d.task, statusId: d.over, comment: '' });
+      if (needsComment(cols, d.task.status.id, d.over)) {
+        move.reset();
+        setPendingMove({ t: d.task, statusId: d.over, comment: '' });
+      }
       else move.mutate({ t: d.task, statusId: d.over });
     };
     window.addEventListener('pointermove', onMove);
@@ -370,13 +378,14 @@ export function TasksPage() {
         <Overlay>
           <div className="backdrop" role="presentation">
             <form className="modal panel" role="dialog" aria-modal="true" aria-labelledby="mv-title"
-              onSubmit={(e) => { e.preventDefault(); move.mutate({ t: pendingMove.t, statusId: pendingMove.statusId, comment: pendingMove.comment }); }}>
+              onSubmit={(e) => { e.preventDefault(); move.mutate({ t: pendingMove.t, statusId: pendingMove.statusId, comment: pendingMove.comment, inDialog: true }); }}>
               <h2 id="mv-title">Комментарий к переходу</h2>
               <p className="hint">
                 «{pendingMove.t.title}»: {pendingMove.t.status.value} → {cols.find((c) => c.id === pendingMove.statusId)?.value}. Для этой колонки комментарий обязателен.
               </p>
               <textarea className="inp" required maxLength={4000} autoFocus aria-label="Комментарий к переходу" value={pendingMove.comment}
                 onChange={(e) => setPendingMove({ ...pendingMove, comment: e.target.value })} />
+              {moveError && <div className="form-error mt12" role="alert" data-testid="move-error">{moveError}</div>}
               <div className="row end mt12">
                 <button className="btn" type="button" onClick={() => setPendingMove(null)} disabled={move.isPending}>Отмена</button>
                 <button className="btn primary" type="submit" disabled={move.isPending || !pendingMove.comment.trim()}>Перенести</button>
