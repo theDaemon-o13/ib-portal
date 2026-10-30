@@ -20,7 +20,8 @@ export type DocSummary = Res<'/api/v1/documents/summary', 'get'>;
 
 /** Версия документа и этап на экране: устаревший экран получает 409. */
 export interface At { version: number; stage: number }
-export interface PartyFields { fullName: string; department?: string; email?: string; userId?: string | null; dueDate: string }
+/** Ответственное лицо (1.4.0): внешний человек — ФИО, подразделение или должность, срок. */
+export interface PartyFields { fullName: string; department?: string; dueDate: string }
 
 export interface DocQuery {
   archived: boolean;
@@ -63,8 +64,8 @@ export const docsApi = {
   approveParty: (id: string, partyId: string, body: At & { comment?: string; fileIds?: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/approve`, body),
   removeResponse: (id: string, linkId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/responses/${linkId}/remove`, body),
   /** Этап 15: переводы — язык, переводчик (пользователь портала), срок, файл перевода. */
-  addTranslation: (id: string, body: At & { language: string; translatorId: string; dueDate: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
-  updateTranslation: (id: string, tid: string, body: At & { language?: string; translatorId?: string; dueDate?: string; comment?: string }) =>
+  addTranslation: (id: string, body: At & { language: string; translatorName?: string; dueDate: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
+  updateTranslation: (id: string, tid: string, body: At & { language?: string; translatorName?: string; dueDate?: string; comment?: string }) =>
     request<DocResult>('PATCH', `/api/v1/documents/${id}/translations/${tid}`, body),
   removeTranslation: (id: string, tid: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/remove`, body),
   addTranslationFiles: (id: string, tid: string, body: At & { fileIds: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/files`, body),

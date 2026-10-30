@@ -1128,7 +1128,11 @@ model DocumentTranslation {
   documentId   String    @map("document_id") @db.Uuid
   versionId    String    @map("version_id") @db.Uuid
   language     String
+  /// С 1.4.0 (решение владельца 9) — тот, кто добавил строку: переводчик больше не пользователь портала. Колонка
+  /// остаётся NOT NULL ради отката на 1.3.0; до 1.4.0 — переводчик-пользователь.
   translatorId String    @map("translator_id") @db.Uuid
+  /// Имя переводчика текстом (1.4.0), необязательное; для строк до 1.4.0 заполнено миграцией из ФИО учётной записи.
+  translatorName String  @default("") @map("translator_name")
   dueDate      DateTime  @map("due_date") @db.Date
   addedBy      String    @map("added_by") @db.Uuid
   addedAt      DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)

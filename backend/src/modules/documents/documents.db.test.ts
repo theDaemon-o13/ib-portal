@@ -76,7 +76,7 @@ async function approveParties(tx: Tx, x: Fx, id: string) {
 
 async function addParty(tx: Tx, u: User, id: string, extra: Partial<parties.PartyInput> = {}) {
   await parties.addParty(tx, await actorFor(tx, u.id), id, {
-    ...(await cur(tx, id)), fullName: 'Петров П. П.', department: 'Юридическое управление', email: 'petrov@example.tj', dueDate: '2026-11-10', ...extra,
+    ...(await cur(tx, id)), fullName: 'Петров П. П.', department: 'Юридическое управление', dueDate: '2026-11-10', ...extra,
   });
   return tx.documentParty.findFirstOrThrow({ where: { documentId: id }, orderBy: { addedAt: 'desc' } });
 }
@@ -609,14 +609,16 @@ describe('документы: этап 14 — ответственные лиц�
       const id = await x.create();
       // Лиц можно указать заранее, с драфта; сотрудник ИБ — нет.
       await expectCode(addParty(tx, x.staff, id), 'FORBIDDEN');
-      const p1 = await addParty(tx, x.owner, id, { fullName: 'Иванов И. И.', userId: x.legal.id });
+      const p1 = await addParty(tx, x.owner, id, { fullName: 'Иванов И. И.', department: 'Главный юрист' });
+      // Строка до 1.4.0: e-mail и пользователь портала — показываются текстом (новые строки их не получают).
+      await tx.documentParty.update({ where: { id: p1.id }, data: { email: 'ivanov@example.tj', userId: x.legal.id } });
       await moveTo(tx, x, id, 14);
       // moveTo остановился на 14: p1 ещё не согласовал.
       await expectCode(move(tx, x.head, id, 'ack_final'), 'PARTIES_PENDING');
       let d = await view(tx, x.head, id);
       expect(d.can).toMatchObject({ actions: ['return'], parties: true, approveParties: true });
       expect(d.blockedReason).toMatch(/Не все ответственные лица согласовали: осталось 1/);
-      expect(d.parties.map((p) => [p.fullName, p.user?.fullName, p.approvedAt])).toEqual([['Иванов И. И.', 'Юрист', null]]);
+      expect(d.parties.map((p) => [p.fullName, p.department, p.email, p.user?.fullName, p.approvedAt])).toEqual([['Иванов И. И.', 'Главный юрист', 'ivanov@example.tj', 'Юрист', null]]);
 
       const response = await makeFileRow(tx, x.head.id, { name: 'Письмо.pdf' });
       await parties.approveParty(tx, await x.as(x.head), id, p1.id, { ...(await cur(tx, id)), comment: 'Ответ письмом', fileIds: [response.id] });
@@ -656,7 +658,9 @@ describe('документы: этап 14 — ответственные лиц�
       const patch = async (body: parties.PartyPatch) => parties.updateParty(tx, await x.as(x.owner), id, p.id, { ...(await cur(tx, id)), ...body });
       await expectCode(patch({ dueDate: '2020-01-20' }), 'EMPTY_COMMENT');
       await expectCode(patch({ dueDate: '2020-02-31', comment: 'x' }), 'BAD_DATE');
-      await expectCode(patch({ email: 'не почта' }), 'BAD_EMAIL');
+      // E-mail и пользователь портала (1.4.0) не вводятся: лишние поля не меняют строку.
+      await patch({ email: 'не почта', userId: x.legal.id } as parties.PartyPatch);
+      expect(await tx.documentParty.findUniqueOrThrow({ where: { id: p.id } })).toMatchObject({ email: '', userId: null });
       await patch({ dueDate: '2020-01-20', comment: 'Попросили отсрочку' });
       const item = (await list(tx, x.owner)).find((d) => d.id === id);
       expect(item).toMatchObject({ partiesDue: '2020-01-20', partiesOverdue: true });
@@ -703,68 +707,95 @@ describe('документы: блокеры (Г3)', () => {
 });
 
 describe('документы: этап 15 — перевод (Г4)', () => {
-  it('15 → 16 — когда у каждого языка есть файл; переводчик — пользователь портала, видит документ и прикладывает перевод', () =>
+  it('строка = язык + переводчик текстом + срок + файл; 15 → 16 — когда у каждого языка есть файл; файл — автор или docs.manage', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const id = await x.create();
-      const add = async (u: User, language: string, translatorId: string, dueDate = '2026-11-20') =>
-        tr.addTranslation(tx, await x.as(u), id, { ...(await cur(tx, id)), language, translatorId, dueDate });
-      await expectCode(add(x.staff, 'Таджикский', x.legal.id), 'FORBIDDEN');
-      await add(x.owner, 'Таджикский', x.legal.id);
-      await expectCode(add(x.owner, ' таджикский ', x.staff.id), 'DUPLICATE');
-      await add(x.chief, 'Английский', x.staff.id);
-      const kiosk = await makeUser(tx, ['kiosk']);
-      await expectCode(add(x.owner, 'Узбекский', kiosk.id), 'BAD_TRANSLATOR');
+      const add = async (u: User, language: string, translatorName?: string, dueDate = '2026-11-20') =>
+        tr.addTranslation(tx, await x.as(u), id, { ...(await cur(tx, id)), language, translatorName, dueDate });
+      await expectCode(add(x.staff, 'Таджикский', 'Калинов К.'), 'FORBIDDEN');
+      await add(x.owner, 'Таджикский', '  Калинов К. К.  ');
+      await expectCode(add(x.owner, ' таджикский '), 'DUPLICATE');
+      await add(x.chief, 'Английский'); // переводчик не указан — можно
+      await expectCode(add(x.owner, 'Узбекский', 'И'.repeat(201)), 'TOO_LONG');
+      // translator_id новых строк — тот, кто добавил (откат на 1.3.0 не ломается), имя — текстом.
+      const rows = await tx.documentTranslation.findMany({ where: { documentId: id }, orderBy: { addedAt: 'asc' } });
+      expect(rows.map((r) => [r.language, r.translatorName, r.translatorId])).toEqual([['Таджикский', 'Калинов К. К.', x.owner.id], ['Английский', '', x.chief.id]]);
 
-      // Читатель-переводчик до этапа 15 документа не видит как «ждёт вас», но видит его на маршруте.
-      expect((await list(tx, x.legal)).find((d) => d.id === id)).toMatchObject({ waitingForMe: false });
       await moveTo(tx, x, id, 15);
-      expect((await list(tx, x.legal)).find((d) => d.id === id)).toMatchObject({ waitingForMe: true, stage: 15 });
       await expectCode(move(tx, x.head, id, 'to_signing'), 'TRANSLATIONS_MISSING');
       let d = await view(tx, x.head, id);
       expect(d.blockedReason).toMatch(/осталось 2/);
+      expect(d.translations.map((t) => [t.language, t.translatorName])).toEqual([['Таджикский', 'Калинов К. К.'], ['Английский', '']]);
       const [tj, en] = [must(d.translations[0]), must(d.translations[1])];
 
       const file = async (u: User, name = 'Перевод.docx') => (await makeFileRow(tx, u.id, { name, mime: MIME_BY_EXT.docx })).id;
       const upload = async (u: User, tid: string, fid: string) => tr.addTranslationFiles(tx, await x.as(u), id, tid, { ...(await cur(tx, id)), fileIds: [fid] });
-      await expectCode(upload(x.staff, tj.id, await file(x.staff)), 'FORBIDDEN');
-      await expectCode(upload(x.legal, tj.id, (await makeFileRow(tx, x.legal.id, { name: 'а.png', mime: MIME_BY_EXT.png })).id), 'BAD_FILE_TYPE');
-      const reader = await view(tx, x.legal, id, { history: false });
-      expect(reader.translations.find((t) => t.id === tj.id)?.canUpload).toBe(true);
-      await upload(x.legal, tj.id, await file(x.legal, 'Таджикский.docx'));
-      expect((await list(tx, x.legal)).find((i) => i.id === id)?.waitingForMe).toBe(false);
+      // Файл — автор (владелец или docs.manage); начальник ИБ, старший над автором и сотрудник — нет.
+      for (const u of [x.head, x.chief, x.staff]) await expectCode(upload(u, tj.id, await file(u)), 'FORBIDDEN');
+      expect(d.translations.every((t) => !t.canUpload)).toBe(true);
+      expect((await view(tx, x.owner, id)).translations.every((t) => t.canUpload)).toBe(true);
+      await expectCode(upload(x.owner, tj.id, (await makeFileRow(tx, x.owner.id, { name: 'а.png', mime: MIME_BY_EXT.png })).id), 'BAD_FILE_TYPE');
+      await upload(x.owner, tj.id, await file(x.owner, 'Таджикский.docx'));
       await expectCode(move(tx, x.head, id, 'to_signing'), 'TRANSLATIONS_MISSING');
-      await upload(x.staff, en.id, await file(x.staff, 'English.docx'));
+      await upload(x.admin, en.id, await file(x.admin, 'English.docx')); // docs.manage — за автора
       d = await view(tx, x.head, id);
       expect(d.translations.map((t) => [t.language, t.done, t.files.map((f) => f.file.name)])).toEqual([
         ['Таджикский', true, ['Таджикский.docx']], ['Английский', true, ['English.docx']],
       ]);
       expect(d.files.some((f) => f.file.name === 'English.docx')).toBe(false);
-      // Язык с файлом не снимается.
-      await expectCode(tr.removeTranslation(tx, await x.as(x.owner), id, en.id, await cur(tx, id)), 'HAS_FILES');
       await move(tx, x.chief, id, 'to_signing');
       expect((await cur(tx, id)).stage).toBe(16);
-      // После этапа 15 файлы перевода не меняются.
-      await expectCode(upload(x.staff, en.id, await file(x.staff)), 'WRONG_STAGE');
+      // После этапа 15 файлы перевода не меняются, строки не снимаются.
+      await expectCode(upload(x.owner, en.id, await file(x.owner)), 'WRONG_STAGE');
+      await expectCode(tr.removeTranslation(tx, await x.as(x.owner), id, en.id, await cur(tx, id)), 'WRONG_STAGE');
     }));
 
-  it('срок перевода меняется только с комментарием, в общую историю сроков; язык без файла снимается', () =>
+  it('строку снимают до прохождения этапа 15 — и с файлом; снятая не участвует в проверке 15 → 16; срок — с комментарием', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const id = await x.create();
-      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorId: x.staff.id, dueDate: '2020-01-10' });
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorName: 'Калинов К.', dueDate: '2020-01-10' });
       const t = must((await view(tx, x.owner, id)).translations[0]);
       expect(t.overdue).toBe(true);
-      const patch = async (body: { dueDate?: string; comment?: string; translatorId?: string }) =>
+      const patch = async (body: { dueDate?: string; comment?: string; translatorName?: string }) =>
         tr.updateTranslation(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), ...body });
       await expectCode(patch({ dueDate: '2020-01-20' }), 'EMPTY_COMMENT');
-      await patch({ dueDate: '2020-01-20', comment: 'Переводчик в отпуске', translatorId: x.chief.id });
+      await patch({ dueDate: '2020-01-20', comment: 'Переводчик в отпуске', translatorName: 'Ромашова Р.' });
       const after = must((await view(tx, x.owner, id)).translations[0]);
-      expect(after).toMatchObject({ dueDate: '2020-01-20', translator: { fullName: 'Руководитель автора' } });
+      expect(after).toMatchObject({ dueDate: '2020-01-20', translatorName: 'Ромашова Р.' });
       expect(after.deadlines).toEqual([expect.objectContaining({ from: '2020-01-10', to: '2020-01-20', comment: 'Переводчик в отпуске' })]);
+
+      // На этапе 15 с файлом — снять можно; снятая строка и её файл в проверке 15 → 16 не участвуют.
+      await moveTo(tx, x, id, 15);
+      await tr.addTranslationFiles(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.owner.id, { name: 'tj.docx', mime: MIME_BY_EXT.docx })).id] });
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Английский', dueDate: '2026-11-20' });
+      await expectCode(move(tx, x.head, id, 'to_signing'), 'TRANSLATIONS_MISSING');
+      const en = must((await view(tx, x.owner, id)).translations.find((r) => r.language === 'Английский'));
       await tr.removeTranslation(tx, await x.as(x.owner), id, t.id, await cur(tx, id));
+      await tr.removeTranslation(tx, await x.as(x.owner), id, en.id, await cur(tx, id));
       expect((await view(tx, x.owner, id)).translations).toEqual([]);
+      expect(await tx.documentFile.count({ where: { translationId: t.id } })).toBe(1); // файл не удалён, строка — «снята»
+      await move(tx, x.head, id, 'to_signing');
       expect(await sqlError(tx, `DELETE FROM document_translations WHERE id = '${t.id}'`)).toMatch(/permission denied/);
+    }));
+
+  it('переводчик не пользователь портала: «Сейчас у» на 15 — автор; документ не виден и не ждёт пользователя, указанного переводчиком до 1.4.0', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorName: 'Юрист', dueDate: '2026-11-20' });
+      // Строка до 1.4.0: translator_id — пользователь портала (читатель документов).
+      await tx.documentTranslation.updateMany({ where: { documentId: id }, data: { translatorId: x.legal.id } });
+      await moveTo(tx, x, id, 15);
+      const item = must((await list(tx, x.staff)).find((d) => d.id === id));
+      expect(item.holders).toEqual({ people: [{ id: x.owner.id, fullName: 'Автор Документа' }], missingHead: false });
+      expect((await list(tx, x.owner)).find((d) => d.id === id)?.waitingForMe).toBe(true);
+      expect((await list(tx, x.legal)).find((d) => d.id === id)).toBeUndefined();
+      expect((await svc.documentSummary(tx, await svc.accessOf(tx, x.legal.id))).waitingForMe).toBe(0);
+      expect(await tx.notification.count({ where: { userId: x.legal.id, documentId: id } })).toBe(0);
+      // Автору — «ждёт файлов перевода» (14 → 15 перевёл начальник ИБ).
+      expect(await tx.notification.count({ where: { userId: x.owner.id, documentId: id, title: { contains: 'ждёт файлов перевода' } } })).toBe(1);
     }));
 });
 
@@ -777,7 +808,7 @@ describe('документы: уведомления (Г5)', () => {
     inTx(async (tx) => {
       const x = await fixture(tx);
       const id = await x.create('Политика ИБ');
-      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorId: x.legal.id, dueDate: '2026-11-20' });
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorName: 'Юрист', dueDate: '2026-11-20' });
       await moveTo(tx, x, id, 12);
       await svc.addDocumentComment(tx, await x.as(x.staff), id, { body: 'Нет срока в п. 4' });
       await svc.addDocumentComment(tx, await x.as(x.owner), id, { body: 'Добавил' });
@@ -793,9 +824,11 @@ describe('документы: уведомления (Г5)', () => {
       await moveTo(tx, x, id, 15);
       // Последнее лицо согласовал сам начальник ИБ — себе уведомления нет; переводчику — его язык.
       expect(await inbox(tx, x.head, id)).toHaveLength(2);
-      expect(await inbox(tx, x.legal, id)).toEqual([expect.stringMatching(/^doc_translation: .* ждёт перевода$/)]);
+      // Переводчик не пользователь портала: файлов перевода ждёт автор (1.4.0).
+      expect(await inbox(tx, x.legal, id)).toEqual([]);
+      expect((await inbox(tx, x.owner, id)).at(-1)).toMatch(/^doc_waiting: .* ждёт файлов перевода$/);
       const t = must((await view(tx, x.head, id)).translations[0]);
-      await tr.addTranslationFiles(tx, await x.as(x.legal), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.legal.id)).id] });
+      await tr.addTranslationFiles(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.owner.id)).id] });
       expect((await inbox(tx, x.head, id)).at(-1)).toMatch(/переводы готовы — можно на подписание/);
       expect((await inbox(tx, x.chief, id)).at(-1)).toMatch(/переводы готовы — можно на подписание/);
       await move(tx, x.chief, id, 'to_signing');
@@ -845,18 +878,19 @@ describe('документы: уведомления (Г5)', () => {
       expect((await inbox(tx, x.head, id)).at(-1)).toMatch(/^doc_waiting: .*: все ответственные лица согласовали$/);
     }));
 
-  it('сменили срок: лица — автору, перевода — переводчику и автору; срок лица завтра и просрочен — автору, без дублей', () =>
+  it('сменили срок: лица — автору, перевода — автору (переводчик не пользователь портала); срок лица завтра и просрочен — автору, без дублей', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const id = await x.create('Регламент');
       const p = await addParty(tx, x.owner, id, { dueDate: '2026-11-10' });
       await parties.updateParty(tx, await x.as(x.head), id, p.id, { ...(await cur(tx, id)), dueDate: '2026-11-15', comment: 'Отсрочка' });
       expect(await inbox(tx, x.owner, id)).toEqual([expect.stringMatching(/^doc_deadline_changed: .*срок ответа Петров П\. П\. перенесён с 10\.11\.2026 на 15\.11\.2026$/)]);
-      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Английский', translatorId: x.staff.id, dueDate: '2026-11-20' });
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Английский', translatorName: 'Сотрудник ИБ', dueDate: '2026-11-20' });
       const t = must((await view(tx, x.owner, id)).translations[0]);
-      await tr.updateTranslation(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), dueDate: '2026-11-25', comment: 'Объём больше' });
-      expect(await inbox(tx, x.staff, id)).toEqual([expect.stringMatching(/срок перевода на Английский перенесён/)]);
-      expect(await inbox(tx, x.owner, id)).toHaveLength(1);
+      await tr.updateTranslation(tx, await x.as(x.head), id, t.id, { ...(await cur(tx, id)), dueDate: '2026-11-25', comment: 'Объём больше' });
+      expect(await inbox(tx, x.staff, id)).toEqual([]);
+      expect((await inbox(tx, x.owner, id)).at(-1)).toMatch(/срок перевода на Английский перенесён/);
+      expect(await inbox(tx, x.owner, id)).toHaveLength(2);
 
       const at = (iso: string) => new Date(`${iso}T06:00:00Z`);
       expect(await notifyPartyDeadlines(tx, at('2026-11-14'))).toMatchObject({ dueTomorrow: expect.any(Number) });
@@ -946,7 +980,7 @@ describe('«Сейчас у» и «ждут вас» — одна функция
       expect((await view(tx, x.staff, id)).route.find((r) => r.stage === 11)?.approvers).toEqual(['Автор Документа (отключён)']);
     }));
 
-  it('п. 1: видимость не считается — читатель без права действия видит документ, но цифра 0; переводчик с файлом в работе — 1', () =>
+  it('п. 1: видимость не считается — читатель без права действия видит документ, но цифра 0; язык без файла — у автора', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       // Подписанный документ на пересмотре, рабочая версия у начальника ИБ: читатель видит подписанную версию.
@@ -958,12 +992,12 @@ describe('«Сейчас у» и «ждут вас» — одна функция
       expect(seen).toMatchObject({ waitingForMe: false, holders: null });
       expect(await sameCount(tx, x.legal)).toBe(0);
 
-      // Тот же читатель — переводчик языка без файла на этапе 15: может приложить перевод — документ его ждёт.
+      // Язык без файла на этапе 15 (1.4.0): файл прикладывает автор — документ ждёт автора, а не переводчика.
       const id = await x.create('Политика с переводом');
-      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorId: x.legal.id, dueDate: '2026-11-20' });
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorName: 'Юрист', dueDate: '2026-11-20' });
       await moveTo(tx, x, id, 15);
-      expect(await nowAt(tx, x, id)).toEqual({ names: ['Юрист'], missingHead: false });
-      expect(await sameCount(tx, x.legal)).toBe(1);
+      expect(await nowAt(tx, x, id)).toEqual({ names: ['Автор Документа'], missingHead: false });
+      expect(await sameCount(tx, x.legal)).toBe(0);
       // Пока перевод не готов, начальника ИБ этот документ не ждёт (его ждёт только первый — на этапе 13).
       expect((await list(tx, x.head)).find((d) => d.id === id)?.waitingForMe).toBe(false);
       expect(await sameCount(tx, x.head)).toBe(1);

@@ -17,7 +17,6 @@ import { stageName } from './status.js';
 
 export const NAME_MAX = 300;
 export const DEPARTMENT_MAX = 300;
-export const EMAIL_MAX = 320;
 export const BLOCKER_MAX = 2000;
 
 /** Этапы, на которых ведётся список лиц: заранее с драфта и до этапа 14 включительно. */
@@ -27,12 +26,15 @@ const RESPONSE_MIME = [MIME_BY_EXT.pdf, MIME_BY_EXT.docx, MIME_BY_EXT.png, MIME_
 
 type Stage = { version: number; stage: number };
 
+/**
+ * Ответственное лицо — внешний человек (1.4.0, решение владельца 10): ФИО, подразделение или должность, срок ответа;
+ * ответ-файл — при «Отметить согласование». E-mail и «пользователь портала» не вводятся: колонки остаются, старые
+ * значения показываются в карточке текстом.
+ */
 export interface PartyInput {
   fullName: string;
+  /** Подразделение или должность. */
   department?: string;
-  email?: string;
-  /** Пользователь портала, если человек в нём есть (необязательно). */
-  userId?: string | null;
   /** Срок ответа, YYYY-MM-DD. */
   dueDate: string;
 }
@@ -48,20 +50,6 @@ function cleanText(v: string | undefined, max: number, what: string, required = 
   if (required && !t) throw badRequest('EMPTY', `Укажите ${what}`);
   if (t.length > max) throw badRequest('TOO_LONG', `${what[0]?.toUpperCase() ?? ''}${what.slice(1)} — не длиннее ${max} символов`);
   return t;
-}
-
-function cleanEmail(v: string | undefined): string {
-  const t = (v ?? '').trim();
-  if (!t) return '';
-  if (t.length > EMAIL_MAX || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) throw badRequest('BAD_EMAIL', 'E-mail указан неверно');
-  return t;
-}
-
-async function checkUser(db: Db, id: string | null | undefined): Promise<string | null> {
-  if (!id) return null;
-  const u = await db.user.findFirst({ where: { id, isActive: true }, select: { id: true } });
-  if (!u) throw badRequest('BAD_USER', 'Пользователь портала не найден или отключён');
-  return u.id;
 }
 
 /** Контекст действия со списком лиц: автор или начальник ИБ, этапы 11–14. */
@@ -87,17 +75,15 @@ export async function addParty(db: Db, actor: Actor, id: string, input: Stage & 
   return withTx(db, async (tx) => {
     const { d, w } = await partyContext(tx, actor, id, input);
     const fullName = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
-    const department = cleanText(input.department, DEPARTMENT_MAX, 'подразделение');
-    const email = cleanEmail(input.email);
+    const department = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
     const due = cleanDate(input.dueDate, 'срок ответа');
-    const userId = await checkUser(tx, input.userId);
     const p = await tx.documentParty.create({
-      data: { documentId: id, versionId: w.id, fullName, department, email, userId, dueDate: due, addedBy: actor.id },
+      data: { documentId: id, versionId: w.id, fullName, department, dueDate: due, addedBy: actor.id },
     });
     await auditSettings(tx, actor, {
       action: 'document.party_added', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}»: ответственное лицо ${fullName}${department ? ` (${department})` : ''}, срок ${formatDateRu(iso(due))}`,
-      after: { partyId: p.id, fullName, department, email, userId, dueDate: iso(due) },
+      after: { partyId: p.id, fullName, department, dueDate: iso(due) },
     });
   });
 }
@@ -112,23 +98,15 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
   return withTx(db, async (tx) => {
     const { d, w } = await partyContext(tx, actor, id, input);
     const p = await getParty(tx, w.id, partyId);
-    const data: { fullName?: string; department?: string; email?: string; userId?: string | null; dueDate?: Date } = {};
+    const data: { fullName?: string; department?: string; dueDate?: Date } = {};
     const changes: { label: string; from: string; to: string }[] = [];
     if (input.fullName !== undefined) {
       const v = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
       if (v !== p.fullName) { data.fullName = v; changes.push({ label: 'ФИО', from: p.fullName, to: v }); }
     }
     if (input.department !== undefined) {
-      const v = cleanText(input.department, DEPARTMENT_MAX, 'подразделение');
-      if (v !== p.department) { data.department = v; changes.push({ label: 'Подразделение', from: p.department || '—', to: v || '—' }); }
-    }
-    if (input.email !== undefined) {
-      const v = cleanEmail(input.email);
-      if (v !== p.email) { data.email = v; changes.push({ label: 'E-mail', from: p.email || '—', to: v || '—' }); }
-    }
-    if (input.userId !== undefined) {
-      const v = await checkUser(tx, input.userId);
-      if (v !== p.userId) { data.userId = v; changes.push({ label: 'Пользователь портала', from: p.userId ? 'указан' : '—', to: v ? 'указан' : '—' }); }
+      const v = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
+      if (v !== p.department) { data.department = v; changes.push({ label: 'Подразделение или должность', from: p.department || '—', to: v || '—' }); }
     }
     if (input.dueDate !== undefined) {
       const due = cleanDate(input.dueDate, 'срок ответа');

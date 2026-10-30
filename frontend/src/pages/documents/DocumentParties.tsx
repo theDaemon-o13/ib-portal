@@ -1,10 +1,9 @@
 // Этапы 14 и 15 и блокеры документа (релиз 1.2.0, этапы Г3–Г4, ADR-0024): ответственные лица, переводы, блокеры.
 // Решает всегда backend: кнопки видны по d.can, ошибки — через onError карточки.
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { docsApi, type At, type DocDetail, type DocResult } from '../../api/documents';
 import type { FileInfo } from '../../api/files';
-import { settingsApi } from '../../api/settings';
 import { FileUpload } from '../../components/files/FileUpload';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
@@ -23,19 +22,19 @@ interface Props {
 
 type PartyMode = { kind: 'add' } | { kind: 'approve' | 'due'; party: Party } | null;
 
-const empty = { fullName: '', department: '', email: '', userId: '', dueDate: '' };
+// Ответственное лицо — внешний человек (1.4.0): ФИО, подразделение или должность, срок; ответ-файл — при согласовании.
+const empty = { fullName: '', department: '', dueDate: '' };
 
 export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
   const [mode, setMode] = useState<PartyMode>(null);
   const [form, setForm] = useState(empty);
   const [comment, setComment] = useState('');
   const [files, setFiles] = useState<FileInfo[]>([]);
-  const people = useQuery({ queryKey: ['settings', 'userOptions', 'all'], queryFn: settingsApi.allUserOptions, enabled: mode?.kind === 'add' });
 
   const close = () => { setMode(null); setForm(empty); setComment(''); setFiles([]); };
   const done = async (r: DocResult, text: string) => { close(); await onDone(r, text); };
   const add = useMutation({
-    mutationFn: () => docsApi.addParty(d.id, { ...at, fullName: form.fullName, department: form.department, email: form.email, userId: form.userId || null, dueDate: form.dueDate }),
+    mutationFn: () => docsApi.addParty(d.id, { ...at, fullName: form.fullName, department: form.department, dueDate: form.dueDate }),
     onSuccess: (r) => done(r, 'Ответственное лицо добавлено'), onError,
   });
   const approve = useMutation({
@@ -61,7 +60,9 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
         {d.parties.map((p) => (
           <div key={p.id} className="hist-item" data-party={p.fullName}>
             <div>
-              <b>{p.fullName}</b>{p.department && ` · ${p.department}`}{p.email && <span className="hint"> · {p.email}</span>}
+              <b>{p.fullName}</b>{p.department && ` · ${p.department}`}
+              {/* Строки до 1.4.0: e-mail и пользователь портала — только текстом, в форме их больше нет. */}
+              {p.email && <span className="hint"> · {p.email}</span>}
               {p.user && <span className="hint"> · в портале: {p.user.fullName}</span>}
             </div>
             <div className="row">
@@ -93,14 +94,7 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
         <form className="task-form" aria-label="Ответственное лицо" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
           <div className="fgrid">
             <label>ФИО<input className="inp" required maxLength={300} value={form.fullName} onChange={set('fullName')} /></label>
-            <label>Подразделение<input className="inp" maxLength={300} value={form.department} onChange={set('department')} /></label>
-            <label>E-mail (для справки)<input className="inp" type="email" maxLength={320} value={form.email} onChange={set('email')} /></label>
-            <label>Пользователь портала (необязательно)
-              <select className="inp" value={form.userId} onChange={set('userId')}>
-                <option value="">— нет —</option>
-                {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-              </select>
-            </label>
+            <label>Подразделение или должность<input className="inp" maxLength={300} value={form.department} onChange={set('department')} /></label>
             <label>Срок ответа<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
           </div>
           <div className="hint">Портал писем не отправляет: документ ответственному лицу отправьте по почте, ответ отметьте здесь.</div>
@@ -183,11 +177,11 @@ type TrMode = { kind: 'add' } | { kind: 'due' | 'upload'; t: Translation } | nul
 /** Этап 15 «Перевод» (Г4): языки, переводчики, сроки; 15 → 16 — когда у каждого языка есть файл. */
 export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Props) {
   const [mode, setMode] = useState<TrMode>(null);
-  const [form, setForm] = useState({ language: '', translatorId: '', dueDate: '' });
+  // Строка перевода (1.4.0): язык, переводчик текстом (необязательно), срок; файл — автор на этапе 15.
+  const [form, setForm] = useState({ language: '', translatorName: '', dueDate: '' });
   const [comment, setComment] = useState('');
   const [files, setFiles] = useState<FileInfo[]>([]);
-  const people = useQuery({ queryKey: ['settings', 'userOptions', 'all'], queryFn: settingsApi.allUserOptions, enabled: mode?.kind === 'add' });
-  const close = () => { setMode(null); setForm({ language: '', translatorId: '', dueDate: '' }); setComment(''); setFiles([]); };
+  const close = () => { setMode(null); setForm({ language: '', translatorName: '', dueDate: '' }); setComment(''); setFiles([]); };
   const done = async (r: DocResult, text: string) => { close(); await onDone(r, text); };
   const add = useMutation({ mutationFn: () => docsApi.addTranslation(d.id, { ...at, ...form }), onSuccess: (r) => done(r, 'Язык перевода добавлен'), onError });
   const due = useMutation({ mutationFn: (t: Translation) => docsApi.updateTranslation(d.id, t.id, { ...at, dueDate: form.dueDate, comment }), onSuccess: (r) => done(r, 'Срок перевода изменён'), onError });
@@ -205,13 +199,13 @@ export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Prop
       <div className="hist">
         {d.translations.map((t) => (
           <div key={t.id} className="hist-item" data-translation={t.language}>
-            <div><b>{t.language}</b> · переводчик {t.translator.fullName}</div>
+            <div><b>{t.language}</b>{t.translatorName ? ` · переводчик ${t.translatorName}` : ''}</div>
             <div className="row">
               <span className={`mono${t.overdue ? ' late-t' : ''}`}>срок {formatDate(t.dueDate)}{t.overdue ? ' — просрочен' : ''}</span>
               <span className={`chip${t.done ? ' low' : ''}`}>{t.done ? 'перевод приложен' : 'ждём перевод'}</span>
               {!mode && t.canUpload && <button type="button" className="btn sm primary" disabled={busy} onClick={() => setMode({ kind: 'upload', t })}>Приложить перевод</button>}
               {!mode && d.can.translations && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => { setForm({ ...form, dueDate: t.dueDate }); setMode({ kind: 'due', t }); }}>Срок</button>}
-              {!mode && d.can.translations && !t.done && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => remove.mutate(t)}>Снять</button>}
+              {!mode && d.can.translations && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => remove.mutate(t)}>Снять</button>}
             </div>
             {t.files.map((f) => (
               <div key={f.id} className="row">
@@ -228,16 +222,11 @@ export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Prop
         <form className="task-form" aria-label="Язык перевода" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
           <div className="fgrid">
             <label>Язык<input className="inp" required maxLength={100} placeholder="например, таджикский" value={form.language} onChange={set('language')} /></label>
-            <label>Переводчик
-              <select className="inp" required value={form.translatorId} onChange={set('translatorId')}>
-                <option value="">— выберите —</option>
-                {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-              </select>
-            </label>
+            <label>Переводчик (необязательно)<input className="inp" maxLength={200} placeholder="ФИО или организация" value={form.translatorName} onChange={set('translatorName')} /></label>
             <label>Срок перевода<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
           </div>
           <div className="row">
-            <button className="btn primary" type="submit" disabled={busy || !form.language.trim() || !form.translatorId || !form.dueDate}>Добавить</button>
+            <button className="btn primary" type="submit" disabled={busy || !form.language.trim() || !form.dueDate}>Добавить</button>
             <button className="btn" type="button" onClick={close}>Отмена</button>
           </div>
         </form>

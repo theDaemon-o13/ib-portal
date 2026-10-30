@@ -1,11 +1,12 @@
-// Этап 15 «Перевод» (релиз 1.2.0, этап Г4, ADR-0024). Языки с переводчиком — пользователем портала (решение
-// владельца 3) — и сроком ведут автор, старшие над автором и начальник ИБ на этапах 11–15. Перевод готов, когда
-// приложен файл (pdf или docx): прикладывает переводчик или тот, кто ведёт языки, на этапе 15. Срок меняется только
-// с комментарием — в общую историю сроков. 15 → 16 — когда у каждого языка есть файл (service.ts, gate).
+// Этап 15 «Перевод» (релиз 1.2.0, этап Г4, ADR-0024; с 1.4.0 — решение владельца 9). Строка перевода — язык, имя
+// переводчика текстом (необязательно: переводчик не пользователь портала), срок и файл. Строки ведут автор, старшие над
+// автором и начальник ИБ на этапах 11–15; снять строку можно до прохождения этапа 15, и с файлом. Файл (pdf или docx)
+// прикладывает автор (владелец или docs.manage) на этапе 15. Срок меняется только с комментарием — в общую историю
+// сроков. 15 → 16 — когда у каждого добавленного языка есть файл (service.ts, gate). translator_id в новых строках —
+// тот, кто добавил строку (колонка NOT NULL ради отката на 1.3.0).
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { MIME_BY_EXT } from '../../lib/file-type.js';
-import { KIOSK_PERMISSION } from '../../lib/permissions.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
@@ -33,15 +34,15 @@ function cleanLanguage(v: string): string {
   return t;
 }
 
-/** Переводчик — активный пользователь портала, не учётная запись настенного монитора. */
-async function checkTranslator(db: Db, id: string) {
-  const u = await db.user.findFirst({
-    where: { id, isActive: true, roles: { none: { role: { permissions: { some: { permissionCode: KIOSK_PERMISSION } } } } } },
-    select: { id: true, fullName: true },
-  });
-  if (!u) throw badRequest('BAD_TRANSLATOR', 'Переводчик — активный пользователь портала');
-  return u;
+export const TRANSLATOR_NAME_MAX = 200;
+
+/** Имя переводчика — необязательный текст (1.4.0). */
+function cleanTranslatorName(v: string | undefined): string {
+  const t = trimmed(v ?? '');
+  if (t.length > TRANSLATOR_NAME_MAX) throw badRequest('TOO_LONG', `Имя переводчика — не длиннее ${TRANSLATOR_NAME_MAX} символов`);
+  return t;
 }
+const nameOrDash = (v: string) => v || '—';
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -57,12 +58,12 @@ async function managerContext(tx: Db, actor: Actor, id: string, input: Stage) {
 }
 
 async function getTranslation(tx: Db, versionId: string, translationId: string) {
-  const t = await tx.documentTranslation.findFirst({ where: { id: translationId, versionId, removedAt: null }, include: { translator: { select: { fullName: true } } } });
+  const t = await tx.documentTranslation.findFirst({ where: { id: translationId, versionId, removedAt: null } });
   if (!t) throw notFound('Перевод');
   return t;
 }
 
-async function createTranslation(tx: Db, data: { documentId: string; versionId: string; language: string; translatorId: string; dueDate: Date; addedBy: string }) {
+async function createTranslation(tx: Db, data: { documentId: string; versionId: string; language: string; translatorId: string; translatorName: string; dueDate: Date; addedBy: string }) {
   try {
     return await withTx(tx, (t) => t.documentTranslation.create({ data }));
   } catch (err) {
@@ -71,39 +72,39 @@ async function createTranslation(tx: Db, data: { documentId: string; versionId: 
   }
 }
 
-export async function addTranslation(db: Db, actor: Actor, id: string, input: Stage & { language: string; translatorId: string; dueDate: string }) {
+export async function addTranslation(db: Db, actor: Actor, id: string, input: Stage & { language: string; translatorName?: string; dueDate: string }) {
   return withTx(db, async (tx) => {
     const { d, w } = await managerContext(tx, actor, id, input);
     const language = cleanLanguage(input.language);
     const due = cleanDate(input.dueDate);
-    const translator = await checkTranslator(tx, input.translatorId);
-    const t = await createTranslation(tx, { documentId: id, versionId: w.id, language, translatorId: translator.id, dueDate: due, addedBy: actor.id });
+    const translatorName = cleanTranslatorName(input.translatorName);
+    // translator_id — тот, кто добавил строку (решение владельца 9): переводчик не пользователь портала.
+    const t = await createTranslation(tx, { documentId: id, versionId: w.id, language, translatorId: actor.id, translatorName, dueDate: due, addedBy: actor.id });
     await auditSettings(tx, actor, {
       action: 'document.translation_added', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: перевод на ${language} — ${translator.fullName}, срок ${formatDateRu(iso(due))}`,
-      after: { translationId: t.id, language, translatorId: translator.id, dueDate: iso(due) },
+      summary: `Документ #${d.number} «${w.title}»: перевод на ${language}${translatorName ? ` — ${translatorName}` : ''}, срок ${formatDateRu(iso(due))}`,
+      after: { translationId: t.id, language, translatorName, dueDate: iso(due) },
     });
     // Язык добавили уже на этапе 15 — «ждёт вас» по stageHolders (один раз на состояние).
     if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
-/** Правка языка: переводчик, язык, срок (смена срока — только с комментарием, в историю сроков). */
+/** Правка строки: язык, имя переводчика, срок (смена срока — только с комментарием, в историю сроков). */
 export async function updateTranslation(db: Db, actor: Actor, id: string, translationId: string,
-  input: Stage & { language?: string; translatorId?: string; dueDate?: string; comment?: string }) {
+  input: Stage & { language?: string; translatorName?: string; dueDate?: string; comment?: string }) {
   return withTx(db, async (tx) => {
     const { d, w } = await managerContext(tx, actor, id, input);
     const t = await getTranslation(tx, w.id, translationId);
-    const data: { language?: string; translatorId?: string; dueDate?: Date } = {};
+    const data: { language?: string; translatorName?: string; dueDate?: Date } = {};
     const changes: { label: string; from: string; to: string }[] = [];
     if (input.language !== undefined) {
       const v = cleanLanguage(input.language);
       if (v !== t.language) { data.language = v; changes.push({ label: 'Язык', from: t.language, to: v }); }
     }
-    if (input.translatorId !== undefined && input.translatorId !== t.translatorId) {
-      const u = await checkTranslator(tx, input.translatorId);
-      data.translatorId = u.id;
-      changes.push({ label: 'Переводчик', from: t.translator.fullName, to: u.fullName });
+    if (input.translatorName !== undefined) {
+      const v = cleanTranslatorName(input.translatorName);
+      if (v !== t.translatorName) { data.translatorName = v; changes.push({ label: 'Переводчик', from: nameOrDash(t.translatorName), to: nameOrDash(v) }); }
     }
     if (input.dueDate !== undefined) {
       const due = cleanDate(input.dueDate);
@@ -112,8 +113,9 @@ export async function updateTranslation(db: Db, actor: Actor, id: string, transl
         data.dueDate = due;
         changes.push({ label: 'Срок', from: formatDateRu(iso(t.dueDate)), to: formatDateRu(iso(due)) });
         await tx.documentDeadlineChange.create({ data: { documentId: id, translationId, fromDate: t.dueDate, toDate: due, comment, actorId: actor.id } });
+        // Переводчик не пользователь портала — уведомление только автору.
         await notifyDeadlineChanged(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, `перевода на ${t.language}`,
-          [data.translatorId ?? t.translatorId], iso(t.dueDate), iso(due), comment, actor.id);
+          [], iso(t.dueDate), iso(due), comment, actor.id);
       }
     }
     if (!changes.length) return;
@@ -128,19 +130,17 @@ export async function updateTranslation(db: Db, actor: Actor, id: string, transl
       summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${changes.map((c) => `«${c.label}»`).join(', ')}`,
       after: { translationId, changes, comment: input.comment?.trim() ?? '' },
     });
-    // Новый переводчик на этапе 15 — «ждёт вас» по stageHolders (новому — один раз).
-    if (data.translatorId && w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
-/** Снять язык, у которого нет файла перевода (ошибка в списке). Строка остаётся с отметкой «снят». */
+/**
+ * Снять строку перевода — до прохождения этапа 15 (этапы 11–15), в том числе с файлом (1.4.0): строка и её файлы
+ * остаются в базе с отметкой «снят», в карточке и проверке 15 → 16 не участвуют.
+ */
 export async function removeTranslation(db: Db, actor: Actor, id: string, translationId: string, input: Stage) {
   return withTx(db, async (tx) => {
     const { d, w } = await managerContext(tx, actor, id, input);
     const t = await getTranslation(tx, w.id, translationId);
-    if (await tx.documentFile.count({ where: { translationId, removedAt: null } })) {
-      throw conflict('HAS_FILES', `У перевода на ${t.language} есть файл: сначала снимите его`);
-    }
     await tx.documentTranslation.update({ where: { id: translationId }, data: { removedAt: new Date(), removedBy: actor.id } });
     await auditSettings(tx, actor, {
       action: 'document.translation_removed', entity: 'document', entityId: id,
@@ -151,14 +151,13 @@ export async function removeTranslation(db: Db, actor: Actor, id: string, transl
   });
 }
 
-/** Файл перевода (этап 15): переводчик языка или тот, кто ведёт языки. */
+/** Файл перевода (этап 15): автор документа — владелец или право docs.manage (1.4.0). */
 async function uploadContext(tx: Db, actor: Actor, id: string, translationId: string, input: Stage) {
   const ctx = await routeContext(tx, actor, id, input);
   if (ctx.w.stage !== UPLOAD_STAGE) throw conflict('WRONG_STAGE', `Файлы перевода прикладываются на этапе «${stageName(UPLOAD_STAGE)}»`);
   const t = await getTranslation(tx, ctx.w.id, translationId);
-  const roles = rolesOf(ctx.who, ctx.d);
-  if (t.translatorId !== actor.id && !roles.has('author') && !roles.has('senior') && !roles.has('head')) {
-    throw forbiddenWith('FORBIDDEN', `Перевод на ${t.language} прикладывает переводчик (${t.translator.fullName}), автор или начальник ИБ`);
+  if (!rolesOf(ctx.who, ctx.d).has('author')) {
+    throw forbiddenWith('FORBIDDEN', `Перевод на ${t.language} прикладывает автор документа (владелец или право «Документы: управление»)`);
   }
   return { ...ctx, t };
 }

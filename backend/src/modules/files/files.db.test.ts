@@ -86,7 +86,7 @@ describe('файлы по HTTP', () => {
       expect((await s.upload(await s.login(s.staff.login), 'a.png', tinyPng())).statusCode).toBe(201);
     }));
 
-  it('переводчик без прав загружает файл, пока его язык ждёт перевода на этапе 15 (1.2.0)', () =>
+  it('переводчик — не пользователь портала (1.4.0): без прав файл не загрузить, даже если он указан переводчиком строки до 1.4.0', () =>
     inTx(async (tx) => {
       const s = await setup(tx);
       const L = await s.login(s.lawyer.login);
@@ -97,7 +97,7 @@ describe('файлы по HTTP', () => {
       await tx.documentTranslation.create({ data: { documentId: docId, versionId: vid, language: 'Таджикский', translatorId: s.lawyer.id, dueDate: new Date('2026-11-20T00:00:00Z'), addedBy: s.staff.id } });
       expect((await s.upload(L, 'перевод.pdf', tinyPdf())).statusCode).toBe(403);
       await tx.documentVersion.update({ where: { id: vid }, data: { stage: 15 } });
-      expect((await s.upload(L, 'перевод.pdf', tinyPdf())).statusCode).toBe(201);
+      expect((await s.upload(L, 'перевод.pdf', tinyPdf())).statusCode).toBe(403);
     }));
 
   it('выдача: без права на объект — 404; заголовки attachment, nosniff, sandbox', () =>

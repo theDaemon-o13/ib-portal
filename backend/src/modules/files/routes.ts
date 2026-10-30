@@ -24,8 +24,8 @@ export const FileOut = z.object({
   deleted: z.boolean(),
 });
 
-// Загружают сотрудники ИБ (доказательства, решения), участники документооборота (файлы версии, подписанный PDF)
-// и переводчики документа на этапе 15 — даже без прав (1.2.0, ADR-0024): проверка — в обработчике.
+// Загружают сотрудники ИБ (доказательства, решения) и участники документооборота (файлы версии, подписанный PDF).
+// С 1.4.0 переводчик не пользователь портала: файл перевода прикладывает автор документа (решение владельца 9).
 // Читать файл может любой вошедший (и «Читатель документов» без прав, 1.2.0) — дальше решают ссылки на файл (сервис).
 // Начальник ИБ (отметка, 1.4.0) — всегда с ib.work.
 const UPLOAD_PERMS = ['ib.work', 'docs.manage'] as const;
@@ -52,7 +52,7 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
     },
   }, async (request, reply) => {
     const actor = actorOf(request);
-    if (!UPLOAD_PERMS.some((c) => request.user?.permissions.has(c)) && !(await svc.isPendingTranslator(db, actor.id))) throw forbidden();
+    if (!UPLOAD_PERMS.some((c) => request.user?.permissions.has(c))) throw forbidden();
     const body = request.body;
     if (!Buffer.isBuffer(body)) throw badRequest('BAD_BODY', 'Файл передаётся телом запроса (application/octet-stream)');
     let name: string;

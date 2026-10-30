@@ -64278,21 +64278,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -64387,7 +64374,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -66128,21 +66115,8 @@
                           "language": {
                             "type": "string"
                           },
-                          "translator": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "fullName": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "fullName"
-                            ],
-                            "additionalProperties": false
+                          "translatorName": {
+                            "type": "string"
                           },
                           "dueDate": {
                             "type": "string"
@@ -66237,7 +66211,7 @@
                         "required": [
                           "id",
                           "language",
-                          "translator",
+                          "translatorName",
                           "dueDate",
                           "done",
                           "overdue",
@@ -67789,21 +67763,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -67898,7 +67859,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -69463,21 +69424,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -69572,7 +69520,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -71123,21 +71071,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -71232,7 +71167,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -72771,21 +72706,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -72880,7 +72802,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -74431,21 +74353,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -74540,7 +74449,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -76090,21 +75999,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -76199,7 +76095,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -77732,21 +77628,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -77841,7 +77724,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -78367,22 +78250,6 @@
                   "department": {
                     "type": "string",
                     "maxLength": 300
-                  },
-                  "email": {
-                    "type": "string",
-                    "maxLength": 320
-                  },
-                  "userId": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "format": "uuid",
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
                   },
                   "dueDate": {
                     "type": "string",
@@ -79411,21 +79278,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -79520,7 +79374,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -80046,22 +79900,6 @@
                   "department": {
                     "type": "string",
                     "maxLength": 300
-                  },
-                  "email": {
-                    "type": "string",
-                    "maxLength": 320
-                  },
-                  "userId": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "format": "uuid",
-                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
                   },
                   "dueDate": {
                     "type": "string",
@@ -81102,21 +80940,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -81211,7 +81036,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -82761,21 +82586,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -82870,7 +82682,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -84433,21 +84245,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -84542,7 +84341,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -86103,21 +85902,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -86212,7 +85998,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -87762,21 +87548,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -87871,7 +87644,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -88370,7 +88143,7 @@
     },
     "/api/v1/documents/{id}/translations": {
       "post": {
-        "summary": "Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, начальник ИБ; этапы 11–15",
+        "summary": "Этап 15: строка перевода — язык, имя переводчика текстом (необязательно), срок; ведут автор, старший над автором, начальник ИБ; этапы 11–15",
         "tags": [
           "documents"
         ],
@@ -88394,10 +88167,9 @@
                     "type": "string",
                     "maxLength": 100
                   },
-                  "translatorId": {
+                  "translatorName": {
                     "type": "string",
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "maxLength": 200
                   },
                   "dueDate": {
                     "type": "string",
@@ -88408,7 +88180,6 @@
                   "version",
                   "stage",
                   "language",
-                  "translatorId",
                   "dueDate"
                 ]
               }
@@ -89427,21 +89198,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -89536,7 +89294,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -90059,10 +89817,9 @@
                     "type": "string",
                     "maxLength": 100
                   },
-                  "translatorId": {
+                  "translatorName": {
                     "type": "string",
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "maxLength": 200
                   },
                   "dueDate": {
                     "type": "string",
@@ -91103,21 +90860,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -91212,7 +90956,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -92762,21 +92506,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -92871,7 +92602,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -94432,21 +94163,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -94541,7 +94259,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -96101,21 +95819,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -96210,7 +95915,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -97755,21 +97460,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -97864,7 +97556,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -99419,21 +99111,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -99528,7 +99207,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -101066,21 +100745,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -101175,7 +100841,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -102725,21 +102391,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -102834,7 +102487,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -104368,21 +104021,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -104477,7 +104117,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",
@@ -106011,21 +105651,8 @@
                                   "language": {
                                     "type": "string"
                                   },
-                                  "translator": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string"
-                                      },
-                                      "fullName": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "id",
-                                      "fullName"
-                                    ],
-                                    "additionalProperties": false
+                                  "translatorName": {
+                                    "type": "string"
                                   },
                                   "dueDate": {
                                     "type": "string"
@@ -106120,7 +105747,7 @@
                                 "required": [
                                   "id",
                                   "language",
-                                  "translator",
+                                  "translatorName",
                                   "dueDate",
                                   "done",
                                   "overdue",

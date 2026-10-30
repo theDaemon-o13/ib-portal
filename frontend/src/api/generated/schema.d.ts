@@ -23282,10 +23282,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -23793,10 +23790,7 @@ export interface paths {
                             translations: {
                                 id: string;
                                 language: string;
-                                translator: {
-                                    id: string;
-                                    fullName: string;
-                                };
+                                translatorName: string;
                                 dueDate: string;
                                 done: boolean;
                                 overdue: boolean;
@@ -24187,10 +24181,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -24584,10 +24575,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -24984,10 +24972,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -25381,10 +25366,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -25779,10 +25761,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -26177,10 +26156,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -26573,10 +26549,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -26764,8 +26737,6 @@ export interface paths {
                         stage: number;
                         fullName: string;
                         department?: string;
-                        email?: string;
-                        userId?: string | null;
                         dueDate: string;
                     };
                 };
@@ -26975,10 +26946,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -27171,8 +27139,6 @@ export interface paths {
                         stage: number;
                         fullName?: string;
                         department?: string;
-                        email?: string;
-                        userId?: string | null;
                         dueDate?: string;
                         comment?: string;
                     };
@@ -27383,10 +27349,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -27777,10 +27740,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -28177,10 +28137,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -28576,10 +28533,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -28974,10 +28928,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -29148,7 +29099,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, начальник ИБ; этапы 11–15 */
+        /** Этап 15: строка перевода — язык, имя переводчика текстом (необязательно), срок; ведут автор, старший над автором, начальник ИБ; этапы 11–15 */
         post: {
             parameters: {
                 query?: never;
@@ -29164,8 +29115,7 @@ export interface paths {
                         version: number;
                         stage: number;
                         language: string;
-                        /** Format: uuid */
-                        translatorId: string;
+                        translatorName?: string;
                         dueDate: string;
                     };
                 };
@@ -29375,10 +29325,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -29570,8 +29517,7 @@ export interface paths {
                         version: number;
                         stage: number;
                         language?: string;
-                        /** Format: uuid */
-                        translatorId?: string;
+                        translatorName?: string;
                         dueDate?: string;
                         comment?: string;
                     };
@@ -29782,10 +29728,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -30176,10 +30119,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -30575,10 +30515,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -30974,10 +30911,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -31372,10 +31306,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -31771,10 +31702,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -32168,10 +32096,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -32568,10 +32493,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -32964,10 +32886,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
@@ -33360,10 +33279,7 @@ export interface paths {
                                 translations: {
                                     id: string;
                                     language: string;
-                                    translator: {
-                                        id: string;
-                                        fullName: string;
-                                    };
+                                    translatorName: string;
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;

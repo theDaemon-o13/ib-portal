@@ -103,12 +103,8 @@ export interface RouteFacts {
   /** Этап 15 (Г4): языки перевода и сколько из них без файла. */
   translations: number;
   missingTranslations: number;
-  /** Переводчики языков без файла: документ ждёт их. */
-  pendingTranslators: readonly string[];
-  /** Все переводчики версии: им виден документ на маршруте. */
-  translators: readonly string[];
 }
-const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, pendingTranslators: [], translators: [] };
+const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0 };
 
 async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<string, RouteFacts>> {
   const map = new Map<string, RouteFacts>();
@@ -122,8 +118,8 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
     db.$queryRaw<{ version_id: string; open: bigint }[]>`
       SELECT version_id::text, count(*) AS open FROM document_blockers
       WHERE version_id = ANY(${ids}::uuid[]) AND resolved_at IS NULL GROUP BY version_id`,
-    db.$queryRaw<{ version_id: string; translator_id: string; has_file: boolean }[]>`
-      SELECT t.version_id::text, t.translator_id::text,
+    db.$queryRaw<{ version_id: string; has_file: boolean }[]>`
+      SELECT t.version_id::text,
              EXISTS (SELECT 1 FROM document_files f WHERE f.translation_id = t.id AND f.removed_at IS NULL) AS has_file
       FROM document_translations t WHERE t.version_id = ANY(${ids}::uuid[]) AND t.removed_at IS NULL`,
   ]);
@@ -136,8 +132,6 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
       ...f,
       translations: f.translations + 1,
       missingTranslations: f.missingTranslations + (t.has_file ? 0 : 1),
-      pendingTranslators: t.has_file ? f.pendingTranslators : [...f.pendingTranslators, t.translator_id],
-      translators: [...f.translators, t.translator_id],
     });
   }
   return map;
@@ -183,7 +177,7 @@ async function whoOf(
   return { a, subordinates: new Set(subs), acted, facts, holders, holderCtx: ctx };
 }
 
-/** «Сейчас у» по документам: начальник ИБ (одна отметка), старшие над владельцем, переводчики без файла. */
+/** «Сейчас у» по документам: начальник ИБ (одна отметка), старшие над владельцем; переводы — есть ли язык без файла. */
 async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<string, RouteFacts>, allStages: boolean) {
   const holders = new Map<string, Holders>();
   const ctx = new Map<string, HolderCtx>();
@@ -192,15 +186,14 @@ async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<str
     return v || allStages ? [{ d, v, f: (v && facts.get(v.id)) || NO_FACTS }] : [];
   });
   if (!live.length) return { holders, ctx };
-  const needSeniors = new Set(live.filter(({ v, f }) => allStages || (v?.stage === 15 && f.pendingTranslators.length === 0)).map(({ d }) => d.ownerId));
+  const needSeniors = new Set(live.filter(({ v, f }) => allStages || (v?.stage === 15 && f.missingTranslations === 0)).map(({ d }) => d.ownerId));
   const owners = [...needSeniors];
   const [head, seniorLists] = await Promise.all([
     db.user.findFirst({ where: HEADS_WHERE, select: { id: true, fullName: true } }),
     Promise.all(owners.map((o) => seniorIdsOf(db, o))),
   ]);
   const seniorIds = new Map(owners.map((o, i) => [o, seniorLists[i] ?? []]));
-  const translatorIds = live.flatMap(({ f }) => f.pendingTranslators);
-  const peopleIds = [...new Set([...seniorIds.values()].flat().concat(translatorIds))];
+  const peopleIds = [...new Set([...seniorIds.values()].flat())];
   const people = peopleIds.length
     ? await db.user.findMany({ where: { id: { in: peopleIds } }, select: { id: true, fullName: true, isActive: true } })
     : [];
@@ -215,7 +208,7 @@ async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<str
       head: head ? { id: head.id, fullName: head.fullName } : null,
       // Старшие — только активные: отключённый не переведёт документ дальше.
       seniors: (seniorIds.get(d.ownerId) ?? []).flatMap((id) => (people.find((x) => x.id === id)?.isActive ? [person(id) as Person] : [])),
-      pendingTranslators: f.pendingTranslators.flatMap((id) => person(id) ?? []),
+      translationsMissing: f.missingTranslations > 0,
     };
     ctx.set(d.id, c);
     if (v) holders.set(d.id, stageHolders(v.stage, c));
@@ -291,12 +284,10 @@ function shownVersion(w: Who, d: DocRow): VersionRow | null {
   if (w.a.ibWork) return activeWorking(d) ?? d.workingVersion ?? d.approvedVersion;
   if (d.archivedAt) return null;
   const v = activeWorking(d);
-  if (v && (waitsFor(w, d) || (w.acted.get(v.id) ?? []).includes(v.round) || isTranslator(w, v))) return v;
+  // С 1.4.0 переводчик — не пользователь портала: рабочая версия ему как переводчику не видна (решение владельца 9).
+  if (v && (waitsFor(w, d) || (w.acted.get(v.id) ?? []).includes(v.round))) return v;
   return d.approvedVersion;
 }
-
-/** Переводчик языка этой версии (Г4): ему документ виден и без ib.work. */
-const isTranslator = (w: Who, v: VersionRow) => (w.facts.get(v.id)?.translators ?? []).includes(w.a.userId);
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 const isoDay = (d: Date | null) => d?.toISOString().slice(0, 10) ?? null;
@@ -357,7 +348,7 @@ const WAITING_TITLE: Record<string, (label: string) => string> = {
   '12': (l) => `Документ ${l} на проверке сотрудниками: переведите его дальше, когда комментарии учтены`,
   '13': (l) => `Документ ${l} ждёт вашего согласования`,
   '14': (l) => `Документ ${l} ждёт согласования с ответственными лицами`,
-  '15:translate': (l) => `Документ ${l} ждёт перевода`,
+  '15:translate': (l) => `Документ ${l} ждёт файлов перевода`,
   '15:ready': (l) => `Документ ${l}: переводы готовы — можно на подписание`,
   '16': (l) => `Документ ${l} ждёт подписанного PDF`,
 };
@@ -380,7 +371,7 @@ export async function notifyWaiting(db: Db, docId: string, actorId: string | nul
   const title = WAITING_TITLE[key];
   if (!title) return;
   await notify(db, {
-    kind: phase === 'translate' ? 'doc_translation' : 'doc_waiting', to: people.map((p) => p.id), documentId: d.id, actorId,
+    kind: 'doc_waiting', to: people.map((p) => p.id), documentId: d.id, actorId,
     title: title(`#${d.number} «${v.title}»`), dedupeKey: `doc_waiting:${v.id}:${v.round}:${key}`,
   });
 }
@@ -516,7 +507,6 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     ? { at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment }
     : null;
 
-  const translatorHere = workingShown && isTranslator(who, working);
   const [fileRows, commentRows, partyRows, blockerRows, translationRows] = await Promise.all([
     db.documentFile.findMany({
       where: { versionId: shown.id, removedAt: null, kind: { notIn: ['response', 'translation'] } },
@@ -546,12 +536,11 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
         orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
       })
       : [],
-    // Переводы (Г4) — сотрудникам ИБ и переводчикам этой версии.
-    a.ibWork || translatorHere
+    // Переводы (Г4) — сотрудникам ИБ; с 1.4.0 переводчик не пользователь портала.
+    a.ibWork
       ? db.documentTranslation.findMany({
         where: { versionId: shown.id, removedAt: null },
         include: {
-          translator: { select: { id: true, fullName: true } },
           files: { where: { removedAt: null }, include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } }, orderBy: { addedAt: 'asc' } },
           deadlineChanges: { include: { actor: { select: { fullName: true } } }, orderBy: { at: 'desc' } },
         },
@@ -625,17 +614,17 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     }),
     translations: translationRows.map((t) => {
       const due = isoDay(t.dueDate) ?? '';
-      const manager = author || roles.has('senior') || roles.has('head');
       return {
-        id: t.id, language: t.language, translator: t.translator, dueDate: due,
+        /** Имя переводчика текстом (1.4.0); у строк до 1.4.0 заполнено миграцией из ФИО учётной записи. */
+        id: t.id, language: t.language, translatorName: t.translatorName, dueDate: due,
         done: t.files.length > 0,
         overdue: t.files.length === 0 && due < today,
         files: t.files.map((f) => ({
           id: f.id, file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
         })),
         deadlines: t.deadlineChanges.map((c) => ({ from: isoDay(c.fromDate) ?? '', to: isoDay(c.toDate) ?? '', comment: c.comment, actor: c.actor.fullName, at: c.at.toISOString() })),
-        /** Приложить и снять файл перевода — на этапе 15: переводчик, автор, старший над автором, начальник ИБ. */
-        canUpload: workingShown && working.stage === 15 && (t.translatorId === a.userId || manager),
+        /** Приложить и снять файл перевода — на этапе 15, автор (владелец или docs.manage), 1.4.0. */
+        canUpload: workingShown && working.stage === 15 && author,
       };
     }),
     blockers: blockerRows.map((b) => ({

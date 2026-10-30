@@ -90,15 +90,15 @@ describe('stageHolders — «Сейчас у» (1.4.0)', () => {
   const owner = { id: 'o', fullName: 'Автор' };
   const head = { id: 'h', fullName: 'Начальник' };
   const chief = { id: 'c', fullName: 'Руководитель' };
-  const tr = { id: 't', fullName: 'Переводчик' };
-  const base: HolderCtx = { owner, head, seniors: [chief], pendingTranslators: [] };
+  const base: HolderCtx = { owner, head, seniors: [chief], translationsMissing: false };
   const names = (stage: number, c = base) => stageHolders(stage, c).people.map((p) => p.fullName);
 
   it('по этапам; несколько человек — на 15; никого — «Начальник ИБ не назначен»', () => {
     expect([11, 12, 16].map((s) => names(s))).toEqual([['Автор'], ['Автор'], ['Автор']]);
     expect([names(13), names(14)]).toEqual([['Начальник'], ['Начальник']]);
     expect(names(15)).toEqual(['Начальник', 'Руководитель']);
-    expect(names(15, { ...base, pendingTranslators: [tr, tr] })).toEqual(['Переводчик']);
+    // Язык без файла (1.4.0): файл прикладывает автор — «Сейчас у» автор, а не переводчик.
+    expect(names(15, { ...base, translationsMissing: true })).toEqual(['Автор']);
     expect(stageHolders(13, { ...base, head: null })).toEqual({ people: [], missingHead: true });
     expect(stageHolders(15, { ...base, head: null })).toEqual({ people: [chief], missingHead: false });
     expect(stageHolders(15, { ...base, head: null, seniors: [] })).toEqual({ people: [], missingHead: true });

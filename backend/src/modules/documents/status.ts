@@ -57,8 +57,8 @@ export interface HolderCtx {
   head: Person | null;
   /** Активные старшие над владельцем (ADR-0020). */
   seniors: readonly Person[];
-  /** Переводчики языков без файла перевода. */
-  pendingTranslators: readonly Person[];
+  /** Есть язык перевода без файла (этап 15): файлы прикладывает автор (1.4.0, переводчик — не пользователь портала). */
+  translationsMissing: boolean;
 }
 
 const uniq = (list: readonly Person[]) => list.filter((p, i) => list.findIndex((x) => x.id === p.id) === i);
@@ -69,12 +69,13 @@ const uniq = (list: readonly Person[]) => list.filter((p, i) => list.findIndex((
  *   11, 12, 16 — автор (владелец): правит драфт, отправляет дальше, подписывает. На 12 перевести дальше может и старший
  *               над автором, на 16 подписать — и начальник ИБ, но ждёт документ автора (решение владельца 8);
  *   13, 14     — начальник ИБ (отметка); нет отметки — «Начальник ИБ не назначен»;
- *   15         — переводчики языков без файла; файлы есть (или языков нет) — начальник ИБ и старшие над автором.
+ *   15         — есть язык без файла — автор (прикладывает файлы перевода; переводчик не пользователь портала, 1.4.0);
+ *               файлы есть (или языков нет) — начальник ИБ и старшие над автором.
  */
 export function stageHolders(stage: number, c: HolderCtx): Holders {
   if (stage === 13 || stage === 14) return c.head ? { people: [c.head], missingHead: false } : { people: [], missingHead: true };
   if (stage === 15) {
-    if (c.pendingTranslators.length) return { people: uniq(c.pendingTranslators), missingHead: false };
+    if (c.translationsMissing) return { people: [c.owner], missingHead: false };
     const people = uniq([...(c.head ? [c.head] : []), ...c.seniors]);
     return { people, missingHead: people.length === 0 };
   }

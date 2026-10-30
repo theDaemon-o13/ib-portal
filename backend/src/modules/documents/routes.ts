@@ -97,7 +97,7 @@ const DocDetail = DocItem.extend({
   })),
   /** Комментарии сотрудников ИБ к показанной версии (этап 12). */
   comments: z.array(z.object({ id: z.string(), author: z.string(), body: z.string(), at: z.string() })),
-  /** Ответственные лица этапа 14 (сотрудникам ИБ): внешние, e-mail — для справки. */
+  /** Ответственные лица этапа 14 (сотрудникам ИБ): внешние. email и user — только у строк до 1.4.0, показываются текстом. */
   parties: z.array(z.object({
     id: z.string(), fullName: z.string(), department: z.string(), email: z.string(), user: Person.nullable(), dueDate: z.string(), overdue: z.boolean(),
     approvedAt: z.string().nullable(), approvedBy: z.string().nullable(), approveComment: z.string(),
@@ -105,9 +105,9 @@ const DocDetail = DocItem.extend({
     /** История сроков: было, стало, комментарий. */
     deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
   })),
-  /** Переводы этапа 15 (сотрудникам ИБ и переводчикам): готов, когда приложен файл. */
+  /** Переводы этапа 15 (сотрудникам ИБ): язык, имя переводчика текстом, срок; готов, когда приложен файл. */
   translations: z.array(z.object({
-    id: z.string(), language: z.string(), translator: Person, dueDate: z.string(), done: z.boolean(), overdue: z.boolean(),
+    id: z.string(), language: z.string(), translatorName: z.string(), dueDate: z.string(), done: z.boolean(), overdue: z.boolean(),
     files: z.array(z.object({ id: z.string(), file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }) })),
     deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
     canUpload: z.boolean(),
@@ -317,8 +317,6 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   const PartyBody = {
     fullName: z.string().max(parties.NAME_MAX),
     department: z.string().max(parties.DEPARTMENT_MAX).optional(),
-    email: z.string().max(parties.EMAIL_MAX).optional(),
-    userId: z.string().uuid().nullable().optional(),
     dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   };
   const PartyParams = IdParams.extend({ partyId: z.string().uuid() });
@@ -384,9 +382,12 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/translations', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, начальник ИБ; этапы 11–15',
+      tags, summary: 'Этап 15: строка перевода — язык, имя переводчика текстом (необязательно), срок; ведут автор, старший над автором, начальник ИБ; этапы 11–15',
       params: IdParams,
-      body: At.extend({ language: z.string().max(translations.LANGUAGE_MAX), translatorId: z.string().uuid(), dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+      body: At.extend({
+        language: z.string().max(translations.LANGUAGE_MAX), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
@@ -399,7 +400,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     schema: {
       tags, summary: 'Правка перевода; смена срока — только с комментарием (история сроков)', params: TrParams,
       body: At.extend({
-        language: z.string().max(translations.LANGUAGE_MAX).optional(), translatorId: z.string().uuid().optional(),
+        language: z.string().max(translations.LANGUAGE_MAX).optional(), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
         dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), comment: z.string().max(svc.COMMENT_MAX).optional(),
       }),
       response: { 200: Result, ...errors },

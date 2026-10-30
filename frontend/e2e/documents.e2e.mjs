@@ -276,8 +276,10 @@ describe('Документы: маршрут 1.2.0', () => {
     await ui.click($.button('Добавить ответственное лицо', panel));
     const pf = `${panel}.querySelector('form[aria-label="Ответственное лицо"]')`;
     await ui.type(label('ФИО', pf), 'Петров Пётр Петрович');
-    await ui.type(label('Подразделение', pf), 'Юридическое управление');
-    await ui.type(label('E-mail (для справки)', pf), 'petrov@example.tj');
+    await ui.type(label('Подразделение или должность', pf), 'Юридическое управление');
+    // Лицо — внешний человек (1.4.0): ни e-mail, ни «Пользователь портала» в форме нет.
+    assert.deepEqual(await ui.evaluate(`[...${pf}.querySelectorAll('label')].map((l) => l.firstChild?.textContent?.trim())`),
+      ['ФИО', 'Подразделение или должность', 'Срок ответа']);
     await ui.evaluate(`(() => { const el = ${label('Срок ответа', pf)};
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(portalToday())});
       el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
@@ -294,25 +296,27 @@ describe('Документы: маршрут 1.2.0', () => {
     await act('Ознакомлен с финальной версией', 'POST', `/api/v1/documents/${id}/actions/ack_final`);
     await ui.waitFor(`${stepState('Перевод')}?.includes('cur')`, 'этап — перевод');
 
-    // Этап 15: язык и переводчик — читатель документов (пользователь портала без ib.work).
+    // Этап 15: строка перевода — язык, переводчик текстом (не пользователь портала, 1.4.0), срок.
     await ui.click($.button('Добавить язык', panel));
     const tf = `${panel}.querySelector('form[aria-label="Язык перевода"]')`;
     await ui.type(label('Язык', tf), 'Таджикский');
-    await ui.waitFor(`!!${label('Переводчик', tf)}?.querySelector('option[value="${users.legal.id}"]')`, 'переводчик в списке');
-    await ui.select(label('Переводчик', tf), users.legal.id);
+    await ui.type(label('Переводчик (необязательно)', tf), 'Калинова Д. (бюро переводов)');
     await ui.evaluate(`(() => { const el = ${label('Срок перевода', tf)};
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(portalToday())});
       el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
-    await ui.waitFor(`!!${panel}.querySelector('[data-translation="Таджикский"]')`, 'язык в карточке');
-    assert.equal(await ui.evaluate(`!!${$.button('На подписание', panel)}`), false, 'без перевода шага нет');
-    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /файл перевода: осталось 1/);
-
-    // Переводчик: документ «ждёт вас», прикладывает перевод.
-    await loginAs(users.legal);
-    await openDocs(id);
-    await ui.waitFor(`${row(title)}?.textContent.includes('ждёт вас')`, 'у переводчика — «ждёт вас»');
+    req = await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
+    assert.equal(req.json.translatorName, 'Калинова Д. (бюро переводов)');
     const trRow = `${panel}.querySelector('[data-translation="Таджикский"]')`;
+    await ui.waitFor(`${trRow}?.textContent.includes('переводчик Калинова Д. (бюро переводов)')`, 'язык и переводчик в карточке');
+    assert.equal(await ui.evaluate(`!!${$.button('На подписание', panel)}`), false, 'без перевода шага нет');
+    assert.equal(await ui.evaluate(`!!${$.button('Приложить перевод', trRow)}`), false, 'начальник ИБ файл перевода не прикладывает');
+    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /файл перевода: осталось 1/);
+    await ui.waitFor(`${panel}.querySelector('[data-testid=doc-now-at]')?.textContent === ${JSON.stringify(`Сейчас у: ${users.owner.fullName}`)}`, '«Сейчас у» — автор');
+
+    // Автор: документ «ждёт вас», прикладывает файл перевода.
+    await loginAs(users.owner);
+    await openDocs(id);
+    await ui.waitFor(`${row(title)}?.textContent.includes('ждёт вас')`, 'у автора — «ждёт вас»');
     await ui.click($.button('Приложить перевод', trRow));
     await pickInForm('Файл перевода', 'Таджикский.pdf');
     await act('Приложить', 'POST', '/files');
