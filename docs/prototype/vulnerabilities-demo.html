@@ -1,0 +1,853 @@
+<title>Уязвимости по группам</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: the IS Portal shell (floating glass rail + work area on glass panels); the self-assessment section is one page with four tabs.
+   Tokens are copied from the portal prototype so the section can be merged into it without restyling. */
+:root{
+  --bg:#F2F2F7;
+  --amb-a:rgba(0,122,255,.20); --amb-b:rgba(90,200,250,.18); --amb-c:rgba(175,82,222,.12);
+  --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.82);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 42%);
+  --glass-line:rgba(255,255,255,.80); --hl:rgba(255,255,255,.95);
+  --line:rgba(60,60,67,.12); --line-2:rgba(60,60,67,.20);
+  --shadow:0 1px 2px rgba(20,30,60,.04),0 12px 32px rgba(20,40,80,.07);
+  --shadow-lg:0 24px 70px rgba(20,40,80,.20),0 2px 8px rgba(20,40,80,.06);
+  --fill:rgba(118,118,128,.12); --fill-2:rgba(118,118,128,.07); --hover:rgba(118,118,128,.08);
+  --solid:#FAFAFC; --solid-2:#F3F3F7; --seg-on:#FFFFFF;
+  --fg:#1D1D1F; --muted:#6E6E73; --faint:#AEAEB2;
+  --accent:#007AFF; --accent-2:#3395FF; --accent-soft:rgba(0,122,255,.12); --accent-fg:#FFFFFF;
+  --crit:#E0352B; --high:#C65D00; --med:#977000; --low:#248A3D; --info:#5856D6;
+  --crit-soft:rgba(255,59,48,.12); --high-soft:rgba(255,149,0,.14); --med-soft:rgba(255,204,0,.18); --low-soft:rgba(52,199,89,.14);
+  --scrim:rgba(0,0,0,.20); --toast-bg:rgba(29,29,31,.86); --toast-fg:#FFFFFF;
+  --f-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  --f-body:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
+  --blur:blur(28px) saturate(180%);
+  --r-lg:22px; --r-md:16px; --r-sm:11px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#000000;
+  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.90);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
+  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
+  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
+  --solid:#0E0E10; --solid-2:#141416; --seg-on:#3A3A3C;
+  --fg:#F5F5F7; --muted:#98989D; --faint:#636366;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF;
+  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
+  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
+  --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000;
+  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
+  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.90);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
+  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
+  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
+  --solid:#0E0E10; --solid-2:#141416; --seg-on:#3A3A3C;
+  --fg:#F5F5F7; --muted:#98989D; --faint:#636366;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF;
+  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
+  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
+  --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;letter-spacing:-.005em;-webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(60vw 50vh at 8% 0%,var(--amb-a),transparent 70%),
+  radial-gradient(50vw 45vh at 100% 30%,var(--amb-b),transparent 70%),
+  radial-gradient(55vw 50vh at 45% 105%,var(--amb-c),transparent 70%)}
+button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default}
+:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft),0 0 0 1px var(--accent)!important}
+.num{font-family:var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+.rail,.panel,.toast,.sheet{-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.app{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100%}
+.rail{margin:12px 0 12px 12px;background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:26px;padding:18px 12px;display:flex;flex-direction:column;gap:20px;position:sticky;top:12px;height:calc(100vh - 24px);z-index:5}
+.brand{display:flex;align-items:center;gap:11px;padding:2px 8px}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(160deg,var(--accent-2),var(--accent));color:var(--accent-fg);display:grid;place-items:center;font-family:var(--f-display);font-size:13px;font-weight:700}
+.brand b{font-family:var(--f-display);font-weight:600;font-size:15px;display:block}
+.brand small{color:var(--muted);font-size:11.5px;display:block}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:11px;padding:8px 11px;border:0;background:none;border-radius:11px;text-align:left;color:var(--fg);font-weight:500;font-size:13.5px}
+.nav button svg{width:18px;height:18px;flex:none;color:var(--accent)}
+.nav button.dim{color:var(--muted)}
+.nav button.dim svg{color:var(--faint)}
+.nav button:hover{background:var(--hover)}
+.nav button[aria-current="page"]{background:var(--accent);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 14px var(--accent-soft)}
+.nav button[aria-current="page"] svg{color:currentColor}
+.rail-foot{margin-top:auto;display:grid;gap:8px;font-size:12px;color:var(--muted);padding:0 4px;min-width:0}
+.me{display:grid;gap:4px;padding:9px 10px;border-radius:14px;background:var(--fill-2);min-width:0}
+.me label{font-size:10.5px;color:var(--faint)}
+.me select{border:0;background:none;font-weight:600;font-size:12.5px;padding:0;color:var(--fg);cursor:pointer;width:100%;min-width:0}
+.me small{font-size:11px;line-height:1.35}
+.seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--fill);gap:2px;width:100%}
+.seg button{flex:1;border:0;background:none;border-radius:8px;padding:4px 6px;font-size:12px;font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.demo-tag{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--fill-2);width:max-content}
+option{background-color:var(--solid);color:var(--fg)}
+
+main{padding-block:26px 64px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));min-width:0}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.head h1{font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1.1;margin:0;letter-spacing:-.025em}
+.head p{margin:6px 0 0;color:var(--muted);max-width:70ch}
+.bar-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.bar-top .sp{flex:1}
+.inp,select.inp{background:var(--fill);border:1px solid transparent;border-radius:9px;padding:6px 10px;min-width:0}
+.inp:focus{outline:none;background:var(--solid);box-shadow:0 0 0 3px var(--accent-soft),0 0 0 1px var(--accent)}
+textarea.inp{width:100%;min-height:64px;resize:vertical;line-height:1.45}
+.btn{border:0;background:var(--fill);padding:7px 15px;border-radius:999px;font-weight:500;font-size:13.5px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--accent);transition:background .18s,transform .12s}
+.btn:hover{background:var(--fill-2)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 14px var(--accent-soft)}
+.btn.sm{padding:4px 11px;font-size:12.5px}
+.btn.ghost{background:none;padding-inline:8px}
+.btn.ghost:hover{background:var(--accent-soft)}
+.btn.danger-t{color:var(--crit)}
+.btn:disabled{opacity:.45;transform:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--fill-2);color:var(--muted)}
+.chip.crit{background:var(--crit-soft);color:var(--crit)}.chip.high{background:var(--high-soft);color:var(--high)}
+.chip.med{background:var(--med-soft);color:var(--med)}.chip.low{background:var(--low-soft);color:var(--low)}
+.chip.acc{background:var(--accent-soft);color:var(--accent)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.hint{font-size:12px;color:var(--muted)}
+.note{padding:11px 14px;border-radius:var(--r-sm);background:var(--accent-soft);font-size:13px}
+.note.warn{background:var(--high-soft)}
+.note.ro{background:var(--fill-2);color:var(--muted)}
+
+.tabs{display:flex;gap:2px;padding:2px;border-radius:11px;background:var(--fill);width:fit-content;max-width:100%;overflow-x:auto;margin-bottom:14px}
+.tabs button{border:0;background:none;padding:6px 16px;font-weight:500;font-size:13px;border-radius:9px;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+
+.panel{background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:var(--r-lg);min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-h h3{margin:0;font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:-.015em}
+.panel-b{padding:14px 18px 16px}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+.grid>*{min-width:0}
+.w4{grid-column:span 4}.w5{grid-column:span 5}.w6{grid-column:span 6}.w7{grid-column:span 7}.w8{grid-column:span 8}.w12{grid-column:span 12}
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--hover)}
+td select{font-size:12.5px;padding:4px 8px}
+td .btn.ghost{white-space:normal;text-align:left;justify-content:flex-start}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.kpi{padding:14px 16px;display:grid;gap:4px}
+.kpi .v{font-family:var(--f-display);font-size:30px;font-weight:600;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--muted);font-size:12.5px;font-weight:500}
+.lvlpill{display:inline-flex;gap:4px;align-items:center;font-variant-numeric:tabular-nums}
+.lvlpill i{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:#FFFFFF}
+.l1{background:var(--crit)}.l2{background:var(--high)}.l3{background:var(--accent)}.l4{background:var(--low)}.l0{background:var(--faint)}
+
+/* inline sheet (confirmations, import preview) */
+.sheet{background:var(--sheen),var(--glass-strong);border:1px solid var(--glass-line);border-radius:var(--r-lg);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);padding:16px 18px;display:grid;gap:12px;margin-bottom:14px}
+.sheet h3{margin:0;font-family:var(--f-display);font-size:16px}
+.sheet .fl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sheet label{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500}
+input[type=file]{font-size:12.5px;max-width:100%}
+input[type=file]::file-selector-button{border:0;background:var(--fill);color:var(--accent);border-radius:999px;padding:5px 12px;margin-right:10px;font:inherit;font-weight:500;cursor:pointer}
+.empty{padding:40px 24px;text-align:center;display:grid;gap:8px;justify-items:center}
+.empty h2{margin:0;font-family:var(--f-display);font-size:22px}
+.log{display:grid;gap:0}
+.log div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.log div:last-child{border-bottom:0}
+.log span{color:var(--muted);font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);background:var(--toast-bg);color:var(--toast-fg);padding:10px 18px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);transform:translate(-50%,16px);opacity:0;transition:transform .3s,opacity .2s;pointer-events:none;z-index:50;max-width:min(460px,calc(100vw - 40px));text-align:center}
+.toast.on{transform:translate(-50%,0);opacity:1}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.w4,.w8{grid-column:span 12}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{min-width:0}
+  .rail{position:static;height:auto;margin:8px max(8px,env(safe-area-inset-left,0px)) 0;padding:10px;gap:10px;border-radius:20px}
+  .nav{flex-direction:row;overflow-x:auto}
+  .nav button{white-space:nowrap}
+  .brand small{display:none}
+  .rail-foot{margin-top:0}
+  main{padding-block:18px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .head h1{font-size:25px}
+  .cl{grid-template-columns:1fr}
+  .doms{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sec-f,.mini,.sheet .fl{grid-template-columns:1fr}
+  .lvl-score{text-align:left}
+  .scale-lbl span{font-size:10px}
+  .scale-lbl b{font-size:10.5px}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.rail,.panel,.sheet{background:var(--solid)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- section: tree + work area ---- */
+.sec-grid{display:grid;grid-template-columns:272px minmax(0,1fr);gap:14px;align-items:start}
+.tree{padding:10px 8px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.tree-h{display:flex;justify-content:space-between;align-items:center;padding:4px 8px 8px}
+.tree-h b{font-family:var(--f-display);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.tn{display:flex;align-items:center;gap:7px;width:100%;border:0;background:none;text-align:left;padding:6px 8px;border-radius:10px;color:var(--fg);font-size:13px;min-width:0}
+.tn:hover{background:var(--hover)}
+.tn[aria-current="true"]{background:var(--accent-soft);color:var(--accent)}
+.tn .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tn .c{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;display:flex;gap:6px}
+.tn .c .o{color:var(--crit);font-weight:600}
+.tn.g{font-weight:600}
+.tn.n{padding-left:24px}
+.tn.s{padding-left:42px;font-size:12.5px;color:var(--muted)}
+.tn.s[aria-current="true"]{color:var(--accent)}
+.tn.sys{color:var(--muted)}
+.tn svg{width:15px;height:15px;flex:none;color:var(--faint)}
+.tn[aria-current="true"] svg{color:var(--accent)}
+.ictdot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--low)}
+.ictdot.no{background:var(--high)}
+.tsep{height:1px;background:var(--line);margin:6px 8px}
+.kind{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--fill-2);color:var(--muted);white-space:nowrap}
+.crumbs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.crumbs button{border:0;background:none;padding:0;color:var(--accent);font-size:12.5px}
+.crumbs i{font-style:normal;color:var(--faint)}
+.head .acts{display:flex;gap:8px;flex-wrap:wrap}
+
+/* type cards on group page */
+.tcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tcard{padding:16px 18px;display:grid;gap:12px;text-align:left;border:1px solid var(--glass-line);cursor:pointer;color:var(--fg);font:inherit}
+.tcard:hover{box-shadow:inset 0 1px 0 var(--hl),0 0 0 2px var(--accent-soft),var(--shadow)}
+.tcard h3{margin:0;font-family:var(--f-display);font-size:17px;font-weight:600;letter-spacing:-.015em}
+.tstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tstats div{display:grid;gap:1px}
+.tstats b{font-family:var(--f-display);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.tstats span{font-size:11.5px;color:var(--muted)}
+.tstats .bad b{color:var(--crit)}
+.tlast{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* records */
+.rec-t td{font-size:12.5px}
+.rec-t tbody tr{cursor:pointer}
+.pk b{display:block;font-weight:600;font-size:13px}
+.pk span{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.dl{display:grid;gap:1px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dl small{font-size:11px;color:var(--muted)}
+.dl.over small{color:var(--crit);font-weight:600}
+.dl.ext small{color:var(--info)}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+.cnt{font-size:12.5px;color:var(--muted);padding:10px 18px;border-top:1px solid var(--line)}
+
+/* scans list + diff */
+.dcards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.dcard{border:1px solid var(--line);background:var(--solid);border-radius:var(--r-md);padding:12px 14px;text-align:left;display:grid;gap:3px;color:var(--fg)}
+.dcard b{font-family:var(--f-display);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.dcard span{font-size:12px;color:var(--muted)}
+.dcard[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.dcard.k-new b{color:var(--accent)}.dcard.k-reopen b{color:var(--crit)}.dcard.k-changed b{color:var(--high)}.dcard.k-gone b{color:var(--low)}
+.chg{font-size:11.5px;color:var(--muted)}
+.chg b{color:var(--fg);font-weight:600}
+.facts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.fact{padding:7px 12px;border-radius:12px;background:var(--fill-2);font-size:12.5px;display:grid;gap:1px}
+.fact span{font-size:11px;color:var(--muted)}
+.fact b{font-weight:600}
+
+/* overlay: modal + drawer */
+.ov{position:fixed;inset:0;z-index:40}
+.ov-scrim{position:absolute;inset:0;background:var(--scrim)}
+.modal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 40px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:hidden;background:var(--solid);border:1px solid var(--line-2);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);display:flex;flex-direction:column}
+.modal.wide{width:min(1040px,calc(100vw - 32px))}
+.modal.narrow{width:min(520px,calc(100vw - 32px))}
+.m-h{padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.m-h h2{margin:0;font-family:var(--f-display);font-size:18px;font-weight:600;letter-spacing:-.015em}
+.m-h p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.m-b{padding:14px 20px;display:grid;gap:14px;overflow:auto;min-height:0;flex:1 1 auto;align-content:start;grid-auto-rows:max-content}
+.drawer .m-b{overflow:visible;flex:none}
+.m-f{padding:12px 20px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center}
+.m-f .sp{flex:1;font-size:12.5px;color:var(--muted)}
+.x{border:0;background:var(--fill);width:28px;height:28px;border-radius:50%;color:var(--muted);font-size:15px;line-height:1;flex:none}
+.fl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fl.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.f{display:grid;gap:5px;font-size:12px;color:var(--muted);font-weight:500;min-width:0}
+.f .inp{width:100%}
+.req::after{content:" *";color:var(--crit)}
+.checks{display:flex;gap:8px;flex-wrap:wrap}
+.ck{display:inline-flex;gap:7px;align-items:center;padding:7px 12px;border-radius:11px;background:var(--fill-2);font-size:13px;cursor:pointer}
+.ck input{accent-color:var(--accent);margin:0}
+.grp{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.grp-h{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--fill-2);flex-wrap:wrap}
+.grp-h b{font-family:var(--f-display);font-size:14px;font-weight:600}
+.grp-h .sp{flex:1}
+.grp table td,.grp table th{font-size:12px;padding:7px 12px}
+.grp .tbl-wrap{max-height:260px;overflow:auto}
+.lvtab td{padding:8px 12px}
+.lvtab .inp{width:90px;text-align:right}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(580px,100vw);background:var(--solid);border-left:1px solid var(--line-2);box-shadow:var(--shadow-lg);overflow:auto;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:7px 14px;font-size:13px}
+.kv span{color:var(--muted)}
+.dlbox{border-radius:var(--r-md);background:var(--fill-2);padding:12px 14px;display:grid;gap:7px;font-size:13px}
+.dlbox .ln{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dlbox .ln span{color:var(--muted)}
+.dlbox .tot{border-top:1px solid var(--line);padding-top:8px;font-weight:600}
+.dlbox .tot b{font-family:var(--f-display);font-size:18px}
+.dlbox s{color:var(--faint)}
+.shift{padding:14px 18px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+.shift:last-child{border-bottom:0}
+.shift-t{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.shift-t b{font-weight:600}
+.shift.cancel{opacity:.6}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 12px;border-radius:11px;background:var(--crit-soft);font-size:12.5px}
+.file{display:inline-flex;gap:6px;align-items:center;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--fill-2);color:var(--fg)}
+.file svg{width:13px;height:13px;color:var(--muted)}
+.err{color:var(--crit);font-size:12.5px}
+.drop{border:1.5px dashed var(--line-2);border-radius:var(--r-md);padding:22px;display:grid;gap:10px;justify-items:center;text-align:center}
+.drop.on{border-color:var(--accent);background:var(--accent-soft)}
+
+@media (max-width:1100px){.dcards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:980px){.sec-grid{grid-template-columns:minmax(0,1fr)}.tree{position:static;max-height:none}}
+@media (max-width:860px){.fl,.fl.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.kv span{margin-top:4px}.dcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><div class="brand-mark">ИБ</div><div><b>Портал ИБ</b><small>Отдел информационной безопасности</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rail-foot">
+      <div class="me">
+        <label for="role">Демо: войти как</label>
+        <select id="role">
+          <option value="mi">И. Машарипов — Сотрудник ИБ</option>
+          <option value="rm">Р. Мухин — SOC</option>
+        </select>
+        <small id="perms"></small>
+      </div>
+      <div class="seg" id="theme" role="group" aria-label="Оформление">
+        <button type="button" data-th="auto" aria-pressed="true">Авто</button>
+        <button type="button" data-th="light" aria-pressed="false">Светлая</button>
+        <button type="button" data-th="dark" aria-pressed="false">Чёрная</button>
+      </div>
+      <span class="demo-tag">Прототип · данные в этой вкладке</span>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div class="ov" id="ov" hidden><div class="ov-scrim" data-act="close"></div><div id="ovc"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const DEMO={"prev": [{"pkg": "Adobe Adobe Acrobat DC", "vid": "CVE-2026-34621", "level": "Важная", "cvss": 8.6, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "26.001.21411 или новее", "desc": "Prototype pollution в Acrobat, выполнение кода при открытии PDF", "count": 1}, {"pkg": "Igor Pavlov 7-Zip", "vid": "CVE-2025-0411", "level": "Важная", "cvss": 7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "24.09 или новее", "desc": "Обход защиты Mark-of-the-Web: файлы из архива запускаются без предупреждения Windows", "count": 19}, {"pkg": "Igor Pavlov 7-Zip", "vid": "BDU:2025-01793", "level": "Важная", "cvss": null, "exploit": "Нет данных", "vector": null, "fix": "Последняя версия 7-Zip", "desc": "Уязвимость из БДУ ФСТЭК без CVE; подробности: bdu.fstec.ru/vul/2025-01793", "count": 15}, {"pkg": "Microsoft Defender", "vid": "CVE-2026-41091", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Malware Protection Engine 1.1.26040.8 или новее", "desc": "Повышение привилегий в Microsoft Defender через обработку ссылок (link following)", "count": 1}, {"pkg": "Microsoft Net Core", "vid": "CVE-2023-44487", "level": "Важная", "cvss": 7.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": ".NET 6.0.23 / 7.0.12 или новее", "desc": "Отказ в обслуживании (DoS) через HTTP/2 Rapid Reset: массовое открытие и сброс потоков", "count": 26}, {"pkg": "Microsoft OfficeClickToRun", "vid": "CVE-2024-21413", "level": "Важная", "cvss": 9.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Обновление Office за 2024 или новее", "desc": "Удалённое выполнение кода: Microsoft Outlook", "count": 11}, {"pkg": "Microsoft Outlook", "vid": "CVE-2023-23397", "level": "Важная", "cvss": 9.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Обновление Office за 2024 или новее", "desc": "Повышение привилегий: Microsoft Outlook", "count": 11}, {"pkg": "Microsoft Outlook", "vid": "CVE-2024-21378", "level": "Важная", "cvss": 8.8, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Обновление Office за 2024 или новее", "desc": "Удалённое выполнение кода: Microsoft Outlook", "count": 11}, {"pkg": "Microsoft Outlook", "vid": "CVE-2023-35636", "level": "Важная", "cvss": 6.5, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Обновление Office за 2024 или новее", "desc": "Раскрытие информации: Microsoft Outlook", "count": 11}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-49112", "level": "Важная", "cvss": 9.8, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Удалённое выполнение кода: Windows Lightweight Directory Access Protocol (LDAP)", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-21298", "level": "Важная", "cvss": 9.8, "exploit": "Есть", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Удалённое выполнение кода: Windows OLE", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-36025", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024или новее", "desc": "Обход защитных механизмов: Windows SmartScreen", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-29988", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: SmartScreen Prompt", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-30040", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Windows MSHTML Platform", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-43461", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Подмена (спуфинг): Windows MSHTML Platform", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-33053", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Удалённое выполнение кода: Internet Shortcut Files", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-33073", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Повышение привилегий: Windows SMB Client", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-21510", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2026 или новее", "desc": "Обход защитных механизмов: Windows Shell", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-29360", "level": "Важная", "cvss": 8.4, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Microsoft Streaming Service", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-21412", "level": "Важная", "cvss": 8.1, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Internet Shortcut Files", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-28252", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows Common Log File System Driver", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-36033", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows DWM Core Library", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-36036", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows Cloud Files Mini Filter Driver", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-21338", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows Kernel", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-26169", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows Error Reporting Service", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-30051", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows DWM Core Library", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-35250", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows Kernel-Mode Driver", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-38107", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows Power Dependency Coordinator", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-38193", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows Ancillary Function Driver for WinSock", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-49138", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows Common Log File System Driver", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-21333", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Hyper-V NT Kernel Integration VSP", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-21335", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Hyper-V NT Kernel Integration VSP", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-21418", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Ancillary Function Driver for WinSock", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-24985", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Удалённое выполнение кода: Windows Fast FAT File System Driver", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-24990", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Agere Modem Driver", "count": 4}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-29824", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Common Log File System Driver", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-30400", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Microsoft DWM Core Library", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-32701", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Повышение привилегий: Windows Common Log File System Driver", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-32706", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Common Log File System Driver", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-62221", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Cloud Files Mini Filter Driver", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-21519", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2026  или новее", "desc": "Повышение привилегий: Desktop Window Manager", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-21533", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2026  или новее", "desc": "Повышение привилегий: Windows Remote Desktop Services", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-85880", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2026  или новее", "desc": "Повышение привилегий: Windows Advanced Local Procedure Call (ALPC)", "count": 2}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-44487", "level": "Важная", "cvss": 7.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": ".NET 6.0.23 / 7.0.12 или новее", "desc": "Отказ в обслуживании (DoS) через HTTP/2 Rapid Reset: массовое открытие и сброс потоков", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-38112", "level": "Важная", "cvss": 7.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Подмена (спуфинг): Windows MSHTML Platform", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-29325", "level": "Важная", "cvss": 8.1, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Удалённое выполнение кода: Windows OLE", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-35628", "level": "Важная", "cvss": 8.1, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Удалённое выполнение кода: Windows MSHTML Platform", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-26229", "level": "Важная", "cvss": 7.8, "exploit": "Есть", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024  или новее", "desc": "Повышение привилегий: Windows CSC Service", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-42980", "level": "Важная", "cvss": 7.8, "exploit": "Есть", "vector": "Локально", "fix": "Накопительное обновление Windows за 2026  или новее", "desc": "Повышение привилегий: NT OS Kernel", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-48799", "level": "Важная", "cvss": 7.8, "exploit": "Нет", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Update Service", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-23410", "level": "Важная", "cvss": 7.8, "exploit": "Нет", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows HTTP.sys", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-21204", "level": "Важная", "cvss": 7.8, "exploit": "Нет", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows Process Activation", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-21391", "level": "Важная", "cvss": 7.1, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Повышение привилегий: Windows Storage", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-28229", "level": "Важная", "cvss": 7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows CNG Key Isolation Service", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-30088", "level": "Важная", "cvss": 7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Повышение привилегий: Windows Kernel", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-26633", "level": "Важная", "cvss": 7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Обход защитных механизмов: Microsoft Management Console", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-62215", "level": "Важная", "cvss": 7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2025  или новее", "desc": "Повышение привилегий: Windows Kernel", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-68820", "level": "Важная", "cvss": 7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2026  или новее", "desc": "Повышение привилегий: Windows Ancillary Function Driver for WinSock", "count": 9}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-24932", "level": "Важная", "cvss": 6.7, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Secure Boot", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-36563", "level": "Важная", "cvss": 6.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Раскрытие информации: Microsoft WordPad", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-38213", "level": "Важная", "cvss": 6.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Windows Mark of the Web", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-43451", "level": "Важная", "cvss": 6.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Подмена (спуфинг): NTLM Hash Disclosure", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-43573", "level": "Важная", "cvss": 6.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Подмена (спуфинг): Windows MSHTML Platform", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-26234", "level": "Важная", "cvss": 6.7, "exploit": "Нет", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Подмена (спуфинг): Proxy Driver", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2025-24071", "level": "Важная", "cvss": 6.5, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2025 или новее", "desc": "Подмена (спуфинг): Microsoft Windows File Explorer", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-29324", "level": "Важная", "cvss": 6.5, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Windows MSHTML Platform", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2026-20805", "level": "Важная", "cvss": 5.5, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2026 или новее", "desc": "Раскрытие информации: Desktop Window Manager", "count": 3}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-36584", "level": "Важная", "cvss": 5.4, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Windows Mark of the Web", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-38217", "level": "Важная", "cvss": 5.4, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Windows Mark of the Web", "count": 1}, {"pkg": "Microsoft Windows", "vid": "CVE-2023-24880", "level": "Важная", "cvss": 4.4, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2024 или новее", "desc": "Обход защитных механизмов: Windows SmartScreen", "count": 1}, {"pkg": "Microsoft Word", "vid": "CVE-2026-21514", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Обновление Office за 2026-02 или новее", "desc": "Обход защитных механизмов: Microsoft Word", "count": 13}, {"pkg": "Microsoft Word", "vid": "CVE-2023-36761", "level": "Важная", "cvss": 6.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Обновление Office за 2023-09 или новее", "desc": "Раскрытие информации: Microsoft Word", "count": 11}, {"pkg": "RARLAB WinRAR", "vid": "CVE-2025-8088", "level": "Важная", "cvss": 8.4, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "7.13 или новее", "desc": "Обход каталогов через альтернативные потоки NTFS при распаковке, выполнение кода", "count": 12}, {"pkg": "RARLAB WinRAR", "vid": "CVE-2023-38831", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "6.23 или новее", "desc": "Выполнение кода при открытии безобидного на вид файла в ZIP-архиве", "count": 11}, {"pkg": "RARLAB WinRAR", "vid": "CVE-2025-6218", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "7.12 или новее", "desc": "Обход каталогов (path traversal) при распаковке, выполнение кода", "count": 11}, {"pkg": "RARLAB WinRAR", "vid": "CVE-2023-40477", "level": "Важная", "cvss": 7.8, "exploit": "Нет", "vector": "Локально", "fix": "6.23 или новее", "desc": "Удалённое выполнение кода через тома восстановления (recovery volumes)", "count": 11}, {"pkg": "Google Chrome", "vid": "CVE-2023-4863", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "116.0.5845.187 или новее", "desc": "Переполнение буфера в libwebp при обработке изображения WebP", "count": 9}, {"pkg": "Microsoft Windows", "vid": "CVE-2022-30190", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Накопительное обновление Windows за 2022-06 или новее", "desc": "Выполнение кода через MSDT при открытии документа (Follina)", "count": 4}, {"pkg": "Microsoft Windows", "vid": "CVE-2024-38063", "level": "Важная", "cvss": 9.8, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Windows за 2024-08 или новее", "desc": "Удалённое выполнение кода в стеке TCP/IP через пакеты IPv6", "count": 2}, {"pkg": "Microsoft Office", "vid": "CVE-2023-36884", "level": "Важная", "cvss": 8.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Обновление Office за 2023-08 или новее", "desc": "Выполнение кода через специально созданный документ Office", "count": 3}], "prevHosts": [{"name": "TEST-PC01NB", "ip": "10.0.0.168", "os": "Windows 11"}, {"name": "TEST-PC02NB", "ip": "10.0.0.176", "os": "Windows 11"}, {"name": "TEST-PC03NB", "ip": "10.0.0.110", "os": "Windows 10"}, {"name": "TEST-PC04NB", "ip": "10.0.0.103", "os": "Windows 11"}, {"name": "TEST-PC05NB", "ip": "10.0.0.156", "os": "Windows 11"}, {"name": "TEST-PC06NB", "ip": "10.0.0.157", "os": "Windows 10"}, {"name": "TEST-PC13NB", "ip": "10.0.0.112", "os": "Windows 10"}, {"name": "TEST-PC07NB", "ip": "10.0.0.106", "os": "Windows 11"}, {"name": "TEST-PC08NB", "ip": "10.0.0.108", "os": "Windows 11"}, {"name": "TEST-PC09NB", "ip": "10.0.0.101", "os": "Windows 11"}, {"name": "TEST-PC10NB", "ip": "10.0.0.105", "os": "Windows 11"}, {"name": "TEST-PC11NB", "ip": "10.0.0.199", "os": "Windows 11"}], "srv": [{"pkg": "OpenSSH", "vid": "CVE-2024-6387", "level": "Критическая", "cvss": 8.1, "exploit": "Есть", "vector": "Удалённо (сеть)", "fix": "9.8p1 или новее", "desc": "Состояние гонки в sshd (regreSSHion): удалённое выполнение кода", "count": 6}, {"pkg": "OpenSSH", "vid": "CVE-2023-38408", "level": "Критическая", "cvss": 9.8, "exploit": "Есть", "vector": "Удалённо (сеть)", "fix": "9.3p2 или новее", "desc": "Удалённое выполнение кода через проброшенный ssh-agent (PKCS#11)", "count": 4}, {"pkg": "nginx", "vid": "CVE-2023-44487", "level": "Важная", "cvss": 7.5, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "1.25.3 или новее", "desc": "Отказ в обслуживании через HTTP/2 Rapid Reset", "count": 3}, {"pkg": "sudo", "vid": "CVE-2023-22809", "level": "Важная", "cvss": 7.8, "exploit": "Есть", "vector": "Локально", "fix": "1.9.12p2 или новее", "desc": "Обход ограничений sudoedit и правка произвольных файлов", "count": 6}, {"pkg": "glibc", "vid": "CVE-2023-4911", "level": "Важная", "cvss": 7.8, "exploit": "Есть, эксплуатируется", "vector": "Локально", "fix": "Обновление glibc из репозитория дистрибутива", "desc": "Повышение привилегий через GLIBC_TUNABLES (Looney Tunables)", "count": 6}, {"pkg": "OpenSSL", "vid": "CVE-2023-0286", "level": "Средняя", "cvss": 7.4, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "3.0.8 / 1.1.1t или новее", "desc": "Путаница типов при обработке адреса X.400 в сертификате", "count": 5}], "srvHosts": [{"name": "TEST-SRV01", "ip": "10.0.4.11", "os": "Astra Linux 1.7"}, {"name": "TEST-SRV02", "ip": "10.0.4.12", "os": "Astra Linux 1.7"}, {"name": "TEST-SRV03", "ip": "10.0.4.13", "os": "Astra Linux 1.7"}, {"name": "TEST-SRV04", "ip": "10.0.4.14", "os": "Astra Linux 1.7"}, {"name": "TEST-SRV05", "ip": "10.0.4.15", "os": "Astra Linux 1.7"}, {"name": "TEST-SRV06", "ip": "10.0.4.16", "os": "Astra Linux 1.7"}], "db": [{"pkg": "PostgreSQL", "vid": "CVE-2024-10979", "level": "Важная", "cvss": 8.8, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "16.5 / 15.9 или новее", "desc": "Изменение переменных окружения через PL/Perl", "count": 2}, {"pkg": "PostgreSQL", "vid": "CVE-2023-39417", "level": "Важная", "cvss": 8.8, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "15.4 / 14.9 или новее", "desc": "SQL-инъекция в скриптах расширений", "count": 2}, {"pkg": "PostgreSQL", "vid": "CVE-2024-7348", "level": "Средняя", "cvss": 7.5, "exploit": "Нет", "vector": "Удалённо (сеть)", "fix": "16.4 / 15.8 или новее", "desc": "Состояние гонки в pg_dump: выполнение SQL от имени запустившего", "count": 2}, {"pkg": "OpenSSH", "vid": "CVE-2024-6387", "level": "Критическая", "cvss": 8.1, "exploit": "Есть", "vector": "Удалённо (сеть)", "fix": "9.8p1 или новее", "desc": "Состояние гонки в sshd (regreSSHion): удалённое выполнение кода", "count": 2}], "dbHosts": [{"name": "TEST-DB01", "ip": "10.0.6.21", "os": "Astra Linux 1.7"}, {"name": "TEST-DB02", "ip": "10.0.6.22", "os": "Astra Linux 1.7"}], "legacy": [{"pkg": "Apache Log4j", "vid": "CVE-2021-44228", "level": "Критическая", "cvss": 10.0, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "2.17.1 или новее", "desc": "Удалённое выполнение кода через JNDI (Log4Shell)", "count": 1, "legacyDeadline": "2026-10-20"}, {"pkg": "Microsoft Exchange Server", "vid": "CVE-2021-26855", "level": "Критическая", "cvss": 9.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "Накопительное обновление Exchange", "desc": "Подделка запроса на стороне сервера (ProxyLogon)", "count": 1, "legacyDeadline": "2026-11-14"}, {"pkg": "Fortinet FortiOS", "vid": "CVE-2024-21762", "level": "Критическая", "cvss": 9.8, "exploit": "Есть, эксплуатируется", "vector": "Удалённо (сеть)", "fix": "7.4.3 / 7.2.7 или новее", "desc": "Запись за пределами буфера в SSL VPN: удалённое выполнение кода", "count": 1, "legacyDeadline": "2026-11-28"}]};
+const SAMPLE_B64="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";
+const SAMPLE_NAME="Отчёт_Windows_2026_10_15.xlsx";
+const TODAY="2026-10-30";
+const TYPES=[{code:"db",name:"БД"},{code:"srv",name:"Серверы"},{code:"ws",name:"Рабочие станции"},{code:"net",name:"Сетевое оборудование"},{code:"web",name:"Веб-приложения"}];
+const KINDS={svc:"Сервис",dept:"Подразделение",sys:"Временная"};
+const CRITS=["Критическая","Высокая","Средняя","Низкая"];
+const DAYS={"Критическая":14,"Высокая":30,"Средняя":90,"Низкая":180};
+const CCLS={"Критическая":"crit","Высокая":"high","Средняя":"med","Низкая":"low"};
+const USERS={mi:{name:"И. Машарипов",perm:true,note:"Есть право «Уязвимости: изменение сроков»"},rm:{name:"Р. Мухин",perm:false,note:"Нет права «Уязвимости: изменение сроков»: продлевать сроки нельзя"}};
+const FIELDS={level:"Уровень",cvss:"CVSS",exploit:"Эксплойт",vector:"Сетевой вектор",fix:"Обновить до версии",count:"Обнаружений"};
+
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=iso=>iso?iso.slice(8,10)+"."+iso.slice(5,7)+"."+iso.slice(0,4):"—";
+const addDays=(iso,n)=>{const d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+const dd=(a,b)=>Math.round((new Date(a+"T00:00:00Z")-new Date(b+"T00:00:00Z"))/864e5);
+const n1=x=>x==null?"—":(+x).toFixed(1).replace(".",",");
+const num=v=>{if(v==null||v==="")return null;const x=parseFloat(String(v).replace(",","."));return isNaN(x)?null:x};
+const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return n+" "+(m===1&&h!==11?a:m>=2&&m<=4&&(h<10||h>=20)?b:c)};
+const key=f=>(f.pkg||"").trim()+"|"+(f.vid||"").trim();
+const user=()=>USERS[S.user];
+let uid=1;const nid=p=>p+(uid++);
+
+/* ---------- rules (CLAUDE.md, раздел 7) ---------- */
+const ke=e=>e==="Есть, эксплуатируется"?1:e==="Есть"?.94:.91;
+const ki=f=>(!f||f==="Исправление не выпущено")?1:.95;
+function score(r){if(r.cvss==null)return null;return Math.ceil(r.cvss*ke(r.exploit)*ki(r.fix)*10-1e-9)/10}
+function critAuto(r){const s=score(r);if(s==null)return "Высокая";return s>=9?"Критическая":s>=7?"Высокая":s>=4?"Средняя":"Низкая"}
+const crit=r=>r.critManual||critAuto(r);
+
+/* ---------- state ---------- */
+const S={groups:[],nodes:{},scans:{},recs:[],shifts:[],user:"mi",view:{k:"root"},collapsed:{},filt:{q:"",crit:"",st:"active"},nodeTab:"reg",scanTab:"diff",diffTab:"new",confirm:null,imp:null};
+
+function mkGroup(name,kind,types,sys){const g={id:nid("g"),name,kind,sys:!!sys,nodes:[]};S.groups.push(g);types.forEach(t=>addNode(g,t));return g}
+function addNode(g,t){const n={id:nid("n"),group:g.id,type:t,scans:[]};S.nodes[n.id]=n;g.nodes.push(n.id);return n}
+const typeName=c=>c==="legacy"?"Из прежнего реестра":(TYPES.find(t=>t.code===c)||{}).name||c;
+const grp=id=>S.groups.find(g=>g.id===id);
+const nodeRecs=nid=>S.recs.filter(r=>r.node===nid);
+function mkRec(f,nodeId,scan){return {id:nid("r"),node:nodeId,pkg:f.pkg,vid:f.vid,level:f.level||"",cvss:num(f.cvss),exploit:f.exploit||"Нет данных",vector:f.vector||"",fix:f.fix||"",desc:f.desc||"",count:+f.count||0,status:"open",reopened:false,first:scan?scan.id:null,clock:scan?scan.id:null,last:scan?scan.id:null,seen:scan?[scan.id]:[],critManual:null,d73:null,comp:"",legacyDeadline:f.legacyDeadline||null,hist:[]}}
+function mkScan(node,o){const s=Object.assign({id:nid("s"),node:node.id,ict:null,ictBy:"",ictTo:"",ictFile:"",diff:null,prevHosts:null},o);S.scans[s.id]=s;node.scans.push(s.id);return s}
+
+function seed(){
+  const g1=mkGroup("Отдел платёжных карт","dept",["ws"]);
+  const ws=S.nodes[g1.nodes[0]];
+  const s1=mkScan(ws,{date:"2026-09-01",file:"Отчёт_Windows_2026_09_01.xlsx",by:"Р. Мухин",hostTitle:"Отдел платёжных карт",hosts:DEMO.prevHosts,rows:DEMO.prev,ict:"2026-09-03",ictBy:"И. Машарипов",ictTo:"ОИКТ",ictFile:"Служебная_ОИКТ_0903.pdf"});
+  s1.diff={first:true,new:DEMO.prev.map(key),reopen:[],changed:[],same:[],gone:[],goneFixed:[]};
+  DEMO.prev.forEach(f=>{const r=mkRec(f,ws.id,s1);r.hist.push({d:"2026-09-01",t:"Добавлена из скана 01.09.2026"});S.recs.push(r)});
+  const o=S.recs.find(r=>r.vid==="CVE-2024-21378");
+  if(o){o.comp="Блокировка вложений .msg на почтовом шлюзе";o.d73="2026-11-30";o.hist.push({d:"2026-09-20",t:"Решение ИБ по п. 7.3: срок 30.11.2026"})}
+
+  const g2=mkGroup("Хумо Онлайн","svc",["db","srv"]);
+  const db=S.nodes[g2.nodes[0]],srv=S.nodes[g2.nodes[1]];
+  const s2=mkScan(srv,{date:"2026-10-10",file:"Отчёт_Linux_HO_2026_10_10.xlsx",by:"Д. Ромашов",hostTitle:"Хумо Онлайн, серверы приложений",hosts:DEMO.srvHosts,rows:DEMO.srv,ict:"2026-10-13",ictBy:"И. Машарипов",ictTo:"ОИКТ",ictFile:""});
+  s2.diff={first:true,new:DEMO.srv.map(key),reopen:[],changed:[],same:[],gone:[],goneFixed:[]};
+  DEMO.srv.forEach(f=>{const r=mkRec(f,srv.id,s2);r.hist.push({d:"2026-10-10",t:"Добавлена из скана 10.10.2026"});S.recs.push(r)});
+  const s3=mkScan(db,{date:"2026-10-25",file:"Отчёт_PostgreSQL_HO_2026_10_25.xlsx",by:"Д. Ромашов",hostTitle:"Хумо Онлайн, кластер PostgreSQL",hosts:DEMO.dbHosts,rows:DEMO.db});
+  s3.diff={first:true,new:DEMO.db.map(key),reopen:[],changed:[],same:[],gone:[],goneFixed:[]};
+  DEMO.db.forEach(f=>{const r=mkRec(f,db.id,s3);r.hist.push({d:"2026-10-25",t:"Добавлена из скана 25.10.2026"});S.recs.push(r)});
+  // existing extension by ОИКТ justification
+  const ent=nodeRecs(srv.id).filter(r=>r.level==="Важная").map(r=>({rid:r.id,days:14,from:baseDL(r),to:addDays(baseDL(r),14)}));
+  S.shifts.push({id:nid("x"),scope:"Хумо Онлайн / Серверы",nodes:[srv.id],perLevel:{"Важная":14},onlyOver:false,until:"",num:"214",date:"2026-10-20",file:"ОИКТ_214_продление.pdf",comment:"Окно обновлений согласовано на ноябрь",by:"И. Машарипов",at:"2026-10-21",entries:ent,cancelled:null});
+  ent.forEach(e=>{const r=S.recs.find(x=>x.id===e.rid);r.hist.push({d:"2026-10-21",t:"Срок продлён на 14 дн. по обоснованию ОИКТ № 214 от 20.10.2026"})});
+
+  const g0=mkGroup("Без группы","sys",["legacy"],true);
+  DEMO.legacy.forEach(f=>{const r=mkRec(f,g0.nodes[0],null);r.hist.push({d:TODAY,t:"Перенесена из прежнего реестра при обновлении"});S.recs.push(r)});
+  S.collapsed[g0.id]=false;
+}
+
+/* ---------- deadlines ---------- */
+function ictOf(r){const s=S.scans[r.clock];return s?s.ict:null}
+function baseDL(r){if(r.legacyDeadline)return r.legacyDeadline;const d=ictOf(r);return d?addDays(d,DAYS[crit(r)]):null}
+function shiftsOf(r){return S.shifts.map(x=>({x,e:x.entries.find(e=>e.rid===r.id)})).filter(o=>o.e)}
+function shiftDays(r){return shiftsOf(r).filter(o=>!o.x.cancelled).reduce((a,o)=>a+o.e.days,0)}
+function curDL(r){if(r.d73)return r.d73;const b=baseDL(r);return b?addDays(b,shiftDays(r)):null}
+function stat(r){if(r.status==="fixed")return "fixed";const c=curDL(r);if(!c)return "noict";return c<TODAY?"over":"open"}
+const STAT={fixed:["Устранена","low"],noict:["Не передано ИКТ","high"],over:["Просрочена","crit"],open:["В работе","acc"]};
+function agg(recs){const a={open:0,crit:0,over:0,noict:0,fixed:0};recs.forEach(r=>{const s=stat(r);if(s==="fixed"){a.fixed++;return}a.open++;if(crit(r)==="Критическая")a.crit++;if(s==="over")a.over++;if(s==="noict")a.noict++});return a}
+const lastScan=n=>n.scans.map(id=>S.scans[id]).sort((a,b)=>b.date.localeCompare(a.date))[0];
+const groupRecs=g=>S.recs.filter(r=>g.nodes.includes(r.node));
+const pendingScans=()=>Object.values(S.scans).filter(s=>!s.ict);
+
+/* ---------- small renderers ---------- */
+const IC={
+  shield:'<path d="M12 3 5 6v6c0 4.5 3 7.7 7 9 4-1.3 7-4.5 7-9V6l-7-3Z"/><path d="m9.5 12 1.8 1.8 3.4-3.6"/>',
+  grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  table:'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/>',
+  bug:'<path d="M9 9a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0Z"/><path d="M12 9v9M5 12h4M15 12h4M6 7l3 2M18 7l-3 2M6 18l3-2M18 18l-3-2"/>',
+  check:'<rect x="5" y="4" width="14" height="16" rx="2"/><path d="m9 12 2 2 4-4"/>',
+  doc:'<path d="M7 3h7l4 4v14H7Z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+  folder:'<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/>',
+  layers:'<path d="m12 4 8 4-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>',
+  scan:'<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
+  clip:'<path d="m20 11-8 8a5 5 0 0 1-7-7l8-8a3.5 3.5 0 0 1 5 5l-8 8a2 2 0 0 1-3-3l7-7"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  up:'<path d="M12 19V5M6 11l6-6 6 6"/>'
+};
+const ico=(n,cls="")=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${IC[n]}</svg>`;
+const chip=(t,c="")=>`<span class="chip ${c}">${esc(t)}</span>`;
+const critChip=r=>chip(crit(r)+(r.critManual?" · вручную":""),CCLS[crit(r)]);
+const statChip=r=>{const s=stat(r);return chip(STAT[s][0],STAT[s][1])+(r.reopened&&s!=="fixed"?" "+chip("повторно","crit"):"")};
+function expChip(e){if(e==="Есть, эксплуатируется")return chip("эксплуатируется","crit");if(e==="Есть")return chip("есть","high");return `<span class="hint">${esc((e||"").toLowerCase())}</span>`}
+function dlCell(r){const s=stat(r);if(s==="fixed")return `<span class="hint">—</span>`;const c=curDL(r);if(!c)return `<div class="dl"><span>—</span><small>не начался</small></div>`;const d=dd(c,TODAY);const ext=shiftDays(r)>0||r.d73;
+  return `<div class="dl ${d<0?"over":ext?"ext":""}"><span>${fmt(c)}</span><small>${d<0?"просрочено на "+plural(-d,"день","дня","дней"):d===0?"сегодня":"через "+plural(d,"день","дня","дней")}${ext&&d>=0?" · продлён":""}</small></div>`}
+const ictChip=s=>s.ict?chip("Передан ИКТ "+fmt(s.ict),"low"):chip("Не передан ИКТ","high");
+
+/* ---------- rail ---------- */
+const NAV=[["grid","Дашборд"],["table","Реестры"],["bug","Уязвимости"],["check","Задачи"],["doc","Документы"],["folder","Доказательства"],["gear","Настройки"]];
+function renderNav(){$("#nav").innerHTML=NAV.map(([i,t])=>`<button type="button" ${t==="Уязвимости"?'aria-current="page"':'data-act="othernav"'}>${ico(i)}<span>${t}</span></button>`).join("");$("#perms").textContent=user().note}
+
+/* ---------- tree ---------- */
+function renderTree(){
+  const v=S.view;const cur=(k,id)=>v.k===k&&v.id===id?'aria-current="true"':"";
+  const all=agg(S.recs);
+  let h=`<div class="tree-h"><b>ГРУППЫ</b><button class="btn sm" data-act="newgroup">${ico("plus")}Группа</button></div>
+  <button class="tn g" data-act="go" data-k="root" ${v.k==="root"?'aria-current="true"':""}>${ico("layers")}<span class="t">Все группы</span><span class="c">${all.open}${all.over?`<span class="o">${all.over}</span>`:""}</span></button><div class="tsep"></div>`;
+  const gs=[...S.groups.filter(g=>!g.sys),...S.groups.filter(g=>g.sys)];
+  gs.forEach(g=>{const a=agg(groupRecs(g));
+    h+=`<button class="tn g ${g.sys?"sys":""}" data-act="go" data-k="group" data-id="${g.id}" ${cur("group",g.id)}>${ico("folder")}<span class="t">${esc(g.name)}</span><span class="c">${a.open}${a.over?`<span class="o">${a.over}</span>`:""}</span></button>`;
+    g.nodes.forEach(nId=>{const n=S.nodes[nId];const na=agg(nodeRecs(nId));
+      h+=`<button class="tn n" data-act="go" data-k="node" data-id="${nId}" ${cur("node",nId)}>${ico(n.type==="legacy"?"table":"bug")}<span class="t">${esc(typeName(n.type))}</span><span class="c">${na.open}${na.over?`<span class="o">${na.over}</span>`:""}</span></button>`;
+      n.scans.map(id=>S.scans[id]).sort((a,b)=>b.date.localeCompare(a.date)).forEach(s=>{
+        h+=`<button class="tn s" data-act="go" data-k="scan" data-id="${s.id}" ${cur("scan",s.id)}><span class="ictdot ${s.ict?"":"no"}" title="${s.ict?"Передан ИКТ":"Не передан ИКТ"}"></span><span class="t">Скан ${fmt(s.date)}</span><span class="c">${s.rows.length}</span></button>`})})});
+  h+=`<div class="tsep"></div><p class="hint" style="margin:4px 8px 2px;font-size:11.5px">Число — открыто, <span style="color:var(--crit);font-weight:600">красное</span> — просрочено. Точка у скана: <span class="ictdot" style="display:inline-block"></span> передан ИКТ, <span class="ictdot no" style="display:inline-block"></span> ждёт передачи.</p>`;
+  return `<nav class="panel tree" aria-label="Группы и реестры">${h}</nav>`;
+}
+
+/* ---------- views ---------- */
+function crumbs(parts){return `<div class="crumbs">${parts.map((p,i)=>i<parts.length-1?`<button data-act="go" data-k="${p.k}" ${p.id?`data-id="${p.id}"`:""}>${esc(p.t)}</button><i>/</i>`:`<span>${esc(p.t)}</span>`).join("")}</div>`}
+function kpis(a,extra){return `<div class="kpis">
+  <div class="panel kpi"><span class="v">${a.open}</span><span class="l">Открыто</span></div>
+  <div class="panel kpi"><span class="v" style="color:var(--crit)">${a.crit}</span><span class="l">Критических открыто</span></div>
+  <div class="panel kpi"><span class="v" style="color:var(--crit)">${a.over}</span><span class="l">Просрочено</span></div>
+  <div class="panel kpi"><span class="v" style="color:var(--high)">${extra}</span><span class="l">${a.noictLabel||"Сканов ждут передачи ИКТ"}</span></div></div>`}
+
+function vRoot(){
+  const a=agg(S.recs);const pend=pendingScans();
+  const rows=[...S.groups.filter(g=>!g.sys),...S.groups.filter(g=>g.sys)].map(g=>{const ga=agg(groupRecs(g));const ls=g.nodes.map(id=>lastScan(S.nodes[id])).filter(Boolean).sort((x,y)=>y.date.localeCompare(x.date))[0];
+    return `<tr data-act="go" data-k="group" data-id="${g.id}" style="cursor:pointer"><td><b>${esc(g.name)}</b></td><td><span class="kind">${KINDS[g.kind]}</span></td><td>${g.nodes.map(id=>esc(typeName(S.nodes[id].type))).join(", ")}</td><td class="r">${ga.open}</td><td class="r">${ga.crit}</td><td class="r" style="${ga.over?"color:var(--crit);font-weight:600":""}">${ga.over}</td><td>${ls?fmt(ls.date)+" "+ictChip(ls):'<span class="hint">сканов нет</span>'}</td></tr>`}).join("");
+  return `<div class="head"><div><h1>Уязвимости</h1><p>Реестры по группам: сервисы и подразделения, внутри — типы систем. Срок устранения идёт от передачи отчёта ИКТ, продление — по обоснованию ОИКТ.</p></div><div class="acts"><button class="btn primary" data-act="newgroup">${ico("plus")}Создать группу</button></div></div>
+  ${kpis(a,pend.length)}
+  <div class="grid">
+   <section class="panel w8"><div class="panel-h"><h3>Группы</h3><span class="hint">Нажмите строку, чтобы открыть группу</span></div><div class="tbl-wrap"><table><thead><tr><th>Группа</th><th>Вид</th><th>Типы систем</th><th class="r">Открыто</th><th class="r">Крит.</th><th class="r">Просрочено</th><th>Последний скан</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+   <section class="panel w4"><div class="panel-h"><h3>Ждут передачи ИКТ</h3></div><div class="panel-b">${pend.length?pend.map(s=>{const n=S.nodes[s.node];return `<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><div><b>Скан ${fmt(s.date)}</b><div class="hint">${esc(grp(n.group).name)} / ${esc(typeName(n.type))} · ${plural(s.rows.length,"находка","находки","находок")}</div></div><button class="btn sm" data-act="go" data-k="scan" data-id="${s.id}">Открыть</button></div>`}).join(""):'<p class="hint" style="margin:0">Все загруженные сканы переданы ИКТ.</p>'}
+   <p class="hint" style="margin:10px 0 0">Пока скан не передан ИКТ, сроки по его новым уязвимостям не идут.</p></div></section>
+  </div>`;
+}
+
+function vGroup(g){
+  const recs=groupRecs(g);const a=agg(recs);
+  const cards=g.nodes.map(nId=>{const n=S.nodes[nId];const na=agg(nodeRecs(nId));const ls=lastScan(n);
+    return `<button class="panel tcard" data-act="go" data-k="node" data-id="${nId}"><h3>${esc(typeName(n.type))}</h3>
+    <div class="tstats"><div><b>${na.open}</b><span>открыто</span></div><div class="${na.crit?"bad":""}"><b>${na.crit}</b><span>критических</span></div><div class="${na.over?"bad":""}"><b>${na.over}</b><span>просрочено</span></div></div>
+    <div class="tlast">${ls?`Последний скан ${fmt(ls.date)} ${ictChip(ls)}`:(n.type==="legacy"?"Записи без скана, срок из прежнего реестра":"Сканов пока нет")}</div></button>`}).join("");
+  const sh=S.shifts.filter(x=>x.nodes.some(id=>g.nodes.includes(id)));
+  return `${crumbs([{k:"root",t:"Уязвимости"},{t:g.name}])}
+  <div class="head"><div><h1>${esc(g.name)} <span class="kind" style="vertical-align:middle;font-size:12px">${KINDS[g.kind]}</span></h1><p>${g.sys?"Сюда при обновлении попали записи прежнего реестра уязвимостей. Откройте их и перенесите в нужные группы и типы систем.":"Типы систем этой группы и сводка по каждому. Срок продлевается сразу для всех типов кнопкой «Обновить сроки»."}</p></div>
+  <div class="acts">${g.sys?"":`<button class="btn" data-act="addtype" data-id="${g.id}">${ico("plus")}Добавить тип</button>`}<button class="btn" data-act="shift" data-scope="group" data-id="${g.id}" ${user().perm?"":"disabled title=\"Нужно право «Уязвимости: изменение сроков»\""}>Обновить сроки</button></div></div>
+  ${kpis(Object.assign(a,{noictLabel:"Не передано ИКТ"}),a.noict)}
+  <div class="tcards">${cards}</div>
+  ${g.sys?"":`<section class="panel" style="margin-top:12px"><div class="panel-h"><h3>Продления сроков в группе</h3><span class="hint">${plural(sh.length,"продление","продления","продлений")}</span></div>${shiftList(sh)}</section>`}`;
+}
+
+function recRows(recs,legacy){
+  return recs.map(r=>`<tr data-act="rec" data-id="${r.id}"><td class="pk"><b>${esc(r.pkg)}</b><span>${esc(r.vid)}</span></td><td>${esc(r.level||"—")}</td><td class="r">${n1(r.cvss)}</td><td class="r"><b>${n1(score(r))}</b></td><td>${critChip(r)}</td><td>${expChip(r.exploit)}</td><td class="r">${r.status==="fixed"?"—":r.count}</td><td>${dlCell(r)}</td><td>${statChip(r)}</td>${legacy?`<td><button class="btn sm" data-act="move" data-id="${r.id}">Перенести</button></td>`:""}</tr>`).join("");
+}
+function sortRecs(a){const so={over:0,noict:1,open:2,fixed:3};return a.sort((x,y)=>so[stat(x)]-so[stat(y)]||CRITS.indexOf(crit(x))-CRITS.indexOf(crit(y))||(score(y)??99)-(score(x)??99))}
+function filtRecs(recs){const f=S.filt;const q=f.q.trim().toLowerCase();return recs.filter(r=>{const s=stat(r);
+  if(f.st==="active"&&s==="fixed")return false;if(f.st==="over"&&s!=="over")return false;if(f.st==="noict"&&s!=="noict")return false;if(f.st==="fixed"&&s!=="fixed")return false;
+  if(f.crit&&crit(r)!==f.crit)return false;if(q&&!(r.pkg+" "+r.vid+" "+r.desc).toLowerCase().includes(q))return false;return true})}
+
+function vNode(n){
+  const g=grp(n.group);const recs=nodeRecs(n.id);const legacy=n.type==="legacy";
+  const scans=n.scans.map(id=>S.scans[id]).sort((a,b)=>b.date.localeCompare(a.date));
+  const sh=S.shifts.filter(x=>x.nodes.includes(n.id));
+  const tab=S.nodeTab;const shown=sortRecs(filtRecs(recs));
+  let body="";
+  if(tab==="reg"){
+    body=`<section class="panel"><div class="panel-h" style="gap:8px">
+      <input class="inp" id="q" type="search" placeholder="Пакет, идентификатор, описание" value="${esc(S.filt.q)}" style="flex:1;min-width:180px" aria-label="Поиск">
+      <select class="inp" id="fcrit" aria-label="Критичность"><option value="">Любая критичность</option>${CRITS.map(c=>`<option ${S.filt.crit===c?"selected":""}>${c}</option>`).join("")}</select>
+      <select class="inp" id="fst" aria-label="Статус">${[["active","Открытые"],["over","Просроченные"],["noict","Не передано ИКТ"],["fixed","Устранённые"],["all","Все"]].map(([v,t])=>`<option value="${v}" ${S.filt.st===v?"selected":""}>${t}</option>`).join("")}</select></div>
+      <div class="tbl-wrap"><table class="rec-t"><thead><tr><th>Пакет / идентификатор</th><th>Уровень</th><th class="r">CVSS</th><th class="r">Оценка</th><th>Критичность</th><th>Эксплойт</th><th class="r">Обн.</th><th>Срок</th><th>Статус</th>${legacy?"<th></th>":""}</tr></thead><tbody>${recRows(shown,legacy)||`<tr><td colspan="10" class="hint" style="padding:22px;text-align:center">Нет записей под эти условия.</td></tr>`}</tbody></table></div>
+      <div class="cnt">Показано ${shown.length} из ${recs.length}. Строка открывает карточку записи: расчёт Оценки, история срока, сканы.</div></section>`;
+  }else if(tab==="scans"){
+    body=`<section class="panel">${scans.length?`<div class="tbl-wrap"><table><thead><tr><th>Скан</th><th>Файл</th><th>Охват</th><th class="r">Находок</th><th>Изменения</th><th>Передача ИКТ</th></tr></thead><tbody>${scans.map(s=>{const d=s.diff;return `<tr data-act="go" data-k="scan" data-id="${s.id}" style="cursor:pointer"><td><b>${fmt(s.date)}</b><div class="hint">загрузил ${esc(s.by)}</div></td><td>${esc(s.file)}</td><td>${esc(s.hostTitle||"—")}<div class="hint">${plural(s.hosts.length,"хост","хоста","хостов")}</div></td><td class="r">${s.rows.length}</td><td>${d.first?'<span class="hint">первый скан</span>':`${chip("+"+(d.new.length+d.reopen.length),"acc")} ${chip("изм. "+d.changed.length,"high")} ${chip("пропали "+d.gone.length,"low")}`}</td><td>${ictChip(s)}</td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty"><h2>Сканов пока нет</h2><p class="hint">Загрузите отчёт сканера кнопкой «Импорт скана».</p></div>`}</section>`;
+  }else{
+    body=`<section class="panel"><div class="panel-h"><h3>Продления сроков</h3><span class="hint">Только по обоснованию ОИКТ, каждое можно отменить целиком</span></div>${shiftList(sh)}</section>`;
+  }
+  return `${crumbs([{k:"root",t:"Уязвимости"},{k:"group",id:g.id,t:g.name},{t:typeName(n.type)}])}
+  <div class="head"><div><h1>${esc(typeName(n.type))}</h1><p>${esc(g.name)} · ${KINDS[g.kind].toLowerCase()}. ${legacy?"Записи прежнего реестра: срок перенесён как был. Кнопка «Перенести» отправляет запись в нужный узел.":"Реестр — текущее состояние: одна строка на пакет и идентификатор. История по каждому файлу — в «Итогах сканирования»."}</p></div>
+  <div class="acts">${legacy?"":`<button class="btn primary" data-act="import" data-id="${n.id}">${ico("up")}Импорт скана</button>`}<button class="btn" data-act="shift" data-scope="node" data-id="${n.id}" ${user().perm?"":"disabled title=\"Нужно право «Уязвимости: изменение сроков»\""}>Обновить сроки</button></div></div>
+  <div class="tabs" role="tablist">${[["reg","Реестр",recs.filter(r=>r.status!=="fixed").length],["scans","Итоги сканирования",scans.length],["shifts","Продления сроков",sh.length]].filter(t=>!(legacy&&t[0]==="scans")).map(([k,t,c])=>`<button role="tab" aria-selected="${tab===k}" data-act="ntab" data-t="${k}">${t} · ${c}</button>`).join("")}</div>
+  ${body}`;
+}
+
+function shiftList(sh){
+  if(!sh.length)return `<div class="panel-b"><p class="hint" style="margin:0">Продлений не было.</p></div>`;
+  return sh.slice().reverse().map(x=>{const n=x.entries.length;const lv=Object.entries(x.perLevel).filter(([,d])=>d>0).map(([l,d])=>chip(l+" +"+d+" дн.","acc")).join(" ");
+    const conf=S.confirm===x.id;
+    return `<div class="shift ${x.cancelled?"cancel":""}"><div class="shift-t"><b>Обоснование ОИКТ № ${esc(x.num)} от ${fmt(x.date)}</b>${x.cancelled?chip("Отменено "+fmt(x.cancelled),""):(user().perm&&!conf?`<button class="btn sm danger-t" data-act="cancelshift" data-id="${x.id}">Отменить продление</button>`:"")}</div>
+    <div class="row">${lv} <span class="hint">${plural(n,"запись","записи","записей")} · ${esc(x.scope)}${x.onlyOver?" · только просроченные":""}${x.until?" · срок до "+fmt(x.until):""}</span></div>
+    <div class="row"><span class="file">${ico("clip")}${esc(x.file)}</span><span class="hint">${esc(x.by)}, ${fmt(x.at)}${x.comment?" · "+esc(x.comment):""}</span></div>
+    ${conf?`<div class="confirm">Сроки ${plural(n,"записи","записей","записей")} вернутся к прежним. <button class="btn sm primary" data-act="cancelyes" data-id="${x.id}">Отменить продление</button><button class="btn sm" data-act="cancelno">Нет</button></div>`:""}</div>`}).join("");
+}
+
+function vScan(s){
+  const n=S.nodes[s.node],g=grp(n.group),d=s.diff;
+  const newRecs=S.recs.filter(r=>r.clock===s.id&&r.status!=="fixed");
+  const tab=S.scanTab;
+  const rowsByKey={};s.rows.forEach(f=>rowsByKey[key(f)]=f);
+  let body="";
+  if(tab==="diff"){
+    if(d.first){body=`<div class="note ro">Первый скан этого типа систем: все ${s.rows.length} находок попали в реестр как новые.</div>`}
+    else{
+      const cats=[["new","Новые",d.new],["reopen","Повторно",d.reopen],["changed","Изменились",d.changed],["same","Без изменений",d.same],["gone","Пропали",d.gone]];
+      const sel=S.diffTab;const list=(cats.find(c=>c[0]===sel)||cats[0])[2];
+      const recOf=k=>S.recs.find(r=>r.node===n.id&&key(r)===k);
+      let tbl="";
+      if(sel==="changed")tbl=list.map(c=>{const f=rowsByKey[c.key]||{};return `<tr><td class="pk"><b>${esc(f.pkg)}</b><span>${esc(f.vid)}</span></td><td>${c.ch.map(x=>`<div class="chg">${FIELDS[x.f]}: ${esc(x.from??"—")} → <b>${esc(x.to??"—")}</b></div>`).join("")}</td></tr>`}).join("");
+      else if(sel==="gone")tbl=list.map(k=>{const r=recOf(k);return `<tr><td class="pk"><b>${esc(r?r.pkg:k.split("|")[0])}</b><span>${esc(k.split("|")[1])}</span></td><td>${d.goneFixed.includes(k)?chip("отмечена устранённой","low"):chip("оставлена открытой","")}</td></tr>`}).join("");
+      else tbl=list.map(k=>{const f=rowsByKey[k]||{};const r=recOf(k)||Object.assign({},f,{cvss:num(f.cvss)});return `<tr><td class="pk"><b>${esc(f.pkg)}</b><span>${esc(f.vid)}</span></td><td>${critChip(r)} <span class="hint">CVSS ${n1(num(f.cvss))} · обнаружений ${esc(f.count)}</span></td></tr>`}).join("");
+      body=`<div class="dcards">${cats.map(([k,t,l])=>`<button class="dcard k-${k}" aria-pressed="${sel===k}" data-act="dtab" data-t="${k}"><b>${l.length}</b><span>${t}</span></button>`).join("")}</div>
+      <section class="panel"><div class="tbl-wrap"><table><thead><tr><th>Пакет / идентификатор</th><th>${sel==="changed"?"Что изменилось":sel==="gone"?"Решение при импорте":"Критичность"}</th></tr></thead><tbody>${tbl||`<tr><td colspan="2" class="hint" style="padding:18px;text-align:center">Пусто.</td></tr>`}</tbody></table></div>
+      <div class="cnt">Сравнение с предыдущим сканом этого типа систем по ключу «Пакет + идентификатор».</div></section>`;
+    }
+  }else if(tab==="rows"){
+    body=`<section class="panel"><div class="tbl-wrap"><table class="rec-t"><thead><tr><th>Пакет / идентификатор</th><th>Уровень</th><th class="r">CVSS</th><th class="r">Оценка</th><th>Критичность</th><th>Эксплойт</th><th>Сетевой вектор</th><th class="r">Обн.</th><th>Обновить до версии</th></tr></thead><tbody>${s.rows.map(f=>{const r=Object.assign({},f,{cvss:num(f.cvss)});return `<tr style="cursor:default"><td class="pk"><b>${esc(f.pkg)}</b><span>${esc(f.vid)}</span></td><td>${esc(f.level||"—")}</td><td class="r">${n1(r.cvss)}</td><td class="r"><b>${n1(score(r))}</b></td><td>${chip(critAuto(r),CCLS[critAuto(r)])}</td><td>${expChip(f.exploit)}</td><td>${esc(f.vector||"—")}</td><td class="r">${esc(f.count)}</td><td>${esc(f.fix||"—")}</td></tr>`}).join("")}</tbody></table></div>
+    <div class="cnt">Снимок файла как он был загружен. Оценка и критичность посчитаны порталом, значение «Оценка» из файла не используется.</div></section>`;
+  }else{
+    const prev=s.prevHosts?new Set(s.prevHosts.map(h=>h.name)):null;const curSet=new Set(s.hosts.map(h=>h.name));
+    const goneH=prev?s.prevHosts.filter(h=>!curSet.has(h.name)):[];
+    body=`<section class="panel"><div class="panel-h"><h3>${esc(s.hostTitle||"Охват скана")}</h3><span class="hint">Хосты не связаны с находками: это только то, что сканировали</span></div><div class="tbl-wrap"><table><thead><tr><th>№</th><th>Имя хоста</th><th>IP-адрес</th><th>ОС</th><th></th></tr></thead><tbody>${s.hosts.map((h,i)=>`<tr style="cursor:default"><td class="hint">${i+1}</td><td><b>${esc(h.name)}</b></td><td class="num">${esc(h.ip)}</td><td>${esc(h.os)}</td><td>${prev&&!prev.has(h.name)?chip("новый в охвате","acc"):""}</td></tr>`).join("")}${goneH.map(h=>`<tr style="cursor:default"><td class="hint">—</td><td><s>${esc(h.name)}</s></td><td class="num">${esc(h.ip)}</td><td>${esc(h.os)}</td><td>${chip("выбыл из охвата","")}</td></tr>`).join("")}</tbody></table></div></section>`;
+  }
+  const byCrit=CRITS.map(c=>[c,newRecs.filter(r=>crit(r)===c).length]).filter(x=>x[1]);
+  const ictBlock=s.ict?`<div class="note" style="background:var(--low-soft)">Передан ИКТ <b>${fmt(s.ict)}</b> · ${esc(s.ictBy)} → ${esc(s.ictTo)}${s.ictFile?` · <span class="file">${ico("clip")}${esc(s.ictFile)}</span>`:""}. Сроки по новым уязвимостям этого скана считаются от этой даты.</div>`
+   :`<div class="note warn" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Отчёт ещё не передан ИКТ. Сроки по ${plural(newRecs.length,"новой уязвимости","новым уязвимостям","новым уязвимостям")} начнутся с даты передачи.</span><button class="btn primary" data-act="ict" data-id="${s.id}">Передать ИКТ</button></div>`;
+  return `${crumbs([{k:"root",t:"Уязвимости"},{k:"group",id:g.id,t:g.name},{k:"node",id:n.id,t:typeName(n.type)},{t:"Скан "+fmt(s.date)}])}
+  <div class="head"><div><h1>Скан ${fmt(s.date)}</h1><p>${esc(s.file)}</p></div></div>
+  <div class="facts"><div class="fact"><span>Охват</span><b>${esc(s.hostTitle||"—")}</b></div><div class="fact"><span>Хостов</span><b>${s.hosts.length}</b></div><div class="fact"><span>Находок</span><b>${s.rows.length}</b></div><div class="fact"><span>Загрузил</span><b>${esc(s.by)}</b></div>${byCrit.map(([c,k])=>`<div class="fact"><span>Новых: ${c.toLowerCase()}</span><b>${k}</b></div>`).join("")}</div>
+  <div style="margin-bottom:12px">${ictBlock}</div>
+  <div class="tabs" role="tablist">${[["diff","Сравнение"],["rows","Находки · "+s.rows.length],["hosts","Охват · "+s.hosts.length]].map(([k,t])=>`<button role="tab" aria-selected="${tab===k}" data-act="stab" data-t="${k}">${t}</button>`).join("")}</div>
+  ${body}`;
+}
+
+function render(){
+  const v=S.view;let main="";
+  if(v.k==="root")main=vRoot();
+  else if(v.k==="group")main=vGroup(grp(v.id));
+  else if(v.k==="node")main=vNode(S.nodes[v.id]);
+  else if(v.k==="scan")main=vScan(S.scans[v.id]);
+  $("#main").innerHTML=`<div class="sec-grid">${renderTree()}<div style="min-width:0">${main}</div></div>`;
+  const q=$("#q");if(q){q.oninput=e=>{S.filt.q=e.target.value;const pos=e.target.selectionStart;render();const nq=$("#q");nq.focus();nq.setSelectionRange(pos,pos)}}
+  const fc=$("#fcrit");if(fc)fc.onchange=e=>{S.filt.crit=e.target.value;render()};
+  const fs=$("#fst");if(fs)fs.onchange=e=>{S.filt.st=e.target.value;render()};
+}
+function go(k,id){S.view={k,id};S.confirm=null;if(k==="node"){S.nodeTab="reg"}if(k==="scan"){S.scanTab="diff";const s=S.scans[id];S.diffTab=s.diff.first?"new":(s.diff.new.length?"new":"changed")}render();window.scrollTo({top:0})}
+
+/* ---------- overlay ---------- */
+let lastFocus=null;
+function openOv(html){lastFocus=document.activeElement;$("#ovc").innerHTML=html;$("#ov").hidden=false;const f=$("#ovc").querySelector("input:not([type=checkbox]):not([type=file]),select,textarea,button.primary");if(f)f.focus()}
+function closeOv(){$("#ov").hidden=true;$("#ovc").innerHTML="";S.imp=null;if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+const mHead=(t,p)=>`<div class="m-h"><div><h2>${t}</h2>${p?`<p>${p}</p>`:""}</div><button class="x" data-act="close" aria-label="Закрыть">✕</button></div>`;
+
+/* ---------- create group / add type ---------- */
+function newGroupModal(){
+  openOv(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Создать группу">${mHead("Создать группу","Группа — сервис или подразделение. Внутри неё отмечаются типы систем, у каждого свой реестр.")}
+  <div class="m-b"><label class="f"><span class="req">Название</span><input class="inp" id="gname" placeholder="Например, Хумо Онлайн"></label>
+  <div class="f"><span>Вид</span><div class="checks"><label class="ck"><input type="radio" name="gkind" value="svc" checked>Сервис</label><label class="ck"><input type="radio" name="gkind" value="dept">Подразделение</label></div></div>
+  <div class="f"><span class="req">Типы систем</span><div class="checks">${TYPES.map(t=>`<label class="ck"><input type="checkbox" name="gtype" value="${t.code}">${t.name}</label>`).join("")}</div><span class="hint">Список берётся из справочника «Типы систем», его ведёт администратор.</span></div>
+  <div class="err" id="gerr"></div></div>
+  <div class="m-f"><button class="btn" data-act="close">Отмена</button><button class="btn primary" data-act="creategroup">Создать</button></div></div>`);
+}
+function createGroup(){const name=$("#gname").value.trim();const kind=document.querySelector("input[name=gkind]:checked").value;const types=[...document.querySelectorAll("input[name=gtype]:checked")].map(i=>i.value);
+  if(!name){$("#gerr").textContent="Введите название группы.";return}if(S.groups.some(g=>g.name.toLowerCase()===name.toLowerCase())){$("#gerr").textContent="Группа с таким названием уже есть.";return}if(!types.length){$("#gerr").textContent="Отметьте хотя бы один тип систем.";return}
+  const g=mkGroup(name,kind,types);closeOv();go("group",g.id);toast("Группа «"+name+"» создана")}
+function addTypeModal(gid){const g=grp(gid);const have=g.nodes.map(id=>S.nodes[id].type);const rest=TYPES.filter(t=>!have.includes(t.code));
+  openOv(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Добавить тип">${mHead("Добавить тип систем",esc(g.name))}<div class="m-b">${rest.length?`<div class="checks">${rest.map(t=>`<label class="ck"><input type="checkbox" name="atype" value="${t.code}">${t.name}</label>`).join("")}</div>`:'<p class="hint">Все типы из справочника уже добавлены.</p>'}<div class="err" id="aerr"></div></div>
+  <div class="m-f"><button class="btn" data-act="close">Отмена</button>${rest.length?`<button class="btn primary" data-act="addtypeok" data-id="${gid}">Добавить</button>`:""}</div></div>`)}
+function addTypeOk(gid){const g=grp(gid);const t=[...document.querySelectorAll("input[name=atype]:checked")].map(i=>i.value);if(!t.length){$("#aerr").textContent="Отметьте тип.";return}t.forEach(c=>addNode(g,c));closeOv();render();toast(plural(t.length,"тип добавлен","типа добавлены","типов добавлено"))}
+
+/* ---------- import ---------- */
+function importModal(nodeId){
+  const n=S.nodes[nodeId],g=grp(n.group);S.imp={node:nodeId};
+  openOv(`<div class="modal wide" role="dialog" aria-modal="true" aria-label="Импорт скана">${mHead("Импорт скана",esc(g.name)+" / "+esc(typeName(n.type))+". Файл сравнивается с реестром этого типа систем.")}
+  <div class="m-b" id="impb"><div class="drop" id="drop"><b>Перетащите отчёт сканера (.xlsx) сюда</b><span class="hint">Лист хостов ищется по колонке «Имя хоста», листы находок — по колонкам «Пакет» и «CVE». Название листа не важно.</span>
+  <div class="row" style="justify-content:center"><label class="btn">${ico("up")}Выбрать файл<input type="file" id="impfile" accept=".xlsx" hidden></label><button class="btn primary" data-act="impsample">Взять ваш отчёт от 15.10.2026</button></div></div>
+  <div class="err" id="imperr"></div></div>
+  <div class="m-f" id="impf"><span class="sp">Ничего не записывается, пока вы не подтвердите предпросмотр.</span><button class="btn" data-act="close">Отмена</button></div></div>`);
+  $("#impfile").onchange=e=>{const f=e.target.files[0];if(f)readFile(f)};
+  const dz=$("#drop");dz.ondragover=e=>{e.preventDefault();dz.classList.add("on")};dz.ondragleave=()=>dz.classList.remove("on");dz.ondrop=e=>{e.preventDefault();dz.classList.remove("on");const f=e.dataTransfer.files[0];if(f)readFile(f)};
+}
+function readFile(file){const rd=new FileReader();rd.onload=()=>parseBook(new Uint8Array(rd.result),file.name);rd.onerror=()=>{$("#imperr").textContent="Не удалось прочитать файл."};rd.readAsArrayBuffer(file)}
+function sampleBytes(){const bin=atob(SAMPLE_B64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+const norm=v=>String(v??"").trim().toLowerCase().replace(/ё/g,"е");
+function parseBook(bytes,fileName){
+  if(typeof XLSX==="undefined"){$("#imperr").textContent="Разборщик Excel не загрузился. Обновите страницу.";return}
+  let wb;try{wb=XLSX.read(bytes,{type:"array"})}catch(e){$("#imperr").textContent="Это не файл Excel (.xlsx) или он повреждён.";return}
+  const res={file:fileName,hosts:[],hostTitle:"",hostSheet:"",sheets:[],rows:[],errors:[],dups:0};
+  const byKey={};
+  wb.SheetNames.forEach(name=>{const a=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,raw:true,blankrows:false});
+    for(let i=0;i<Math.min(a.length,12);i++){const hdr=(a[i]||[]).map(norm);
+      const hi=hdr.indexOf("имя хоста");
+      if(hi>=0){res.hostSheet=name;for(let j=i-1;j>=0;j--){const t=(a[j]||[]).find(c=>c!=null&&String(c).trim());if(t){res.hostTitle=String(t).trim();break}}
+        const ip=hdr.findIndex(h=>h.startsWith("ip")),os=hdr.findIndex(h=>h==="ос"||h.startsWith("операц"));
+        for(let k=i+1;k<a.length;k++){const r=a[k]||[];if(!r[hi])continue;res.hosts.push({name:String(r[hi]).trim(),ip:ip>=0&&r[ip]!=null?String(r[ip]):"",os:os>=0&&r[os]!=null?String(r[os]):""})}return}
+      const pi=hdr.indexOf("пакет"),vi=hdr.findIndex(h=>h==="cve"||h.startsWith("идентификатор"));
+      if(pi>=0&&vi>=0){const col=n=>hdr.findIndex(h=>n.some(x=>h===x||h.startsWith(x)));
+        const c={level:col(["уровень"]),cvss:col(["cvss"]),exploit:col(["эксплойт"]),vector:col(["сетевой вектор"]),fix:col(["обновить до"]),desc:col(["краткое описание","описание"]),count:col(["обнаружений"])};
+        let cnt=0;
+        for(let k=i+1;k<a.length;k++){const r=a[k]||[];if(r.every(x=>x==null||String(x).trim()===""))continue;
+          const pkg=r[pi]!=null?String(r[pi]).trim():"",vid=r[vi]!=null?String(r[vi]).trim():"";
+          if(!pkg||!vid){res.errors.push(`Лист «${name}», строка ${k+1}: нет ${!pkg?"пакета":"идентификатора"}, строка пропущена`);continue}
+          const cv=num(r[c.cvss]);if(r[c.cvss]!=null&&String(r[c.cvss]).trim()!==""&&cv==null)res.errors.push(`Лист «${name}», строка ${k+1}: CVSS «${r[c.cvss]}» не число, считается пустым`);
+          const f={pkg,vid,level:c.level>=0&&r[c.level]!=null?String(r[c.level]).trim():"",cvss:cv,exploit:c.exploit>=0&&r[c.exploit]?String(r[c.exploit]).trim():"Нет данных",vector:c.vector>=0&&r[c.vector]?String(r[c.vector]).trim():"",fix:c.fix>=0&&r[c.fix]?String(r[c.fix]).trim():"",desc:c.desc>=0&&r[c.desc]?String(r[c.desc]).trim():"",count:c.count>=0?(parseInt(r[c.count],10)||0):0};
+          const kk=key(f);if(byKey[kk]){res.dups++;byKey[kk].count=Math.max(byKey[kk].count,f.count);continue}byKey[kk]=f;res.rows.push(f);cnt++}
+        res.sheets.push({name,count:cnt});return}
+    }});
+  if(!res.rows.length){$("#imperr").textContent="В файле не найден лист с колонками «Пакет» и «CVE». Проверьте, что это отчёт сканера.";return}
+  const m=fileName.match(/(20\d{2})[_\-.](\d{2})[_\-.](\d{2})/);res.date=m?`${m[1]}-${m[2]}-${m[3]}`:TODAY;res.dateFromName=!!m;
+  S.imp.parsed=res;S.imp.diff=diffImport(S.nodes[S.imp.node],res);
+  const D=S.imp.diff;S.imp.sel={new:new Set(D.new),reopen:new Set(D.reopen),changed:new Set(D.changed.map(c=>c.key)),gone:new Set()};
+  renderPreview();
+}
+function diffImport(n,p){
+  const recs=nodeRecs(n.id);const map={};recs.forEach(r=>map[key(r)]=r);const inFile=new Set();
+  const D={new:[],reopen:[],changed:[],same:[],gone:[]};
+  p.rows.forEach(f=>{const k=key(f);inFile.add(k);const r=map[k];
+    if(!r){D.new.push(k);return}if(r.status==="fixed"){D.reopen.push(k);return}
+    const ch=[];Object.keys(FIELDS).forEach(fl=>{let a=r[fl],b=f[fl];if(fl==="cvss"){a=a==null?null:+a;b=b==null?null:+b}if(fl==="count"){a=+a;b=+b}if((a??"")!==(b??""))ch.push({f:fl,from:fl==="cvss"?n1(a):a,to:fl==="cvss"?n1(b):b})});
+    if(ch.length)D.changed.push({key:k,ch});else D.same.push(k)});
+  recs.forEach(r=>{if(r.status!=="fixed"&&!inFile.has(key(r)))D.gone.push(key(r))});
+  const ls=lastScan(n);D.prevHosts=ls?ls.hosts:null;
+  if(D.prevHosts){const ph=new Set(D.prevHosts.map(h=>h.name)),ch=new Set(p.hosts.map(h=>h.name));D.hostsNew=p.hosts.filter(h=>!ph.has(h.name)).map(h=>h.name);D.hostsGone=D.prevHosts.filter(h=>!ch.has(h.name)).map(h=>h.name)}
+  return D;
+}
+function renderPreview(){
+  const keep=$("#impb")?$("#impb").scrollTop:0;
+  const p=S.imp.parsed,D=S.imp.diff,sel=S.imp.sel,n=S.nodes[S.imp.node];
+  const fRow={};p.rows.forEach(f=>fRow[key(f)]=f);const rOf=k=>S.recs.find(r=>r.node===n.id&&key(r)===k);
+  const sec=(cat,title,list,desc,cells,on)=>{const c=list.length;if(!c&&cat!=="same")return "";const keys=cat==="changed"?list.map(x=>x.key):list;const all=cat!=="same"&&keys.every(k=>sel[cat].has(k));
+    return `<div class="grp"><div class="grp-h"><b>${title} · ${c}</b><span class="hint">${desc}</span><span class="sp"></span>${cat!=="same"&&c?`<label class="ck" style="padding:4px 10px"><input type="checkbox" data-act="selall" data-cat="${cat}" ${all?"checked":""}>${on}</label>`:""}</div>
+    ${c&&cat!=="same"?`<div class="tbl-wrap"><table><tbody>${list.map(x=>{const k=cat==="changed"?x.key:x;return `<tr><td style="width:34px"><input type="checkbox" data-act="selone" data-cat="${cat}" data-k="${esc(k)}" ${sel[cat].has(k)?"checked":""} aria-label="Выбрать"></td>${cells(x,k)}</tr>`}).join("")}</tbody></table></div>`:""}</div>`};
+  const fr=(k)=>{const f=fRow[k]||rOf(k)||{};const r=Object.assign({},f,{cvss:num(f.cvss)});return `<td class="pk"><b>${esc(f.pkg)}</b><span>${esc(f.vid)}</span></td><td>${chip(critAuto(r),CCLS[critAuto(r)])}</td><td class="hint">CVSS ${n1(r.cvss)} · обнаружений ${esc(f.count)}</td>`};
+  const selCount=sel.new.size+sel.reopen.size+sel.changed.size+sel.gone.size;
+  $("#impb").innerHTML=`<div class="facts" style="margin:0">
+     <div class="fact"><span>Файл</span><b>${esc(p.file)}</b></div>
+     <div class="fact"><span>Лист хостов</span><b>${p.hostSheet?esc(p.hostSheet)+" · "+plural(p.hosts.length,"хост","хоста","хостов"):"не найден"}</b></div>
+     <div class="fact"><span>Листы находок</span><b>${p.sheets.map(s=>`«${esc(s.name)}» · ${s.count}`).join(", ")}</b></div>
+     ${p.hostTitle?`<div class="fact"><span>Охват</span><b>${esc(p.hostTitle)}</b></div>`:""}</div>
+   <div class="fl two"><label class="f"><span class="req">Дата скана</span><input class="inp" type="date" id="impdate" value="${p.date}"><span class="hint">${p.dateFromName?"Взята из имени файла, можно поправить.":"В имени файла даты нет — проверьте."}</span></label>
+   <div class="note ro" style="align-self:start">Сроки не начнутся сразу: после загрузки нажмите «Передать ИКТ» у скана. Колонка «Оценка» из файла не используется, портал считает её сам.</div></div>
+   ${p.errors.length?`<div class="note warn">${p.errors.map(esc).join("<br>")}</div>`:""}${p.dups?`<div class="note ro">Повторы в файле объединены: ${p.dups}.</div>`:""}
+   ${D.hostsNew?`<div class="hint">Охват по сравнению с прошлым сканом: ${D.hostsNew.length?"новые хосты — "+D.hostsNew.map(esc).join(", "):"новых хостов нет"}; ${D.hostsGone.length?"выбыли — "+D.hostsGone.map(esc).join(", "):"выбывших нет"}.</div>`:""}
+   ${sec("new","Новые",D.new,"будут добавлены в реестр",(x,k)=>fr(k),"добавить все")}
+   ${sec("reopen","Повторно обнаружены",D.reopen,"были устранены — запись откроется заново с новым сроком",(x,k)=>fr(k),"открыть все")}
+   ${sec("changed","Изменились",D.changed,"поля будут обновлены",(x,k)=>{const f=fRow[k];return `<td class="pk"><b>${esc(f.pkg)}</b><span>${esc(f.vid)}</span></td><td colspan="2">${x.ch.map(c=>`<div class="chg">${FIELDS[c.f]}: ${esc(c.from??"—")} → <b>${esc(c.to??"—")}</b></div>`).join("")}</td>`},"обновить все")}
+   ${sec("same","Без изменений",D.same,"отметятся как найденные в этом скане",()=>"","")}
+   ${sec("gone","Пропали из скана",D.gone,"в новом файле их нет — отметьте те, что действительно устранены",(x,k)=>{const r=rOf(k);return `<td class="pk"><b>${esc(r.pkg)}</b><span>${esc(r.vid)}</span></td><td>${critChip(r)}</td><td>${dlCell(r)}</td>`},"отметить все устранёнными")}`;
+  $("#impf").innerHTML=`<span class="sp">Выбрано действий: ${selCount}. Без изменений: ${D.same.length}.</span><button class="btn" data-act="close">Отмена</button><button class="btn primary" data-act="impapply">Загрузить скан</button>`;
+  $("#impb").scrollTop=keep;
+}
+function applyImport(){
+  const p=S.imp.parsed,D=S.imp.diff,sel=S.imp.sel,n=S.nodes[S.imp.node];
+  const date=$("#impdate").value||p.date;
+  const s=mkScan(n,{date,file:p.file,by:user().name,hostTitle:p.hostTitle,hosts:p.hosts,rows:p.rows,prevHosts:D.prevHosts});
+  const fRow={};p.rows.forEach(f=>fRow[key(f)]=f);const map={};nodeRecs(n.id).forEach(r=>map[key(r)]=r);
+  const added=[],reopened=[],changed=[],fixed=[];
+  D.new.forEach(k=>{if(!sel.new.has(k))return;const r=mkRec(fRow[k],n.id,s);r.hist.push({d:TODAY,t:"Добавлена из скана "+fmt(date)});S.recs.push(r);added.push(k)});
+  D.reopen.forEach(k=>{if(!sel.reopen.has(k))return;const r=map[k];Object.assign(r,pick(fRow[k]),{status:"open",reopened:true,clock:s.id,last:s.id});r.seen.push(s.id);r.hist.push({d:TODAY,t:"Повторно обнаружена в скане "+fmt(date)+", срок пойдёт заново"});reopened.push(k)});
+  D.changed.forEach(c=>{const r=map[c.key];r.last=s.id;r.seen.push(s.id);if(!sel.changed.has(c.key))return;Object.assign(r,pick(fRow[c.key]));r.hist.push({d:TODAY,t:"Обновлена из скана "+fmt(date)+": "+c.ch.map(x=>FIELDS[x.f]+" "+(x.from??"—")+" → "+(x.to??"—")).join("; ")});changed.push(c.key)});
+  D.same.forEach(k=>{const r=map[k];r.last=s.id;r.seen.push(s.id)});
+  D.gone.forEach(k=>{if(!sel.gone.has(k))return;const r=map[k];r.status="fixed";r.fixedScan=s.id;r.hist.push({d:TODAY,t:"Отмечена устранённой: нет в скане "+fmt(date)});fixed.push(k)});
+  s.diff={first:false,new:D.new,reopen:D.reopen,changed:D.changed,same:D.same,gone:D.gone,goneFixed:fixed};
+  closeOv();S.view={k:"scan",id:s.id};S.scanTab="diff";S.diffTab="new";render();window.scrollTo({top:0});
+  toast(`Скан загружен: +${added.length+reopened.length}, обновлено ${changed.length}, устранено ${fixed.length}. Передайте отчёт ИКТ.`);
+}
+const pick=f=>({level:f.level,cvss:num(f.cvss),exploit:f.exploit,vector:f.vector,fix:f.fix,desc:f.desc||"",count:+f.count||0});
+
+/* ---------- ICT transfer ---------- */
+function ictModal(sid){const s=S.scans[sid];const recs=S.recs.filter(r=>r.clock===s.id&&r.status!=="fixed");
+  const by=CRITS.map(c=>[c,recs.filter(r=>crit(r)===c).length]).filter(x=>x[1]);
+  openOv(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Передать ИКТ">${mHead("Передать отчёт ИКТ","Скан "+fmt(s.date)+" · "+esc(s.file))}
+  <div class="m-b"><div class="fl two"><label class="f"><span class="req">Дата передачи</span><input class="inp" type="date" id="ictd" value="${TODAY}" min="${s.date}" max="${TODAY}"></label><label class="f"><span class="req">Кому</span><input class="inp" id="ictto" value="ОИКТ"></label></div>
+  <label class="f"><span>Письмо или служебная записка (по желанию)</span><input type="file" id="ictf" accept=".pdf,.docx,.png,.jpg"></label>
+  <div class="dlbox"><div class="hint">Сроки начнутся у ${plural(recs.length,"уязвимости","уязвимостей","уязвимостей")} из этого скана:</div>${by.map(([c,k])=>`<div class="ln"><span>${chip(c,CCLS[c])} ${k}</span><b>${DAYS[c]} дн. → до <span id="ictdl-${CCLS[c]}">${fmt(addDays(TODAY,DAYS[c]))}</span></b></div>`).join("")||'<span class="hint">Новых уязвимостей нет.</span>'}</div>
+  <div class="err" id="icterr"></div></div>
+  <div class="m-f"><button class="btn" data-act="close">Отмена</button><button class="btn primary" data-act="ictok" data-id="${sid}">Передать</button></div></div>`);
+  $("#ictd").oninput=e=>{const d=e.target.value;if(!d)return;by.forEach(([c])=>{const el=$("#ictdl-"+CCLS[c]);if(el)el.textContent=fmt(addDays(d,DAYS[c]))})};
+}
+function ictOk(sid){const s=S.scans[sid];const d=$("#ictd").value,to=$("#ictto").value.trim();
+  if(!d||d<s.date||d>TODAY){$("#icterr").textContent="Дата передачи — не раньше даты скана и не позже сегодняшней.";return}if(!to){$("#icterr").textContent="Укажите, кому передан отчёт.";return}
+  const f=$("#ictf").files[0];Object.assign(s,{ict:d,ictBy:user().name,ictTo:to,ictFile:f?f.name:""});
+  S.recs.filter(r=>r.clock===s.id).forEach(r=>r.hist.push({d:TODAY,t:"Отчёт передан ИКТ "+fmt(d)+", срок по процедуре: "+fmt(baseDL(r))}));
+  closeOv();render();toast("Отчёт передан ИКТ. Сроки начались с "+fmt(d))}
+
+/* ---------- deadline extension ---------- */
+function shiftScope(scope,id){if(scope==="node"){const n=S.nodes[id];const g=grp(n.group);return {nodes:[id],label:g.name+" / "+typeName(n.type)}}const g=grp(id);return {nodes:g.nodes.slice(),label:g.name+(g.nodes.length>1?" (все типы)":"")}}
+function shiftModal(scope,id){
+  if(!user().perm){toast("Нужно право «Уязвимости: изменение сроков»");return}
+  const sc=shiftScope(scope,id);const recs=S.recs.filter(r=>sc.nodes.includes(r.node)&&r.status!=="fixed");
+  const ex73=recs.filter(r=>r.d73).length,exNo=recs.filter(r=>!r.d73&&!curDL(r)).length;
+  const cand=recs.filter(r=>!r.d73&&curDL(r));
+  const lv={};cand.forEach(r=>{const l=r.level||"Без уровня";lv[l]=(lv[l]||0)+1});
+  S.shiftDraft={scope:sc,cand,perLevel:Object.fromEntries(Object.keys(lv).map(l=>[l,0]))};
+  openOv(`<div class="modal" role="dialog" aria-modal="true" aria-label="Обновить сроки">${mHead("Обновить сроки",esc(sc.label)+". Продление по обоснованию ОИКТ: к текущему сроку каждой записи прибавляются дни по её уровню.")}
+  <div class="m-b">
+   <div class="grp"><table class="lvtab"><thead><tr><th>Уровень (из отчёта сканера)</th><th class="r">Открытых записей</th><th class="r">Продлить на, дней</th></tr></thead><tbody>${Object.entries(lv).map(([l,c])=>`<tr><td><b>${esc(l)}</b></td><td class="r">${c}</td><td class="r"><input class="inp" type="number" min="0" max="365" step="1" value="0" data-lv="${esc(l)}" aria-label="Дней для уровня ${esc(l)}"></td></tr>`).join("")||`<tr><td colspan="3" class="hint">Нет записей с идущим сроком.</td></tr>`}</tbody></table></div>
+   <div class="checks"><label class="ck"><input type="checkbox" id="sover">Только просроченные</label><label class="ck">Только со сроком до <input class="inp" type="date" id="suntil" style="padding:3px 8px"></label></div>
+   ${ex73||exNo?`<div class="hint">Не участвуют: ${ex73?plural(ex73,"запись","записи","записей")+" с решением ИБ по п. 7.3 (у них свой срок)":""}${ex73&&exNo?"; ":""}${exNo?plural(exNo,"запись","записи","записей")+" из сканов, не переданных ИКТ (срок ещё не начался)":""}.</div>`:""}
+   <div class="f"><span style="font-weight:600;color:var(--fg);font-size:13px">Обоснование ОИКТ</span>
+   <div class="fl"><label class="f"><span class="req">Номер обращения</span><input class="inp" id="snum" placeholder="№"></label><label class="f"><span class="req">Дата</span><input class="inp" type="date" id="sdate" max="${TODAY}"></label><label class="f"><span class="req">Файл письма или служебки</span><input type="file" id="sfile" accept=".pdf,.docx,.png,.jpg"></label></div>
+   <label class="f"><span>Комментарий</span><input class="inp" id="scom" placeholder="Например, окно обновлений согласовано на ноябрь"></label></div>
+   <div id="sprev"></div></div>
+  <div class="m-f"><span class="sp" id="sinfo"></span><button class="btn" data-act="close">Отмена</button><button class="btn primary" id="sok" data-act="shiftok" disabled>Продлить сроки</button></div></div>`);
+  $("#ovc").querySelectorAll("input").forEach(i=>{i.addEventListener("input",shiftPreview);i.addEventListener("change",shiftPreview)});
+  shiftPreview();
+}
+function shiftCalc(){const d=S.shiftDraft;$("#ovc").querySelectorAll("input[data-lv]").forEach(i=>{d.perLevel[i.dataset.lv]=Math.max(0,Math.min(365,parseInt(i.value,10)||0))});
+  const over=$("#sover").checked,until=$("#suntil").value;
+  const ent=d.cand.filter(r=>{const c=curDL(r);if(over&&!(c<TODAY))return false;if(until&&c>until)return false;return (d.perLevel[r.level||"Без уровня"]||0)>0}).map(r=>{const days=d.perLevel[r.level||"Без уровня"];return {rid:r.id,days,from:curDL(r),to:addDays(curDL(r),days)}});
+  return {ent,over,until}}
+function shiftPreview(){const {ent}=shiftCalc();const ok=ent.length&&$("#snum").value.trim()&&$("#sdate").value&&$("#sfile").files.length;
+  const miss=[];if(!ent.length)miss.push("дни хотя бы для одного уровня");if(!$("#snum").value.trim())miss.push("номер обращения");if(!$("#sdate").value)miss.push("дату");if(!$("#sfile").files.length)miss.push("файл обоснования");
+  $("#sinfo").textContent=ok?"Будет продлено: "+plural(ent.length,"запись","записи","записей"):"Укажите "+miss.join(", ");
+  $("#sok").disabled=!ok;
+  $("#sprev").innerHTML=ent.length?`<div class="grp"><div class="grp-h"><b>Предпросмотр · ${ent.length}</b><span class="hint">было → станет</span></div><div class="tbl-wrap"><table><tbody>${ent.map(e=>{const r=S.recs.find(x=>x.id===e.rid);return `<tr><td class="pk"><b>${esc(r.pkg)}</b><span>${esc(r.vid)}</span></td><td>${esc(r.level||"—")}</td><td class="num">${fmt(e.from)} → <b>${fmt(e.to)}</b></td><td class="r hint">+${e.days} дн.</td></tr>`}).join("")}</tbody></table></div></div>`:""}
+function shiftOk(){const {ent,over,until}=shiftCalc();const d=S.shiftDraft;const num_=$("#snum").value.trim(),date=$("#sdate").value,file=$("#sfile").files[0];if(!ent.length||!num_||!date||!file)return;
+  const x={id:nid("x"),scope:d.scope.label,nodes:d.scope.nodes,perLevel:Object.assign({},d.perLevel),onlyOver:over,until,num:num_,date,file:file.name,comment:$("#scom").value.trim(),by:user().name,at:TODAY,entries:ent,cancelled:null};
+  S.shifts.push(x);ent.forEach(e=>{const r=S.recs.find(y=>y.id===e.rid);r.hist.push({d:TODAY,t:`Срок продлён на ${e.days} дн. (${fmt(e.from)} → ${fmt(e.to)}) по обоснованию ОИКТ № ${num_} от ${fmt(date)}`})});
+  closeOv();render();toast("Сроки продлены: "+plural(ent.length,"запись","записи","записей"))}
+function cancelShift(id){const x=S.shifts.find(s=>s.id===id);x.cancelled=TODAY;x.entries.forEach(e=>{const r=S.recs.find(y=>y.id===e.rid);if(r)r.hist.push({d:TODAY,t:`Продление по обоснованию ОИКТ № ${x.num} отменено, срок −${e.days} дн.`})});S.confirm=null;render();toast("Продление отменено, сроки вернулись")}
+
+/* ---------- record drawer ---------- */
+function recDrawer(rid){
+  const r=S.recs.find(x=>x.id===rid);const n=S.nodes[r.node],g=grp(n.group);const s0=S.scans[r.clock];const sc=score(r);
+  const shs=shiftsOf(r);const c=curDL(r);const st=stat(r);
+  const seen=r.seen.map(id=>S.scans[id]).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
+  const targets=S.groups.filter(x=>!x.sys).flatMap(x=>x.nodes.map(id=>({id,t:x.name+" / "+typeName(S.nodes[id].type)})));
+  openOv(`<aside class="drawer" role="dialog" aria-modal="true" aria-label="Карточка уязвимости">${mHead(esc(r.pkg),esc(g.name)+" / "+esc(typeName(n.type)))}
+  <div class="m-b">
+   <div class="row">${chip(r.vid,"acc")} ${critChip(r)} ${statChip(r)}</div>
+   <p style="margin:0">${esc(r.desc||"Описания нет")}</p>
+   <div class="kv"><span>Уровень (сканер)</span><b>${esc(r.level||"—")}</b><span>CVSS</span><b>${n1(r.cvss)}</b><span>Эксплойт</span><b>${esc(r.exploit)}</b><span>Сетевой вектор</span><b>${esc(r.vector||"—")}</b><span>Обновить до версии</span><b>${esc(r.fix||"—")}</b><span>Обнаружений</span><b>${r.count}</b>
+   <span>Оценка</span><b>${sc==null?"нет CVSS — критичность «Высокая» по правилу":`${n1(r.cvss)} × ${ke(r.exploit).toFixed(2).replace(".",",")} × ${ki(r.fix).toFixed(2).replace(".",",")} = ${n1(sc)}`}</b>
+   <span>Критичность</span><span><select class="inp" id="rcrit" aria-label="Критичность"><option value="">Авто: ${critAuto(r)}</option>${CRITS.map(x=>`<option ${r.critManual===x?"selected":""}>${x}</option>`).join("")}</select></span></div>
+   <div class="dlbox">
+    ${r.legacyDeadline?`<div class="ln"><span>Срок из прежнего реестра</span><b>${fmt(r.legacyDeadline)}</b></div>`:s0&&s0.ict?`<div class="ln"><span>Передан ИКТ</span><b>${fmt(s0.ict)} · скан ${fmt(s0.date)}</b></div><div class="ln"><span>Срок по процедуре (п. 7.2)</span><b>${fmt(baseDL(r))} · ${crit(r)}, ${DAYS[crit(r)]} дн.</b></div>`:`<div class="ln"><span>Срок</span><b>не начался: скан ${s0?fmt(s0.date):""} не передан ИКТ</b></div>`}
+    ${shs.map(o=>`<div class="ln"><span>${o.x.cancelled?"<s>":""}Продление по обоснованию ОИКТ № ${esc(o.x.num)} от ${fmt(o.x.date)}${o.x.cancelled?"</s> · отменено":""}</span><b>${o.x.cancelled?"<s>":""}+${o.e.days} дн.${o.x.cancelled?"</s>":""}</b></div>`).join("")}
+    ${r.d73?`<div class="ln"><span>Решение ИБ по п. 7.3 (главнее продлений)</span><b>${fmt(r.d73)}</b></div>`:""}
+    ${st!=="fixed"&&c?`<div class="ln tot"><span>Текущий срок</span><b>${fmt(c)}</b></div><div class="hint">${dd(c,TODAY)<0?`<span style="color:var(--crit);font-weight:600">Просрочено на ${plural(-dd(c,TODAY),"день","дня","дней")}</span>`:"Осталось "+plural(dd(c,TODAY),"день","дня","дней")}</div>`:""}
+   </div>
+   ${r.status!=="fixed"&&!r.legacyDeadline?`<div class="f"><span style="font-weight:600;color:var(--fg);font-size:13px">Решение ИБ по п. 7.3</span><label class="f"><span>Компенсирующие меры</span><textarea class="inp" id="rcomp">${esc(r.comp)}</textarea></label><div class="row"><label class="f" style="flex:1"><span>Срок после пересмотра ИБ</span><input class="inp" type="date" id="rd73" value="${r.d73||""}"></label><div class="row" style="align-self:end">${r.d73?`<button class="btn danger-t" data-act="d73off" data-id="${r.id}">Снять решение</button>`:""}<button class="btn" data-act="d73" data-id="${r.id}">Сохранить решение</button></div></div><div class="err" id="d73err"></div></div>`:""}
+   ${n.type==="legacy"?`<div class="f"><span style="font-weight:600;color:var(--fg);font-size:13px">Перенести в узел</span><div class="row"><select class="inp" id="mvto" style="flex:1">${targets.map(t=>`<option value="${t.id}">${esc(t.t)}</option>`).join("")}</select><button class="btn primary" data-act="moveok" data-id="${r.id}">Перенести</button></div><span class="hint">Срок из прежнего реестра сохранится. В узле запись обновится при следующем импорте скана.</span></div>`:""}
+   ${seen.length?`<div class="f"><span style="font-weight:600;color:var(--fg);font-size:13px">Сканы</span><div class="hint">Впервые ${fmt(seen[0].date)} · последний раз ${fmt(seen[seen.length-1].date)} · ${plural(seen.length,"скан","скана","сканов")}</div><div class="row">${seen.map(x=>`<button class="btn sm" data-act="goscan" data-id="${x.id}">Скан ${fmt(x.date)}</button>`).join("")}</div></div>`:""}
+   <div class="f"><span style="font-weight:600;color:var(--fg);font-size:13px">История</span><div class="log">${r.hist.slice().reverse().map(h=>`<div><span>${fmt(h.d)}</span>${esc(h.t)}</div>`).join("")}</div></div>
+  </div></aside>`);
+  const rc=$("#rcrit");rc.onchange=()=>{const v=rc.value||null;r.critManual=v;r.hist.push({d:TODAY,t:v?"Критичность выставлена вручную: "+v:"Критичность возвращена к расчётной: "+critAuto(r)});render();recDrawer(rid);toast("Критичность сохранена")};
+}
+function saveD73(rid){const r=S.recs.find(x=>x.id===rid);const m=$("#rcomp").value.trim(),d=$("#rd73").value;if(!m||!d){$("#d73err").textContent="Для решения по п. 7.3 нужны и меры, и срок.";return}r.comp=m;r.d73=d;r.hist.push({d:TODAY,t:"Решение ИБ по п. 7.3: срок "+fmt(d)+", меры: "+m});render();recDrawer(rid);toast("Решение ИБ сохранено")}
+function offD73(rid){const r=S.recs.find(x=>x.id===rid);r.d73=null;r.comp="";r.hist.push({d:TODAY,t:"Решение ИБ по п. 7.3 снято"});render();recDrawer(rid);toast("Решение снято, срок снова по процедуре")}
+function moveRec(rid,target){const r=S.recs.find(x=>x.id===rid);if(S.recs.some(x=>x.node===target&&key(x)===key(r))){toast("В этом узле уже есть такая уязвимость");return}const from=S.nodes[r.node];r.node=target;const t=S.nodes[target];r.hist.push({d:TODAY,t:"Перенесена в "+grp(t.group).name+" / "+typeName(t.type)});closeOv();render();toast("Перенесено в "+grp(t.group).name+" / "+typeName(t.type))}
+function moveModal(rid){const r=S.recs.find(x=>x.id===rid);const targets=S.groups.filter(x=>!x.sys).flatMap(x=>x.nodes.map(id=>({id,t:x.name+" / "+typeName(S.nodes[id].type)})));
+  openOv(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Перенести">${mHead("Перенести запись",esc(r.pkg)+" · "+esc(r.vid))}<div class="m-b"><label class="f"><span>Куда</span><select class="inp" id="mvto">${targets.map(t=>`<option value="${t.id}">${esc(t.t)}</option>`).join("")}</select></label><span class="hint">Срок из прежнего реестра (${fmt(r.legacyDeadline)}) сохранится.</span></div><div class="m-f"><button class="btn" data-act="close">Отмена</button><button class="btn primary" data-act="moveok" data-id="${r.id}">Перенести</button></div></div>`)}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]");if(!el)return;const a=el.dataset.act,id=el.dataset.id;
+  if(el.tagName==="INPUT"&&a!=="selall"&&a!=="selone")return;
+  switch(a){
+    case "go":go(el.dataset.k,id);break;
+    case "othernav":toast("В прототипе показан только раздел «Уязвимости»");break;
+    case "close":closeOv();break;
+    case "newgroup":newGroupModal();break;
+    case "creategroup":createGroup();break;
+    case "addtype":addTypeModal(id);break;
+    case "addtypeok":addTypeOk(id);break;
+    case "ntab":S.nodeTab=el.dataset.t;S.confirm=null;render();break;
+    case "stab":S.scanTab=el.dataset.t;render();break;
+    case "dtab":S.diffTab=el.dataset.t;render();break;
+    case "rec":recDrawer(id);break;
+    case "move":e.stopPropagation();moveModal(id);break;
+    case "moveok":moveRec(id,$("#mvto").value);break;
+    case "goscan":closeOv();go("scan",id);break;
+    case "import":importModal(id);break;
+    case "impsample":parseBook(sampleBytes(),SAMPLE_NAME);break;
+    case "selall":{const cat=el.dataset.cat;const D=S.imp.diff;const keys=cat==="changed"?D.changed.map(c=>c.key):D[cat];if(el.checked)keys.forEach(k=>S.imp.sel[cat].add(k));else S.imp.sel[cat].clear();renderPreview();break}
+    case "selone":{const s=S.imp.sel[el.dataset.cat];el.checked?s.add(el.dataset.k):s.delete(el.dataset.k);renderPreview();break}
+    case "impapply":applyImport();break;
+    case "ict":ictModal(id);break;
+    case "ictok":ictOk(id);break;
+    case "shift":shiftModal(el.dataset.scope,id);break;
+    case "shiftok":shiftOk();break;
+    case "cancelshift":S.confirm=id;render();break;
+    case "cancelno":S.confirm=null;render();break;
+    case "cancelyes":cancelShift(id);break;
+    case "d73":saveD73(id);break;
+    case "d73off":offD73(id);break;
+  }
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#ov").hidden)closeOv();if(e.key==="Enter"&&e.target.closest&&e.target.closest("tr[data-act]")){e.target.closest("tr[data-act]").click()}});
+$("#role").onchange=e=>{S.user=e.target.value;renderNav();render()};
+let tt;function toast(m){const el=$("#toast");el.textContent=m;el.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>el.classList.remove("on"),3200)}
+function setTheme(t){if(t==="auto")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",t);document.querySelectorAll("#theme button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.th===t));try{localStorage.setItem("ibp-theme",t)}catch(e){}}
+$("#theme").onclick=e=>{const b=e.target.closest("button");if(b)setTheme(b.dataset.th)};
+try{const t=localStorage.getItem("ibp-theme");if(t)setTheme(t)}catch(e){}
+
+seed();renderNav();S.view={k:"node",id:S.groups[0].nodes[0]};render();
+</script>
