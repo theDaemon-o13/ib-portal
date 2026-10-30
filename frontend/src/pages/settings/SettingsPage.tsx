@@ -6,6 +6,7 @@ import { CalendarEditor } from './CalendarEditor';
 import { CatalogValues } from './CatalogValues';
 import { FormTemplatesEditor } from './FormTemplatesEditor';
 import { MonitorSlides } from './MonitorSlides';
+import { PresentationSettings } from './PresentationSettings';
 import { RolesMatrix } from './RolesMatrix';
 import { UsersTable } from './UsersTable';
 import { keys } from './useAction';
@@ -15,6 +16,8 @@ const TABS = [
   { key: 'users', title: 'Пользователи и роли' },
   // Слайды настенных мониторов (релиз 1.1.0): видно и правится по праву «Настройки».
   { key: 'monitor', title: 'Экран мониторинга', perm: 'settings.manage' },
+  // Подпись в презентации самооценки (этап Д5): только право «Настройки».
+  { key: 'presentation', title: 'Презентация', perm: 'settings.manage' },
 ] as const;
 
 /** Особые разделы в списке справочников: устроены иначе, чем «значение и цвет». */
@@ -97,6 +100,7 @@ export function SettingsPage() {
         </div>
       )}
       {tab === 'monitor' && <MonitorSlides />}
+      {tab === 'presentation' && <PresentationSettings />}
     </>
   );
 }

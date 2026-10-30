@@ -160,6 +160,7 @@ const SECTION_HREF: Record<string, string> = {
   form_template: '/settings/catalogs?c=form_templates',
   form_template_field: '/settings/catalogs?c=form_templates',
   monitor_slide: '/settings/monitor',
+  presentation: '/settings/presentation',
   dashboard_tile: '/dashboard',
   dashboard_layout: '/dashboard',
 };

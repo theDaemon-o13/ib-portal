@@ -6,6 +6,8 @@
 // «Зафиксировать» недоступно до 24 из 24, фиксация, только просмотр, возврат в черновик, журнал, архив.
 // Задача по разрыву из «Плана улучшений» — на общей доске; в карточке у исполнителя нет следа самооценки.
 // Импорт эталона Excel через окно (предпросмотр → применить): 34 балла; выгрузка .xlsx.
+// Презентация: 6 слайдов, ← → пробел Esc, подпись «Спроектировано» из настроек и «Подготовил» — ФИО вошедшего;
+// администратор меняет подпись в «Настройки → Презентация» — владелец видит новый текст (в конце — прежний текст).
 // Сотрудник ИБ без роли: пункта нет, прямой адрес уводит из раздела, API — 403.
 // Удаления оценок нет: оценки прогона уходят в архив, задача — в архив, тестовые пользователи отключаются.
 import assert from 'node:assert/strict';
@@ -26,6 +28,7 @@ let ui;
 let navSeq = 0;
 const users = {};
 let gapTask;
+let signature;
 
 async function api(method, path, body) {
   const res = await ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify(body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
@@ -99,6 +102,10 @@ after(async () => {
     }
   }
   await loginAs(LOGIN, PASSWORD).catch(() => undefined);
+  if (signature) {
+    const cur = (await api('GET', '/api/v1/settings/presentation')).json;
+    if (cur && cur.signature !== signature) await api('PUT', '/api/v1/settings/presentation', { signature, version: cur.version });
+  }
   if (gapTask) {
     const t = (await api('GET', `/api/v1/tasks/${gapTask.id}`)).json;
     if (t && !t.archived) await api('POST', `/api/v1/tasks/${gapTask.id}/archive`, { version: t.version });
@@ -263,6 +270,53 @@ describe('Самооценка', () => {
     const exp = await ui.request(m, 'GET', '/api/v1/assessments/export.xlsx');
     assert.equal(exp.status, 200);
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent.startsWith('Выгружено: Самооценка_КБ_')`, 'уведомление о выгрузке');
+  });
+
+  it('презентация: 6 слайдов, клавиши, подпись с ФИО вошедшего; новый текст подписи из настроек', async () => {
+    const slide = () => ui.evaluate(`Number(document.querySelector('.sa-pres')?.dataset.slide ?? -1)`);
+    const sign = () => ui.evaluate(`document.querySelector('[data-testid=sa-signature]')?.innerText ?? ''`);
+    const openPresentation = async () => {
+      const a = await mine(TITLE2);
+      await ui.goto(`/assessment/overview?id=${a.id}`);
+      await ui.click($.button('Презентация'), '«Презентация»');
+      await ui.waitFor(`!!document.querySelector('.sa-pres') && document.querySelector('[data-testid=sa-signature]')?.innerText.includes('Спроектировано: ') && document.querySelector('[data-testid=sa-signature]').innerText.split('\\n')[0].length > 'Спроектировано: '.length`, 'презентация с подписью');
+    };
+
+    await loginAs(LOGIN, PASSWORD);
+    signature = (await ok('GET', '/api/v1/settings/presentation')).signature;
+    users.owner.password = await loginAs(users.owner.login, users.owner.password);
+    await openPresentation();
+    assert.equal(await slide(), 0);
+    assert.match(await ui.evaluate(`document.querySelector('.sa-pres').textContent`), /предварительно/, 'черновик — «предварительно» на первом слайде');
+    assert.equal(await sign(), `Спроектировано: ${signature}\nПодготовил: Владелец самооценки ${RUN}`);
+    for (const key of ['ArrowRight', 'Space', 'ArrowRight', 'ArrowRight', 'ArrowRight']) await ui.press(key);
+    assert.equal(await slide(), 5, 'шестой слайд');
+    assert.match(await ui.evaluate(`document.querySelector('.sa-ps-slide h2').textContent`), /План улучшений/);
+    assert.match(await ui.evaluate(`document.querySelector('.sa-ps-pg').textContent`), /^6 \/ 6/);
+    await ui.press('ArrowRight');
+    assert.equal(await slide(), 5, 'дальше последнего не листается');
+    await ui.press('ArrowLeft');
+    assert.equal(await slide(), 4);
+    assert.ok(await ui.evaluate(`document.querySelector('[data-testid=sa-signature]').querySelectorAll('button').length === 0`), 'у подписи нет кнопок');
+    await ui.press('Escape');
+    await ui.waitFor(`!document.querySelector('.sa-pres')`, 'Esc закрывает презентацию');
+    assert.equal((await api('PUT', '/api/v1/settings/presentation', { signature: 'Чужая подпись', version: 1 })).status, 403, 'владелец подпись не меняет');
+
+    // Администратор меняет подпись в «Настройки → Презентация».
+    const next = `Отдел ИБ ${RUN}`;
+    await loginAs(LOGIN, PASSWORD);
+    await ui.goto('/settings/presentation');
+    await ui.type($.field('Спроектировано'), next);
+    const m = ui.mark();
+    await ui.click($.button('Сохранить'));
+    assert.equal((await ui.request(m, 'PUT', '/api/v1/settings/presentation')).status, 200);
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Подпись сохранена'`, 'подпись сохранена');
+
+    users.owner.password = await loginAs(users.owner.login, users.owner.password);
+    await openPresentation();
+    assert.equal(await sign(), `Спроектировано: ${next}\nПодготовил: Владелец самооценки ${RUN}`);
+    await ui.click(`document.querySelector('.sa-ps-ctl button.x')`, 'кнопка «Закрыть»');
+    await ui.waitFor(`!document.querySelector('.sa-pres')`, 'презентация закрыта');
   });
 
   it('без роли «Самооценка»: пункта нет, прямой адрес уводит из раздела, API — 403', async () => {

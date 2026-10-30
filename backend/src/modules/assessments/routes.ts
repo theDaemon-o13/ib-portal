@@ -8,6 +8,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as excel from './excel.js';
+import * as presentation from './presentation.js';
 import * as svc from './service.js';
 
 const tags = ['assessments'];
@@ -242,4 +243,31 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     await svc.reopenAssessment(db, actorOf(request), request.params.id, request.body);
     return detail(request.params.id);
   });
+};
+
+// Подпись «Спроектировано» в презентации (Д5): правит «Настройки → Презентация» (settings.manage), раздел только читает.
+const Signature = z.object({ signature: z.string(), version: z.number().int() });
+
+export const presentationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+  app.get('/settings/presentation', {
+    preHandler: requirePerm('settings.manage'),
+    schema: { tags: ['settings'], summary: 'Подпись «Спроектировано» в презентации самооценки', response: { 200: Signature, ...errors } },
+  }, async () => presentation.getSignature(db));
+
+  app.put('/settings/presentation', {
+    preHandler: requirePerm('settings.manage'),
+    schema: {
+      tags: ['settings'], summary: 'Изменить подпись «Спроектировано» (запись в журнал)',
+      body: z.object({ signature: z.string().max(presentation.SIGNATURE_MAX * 2), version: z.number().int().min(0) }),
+      response: { 200: Signature, ...errors },
+    },
+  }, async (request) => presentation.setSignature(db, actorOf(request), request.body));
+
+  app.get('/assessments/presentation-settings', {
+    preHandler: owner,
+    schema: {
+      tags, summary: 'Строка «Спроектировано» для презентации (только чтение)',
+      response: { 200: z.object({ signature: z.string() }), ...errors },
+    },
+  }, async () => ({ signature: (await presentation.getSignature(db)).signature }));
 };

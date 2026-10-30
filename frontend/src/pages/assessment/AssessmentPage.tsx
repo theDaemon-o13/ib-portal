@@ -1,9 +1,10 @@
 // Раздел «Самооценка» (этап Д, docs/self-assessment.md, раздел 10): личный раздел по праву assessment.manage.
 // Шапка — выбор оценки, статус и действия; вкладки «Обзор», «Чек-лист», «План улучшений», «История». Расчёт итога — на backend.
 import { useQuery } from '@tanstack/react-query';
-import { NavLink, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { NavLink, Navigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { akeys, assessmentsApi, type Assessment } from '../../api/assessments';
+import type { Me } from '../../api/client';
 import { dateRu } from '../dashboard/logic';
 import { Checklist } from './Checklist';
 import { ArchiveDialog, NewAssessmentDialog, ProfileDialog, ReopenDialog } from './Dialogs';
@@ -12,6 +13,7 @@ import { ImportDialog } from './ImportDialog';
 import { defaultAssessmentId, STATUS_TONE } from './logic';
 import { Overview } from './Overview';
 import { Plan } from './Plan';
+import { Presentation } from './Presentation';
 import { useAssessmentAction } from './useAssessmentAction';
 import { useToast } from '../../components/Toast';
 
@@ -23,9 +25,10 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
 
-type Dialog = 'new' | 'reopen' | 'profile' | 'import' | { archive: { id: string; title: string; version: number } } | null;
+type Dialog = 'new' | 'reopen' | 'profile' | 'import' | 'present' | { archive: { id: string; title: string; version: number } } | null;
 
 export function AssessmentPage() {
+  const me = useOutletContext<Me>();
   const { tab = 'overview' } = useParams();
   const [params, setParams] = useSearchParams();
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -104,6 +107,7 @@ export function AssessmentPage() {
                 )}
                 {a?.status === 'final' && <button className="btn ghost" type="button" onClick={() => setDialog('reopen')}>Вернуть в черновик</button>}
                 {!hasDraft && <button className="btn primary" type="button" onClick={() => setDialog('new')}>Новая оценка</button>}
+                {a && <button className="btn" type="button" onClick={() => setDialog('present')}>Презентация</button>}
                 <button className="btn ghost" type="button" disabled={exporting} title="Все оценки, кроме архивных, — таблицы для анализа" onClick={() => void exportXlsx()}>
                   Выгрузить .xlsx
                 </button>
@@ -128,6 +132,8 @@ export function AssessmentPage() {
       {dialog === 'reopen' && a && <ReopenDialog a={a} onClose={() => setDialog(null)} />}
       {dialog === 'profile' && a && <ProfileDialog a={a} onClose={() => setDialog(null)} />}
       {dialog === 'import' && a && <ImportDialog a={a} onClose={() => setDialog(null)} />}
+      {/* «Подготовил» — ФИО вошедшего из сессии, вручную не вводится. */}
+      {dialog === 'present' && a && <Presentation a={a} preparedBy={me.fullName} onClose={() => setDialog(null)} />}
       {dialog && typeof dialog === 'object' && <ArchiveDialog target={dialog.archive} onClose={() => setDialog(null)} />}
     </>
   );

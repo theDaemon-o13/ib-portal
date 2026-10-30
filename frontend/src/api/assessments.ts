@@ -41,6 +41,7 @@ export const akeys = {
   history: (id: string, code: string) => ['assessments', 'history', id, code] as const,
   compare: (a: string, b: string) => ['assessments', 'compare', a, b] as const,
   assignees: ['assessments', 'assignees'] as const,
+  presentation: ['assessments', 'presentation'] as const,
 };
 
 const base = '/api/v1/assessments';
@@ -79,6 +80,8 @@ export const assessmentsApi = {
     if (!res.ok) throw await errorOf(res, 'Не удалось прочитать файл');
     return (await res.json()) as ImportResult;
   },
+  /** Строка «Спроектировано» для презентации (только чтение; правится в «Настройки → Презентация»). */
+  presentationSettings: () => request<{ signature: string }>('GET', `${base}/presentation-settings`),
   /** Выгрузка таблиц для анализа; без ids — все оценки, кроме архивных. */
   async exportFile(ids?: readonly string[]): Promise<{ blob: Blob; fileName: string }> {
     const res = await fetch(`${base}/export.xlsx${ids?.length ? `?ids=${ids.join(',')}` : ''}`, { credentials: 'same-origin' });

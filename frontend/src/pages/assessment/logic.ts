@@ -177,3 +177,9 @@ export function planCounts(score: Pick<Score, 'gaps' | 'gapPoints'>, tasks: read
     total: live.length,
   };
 }
+
+/** Слайды презентации по порядку (спецификация, раздел 10). */
+export const PRESENTATION_SLIDES = ['Итог', 'Шкала уровней', 'Профиль по доменам', 'Средний балл', 'Распределение и слабые места', 'План'] as const;
+
+/** Следующий слайд: без перехода по кругу — на последнем «вперёд» и на первом «назад» ничего не делают. */
+export const flipSlide = (i: number, delta: number, n: number) => Math.max(0, Math.min(n - 1, i + delta));

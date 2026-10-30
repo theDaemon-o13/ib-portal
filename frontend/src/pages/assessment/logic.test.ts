@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Answer, AssessmentSummary, Methodology } from '../../api/assessments';
 import {
-  defaultAssessmentId, defaultTaskTitle, deltaTone, logText, planCounts, taskState, donutArcs, n1, radarAnchor, radarPoint, radarPolygon, scalePct, scaleZones, sectionsOf, signed,
+  defaultAssessmentId, defaultTaskTitle, deltaTone, flipSlide, logText, planCounts, PRESENTATION_SLIDES, taskState, donutArcs, n1, radarAnchor, radarPoint, radarPolygon, scalePct, scaleZones, sectionsOf, signed,
   unanswered, weakSections,
 } from './logic';
 
@@ -110,5 +110,10 @@ describe('самооценка: списки и подписи', () => {
     const gap = (code: string, g: number) => ({ code, name: code, domainNo: 1, level: 1, target: 1 + g, gap: g, key: false });
     expect(planCounts({ gaps: [gap('1.1', 2), gap('5.3', 1), gap('7.1', 1)], gapPoints: 4 }, [t('1.1', true), t('1.1'), t('5.3', false, true)]))
       .toEqual({ gaps: 3, points: 4, withoutTask: 2, done: 1, total: 2 });
+  });
+
+  it('презентация: шесть слайдов, листание без перехода по кругу', () => {
+    expect(PRESENTATION_SLIDES).toHaveLength(6);
+    expect([flipSlide(0, 1, 6), flipSlide(5, 1, 6), flipSlide(0, -1, 6), flipSlide(3, -1, 6)]).toEqual([1, 5, 0, 2]);
   });
 });

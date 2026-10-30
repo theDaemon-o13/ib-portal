@@ -29,10 +29,11 @@ export const ENTITY_LABELS: Record<string, string> = {
   notification: 'Уведомления',
   assessment: 'Самооценка',
   assessment_methodology: 'Самооценка',
+  presentation: 'Презентация самооценки',
 };
 
 /** Разделы настроек: прежняя вкладка «Настройки → Журнал изменений» — пункт фильтра «Настройки — всё». */
-export const SETTINGS_ENTITIES = ['user', 'role', 'catalog_item', 'calendar_day', 'work_week', 'form_template', 'form_template_field'] as const;
+export const SETTINGS_ENTITIES = ['user', 'role', 'catalog_item', 'calendar_day', 'work_week', 'form_template', 'form_template_field', 'presentation'] as const;
 
 /** Действия, у которых подпись не выводится из кода по общему правилу. */
 const ACTION_LABELS: Record<string, string> = {
@@ -63,6 +64,7 @@ const ACTION_LABELS: Record<string, string> = {
   'role.permission.revoked': 'Право снято с роли',
   'catalog.item_made_system': 'Значение стало системным',
   'calendar.week.updated': 'Изменены выходные дни недели',
+  'settings.presentation.updated': 'Изменена подпись презентации самооценки',
   'automation.run': 'Запуск автоматизаций',
   'automation.skipped': 'Запуск автоматизаций пропущен',
   'automation.runs_cleared': 'Журнал запусков очищен',

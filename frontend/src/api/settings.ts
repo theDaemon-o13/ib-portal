@@ -30,7 +30,12 @@ export type WithTemporaryPassword = Res<'/api/v1/users', 'post', 201>;
 
 const enc = encodeURIComponent;
 
+export type PresentationSignature = Res<'/api/v1/settings/presentation', 'get'>;
+
 export const settingsApi = {
+  // Подпись «Спроектировано» в презентации самооценки (этап Д5): право settings.manage.
+  presentation: () => request<PresentationSignature>('GET', '/api/v1/settings/presentation'),
+  setPresentation: (body: Body<'/api/v1/settings/presentation', 'put'>) => request<PresentationSignature>('PUT', '/api/v1/settings/presentation', body),
   catalogs: () => request<Res<'/api/v1/catalogs', 'get'>>('GET', '/api/v1/catalogs'),
   items: (code: string, includeArchived: boolean) =>
     request<Res<'/api/v1/catalogs/{code}/items', 'get'>>(
