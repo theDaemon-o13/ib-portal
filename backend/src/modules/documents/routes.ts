@@ -4,6 +4,7 @@ import type { Db } from '../../lib/db.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requireAuth, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
+import * as parties from './parties.js';
 import * as svc from './service.js';
 import { DOC_ACTIONS, DOC_STATUSES } from './status.js';
 
@@ -35,6 +36,10 @@ const DocItem = z.object({
   stage: z.number().int().nullable(),
   stageName: z.string().nullable(),
   waitingForMe: z.boolean(),
+  /** Этап 14: ближайший срок несогласовавшего ответственного лица и просрочка (сотрудникам ИБ). */
+  partiesDue: z.string().nullable(),
+  partiesOverdue: z.boolean(),
+  openBlockers: z.number().int(),
   archived: z.boolean(),
   version: z.number().int(),
 });
@@ -71,6 +76,9 @@ const DocDetail = DocItem.extend({
     revise: z.boolean(),
     cancelRevision: z.boolean(),
     delete: z.boolean(),
+    parties: z.boolean(),
+    approveParties: z.boolean(),
+    blockers: z.boolean(),
     manage: z.boolean(),
   }),
   blockedReason: z.string().nullable(),
@@ -84,6 +92,18 @@ const DocDetail = DocItem.extend({
   })),
   /** Комментарии сотрудников ИБ к показанной версии (этап 12). */
   comments: z.array(z.object({ id: z.string(), author: z.string(), body: z.string(), at: z.string() })),
+  /** Ответственные лица этапа 14 (сотрудникам ИБ): внешние, e-mail — для справки. */
+  parties: z.array(z.object({
+    id: z.string(), fullName: z.string(), department: z.string(), email: z.string(), user: Person.nullable(), dueDate: z.string(), overdue: z.boolean(),
+    approvedAt: z.string().nullable(), approvedBy: z.string().nullable(), approveComment: z.string(),
+    files: z.array(z.object({ id: z.string(), file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }) })),
+    /** История сроков: было, стало, комментарий. */
+    deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
+  })),
+  blockers: z.array(z.object({
+    id: z.string(), text: z.string(), openedBy: z.string(), openedAt: z.string(),
+    resolvedAt: z.string().nullable(), resolvedBy: z.string().nullable(), resolveComment: z.string(),
+  })),
   versions: z.array(z.object({
     no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), approvedAt: z.string().nullable(), changeNote: z.string(),
     signedOn: z.string().nullable(), cancelledAt: z.string().nullable(),
@@ -279,6 +299,94 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     },
   }, async (request) => {
     await svc.addDocumentComment(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  const PartyBody = {
+    fullName: z.string().max(parties.NAME_MAX),
+    department: z.string().max(parties.DEPARTMENT_MAX).optional(),
+    email: z.string().max(parties.EMAIL_MAX).optional(),
+    userId: z.string().uuid().nullable().optional(),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  };
+  const PartyParams = IdParams.extend({ partyId: z.string().uuid() });
+  const At = Version.extend({ stage: Stage });
+
+  app.post('/documents/:id/parties', {
+    preHandler: anyUser,
+    schema: { tags, summary: 'Этап 14: добавить ответственное лицо (автор или docs.approve.head, этапы 11–14)', params: IdParams, body: At.extend(PartyBody), response: { 200: Result, ...errors } },
+  }, async (request) => {
+    await parties.addParty(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.patch('/documents/:id/parties/:partyId', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Правка ответственного лица; смена срока — только с комментарием (история сроков)', params: PartyParams,
+      body: At.extend({ ...PartyBody, fullName: PartyBody.fullName.optional(), dueDate: PartyBody.dueDate.optional(), comment: z.string().max(svc.COMMENT_MAX).optional() }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await parties.updateParty(db, actorOf(request), request.params.id, request.params.partyId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/parties/:partyId/remove', {
+    preHandler: anyUser,
+    schema: { tags, summary: 'Снять ответственное лицо, которое ещё не согласовало', params: PartyParams, body: At, response: { 200: Result, ...errors } },
+  }, async (request) => {
+    await parties.removeParty(db, actorOf(request), request.params.id, request.params.partyId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/parties/:partyId/approve', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Этап 14: отметить согласование лица, по желанию — комментарий и ответ (файлы)', params: PartyParams,
+      body: At.extend({ comment: z.string().max(svc.COMMENT_MAX).optional(), fileIds: z.array(z.string().uuid()).max(20).optional() }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await parties.approveParty(db, actorOf(request), request.params.id, request.params.partyId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/parties/:partyId/files', {
+    preHandler: anyUser,
+    schema: { tags, summary: 'Приложить ответ ответственного лица (файлы)', params: PartyParams, body: At.extend({ fileIds: z.array(z.string().uuid()).min(1).max(20) }), response: { 200: Result, ...errors } },
+  }, async (request) => {
+    await parties.addResponseFiles(db, actorOf(request), request.params.id, request.params.partyId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/responses/:linkId/remove', {
+    preHandler: anyUser,
+    schema: { tags, summary: 'Снять файл ответа ответственного лица', params: IdParams.extend({ linkId: z.string().uuid() }), body: At, response: { 200: Result, ...errors } },
+  }, async (request) => {
+    await parties.removeResponseFile(db, actorOf(request), request.params.id, request.params.linkId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/blockers', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Открыть блокер (автор, старший над автором, docs.approve.head): останавливает шаги вперёд', params: IdParams,
+      body: At.extend({ text: z.string().max(parties.BLOCKER_MAX) }), response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await parties.addBlocker(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/blockers/:blockerId/resolve', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Снять блокер — с комментарием', params: IdParams.extend({ blockerId: z.string().uuid() }),
+      body: At.extend({ comment: z.string().max(svc.COMMENT_MAX) }), response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await parties.resolveBlocker(db, actorOf(request), request.params.id, request.params.blockerId, request.body);
     return result(request, request.params.id);
   });
 

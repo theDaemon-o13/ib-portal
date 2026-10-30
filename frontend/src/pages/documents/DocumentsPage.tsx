@@ -129,6 +129,8 @@ export function DocumentsPage() {
                     <td>
                       <RouteDots d={d} />
                       {stageHint(d) && <div className={`hint${d.waitingForMe ? ' tone-accent w600' : ''}`}>{stageHint(d)}</div>}
+                      {d.partiesDue && <div className={`hint mono${d.partiesOverdue ? ' late-t' : ''}`} title="Ближайший срок ответственного лица">лица: до {formatDate(d.partiesDue)}</div>}
+                      {d.openBlockers > 0 && <div><span className="chip crit" title="Открытые блокеры">блокер{d.openBlockers > 1 ? ` · ${d.openBlockers}` : ''}</span></div>}
                     </td>
                     <td><span className={`chip ${STATUS_TONE[d.status]}`}>{d.statusName}</span></td>
                   </tr>

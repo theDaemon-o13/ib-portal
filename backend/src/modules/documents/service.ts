@@ -80,8 +80,38 @@ const docInclude = {
   approvedVersion: { select: versionSelect },
   workingVersion: { select: versionSelect },
 } as const;
-type DocRow = Prisma.DocumentGetPayload<{ include: typeof docInclude }>;
+export type DocRow = Prisma.DocumentGetPayload<{ include: typeof docInclude }>;
 type VersionRow = NonNullable<DocRow['workingVersion']>;
+
+/** Условия переходов по версии (этап Г3): ответственные лица этапа 14 и открытые блокеры. */
+export interface RouteFacts {
+  parties: number;
+  /** Лица, которые ещё не согласовали. */
+  pending: number;
+  /** Ближайший срок несогласовавшего лица (YYYY-MM-DD). */
+  nearestDue: string | null;
+  openBlockers: number;
+}
+const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0 };
+
+async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<string, RouteFacts>> {
+  const map = new Map<string, RouteFacts>();
+  if (!versionIds.length) return map;
+  const ids = [...new Set(versionIds)];
+  const [parties, blockers] = await Promise.all([
+    db.$queryRaw<{ version_id: string; total: bigint; pending: bigint; due: Date | null }[]>`
+      SELECT version_id::text, count(*) AS total, count(*) FILTER (WHERE approved_at IS NULL) AS pending,
+             min(due_date) FILTER (WHERE approved_at IS NULL) AS due
+      FROM document_parties WHERE version_id = ANY(${ids}::uuid[]) AND removed_at IS NULL GROUP BY version_id`,
+    db.$queryRaw<{ version_id: string; open: bigint }[]>`
+      SELECT version_id::text, count(*) AS open FROM document_blockers
+      WHERE version_id = ANY(${ids}::uuid[]) AND resolved_at IS NULL GROUP BY version_id`,
+  ]);
+  const get = (id: string) => map.get(id) ?? { ...NO_FACTS };
+  for (const p of parties) map.set(p.version_id, { ...get(p.version_id), parties: Number(p.total), pending: Number(p.pending), nearestDue: p.due?.toISOString().slice(0, 10) ?? null });
+  for (const b of blockers) map.set(b.version_id, { ...get(b.version_id), openBlockers: Number(b.open) });
+  return map;
+}
 
 /** Пользователь, для которого считаются действия: права, его подчинённые, есть ли другой начальник ИБ. */
 interface Who {
@@ -91,6 +121,8 @@ interface Who {
   otherHead: boolean;
   /** Версии, по которым пользователь принимал решения, и в каких кругах. */
   acted: ReadonlyMap<string, readonly number[]>;
+  /** Условия переходов по рабочим версиям. */
+  facts: ReadonlyMap<string, RouteFacts>;
 }
 
 const isHead = (a: DocAccess) => a.perms.has('docs.approve.head') && !a.superAdmin;
@@ -103,20 +135,21 @@ const HEADS_WHERE: Prisma.UserWhereInput = {
   ],
 };
 
-async function whoOf(db: Db, a: DocAccess, versionIds: readonly string[]): Promise<Who> {
-  const [subs, others, rows] = await Promise.all([
+async function whoOf(db: Db, a: DocAccess, versionIds: readonly string[], factIds: readonly string[] = versionIds): Promise<Who> {
+  const [subs, others, rows, facts] = await Promise.all([
     subordinateIdsOf(db, a.userId),
     isHead(a) ? db.user.count({ where: { ...HEADS_WHERE, id: { not: a.userId } } }) : 0,
     versionIds.length
       ? db.documentApproval.findMany({ where: { actorId: a.userId, versionId: { in: [...versionIds] }, decision: { not: 'migrated' } }, select: { versionId: true, round: true } })
       : [],
+    routeFacts(db, factIds),
   ]);
   const acted = new Map<string, number[]>();
   for (const r of rows) acted.set(r.versionId, [...(acted.get(r.versionId) ?? []), r.round]);
-  return { a, subordinates: new Set(subs), otherHead: others > 0, acted };
+  return { a, subordinates: new Set(subs), otherHead: others > 0, acted, facts };
 }
 
-function rolesOf(w: Who, d: DocRow): Set<DocRole> {
+export function rolesOf(w: Who, d: DocRow): Set<DocRole> {
   const roles = new Set<DocRole>();
   if (d.ownerId === w.a.userId || w.a.manage) roles.add('author');
   if (w.subordinates.has(d.ownerId)) roles.add('senior');
@@ -125,25 +158,45 @@ function rolesOf(w: Who, d: DocRow): Set<DocRole> {
 }
 
 /** Рабочая версия, с которой можно действовать: есть, не отменена, документ не в архиве. */
-const activeWorking = (d: DocRow): VersionRow | null => (d.archivedAt || !d.workingVersion || d.workingVersion.cancelledAt ? null : d.workingVersion);
+export const activeWorking = (d: DocRow): VersionRow | null => (d.archivedAt || !d.workingVersion || d.workingVersion.cancelledAt ? null : d.workingVersion);
 
 /** Свой документ на этапе 13: при другом начальнике ИБ согласует он (решение владельца 6). */
 const ownApprovalBlocked = (w: Who, d: DocRow) => d.ownerId === w.a.userId && w.otherHead;
 
-/** Действия маршрута, доступные пользователю сейчас. */
-function actionsOf(w: Who, d: DocRow): DocAction[] {
+/** Действия маршрута по ролям пользователя (без условий данных). */
+function roleActions(w: Who, d: DocRow): DocAction[] {
   const v = activeWorking(d);
   if (!v) return [];
   return allowedActions(v.stage, rolesOf(w, d)).filter((x) => !(x === 'approve' && ownApprovalBlocked(w, d)));
 }
 
+/**
+ * Почему переход вперёд сейчас невозможен по данным; null — можно. Открытый блокер останавливает любой шаг вперёд
+ * и подписание; 14 → 15 — только когда все ответственные лица (хотя бы одно) согласовали (этап Г3).
+ */
+function gate(w: Who, d: DocRow, action: DocAction | 'sign'): { code: string; reason: string } | null {
+  const v = activeWorking(d);
+  if (!v || action === 'return') return null;
+  const f = w.facts.get(v.id) ?? NO_FACTS;
+  if (f.openBlockers > 0) return { code: 'BLOCKERS_OPEN', reason: `Открытых блокеров: ${f.openBlockers}. Снимите их, чтобы двигать документ дальше` };
+  if (action === 'ack_final' && f.parties === 0) return { code: 'NO_PARTIES', reason: 'Добавьте ответственных лиц и отметьте их согласование' };
+  if (action === 'ack_final' && f.pending > 0) return { code: 'PARTIES_PENDING', reason: `Не все ответственные лица согласовали: осталось ${f.pending}` };
+  return null;
+}
+
+/** Действия маршрута, доступные пользователю сейчас: по ролям и по данным. */
+function actionsOf(w: Who, d: DocRow): DocAction[] {
+  return roleActions(w, d).filter((x) => gate(w, d, x) === null);
+}
+
 /** Этап 16: подписанный PDF и дату загружают автор и начальник ИБ (решение владельца 1). */
-function canSign(w: Who, d: DocRow): boolean {
+function signRole(w: Who, d: DocRow): boolean {
   const v = activeWorking(d);
   if (!v || v.stage !== SIGN_STAGE) return false;
   const roles = rolesOf(w, d);
   return roles.has('author') || roles.has('head');
 }
+const canSign = (w: Who, d: DocRow) => signRole(w, d) && gate(w, d, 'sign') === null;
 
 /**
  * «Ждёт вас»: этапы автора (11, 12, 16) — только владельцу; остальные — тем, кто может действовать.
@@ -209,6 +262,10 @@ function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
     stage: working?.stage ?? null,
     stageName: working ? stageName(working.stage) : null,
     waitingForMe: waitsFor(w, d),
+    /** Этап 14: ближайший срок несогласовавшего ответственного лица и просрочен ли он (сотрудникам ИБ). */
+    partiesDue: working && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? null) : null,
+    partiesOverdue: working && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? today) < today : false,
+    openBlockers: working && w.a.ibWork ? (w.facts.get(working.id)?.openBlockers ?? 0) : 0,
     archived: d.archivedAt !== null,
     version: d.version,
   };
@@ -231,7 +288,8 @@ export interface DocListQuery {
 
 async function loadVisible(db: Db, a: DocAccess, where: Prisma.DocumentWhereInput) {
   const rows = await db.document.findMany({ where: { ...where, deletedAt: null }, include: docInclude, orderBy: { number: 'asc' } });
-  const who = await whoOf(db, a, a.ibWork ? [] : rows.flatMap((d) => (d.workingVersionId ? [d.workingVersionId] : [])));
+  const working = rows.flatMap((d) => (d.workingVersionId ? [d.workingVersionId] : []));
+  const who = await whoOf(db, a, a.ibWork ? [] : working, working);
   const out: { d: DocRow; shown: VersionRow }[] = [];
   for (const d of rows) {
     const shown = shownVersion(who, d);
@@ -282,7 +340,7 @@ async function getRow(db: Db, id: string) {
   return d;
 }
 
-const HINTS: Record<number, string> = {
+export const HINTS: Record<number, string> = {
   11: `автор: владелец или право «${permName('docs.manage')}»`,
   12: 'автор или старший над автором; комментируют сотрудники ИБ',
   13: `право «${permName('docs.approve.head')}»`,
@@ -344,14 +402,34 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     ? { at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment }
     : null;
 
-  const [fileRows, commentRows] = await Promise.all([
+  const [fileRows, commentRows, partyRows, blockerRows] = await Promise.all([
     db.documentFile.findMany({
-      where: { versionId: shown.id, removedAt: null },
+      where: { versionId: shown.id, removedAt: null, kind: { not: 'response' } },
       include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } }, adder: { select: { fullName: true } } },
       orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
     }),
     a.ibWork
       ? db.documentComment.findMany({ where: { versionId: shown.id }, include: { author: { select: { fullName: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+      : [],
+    // Ответственные лица и блокеры (этап Г3) — сотрудникам ИБ.
+    a.ibWork
+      ? db.documentParty.findMany({
+        where: { versionId: shown.id, removedAt: null },
+        include: {
+          user: { select: { id: true, fullName: true } },
+          approver: { select: { fullName: true } },
+          files: { where: { removedAt: null }, include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } }, orderBy: { addedAt: 'asc' } },
+          deadlineChanges: { include: { actor: { select: { fullName: true } } }, orderBy: { at: 'desc' } },
+        },
+        orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
+      })
+      : [],
+    a.ibWork
+      ? db.documentBlocker.findMany({
+        where: { versionId: shown.id },
+        include: { opener: { select: { fullName: true } }, resolver: { select: { fullName: true } } },
+        orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+      })
       : [],
   ]);
 
@@ -375,9 +453,16 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     cancelRevision: workingShown && d.approvedVersion !== null && (author || roles.has('head')),
     /** Мягкое удаление: только документ без подписанной версии (docs.delete). */
     delete: a.perms.has('docs.delete') && d.approvedVersion === null,
+    /** Ответственные лица: ведут автор и начальник ИБ на этапах 11–14; согласование отмечают на этапе 14. */
+    parties: workingShown && working.stage >= 11 && working.stage <= 14 && (author || roles.has('head')),
+    approveParties: workingShown && working.stage === 14 && (author || roles.has('head')),
+    /** Блокеры: автор, старшие над автором, начальник ИБ — на любом этапе маршрута. */
+    blockers: workingShown && (author || roles.has('senior') || roles.has('head')),
     manage: a.manage,
   };
   const stuck = workingShown && actions.length === 0 && !sign;
+  // Шаг по роли есть, но не выполнено условие (блокеры, ответственные лица) — объяснить, что мешает.
+  const gated = workingShown ? [...roleActions(who, d), ...(signRole(who, d) ? ['sign' as const] : [])].map((x) => gate(who, d, x)).find((g) => g !== null) ?? null : null;
   return {
     ...toItem(who, d, shown, today),
     current: versionDto(shown),
@@ -386,7 +471,8 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     route,
     can,
     /** Почему вы не можете действовать на текущем этапе (для подсказки в карточке). */
-    blockedReason: !stuck ? null
+    blockedReason: gated ? gated.reason
+      : !stuck ? null
       : working.stage === 13 && ownApprovalBlocked(who, d) && isHead(a)
         ? 'Свой документ согласует другой начальник ИБ: так сохраняется разделение полномочий'
         : `Этап «${stageName(working.stage)}» — ${HINTS[working.stage] ?? ''}`,
@@ -398,6 +484,22 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
       removable: draft && f.kind === 'draft',
     })),
     comments: commentRows.map((c) => ({ id: c.id, author: c.author.fullName, body: c.body, at: c.createdAt.toISOString() })),
+    parties: partyRows.map((p) => {
+      const due = isoDay(p.dueDate) ?? '';
+      return {
+        id: p.id, fullName: p.fullName, department: p.department, email: p.email, user: p.user, dueDate: due,
+        overdue: p.approvedAt === null && due < today,
+        approvedAt: iso(p.approvedAt), approvedBy: p.approver?.fullName ?? null, approveComment: p.approveComment,
+        files: p.files.map((f) => ({
+          id: f.id, file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
+        })),
+        deadlines: p.deadlineChanges.map((c) => ({ from: isoDay(c.fromDate) ?? '', to: isoDay(c.toDate) ?? '', comment: c.comment, actor: c.actor.fullName, at: c.at.toISOString() })),
+      };
+    }),
+    blockers: blockerRows.map((b) => ({
+      id: b.id, text: b.text, openedBy: b.opener.fullName, openedAt: b.openedAt.toISOString(),
+      resolvedAt: iso(b.resolvedAt), resolvedBy: b.resolver?.fullName ?? null, resolveComment: b.resolveComment,
+    })),
     versions: visibleVersions.map((x) => ({
       no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote,
       signedOn: isoDay(x.signedOn), cancelledAt: iso(x.cancelledAt),
@@ -482,7 +584,7 @@ async function checkOwner(db: Db, id: string, current?: string) {
   if (!u) throw badRequest('BAD_OWNER', 'Владельцем документа может быть только активный сотрудник с доступом к разделам ИБ');
 }
 
-const forbiddenWith = (code: string, reason: string) => new AppError(403, code, reason);
+export const forbiddenWith = (code: string, reason: string) => new AppError(403, code, reason);
 
 // ---------------------------------------------------------------- создание и правка
 
@@ -628,7 +730,7 @@ const PDF_MIME = [MIME_BY_EXT.pdf];
 const VERSION_FILE_MIME = [MIME_BY_EXT.pdf, MIME_BY_EXT.docx];
 
 /** Общее для действий: свежие права, версия документа, текущий этап. Захватывает документ (version + 1). */
-async function routeContext(tx: Db, actor: Actor, id: string, input: { version: number; stage: number }) {
+export async function routeContext(tx: Db, actor: Actor, id: string, input: { version: number; stage: number }) {
   const a = await accessOf(tx, actor.id);
   const d = await getRow(tx, id);
   if (d.archivedAt) throw conflict('DOC_ARCHIVED', 'Документ в архиве. Верните его из архива, чтобы продолжить');
@@ -652,7 +754,7 @@ async function addDecision(tx: Db, data: Prisma.DocumentApprovalUncheckedCreateI
   }
 }
 
-function cleanComment(v: string | undefined, required: string | null): string {
+export function cleanComment(v: string | undefined, required: string | null): string {
   const c = (v ?? '').trim();
   if (!c && required) throw badRequest('EMPTY_COMMENT', required);
   if (c.length > COMMENT_MAX) throw badRequest('TOO_LONG', `Комментарий — не длиннее ${COMMENT_MAX} символов`);
@@ -680,7 +782,9 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
     const comment = cleanComment(input.comment, action === 'return' ? 'Напишите, что нужно исправить' : null);
     const { d, w, who } = await routeContext(tx, actor, id, input);
     if (!rule.from.includes(w.stage)) throw conflict('WRONG_STAGE', `«${rule.label}» — не на этапе «${stageName(w.stage)}». Обновите страницу`);
-    if (!actionsOf(who, d).includes(action)) throw moveDenied(action, who, d);
+    if (!roleActions(who, d).includes(action)) throw moveDenied(action, who, d);
+    const blocked = gate(who, d, action);
+    if (blocked) throw conflict(blocked.code, blocked.reason);
 
     const fixed = FIXED_FILE[action];
     let sha256: string | null = null;
@@ -750,7 +854,9 @@ export async function signDocument(db: Db, actor: Actor, id: string, input: Sign
     if (input.signedOn > today) throw badRequest('BAD_DATE', 'Дата подписания — не позже сегодняшнего дня');
     const { d, w, who } = await routeContext(tx, actor, id, input);
     if (w.stage !== SIGN_STAGE) throw conflict('WRONG_STAGE', `Подписать можно на этапе «${stageName(SIGN_STAGE)}». Обновите страницу`);
-    if (!canSign(who, d)) throw forbiddenWith('FORBIDDEN', `Подписанный PDF загружает ${HINTS[SIGN_STAGE]}`);
+    if (!signRole(who, d)) throw forbiddenWith('FORBIDDEN', `Подписанный PDF загружает ${HINTS[SIGN_STAGE]}`);
+    const blocked = gate(who, d, 'sign');
+    if (blocked) throw conflict(blocked.code, blocked.reason);
     const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: PDF_MIME, what: 'Подписанный PDF' });
     if (!f) throw badRequest('PDF_REQUIRED', 'Приложите подписанный PDF');
     const now = new Date();

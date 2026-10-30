@@ -11,6 +11,7 @@ import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
+import { DocumentBlockers, DocumentParties } from './DocumentParties';
 import { ACTION_DONE, ACTION_LABEL, FIXED_FILE_LABEL, historyText, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
 
 /** Ошибки, после которых карточку нужно перечитать: документ успели изменить или он ушёл на другой этап. */
@@ -272,6 +273,9 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
             <div className="row"><button className="btn primary" type="submit" disabled={busy || !files.length || !signedOn}>Подписан</button>{cancelBtn}</div>
           </form>
         )}
+
+        {mode === 'view' && <DocumentBlockers d={d} at={at} onDone={done} onError={onError} />}
+        {mode === 'view' && <DocumentParties d={d} at={at} onDone={done} onError={onError} onPreview={toggle} />}
 
         {(d.comments.length > 0 || d.can.comment) && (
           <div aria-label="Комментарии сотрудников">

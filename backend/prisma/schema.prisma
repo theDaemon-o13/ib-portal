@@ -61,6 +61,13 @@ model User {
   documentComments     DocumentComment[]
   addedDocumentFiles   DocumentFile[]       @relation("DocumentFileAdder")
   removedDocumentFiles DocumentFile[]       @relation("DocumentFileRemover")
+  documentPartyLinks   DocumentParty[]      @relation("DocumentPartyUser")
+  addedDocumentParties DocumentParty[]      @relation("DocumentPartyAdder")
+  approvedDocParties   DocumentParty[]      @relation("DocumentPartyApprover")
+  removedDocParties    DocumentParty[]      @relation("DocumentPartyRemover")
+  documentDeadlineChanges DocumentDeadlineChange[]
+  openedDocBlockers    DocumentBlocker[]    @relation("DocumentBlockerOpener")
+  resolvedDocBlockers  DocumentBlocker[]    @relation("DocumentBlockerResolver")
   deletedFiles         File[]               @relation("FileDeleter")
   ownedEvidence        Evidence[]           @relation("EvidenceOwner")
   uploadedEvidence     Evidence[]           @relation("EvidenceUploader")
@@ -903,6 +910,9 @@ model Document {
   approvals       DocumentApproval[]
   comments        DocumentComment[]
   files           DocumentFile[]
+  parties         DocumentParty[]
+  deadlineChanges DocumentDeadlineChange[]
+  blockers        DocumentBlocker[]
   events          AutomationEvent[]
   tasks           Task[]
   evidence        Evidence[]
@@ -948,6 +958,8 @@ model DocumentVersion {
   approvals  DocumentApproval[]
   comments   DocumentComment[]
   files      DocumentFile[]
+  parties    DocumentParty[]
+  blockers   DocumentBlocker[]
 
   @@unique([documentId, no])
   @@map("document_versions")
@@ -1000,7 +1012,8 @@ model DocumentComment {
 }
 
 /// Файлы версии документа (релиз 1.2.0): draft — файлы драфта (снимаются на этапе 11), head_approved — версия,
-/// одобренная начальником ИБ (13 → 14), final — финальная версия (14 → 15). Зафиксированные файлы не снимаются.
+/// одобренная начальником ИБ (13 → 14), final — финальная версия (14 → 15), response — ответ ответственного лица
+/// (этап 14, party_id). Зафиксированные файлы не снимаются.
 model DocumentFile {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   documentId String    @map("document_id") @db.Uuid
@@ -1013,9 +1026,12 @@ model DocumentFile {
   addedAt    DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
   removedAt  DateTime? @map("removed_at") @db.Timestamptz(3)
   removedBy  String?   @map("removed_by") @db.Uuid
+  /// Ответ ответственного лица (kind = response).
+  partyId    String?   @map("party_id") @db.Uuid
 
   document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
   version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  party    DocumentParty?  @relation(fields: [partyId], references: [id], onDelete: Restrict)
   file     File            @relation(fields: [fileId], references: [id], onDelete: Restrict)
   adder    User            @relation("DocumentFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
   remover  User?           @relation("DocumentFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
@@ -1023,6 +1039,80 @@ model DocumentFile {
   @@index([versionId, round])
   @@index([fileId])
   @@map("document_files")
+}
+
+/// Ответственные лица этапа 14 (релиз 1.2.0): внешние люди, которым документ отправлен по почте; e-mail — для справки,
+/// портал писем не отправляет. По желанию — ссылка на пользователя портала. Согласование отмечает автор или начальник ИБ.
+model DocumentParty {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  versionId      String    @map("version_id") @db.Uuid
+  fullName       String    @map("full_name")
+  department     String    @default("")
+  email          String    @default("")
+  userId         String?   @map("user_id") @db.Uuid
+  dueDate        DateTime  @map("due_date") @db.Date
+  approvedAt     DateTime? @map("approved_at") @db.Timestamptz(3)
+  approvedBy     String?   @map("approved_by") @db.Uuid
+  approveComment String    @default("") @map("approve_comment")
+  addedBy        String    @map("added_by") @db.Uuid
+  addedAt        DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt      DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy      String?   @map("removed_by") @db.Uuid
+
+  document        Document                 @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version         DocumentVersion          @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  user            User?                    @relation("DocumentPartyUser", fields: [userId], references: [id], onDelete: Restrict)
+  adder           User                     @relation("DocumentPartyAdder", fields: [addedBy], references: [id], onDelete: Restrict)
+  approver        User?                    @relation("DocumentPartyApprover", fields: [approvedBy], references: [id], onDelete: Restrict)
+  remover         User?                    @relation("DocumentPartyRemover", fields: [removedBy], references: [id], onDelete: Restrict)
+  files           DocumentFile[]
+  deadlineChanges DocumentDeadlineChange[]
+
+  @@index([versionId])
+  @@map("document_parties")
+}
+
+/// История сроков (ответственные лица этапа 14; переводы этапа 15 — релиз 1.2.0, этап Г4): было, стало, комментарий.
+/// Только пополняется (права и триггер).
+model DocumentDeadlineChange {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  partyId    String?  @map("party_id") @db.Uuid
+  fromDate   DateTime @map("from_date") @db.Date
+  toDate     DateTime @map("to_date") @db.Date
+  comment    String
+  actorId    String   @map("actor_id") @db.Uuid
+  at         DateTime @default(now()) @db.Timestamptz(3)
+
+  document Document       @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  party    DocumentParty? @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  actor    User           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([documentId, at])
+  @@map("document_deadline_changes")
+}
+
+/// Блокеры документа (релиз 1.2.0): что мешает двигать документ дальше. Открывают и снимают автор, старшие над автором
+/// и начальник ИБ; снятие — с комментарием. Не удаляются; снятие — один раз.
+model DocumentBlocker {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId     String    @map("document_id") @db.Uuid
+  versionId      String    @map("version_id") @db.Uuid
+  text           String
+  openedBy       String    @map("opened_by") @db.Uuid
+  openedAt       DateTime  @default(now()) @map("opened_at") @db.Timestamptz(3)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy     String?   @map("resolved_by") @db.Uuid
+  resolveComment String    @default("") @map("resolve_comment")
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  opener   User            @relation("DocumentBlockerOpener", fields: [openedBy], references: [id], onDelete: Restrict)
+  resolver User?           @relation("DocumentBlockerResolver", fields: [resolvedBy], references: [id], onDelete: Restrict)
+
+  @@index([versionId])
+  @@map("document_blockers")
 }
 
 /// Файлы (этап 7, CLAUDE.md 3.7): содержимое — /data/files/<yyyy>/<mm>/<uuid>, здесь — метаданные.

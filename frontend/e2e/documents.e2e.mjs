@@ -107,8 +107,18 @@ const STAGE_OF = { to_review: 11, to_head: 12, approve: 13, ack_final: 14, to_si
 /** Провести документ через API до этапа stage (11…16). */
 async function moveViaApi(id, stage) {
   for (const [who, action] of STEPS) {
-    if (STAGE_OF[action] < stage) await routeStep(users[who], id, action);
+    if (STAGE_OF[action] >= stage) continue;
+    if (action === 'ack_final') await partyViaApi(id);
+    await routeStep(users[who], id, action);
   }
+}
+
+/** Этап 14: ответственное лицо, его согласование отмечает начальник ИБ (подготовка данных). */
+async function partyViaApi(id) {
+  let d = await apiAs(users.head, 'GET', `/api/v1/documents/${id}`);
+  d = (await api('POST', `/api/v1/documents/${id}/parties`, { version: d.version, stage: d.working.stage, fullName: 'Сидоров С. С.', department: 'ДИКТ', dueDate: portalToday() })).document;
+  const p = d.parties.find((x) => !x.approvedAt);
+  await api('POST', `/api/v1/documents/${id}/parties/${p.id}/approve`, { version: d.version, stage: d.working.stage });
 }
 
 async function signAllViaApi(id) {
@@ -248,7 +258,29 @@ describe('Документы: маршрут 1.2.0', () => {
     await ui.waitFor(`${stepState('Согласование с ответственными лицами')}?.includes('cur')`, 'этап — ответственные лица');
     await ui.waitFor(`!!${panel}.querySelector('[data-file-kind=head_approved]')`, 'версия, одобренная начальником ИБ, — в карточке');
 
-    await routeStep(users.head, id, 'ack_final');
+    // Этап 14: «Ознакомлен» появится, когда ответственные лица согласуют.
+    assert.equal(await ui.evaluate(`!!${$.button('Ознакомлен с финальной версией', panel)}`), false, 'без лиц шага нет');
+    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /Добавьте ответственных лиц/);
+    await ui.click($.button('Добавить ответственное лицо', panel));
+    const pf = `${panel}.querySelector('form[aria-label="Ответственное лицо"]')`;
+    await ui.type(label('ФИО', pf), 'Петров Пётр Петрович');
+    await ui.type(label('Подразделение', pf), 'Юридическое управление');
+    await ui.type(label('E-mail (для справки)', pf), 'petrov@example.tj');
+    await ui.evaluate(`(() => { const el = ${label('Срок ответа', pf)};
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(portalToday())});
+      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    req = await act('Добавить', 'POST', `/api/v1/documents/${id}/parties`);
+    assert.equal(req.json.fullName, 'Петров Пётр Петрович');
+    const party = `${panel}.querySelector('[data-party="Петров Пётр Петрович"]')`;
+    await ui.waitFor(`!!${party}`, 'лицо в карточке');
+    await ui.click($.button('Отметить согласование', party));
+    await pickInForm('Согласование лица', 'Ответ Петрова.pdf');
+    await act('Согласовал(а)', 'POST', '/approve');
+    await ui.waitFor(`${party}?.textContent.includes('согласовал(а)') && ${party}.textContent.includes('Ответ Петрова.pdf')`, 'согласование и ответ лица');
+    await ui.click($.button('Ознакомлен с финальной версией', panel));
+    await pickInForm('Ознакомлен с финальной версией', 'Финальная.pdf');
+    await act('Ознакомлен с финальной версией', 'POST', `/api/v1/documents/${id}/actions/ack_final`);
+    await ui.waitFor(`${stepState('Перевод')}?.includes('cur')`, 'этап — перевод');
     await routeStep(users.head, id, 'to_signing');
 
     // Автор загружает подписанный PDF и дату подписания.
@@ -300,6 +332,27 @@ describe('Документы: маршрут 1.2.0', () => {
     await loginAs(admin);
     const roles = (await api('GET', '/api/v1/roles')).items.map((r) => r.code);
     assert.ok(roles.includes('doc_reader') && !roles.includes('legal') && !roles.includes('board'), roles.join(', '));
+  });
+});
+
+describe('Документы: блокеры', () => {
+  it('открытый блокер останавливает шаг вперёд; снять — с комментарием', async () => {
+    const doc = await makeDoc('Положение о доступе');
+    await loginAs(users.owner);
+    await openDocs(doc.id);
+    await ui.waitFor(`!!${$.button('Отправить на проверку сотрудникам', panel)}`, 'шаг вперёд доступен');
+    await ui.click($.button('Добавить блокер', panel));
+    await ui.type(`${panel}.querySelector('form[aria-label="Блокер"] textarea')`, 'Ждём заключение ДИКТ');
+    await act('Открыть блокер', 'POST', `/api/v1/documents/${doc.id}/blockers`);
+    await ui.waitFor(`!!${panel}.querySelector('[data-blocker=open]')`, 'открытый блокер в карточке');
+    assert.equal(await ui.evaluate(`!!${$.button('Отправить на проверку сотрудникам', panel)}`), false, 'с блокером шага нет');
+    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /Открытых блокеров: 1/);
+    await ui.waitFor(`${row(`${RUN} Положение о доступе`)}?.textContent.includes('блокер')`, 'отметка блокера в реестре');
+    await ui.click($.button('Снять блокер', panel));
+    assert.equal(await ui.evaluate(`!!${$.button('Снять блокер', `${panel}.querySelector('form')`)}`), false, 'без комментария кнопка неактивна');
+    await ui.type(`${panel}.querySelector('form[aria-label="Снятие блокера"] textarea')`, 'Заключение получено');
+    await act('Снять блокер', 'POST', '/resolve');
+    await ui.waitFor(`!!${panel}.querySelector('[data-blocker=resolved]') && !!${$.button('Отправить на проверку сотрудникам', panel)}`, 'блокер снят, шаг вперёд доступен');
   });
 });
 

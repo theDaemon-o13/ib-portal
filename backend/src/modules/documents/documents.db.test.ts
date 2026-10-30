@@ -7,6 +7,7 @@ import { MIME_BY_EXT } from '../../lib/file-type.js';
 import { todayIso } from '../../lib/today.js';
 import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from '../../test/db.js';
 import type { Actor } from '../settings/common.js';
+import * as parties from './parties.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
 import { addMonthsIso, FIXED_FILE, type DocAction } from './status.js';
@@ -55,8 +56,26 @@ async function moveTo(tx: Tx, x: Fx, id: string, stage: number) {
   };
   for (let s = (await cur(tx, id)).stage; s < stage; s = (await cur(tx, id)).stage) {
     const [u, a] = must(next[s], `шаг с этапа ${s}`);
+    // 14 → 15 — когда ответственные лица согласовали (этап Г3): одно лицо, согласование отмечает начальник ИБ.
+    if (a === 'ack_final') await approveParties(tx, x, id);
     await move(tx, u, id, a);
   }
+}
+
+/** Все ответственные лица рабочей версии согласовали (нет ни одного — добавить одно). */
+async function approveParties(tx: Tx, x: Fx, id: string) {
+  const versionId = must((await tx.document.findUniqueOrThrow({ where: { id } })).workingVersionId);
+  if ((await tx.documentParty.count({ where: { versionId, removedAt: null } })) === 0) await addParty(tx, x.head, id);
+  for (const p of await tx.documentParty.findMany({ where: { versionId, removedAt: null, approvedAt: null } })) {
+    await parties.approveParty(tx, await actorFor(tx, x.head.id), id, p.id, await cur(tx, id));
+  }
+}
+
+async function addParty(tx: Tx, u: User, id: string, extra: Partial<parties.PartyInput> = {}) {
+  await parties.addParty(tx, await actorFor(tx, u.id), id, {
+    ...(await cur(tx, id)), fullName: 'Петров П. П.', department: 'Юридическое управление', email: 'petrov@example.tj', dueDate: '2026-11-10', ...extra,
+  });
+  return tx.documentParty.findFirstOrThrow({ where: { documentId: id }, orderBy: { addedAt: 'desc' } });
 }
 
 /** Подписать документ полным маршрутом. */
@@ -127,6 +146,7 @@ describe('документы: маршрут 1.2.0 (ADR-0024)', () => {
 
       // 14 → 15: начальник ИБ («Ознакомлен с финальной версией»), тоже с файлом.
       await expectCode(move(tx, x.owner, id, 'ack_final'), 'FORBIDDEN');
+      await approveParties(tx, x, id);
       await move(tx, x.head, id, 'ack_final', { fileId: (await makeFileRow(tx, x.head.id, { name: 'Финал.pdf' })).id });
 
       // 15 → 16: начальник ИБ или старший над автором.
@@ -592,5 +612,105 @@ describe('документы: пользователи без ib.work', () => {
     inTx(async (tx) => {
       const x = await fixture(tx);
       await expectCode(svc.createDocument(tx, await x.as(x.admin), { title: 'X', typeId: x.type.id, ownerId: x.owner.id, onlyofficeUrl: 'javascript:alert(1)' }), 'BAD_URL');
+    }));
+});
+
+describe('документы: этап 14 — ответственные лица (Г3)', () => {
+  it('14 → 15 — только когда все лица (хотя бы одно) согласовали; лиц ведут автор и начальник ИБ', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      // Лиц можно указать заранее, с драфта; сотрудник ИБ — нет.
+      await expectCode(addParty(tx, x.staff, id), 'FORBIDDEN');
+      const p1 = await addParty(tx, x.owner, id, { fullName: 'Иванов И. И.', userId: x.legal.id });
+      await moveTo(tx, x, id, 14);
+      // moveTo остановился на 14: p1 ещё не согласовал.
+      await expectCode(move(tx, x.head, id, 'ack_final'), 'PARTIES_PENDING');
+      let d = await view(tx, x.head, id);
+      expect(d.can).toMatchObject({ actions: ['return'], parties: true, approveParties: true });
+      expect(d.blockedReason).toMatch(/Не все ответственные лица согласовали: осталось 1/);
+      expect(d.parties.map((p) => [p.fullName, p.user?.fullName, p.approvedAt])).toEqual([['Иванов И. И.', 'Юрист', null]]);
+
+      const response = await makeFileRow(tx, x.head.id, { name: 'Письмо.pdf' });
+      await parties.approveParty(tx, await x.as(x.head), id, p1.id, { ...(await cur(tx, id)), comment: 'Ответ письмом', fileIds: [response.id] });
+      await expectCode(parties.approveParty(tx, await x.as(x.head), id, p1.id, await cur(tx, id)), 'PARTY_APPROVED');
+      await expectCode(parties.removeParty(tx, await x.as(x.owner), id, p1.id, await cur(tx, id)), 'PARTY_APPROVED');
+      d = await view(tx, x.head, id);
+      expect(d.parties[0]).toMatchObject({ approvedBy: 'Начальник ИБ', approveComment: 'Ответ письмом' });
+      expect(d.parties[0]?.files.map((f) => f.file.name)).toEqual(['Письмо.pdf']);
+      expect(d.files.some((f) => f.file.name === 'Письмо.pdf')).toBe(false);
+      expect(d.can.actions).toEqual(['ack_final', 'return']);
+      expect(d.waitingForMe).toBe(true);
+      await move(tx, x.head, id, 'ack_final');
+      expect((await cur(tx, id)).stage).toBe(15);
+      // После этапа 14 список лиц не меняется.
+      await expectCode(addParty(tx, x.owner, id), 'WRONG_STAGE');
+    }));
+
+  it('без лиц 14 → 15 нельзя; согласование отмечается только на этапе 14; снять можно несогласовавшее', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, 13);
+      const p = await addParty(tx, x.head, id);
+      await expectCode(parties.approveParty(tx, await x.as(x.head), id, p.id, await cur(tx, id)), 'WRONG_STAGE');
+      await parties.removeParty(tx, await x.as(x.owner), id, p.id, await cur(tx, id));
+      await move(tx, x.head, id, 'approve');
+      await expectCode(move(tx, x.head, id, 'ack_final'), 'NO_PARTIES');
+      expect((await view(tx, x.head, id)).parties).toEqual([]);
+      expect(await sqlError(tx, `DELETE FROM document_parties WHERE id = '${p.id}'`)).toMatch(/permission denied/);
+    }));
+
+  it('срок меняется только с комментарием; история сроков только пополняется; в реестре — ближайший срок и просрочка', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      const p = await addParty(tx, x.owner, id, { dueDate: '2020-01-10' });
+      const patch = async (body: parties.PartyPatch) => parties.updateParty(tx, await x.as(x.owner), id, p.id, { ...(await cur(tx, id)), ...body });
+      await expectCode(patch({ dueDate: '2020-01-20' }), 'EMPTY_COMMENT');
+      await expectCode(patch({ dueDate: '2020-02-31', comment: 'x' }), 'BAD_DATE');
+      await expectCode(patch({ email: 'не почта' }), 'BAD_EMAIL');
+      await patch({ dueDate: '2020-01-20', comment: 'Попросили отсрочку' });
+      const item = (await list(tx, x.owner)).find((d) => d.id === id);
+      expect(item).toMatchObject({ partiesDue: '2020-01-20', partiesOverdue: true });
+      const d = await view(tx, x.owner, id);
+      expect(d.parties[0]).toMatchObject({ dueDate: '2020-01-20', overdue: true });
+      expect(d.parties[0]?.deadlines).toEqual([expect.objectContaining({ from: '2020-01-10', to: '2020-01-20', comment: 'Попросили отсрочку', actor: 'Автор Документа' })]);
+      expect(await sqlError(tx, `UPDATE document_deadline_changes SET comment = 'x' WHERE party_id = '${p.id}'`)).toMatch(/permission denied/);
+      expect(await sqlError(tx, `DELETE FROM document_deadline_changes WHERE party_id = '${p.id}'`)).toMatch(/permission denied/);
+      // Без ib.work лиц не видно.
+      expect((await list(tx, x.legal)).find((i) => i.id === id)).toBeUndefined();
+    }));
+});
+
+describe('документы: блокеры (Г3)', () => {
+  it('открывают и снимают автор, старший и начальник ИБ; открытый блокер останавливает шаги вперёд и подписание', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      const open = async (u: User, text: string) => parties.addBlocker(tx, await x.as(u), id, { ...(await cur(tx, id)), text });
+      const resolve = async (u: User, bid: string, comment: string) => parties.resolveBlocker(tx, await x.as(u), id, bid, { ...(await cur(tx, id)), comment });
+      await expectCode(open(x.staff, 'чужой'), 'FORBIDDEN');
+      await expectCode(open(x.owner, '  '), 'EMPTY_COMMENT');
+      await open(x.chief, 'Нет согласования с ДИКТ');
+      expect((await list(tx, x.owner)).find((d) => d.id === id)?.openBlockers).toBe(1);
+      await expectCode(move(tx, x.owner, id, 'to_review'), 'BLOCKERS_OPEN');
+      let d = await view(tx, x.owner, id);
+      expect(d.can.actions).toEqual([]);
+      expect(d.blockedReason).toMatch(/Открытых блокеров: 1/);
+      const b = must(d.blockers[0]);
+      await expectCode(resolve(x.owner, b.id, ''), 'EMPTY_COMMENT');
+      await resolve(x.head, b.id, 'ДИКТ согласовал письмом');
+      await expectCode(resolve(x.head, b.id, 'ещё раз'), 'BLOCKER_RESOLVED');
+      d = await view(tx, x.owner, id);
+      expect(d.blockers[0]).toMatchObject({ openedBy: 'Руководитель автора', resolvedBy: 'Начальник ИБ', resolveComment: 'ДИКТ согласовал письмом' });
+      expect(await sqlError(tx, `UPDATE document_blockers SET text = 'подмена' WHERE id = '${b.id}'`)).toMatch(/только снимается один раз/);
+      expect(await sqlError(tx, `DELETE FROM document_blockers WHERE id = '${b.id}'`)).toMatch(/permission denied/);
+
+      // На подписании блокер тоже останавливает.
+      await moveTo(tx, x, id, 16);
+      await open(x.head, 'Ждём оригинал с подписью');
+      await expectCode(sign(tx, x.owner, id), 'BLOCKERS_OPEN');
+      expect((await view(tx, x.owner, id)).can.sign).toBe(false);
     }));
 });

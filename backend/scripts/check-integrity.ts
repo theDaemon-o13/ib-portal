@@ -157,6 +157,22 @@ async function main() {
     ['document_files_guard', 'document_files_no_truncate', 'document_files_file_alive'].every((n) => docFileTriggers.includes(n)),
     'триггеры неизменности файлов документов на месте',
   );
+  // Этап 14 (Г3): история сроков только пополняется, блокеры и лица не удаляются.
+  const g3Privs = await prisma.$queryRaw<{ t: string; p: string; granted: boolean }[]>`
+    SELECT t, p, has_table_privilege('ibportal_app', 'public.' || t, p) AS granted
+    FROM unnest(ARRAY['document_parties', 'document_blockers', 'document_deadline_changes']) AS t,
+         unnest(ARRAY['UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+  check(
+    g3Privs.length === 9 && g3Privs.every((r) => !r.granted || (r.p === 'UPDATE' && r.t !== 'document_deadline_changes')),
+    'ibportal_app: нет DELETE и TRUNCATE на лицах и блокерах документов, история сроков только пополняется',
+  );
+  const g3Triggers = (await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger WHERE tgrelid IN ('public.document_blockers'::regclass, 'public.document_deadline_changes'::regclass) AND NOT tgisinternal`).map((t) => t.tgname);
+  check(
+    ['document_blockers_guard', 'document_blockers_no_truncate', 'document_deadline_changes_no_update_delete', 'document_deadline_changes_no_truncate']
+      .every((n) => g3Triggers.includes(n)),
+    'триггеры неизменности блокеров и истории сроков на месте',
+  );
   // После обновления на 1.2.0 рабочих версий на старом маршруте нет (seed docs.route.v1_2 переносит их каждый запуск).
   const legacyWorking = await prisma.$queryRaw<{ n: bigint }[]>`
     SELECT count(*) AS n FROM documents d JOIN document_versions v ON v.id = d.working_version_id WHERE v.stage BETWEEN 0 AND 3`;

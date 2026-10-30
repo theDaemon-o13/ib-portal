@@ -18,6 +18,10 @@ export type DocPatch = Body<'/api/v1/documents/{id}', 'patch'>;
 export type DocRevise = Body<'/api/v1/documents/{id}/revise', 'post'>;
 export type DocSummary = Res<'/api/v1/documents/summary', 'get'>;
 
+/** Версия документа и этап на экране: устаревший экран получает 409. */
+export interface At { version: number; stage: number }
+export interface PartyFields { fullName: string; department?: string; email?: string; userId?: string | null; dueDate: string }
+
 export interface DocQuery {
   archived: boolean;
   status?: DocStatus;
@@ -52,6 +56,14 @@ export const docsApi = {
   removeFile: (id: string, linkId: string, body: { version: number; stage: number }) => request<DocResult>('POST', `/api/v1/documents/${id}/files/${linkId}/remove`, body),
   comment: (id: string, body: string) => request<DocResult>('POST', `/api/v1/documents/${id}/comments`, { body }),
   remove: (id: string, body: { version: number; comment?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/delete`, body),
+  /** Этап 14: ответственные лица (внешние; e-mail — для справки). */
+  addParty: (id: string, body: At & PartyFields) => request<DocResult>('POST', `/api/v1/documents/${id}/parties`, body),
+  updateParty: (id: string, partyId: string, body: At & Partial<PartyFields> & { comment?: string }) => request<DocResult>('PATCH', `/api/v1/documents/${id}/parties/${partyId}`, body),
+  removeParty: (id: string, partyId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/remove`, body),
+  approveParty: (id: string, partyId: string, body: At & { comment?: string; fileIds?: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/approve`, body),
+  removeResponse: (id: string, linkId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/responses/${linkId}/remove`, body),
+  addBlocker: (id: string, body: At & { text: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers`, body),
+  resolveBlocker: (id: string, blockerId: string, body: At & { comment: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers/${blockerId}/resolve`, body),
   revise: (id: string, body: DocRevise) => request<DocResult>('POST', `/api/v1/documents/${id}/revise`, body),
   archive: (id: string, version: number) => request<DocResult>('POST', `/api/v1/documents/${id}/archive`, { version }),
   restore: (id: string, version: number) => request<DocResult>('POST', `/api/v1/documents/${id}/restore`, { version }),
