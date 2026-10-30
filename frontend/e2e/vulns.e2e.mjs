@@ -4,8 +4,8 @@
 //
 //   npm run test:e2e   (логин и пароль — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
-// Группы не удаляются (ADR-0029): на каждый прогон в dev-базе остаётся группа «E2E-…». Право vulns.deadlines на время
-// прогона выдаётся своей ролью, после прогона роль снимается и удаляется. Записи группы — в архив.
+// Группы «E2E-…» и их данные после прогона удаляет код тестов прямо в dev-базе (vulns-cleanup.mjs): в продукте удаления
+// групп нет (ADR-0029). Право vulns.deadlines на время прогона выдаётся своей ролью, после прогона роль снимается и удаляется.
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
 import { launchBrowser, portalToday } from './browser.mjs';
+import { cleanE2eGroups } from './vulns-cleanup.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -80,10 +81,6 @@ before(async () => {
 after(async () => {
   if (ui) {
     try {
-      if (nodeId) {
-        const page = await api(`/api/v1/vulns/nodes/${nodeId}/records?state=all&limit=200`);
-        for (const r of page.items ?? []) await send('POST', `/api/v1/register-records/${r.id}/archive`, { version: r.version });
-      }
       if (roleId && priorRoleIds.length) {
         const me = await findMe();
         await send('PATCH', `/api/v1/users/${meId}`, { version: me.version, roleIds: priorRoleIds });
@@ -94,6 +91,7 @@ after(async () => {
       ui.close();
     }
   }
+  await cleanE2eGroups();
   if (tmp) rmSync(tmp, { recursive: true, force: true });
 });
 

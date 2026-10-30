@@ -401,9 +401,6 @@ table.recs tr.archived td{color:var(--faint)}
 
 /* Реестр уязвимостей и автоматизации (этап 4) */
 .ev-dot{display:inline-grid;place-items:center;min-width:16px;height:16px;padding:0 4px;margin-left:6px;border-radius:999px;background:var(--crit);color:#fff;font-size:10px;font-weight:700;vertical-align:1px}
-.scan-reports{display:grid;gap:4px;padding:0 16px 10px}
-.scan-report summary{cursor:pointer;font-size:12.5px;padding:4px 0}
-.scan-report .tbl-wrap{max-height:240px;margin:4px 0 8px}
 .scan-dates{align-items:end}
 .scan-dates .fd-label{width:180px}
 .rule-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end;padding:8px 0}

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, portalToday, sleep } from './browser.mjs';
+import { cleanE2eGroups } from './vulns-cleanup.mjs';
 
 const ExcelJS = createRequire(new URL('../../backend/package.json', import.meta.url))('exceljs');
 
@@ -96,10 +97,6 @@ before(async () => {
 
 after(async () => {
   try {
-    for (const r of created) {
-      const cur = await api('GET', `/api/v1/register-records/${r.id}`);
-      if (!cur.archived) await api('POST', `/api/v1/register-records/${r.id}/archive`, { version: cur.version });
-    }
     if (tileId) {
       const t = (await api('GET', '/api/v1/dashboard/tiles')).items.find((x) => x.id === tileId);
       if (t) await api('POST', `/api/v1/dashboard/tiles/${t.id}/delete`, { version: t.version });
@@ -107,6 +104,7 @@ after(async () => {
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript на странице');
   } finally {
     ui?.close();
+    await cleanE2eGroups();
   }
 });
 

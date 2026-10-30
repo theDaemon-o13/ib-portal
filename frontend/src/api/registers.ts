@@ -36,7 +36,6 @@ export type Widget = Res<'/api/v1/registers/{id}/analytics', 'get'>['items'][num
 export type Deadline = NonNullable<RegisterRecord['deadline']>;
 /** Предпросмотр «Импорта из Excel»: как распознан файл и что в нём. */
 export type FilePreview = Res<'/api/v1/registers/{id}/file-imports', 'post', 201>;
-export type ScanReport = Res<'/api/v1/registers/{id}/scan-reports', 'get'>['items'][number];
 export type AutomationRule = Res<'/api/v1/registers/{id}/automations', 'get'>['items'][number];
 export type NewRule = Body<'/api/v1/registers/{id}/automations', 'post'>;
 export type RuleCondition = NewRule['condition'];
