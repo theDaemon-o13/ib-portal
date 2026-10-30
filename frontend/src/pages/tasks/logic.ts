@@ -57,10 +57,10 @@ export function todayLocal(now = new Date()): string {
 export type ProcessAction = Task['actions'][number];
 
 export const ACTION_LABEL: Record<ProcessAction, string> = {
-  take: 'Взять себе', start: 'Взять в работу', submit: 'Отправить на проверку', accept: 'Принять', return: 'Вернуть в работу',
+  take: 'Взять себе', start: 'Взять в работу', submit: 'Отправить на проверку', complete: 'Завершить', accept: 'Принять', return: 'Вернуть в работу',
 };
 /** Колонка, в которую ведёт кнопка (системный ключ). */
-export const ACTION_TARGET: Record<ProcessAction, string> = { take: 'assigned', start: 'work', submit: 'review', accept: 'done', return: 'work' };
+export const ACTION_TARGET: Record<ProcessAction, string> = { take: 'assigned', start: 'work', submit: 'review', complete: 'done', accept: 'done', return: 'work' };
 
 export interface StatusFlags { id: string; systemKey: string | null; commentForward: boolean; commentReturn: boolean }
 
@@ -79,10 +79,12 @@ export function actionNeedsComment(statuses: readonly StatusFlags[], t: Pick<Tas
 }
 
 /** Почему кнопок процесса нет — подсказка в карточке; null — объяснять нечего. */
-export function processHint(t: Pick<Task, 'status' | 'assignee' | 'actions' | 'archived'>, meId: string, perms: readonly string[]): string | null {
+export function processHint(t: Pick<Task, 'status' | 'assignee' | 'reviewer' | 'actions' | 'archived'>, meId: string, perms: readonly string[]): string | null {
   if (t.archived || t.actions.length) return null;
   const key = t.status.systemKey;
   if (key === 'review') {
+    // С 1.4.0 принимает проверяющий, зафиксированный при отправке (ADR-0028); без него — задача отправлена до 1.4.0.
+    if (t.reviewer) return t.assignee?.id === meId ? `Задачу проверяет ${t.reviewer.fullName}` : `Принять или вернуть может только проверяющий: ${t.reviewer.fullName}`;
     if (t.assignee?.id === meId) return 'Свою задачу нельзя принять: это делает автор задачи или руководитель';
     return perms.includes('tasks.review')
       ? 'Принять может автор задачи или руководитель исполнителя'
@@ -95,7 +97,7 @@ export function processHint(t: Pick<Task, 'status' | 'assignee' | 'actions' | 'a
 /** Кнопка следующего шага на карточке доски: своя работа или «Проверить» (открывает карточку). */
 export function cardStep(t: Pick<Task, 'actions'>): { action: ProcessAction | 'review'; label: string } | null {
   if (t.actions.includes('accept')) return { action: 'review', label: 'Проверить' };
-  const a = t.actions.find((x) => x === 'take' || x === 'start' || x === 'submit');
+  const a = t.actions.find((x) => x === 'take' || x === 'start' || x === 'submit' || x === 'complete');
   if (!a) return null;
   return { action: a, label: a === 'submit' ? 'На проверку' : ACTION_LABEL[a] };
 }

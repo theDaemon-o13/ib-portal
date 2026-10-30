@@ -91,6 +91,7 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
           {t.source === 'evidence' && <span className="chip acc" title="Задача по доказательству">доказательство</span>}
         </span>
       </div>
+      {t.reviewer && <div className="meta reviewer" data-testid="card-reviewer">Проверяет: {t.reviewer.fullName}</div>}
       {step && (
         <div className="card-step">
           <button className="btn sm" type="button" onPointerDown={(e) => e.stopPropagation()}

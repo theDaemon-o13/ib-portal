@@ -3,11 +3,10 @@
 // Общее правило (решение владельца): о собственных действиях пользователь уведомлений не получает; отключённым не пишем.
 import type { Db } from '../../lib/db.js';
 import { AppError } from '../../lib/errors.js';
-import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { addDaysIso, todayIso } from '../../lib/today.js';
 
 export const NOTIFICATION_KINDS = [
-  'task_assigned', 'task_unassigned', 'task_submitted', 'task_returned', 'task_accepted', 'task_moved', 'task_commented',
+  'task_assigned', 'task_unassigned', 'task_submitted', 'task_returned', 'task_accepted', 'task_completed', 'task_moved', 'task_commented',
   'task_due_tomorrow', 'task_overdue', 'task_overdue_summary',
   // Документы (релиз 1.2.0, этап Г5, ADR-0024).
   'doc_waiting', 'doc_translation', 'doc_returned', 'doc_commented', 'doc_deadline_changed', 'doc_party_due_tomorrow', 'doc_party_overdue',
@@ -73,42 +72,33 @@ export async function notifyAssignee(db: Db, t: TaskRef, prev: string | null, ne
   }
 }
 
-/** Пользователи с правом: активные, с доступом к разделам ИБ. */
-async function usersWith(db: Db, code: string, among?: readonly string[]): Promise<string[]> {
-  const rows = await db.user.findMany({
-    where: {
-      isActive: true, ...(among ? { id: { in: [...among] } } : {}),
-      AND: [code, 'ib.work'].map((c) => ({ roles: { some: { role: { permissions: { some: { permissionCode: c } } } } } })),
-    },
-    select: { id: true },
-  });
-  return rows.map((r) => r.id);
-}
-
 /**
- * Кто может принять задачу (решение владельца В-4): автор с tasks.review и все старшие над исполнителем с tasks.review;
- * у исполнителя без руководителя — все с tasks.review. Исполнителю — никогда.
+ * «Ждёт вашей проверки» — только проверяющему задачи (релиз 1.4.0, ADR-0028: фиксируется при отправке).
+ * Отправка, перенос «На проверке», замена проверяющего (вручную, при отключении прежнего, при обновлении).
  */
-export async function reviewersOf(db: Db, assigneeId: string | null, creatorId: string | null): Promise<string[]> {
-  const seniors = assigneeId ? await seniorIdsOf(db, assigneeId) : [];
-  const out = seniors.length || !assigneeId
-    ? await usersWith(db, 'tasks.review', [...seniors, ...(creatorId ? [creatorId] : [])])
-    : await usersWith(db, 'tasks.review');
-  return out.filter((id) => id !== assigneeId);
+export async function notifyReviewer(db: Db, t: TaskRef, reviewerId: string, actorId: string | null, note: string): Promise<void> {
+  const who = await nameOf(db, actorId);
+  await notify(db, {
+    kind: 'task_submitted', to: [reviewerId], taskId: t.id, actorId,
+    title: `Задача ${label(t)} ждёт вашей проверки`, body: note ? `${who}: ${note}` : who,
+  });
 }
 
 export async function notifyStep(
-  db: Db, t: TaskRef & { assigneeId: string | null; createdBy: string | null },
-  action: 'submit' | 'return' | 'accept', actorId: string, comment: string,
+  db: Db, t: TaskRef & { assigneeId: string | null; createdBy: string | null; reviewerId: string | null },
+  action: 'submit' | 'return' | 'accept' | 'complete', actorId: string, comment: string,
 ): Promise<void> {
   const who = await nameOf(db, actorId);
   const body = comment ? `${who}: ${comment}` : who;
   if (action === 'submit') {
-    await notify(db, { kind: 'task_submitted', to: await reviewersOf(db, t.assigneeId, t.createdBy), taskId: t.id, actorId, title: `Задача ${label(t)} ждёт проверки`, body });
+    if (t.reviewerId) await notifyReviewer(db, t, t.reviewerId, actorId, comment);
   } else if (action === 'return') {
     await notify(db, { kind: 'task_returned', to: [t.assigneeId], taskId: t.id, actorId, title: `Задачу ${label(t)} вернули в работу`, body });
-  } else {
+  } else if (action === 'accept') {
     await notify(db, { kind: 'task_accepted', to: [t.assigneeId], taskId: t.id, actorId, title: `Задача ${label(t)} принята`, body });
+  } else {
+    // «Завершить» — исполнитель без руководителя (проверки нет): автору задачи.
+    await notify(db, { kind: 'task_completed', to: [t.createdBy], taskId: t.id, actorId, title: `Задача ${label(t)} выполнена`, body });
   }
 }
 

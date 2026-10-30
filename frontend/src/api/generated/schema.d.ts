@@ -19903,6 +19903,10 @@ export interface paths {
                                     id: string;
                                     fullName: string;
                                 } | null;
+                                reviewer: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
                                 dueDate: string | null;
                                 overdue: boolean;
                                 urgent: boolean;
@@ -19937,7 +19941,7 @@ export interface paths {
                                 archived: boolean;
                                 commentCount: number;
                                 version: number;
-                                actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                                actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                             }[];
                             nextCursor: string | null;
                             total: number;
@@ -20101,6 +20105,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
                             dueDate: string | null;
                             overdue: boolean;
                             urgent: boolean;
@@ -20135,7 +20143,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
-                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                         };
                     };
                 };
@@ -20600,6 +20608,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
                             dueDate: string | null;
                             overdue: boolean;
                             urgent: boolean;
@@ -20636,7 +20648,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
-                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                             recipients: {
                                 label: string;
                                 emails: string[];
@@ -20810,6 +20822,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
                             dueDate: string | null;
                             overdue: boolean;
                             urgent: boolean;
@@ -20844,7 +20860,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
-                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                         };
                     };
                 };
@@ -20946,14 +20962,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Шаг процесса: take — взять себе, start — в работу, submit — на проверку, accept — принять, return — вернуть в работу */
+        /** Шаг процесса: take — взять себе, start — в работу, submit — на проверку (проверяющий фиксируется; нет руководителя — 409 NO_REVIEWER), complete — завершить без проверки (только исполнитель без руководителя), accept — принять, return — вернуть в работу (только проверяющий) */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
                     id: string;
-                    action: "take" | "start" | "submit" | "accept" | "return";
+                    action: "take" | "start" | "submit" | "complete" | "accept" | "return";
                 };
                 cookie?: never;
             };
@@ -20999,6 +21015,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
                             dueDate: string | null;
                             overdue: boolean;
                             urgent: boolean;
@@ -21033,7 +21053,205 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
-                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/reviewer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Заменить проверяющего задачи «На проверке» (право tasks.status.override); запись в журнале, уведомление новому проверяющему */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        /** Format: uuid */
+                        reviewerId: string;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            description: string;
+                            status: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            priority: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            category: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                systemKey: string | null;
+                            };
+                            assignee: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            overdue: boolean;
+                            urgent: boolean;
+                            /** @enum {string} */
+                            source: "manual" | "mail" | "automation" | "document" | "evidence";
+                            record: {
+                                id: string;
+                                registerId: string;
+                                number: number;
+                            } | null;
+                            automationId: string | null;
+                            recipientLabel: string | null;
+                            document: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "review" | "returned";
+                            } | null;
+                            evidence: {
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                reason: "rejected" | "expiring";
+                            } | null;
+                            completedAt: string | null;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            archived: boolean;
+                            commentCount: number;
+                            version: number;
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                         };
                     };
                 };
@@ -21190,6 +21408,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
                             dueDate: string | null;
                             overdue: boolean;
                             urgent: boolean;
@@ -21224,7 +21446,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
-                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                         };
                     };
                 };
@@ -21381,6 +21603,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            reviewer: {
+                                id: string;
+                                fullName: string;
+                            } | null;
                             dueDate: string | null;
                             overdue: boolean;
                             urgent: boolean;
@@ -21415,7 +21641,7 @@ export interface paths {
                             archived: boolean;
                             commentCount: number;
                             version: number;
-                            actions: ("take" | "start" | "submit" | "accept" | "return")[];
+                            actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
                         };
                     };
                 };
@@ -22221,6 +22447,7 @@ export interface paths {
                                 transition: {
                                     from: string | null;
                                     to: string;
+                                    reviewer: string | null;
                                 } | null;
                             }[];
                         };
@@ -22350,6 +22577,7 @@ export interface paths {
                             transition: {
                                 from: string | null;
                                 to: string;
+                                reviewer: string | null;
                             } | null;
                         };
                     };

@@ -29,12 +29,14 @@ export interface TransitionInput {
   actorId: string | null;
   kind: TransitionKind;
   comment?: string;
+  /** Проверяющий, зафиксированный переходом (отправка на проверку, замена проверяющего; релиз 1.4.0). */
+  reviewerId?: string | null;
 }
 
 export async function recordTransition(db: Db, t: TransitionInput): Promise<string> {
   const comment = (t.comment ?? '').trim();
   const row = await db.taskTransition.create({
-    data: { taskId: t.taskId, fromStatusId: t.from, toStatusId: t.to, actorId: t.actorId, kind: t.kind, comment },
+    data: { taskId: t.taskId, fromStatusId: t.from, toStatusId: t.to, actorId: t.actorId, kind: t.kind, comment, reviewerId: t.reviewerId ?? null },
     select: { id: true },
   });
   if (comment) await db.taskComment.create({ data: { taskId: t.taskId, authorId: t.actorId, transitionId: row.id, body: comment } });
@@ -43,7 +45,7 @@ export async function recordTransition(db: Db, t: TransitionInput): Promise<stri
 
 // ---------------------------------------------------------------- права процесса (этап Б2)
 
-/** Пользователь с правами из сессии: процесс задач проверяет tasks.assign, tasks.review, tasks.status.override. */
+/** Пользователь с правами из сессии: процесс задач проверяет tasks.assign, tasks.status.override (tasks.review — только задачи до 1.4.0). */
 export type TaskActor = Actor & { perms: ReadonlySet<string> };
 
 export const NO_ASSIGN_MESSAGE = 'Ставить задачи другим может пользователь с правом «Задачи: постановка другим». Назначьте себя или оставьте без исполнителя';

@@ -52,6 +52,8 @@ model User {
   createdTasks         Task[]               @relation("TaskCreator")
   taskComments         TaskComment[]
   taskTransitions      TaskTransition[]     @relation("TransitionActor")
+  reviewTasks          Task[]               @relation("TaskReviewer")
+  reviewTransitions    TaskTransition[]     @relation("TransitionReviewer")
   notifications        Notification[]       @relation("NotificationRecipient")
   notificationsSent    Notification[]       @relation("NotificationActor")
   recipientOf          CatalogItemUser[]
@@ -699,6 +701,9 @@ model Task {
   completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
   /// NULL — создано автоматизацией.
   createdBy      String?   @map("created_by") @db.Uuid
+  /// Проверяющий (релиз 1.4.0, ADR-0028): фиксируется при отправке «На проверке» — ближний активный руководитель
+  /// исполнителя. NULL — задача не на проверке или отправлена до 1.4.0 без цепочки (старые правила, tasks.review).
+  reviewerId     String?   @map("reviewer_id") @db.Uuid
   version        Int       @default(1)
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -710,6 +715,7 @@ model Task {
   category      CatalogItem           @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: Restrict)
   assignee      User?                 @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
   creator       User?                 @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  reviewer      User?                 @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
   record        RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
   automation    RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
   document      Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
@@ -727,6 +733,8 @@ model Task {
   @@index([evidenceId])
   /// Задачи автоматизации: удаление и архив правила, фильтр «создано автоматизацией» (релиз 1.1.0).
   @@index([automationId])
+  /// «Ждут моей проверки» (индикаторы, отключение проверяющего).
+  @@index([reviewerId])
   @@map("tasks")
 }
 
@@ -784,12 +792,15 @@ model TaskTransition {
   /// process — кнопки процесса; override — свободная смена; assign — назначение/снятие исполнителя; system; migration
   kind         String
   comment      String   @default("")
+  /// Проверяющий, зафиксированный этим переходом (релиз 1.4.0): отправка на проверку, замена проверяющего.
+  reviewerId   String?  @map("reviewer_id") @db.Uuid
   at           DateTime @default(now()) @db.Timestamptz(3)
 
   task       Task          @relation(fields: [taskId], references: [id], onDelete: Restrict)
   fromStatus CatalogItem?  @relation("TransitionFrom", fields: [fromStatusId], references: [id], onDelete: Restrict)
   toStatus   CatalogItem   @relation("TransitionTo", fields: [toStatusId], references: [id], onDelete: Restrict)
   actor      User?         @relation("TransitionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  reviewer   User?         @relation("TransitionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
   comments   TaskComment[]
 
   @@index([taskId, at])
@@ -1337,7 +1348,7 @@ model FileText {
 model Notification {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId     String    @map("user_id") @db.Uuid
-  /// Вид события: task_assigned, task_unassigned, task_submitted, task_returned, task_accepted, task_moved,
+  /// Вид события: task_assigned, task_unassigned, task_submitted, task_returned, task_accepted, task_completed, task_moved,
   /// task_commented, task_due_tomorrow, task_overdue; виды документов — этап Г. Проверяется в коде.
   kind       String
   /// Снимок текста на момент события.

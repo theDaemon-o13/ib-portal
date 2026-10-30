@@ -36,3 +36,22 @@ export async function isSeniorOf(db: Db, seniorId: string, userId: string): Prom
   if (seniorId === userId) return false;
   return (await seniorIdsOf(db, userId)).includes(seniorId);
 }
+
+/**
+ * Проверяющий задачи исполнителя (релиз 1.4.0, ADR-0028): ближний по цепочке руководитель — активный и с ib.work;
+ * отключённые (и потерявшие доступ к разделам ИБ) пропускаются вверх по цепочке. null — проверять некому: исполнитель
+ * без руководителя завершает задачу сам. Сам исполнитель не входит в цепочку (цикл запрещён).
+ */
+export async function reviewerFor(db: Db, assigneeId: string): Promise<{ id: string; fullName: string } | null> {
+  const seniors = await seniorIdsOf(db, assigneeId);
+  if (!seniors.length) return null;
+  const ok = await db.user.findMany({
+    where: { id: { in: seniors }, isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
+    select: { id: true, fullName: true },
+  });
+  for (const id of seniors) {
+    const u = ok.find((x) => x.id === id);
+    if (u) return u;
+  }
+  return null;
+}

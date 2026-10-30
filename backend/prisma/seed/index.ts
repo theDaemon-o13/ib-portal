@@ -15,7 +15,7 @@ import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
 import { seedSystemItems } from './system-items.js';
-import { seedTaskProcess } from './tasks.js';
+import { seedTaskProcess, seedTaskReviewers } from './tasks.js';
 import { seedVulns } from './vulns.js';
 
 const prisma = createPrisma();
@@ -50,6 +50,7 @@ async function main() {
 
     await seedSystemItems(tx);
     await seedTaskProcess(tx);
+    await seedTaskReviewers(tx);
     await seedDocumentRoute(tx);
     await seedAssessmentMethodology(tx);
 

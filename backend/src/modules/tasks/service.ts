@@ -1,16 +1,17 @@
 // Задачи (этап 5): доска, карточка, комментарии, архив и удаление, «Почта → задача».
 // Права: всё — ib.work, удаление — tasks.delete (проверяет маршрут). История — из журнала аудита.
 // Процесс (релиз 1.2.0, ADR-0022): назначить другого — tasks.assign, статус в обход кнопок — tasks.status.override (здесь);
-// кнопки процесса — process.ts.
+// кнопки процесса — process.ts. Проверяющий (релиз 1.4.0, ADR-0028) — reviewer.ts.
 import type { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { parseMail, type ParsedMail } from '../../lib/mail-parse.js';
+import { reviewerFor } from '../../lib/hierarchy.js';
 import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
-import { notifyAssignee, notifyComment, notifyMoved } from '../notifications/service.js';
+import { notifyAssignee, notifyComment, notifyMoved, notifyReviewer } from '../notifications/service.js';
 import { loadRegister } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import {
@@ -35,6 +36,7 @@ export const taskInclude = {
   category: itemBrief,
   assignee: userBrief,
   creator: userBrief,
+  reviewer: userBrief,
   record: { select: { id: true, registerId: true, number: true } },
   document: { select: { id: true, number: true } },
   evidence: { select: { id: true, number: true } },
@@ -54,6 +56,8 @@ export function toTaskDto(t: TaskRow, today: string) {
     priority: t.priority,
     category: t.category,
     assignee: t.assignee,
+    /** Проверяющий (релиз 1.4.0): только у задачи «На проверке»; null — проверка по правилам до 1.4.0. */
+    reviewer: t.status.systemKey === 'review' ? t.reviewer : null,
     dueDate: due,
     /** Открытая задача со сроком раньше сегодня (архивные не просрочены — они не на доске). */
     overdue: open && t.archivedAt === null && due !== null && due < today,
@@ -414,6 +418,34 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
         transition = 'assign';
       }
     }
+    // Проверяющий (релиз 1.4.0, ADR-0028): из «На проверке» переносит только он; в «На проверке» — с вычислением
+    // проверяющего; «В работе» → «Выполнено» — только у исполнителя без руководителя (иначе задача проходит проверку).
+    let reviewer: { id: string; fullName: string } | null = null;
+    if (typeof data.statusId === 'string') {
+      const toKey = data.statusId === t.statusId ? t.status.systemKey : (await tx.catalogItem.findUnique({ where: { id: data.statusId }, select: { systemKey: true } }))?.systemKey ?? null;
+      const assigneeId = data.assigneeId !== undefined ? (data.assigneeId as string | null) : t.assigneeId;
+      if (transition === 'override') {
+        if (t.status.systemKey === 'review' && t.reviewerId && t.reviewerId !== actor.id) {
+          throw new AppError(403, 'NOT_REVIEWER', `Из «${t.status.value}» задачу переносит только проверяющий${t.reviewer ? `: ${t.reviewer.fullName}` : ''}. Сменить проверяющего — «Заменить проверяющего»`);
+        }
+        if (t.status.systemKey === 'work' && toKey === 'done' && assigneeId && await reviewerFor(tx, assigneeId)) {
+          throw conflict('REVIEW_REQUIRED', 'У исполнителя есть руководитель: задача закрывается через проверку. Отправьте её «На проверке»');
+        }
+        if (toKey === 'review') {
+          reviewer = assigneeId ? await reviewerFor(tx, assigneeId) : null;
+          if (!reviewer) {
+            throw conflict('NO_REVIEWER', assigneeId
+              ? 'Проверять некому: у исполнителя нет руководителя. Исполнитель завершает задачу сам — «Завершить»'
+              : 'Проверять некому: у задачи нет исполнителя');
+          }
+          if (reviewer.id !== t.reviewerId) {
+            data.reviewerId = reviewer.id;
+            changes.push({ field: 'reviewerId', label: 'Проверяющий', from: '—', to: reviewer.fullName });
+          }
+        }
+      }
+      if (toKey !== 'review' && t.reviewerId) data.reviewerId = null;
+    }
     const comment = (input.comment ?? '').trim();
     if (comment.length > COMMENT_MAX) throw badRequest('TOO_LONG', `Комментарий — не длиннее ${COMMENT_MAX} символов`);
     if (transition === 'override' && typeof data.statusId === 'string' && !comment && await commentRequired(tx, t.statusId, data.statusId)) {
@@ -423,7 +455,9 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
       const res = await tx.task.updateMany({ where: { id, version: input.version, deletedAt: null }, data: { ...data, version: { increment: 1 } } });
       await ensureVersioned(res.count, () => tx.task.findFirst({ where: { id, deletedAt: null } }), 'Задача');
       if (transition && typeof data.statusId === 'string') {
-        await recordTransition(tx, { taskId: id, from: t.statusId, to: data.statusId, actorId: actor.id, kind: transition, comment: transition === 'override' ? comment : '' });
+        await recordTransition(tx, {
+          taskId: id, from: t.statusId, to: data.statusId, actorId: actor.id, kind: transition, comment: transition === 'override' ? comment : '', reviewerId: reviewer?.id ?? null,
+        });
       }
       await auditSettings(tx, actor, {
         action: 'task.updated', entity: 'task', entityId: id,
@@ -436,6 +470,7 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
       if (data.assigneeId !== undefined) await notifyAssignee(tx, { id, number: t.number, title }, t.assigneeId, assigneeId, actor.id);
       const moved = changes.find((c) => c.field === 'statusId');
       if (transition === 'override' && moved) await notifyMoved(tx, { id, number: t.number, title, assigneeId }, moved.from, moved.to, actor.id, comment);
+      if (reviewer) await notifyReviewer(tx, { id, number: t.number, title }, reviewer.id, actor.id, comment);
     }
     return toTaskDto(await getTaskRow(tx, id), todayIso());
   });
@@ -478,12 +513,12 @@ export async function listComments(db: Db, taskId: string) {
   await getTaskRow(db, taskId);
   const rows = await db.taskComment.findMany({
     where: { taskId, deletedAt: null },
-    include: { author: userBrief, transition: { select: { fromStatus: { select: { value: true } }, toStatus: { select: { value: true } } } } },
+    include: { author: userBrief, transition: { select: { fromStatus: { select: { value: true } }, toStatus: { select: { value: true } }, reviewer: userBrief } } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
   return rows.map((c) => ({
     id: c.id, body: c.body, author: c.author, automatic: c.eventId !== null, createdAt: c.createdAt.toISOString(),
-    transition: c.transition ? { from: c.transition.fromStatus?.value ?? null, to: c.transition.toStatus.value } : null,
+    transition: c.transition ? { from: c.transition.fromStatus?.value ?? null, to: c.transition.toStatus.value, reviewer: c.transition.reviewer?.fullName ?? null } : null,
   }));
 }
 

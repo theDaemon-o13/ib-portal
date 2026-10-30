@@ -9,6 +9,7 @@ import * as bulk from './bulk.js';
 import type { TaskActor } from './flow.js';
 import { PROCESS_ACTIONS, runAction, withActions } from './process.js';
 import { exportTaskReport, REPORT_LIMIT, REPORT_PERIODS } from './report.js';
+import { replaceReviewer } from './reviewer.js';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 import * as svc from './service.js';
@@ -30,6 +31,8 @@ export const Task = z.object({
   priority: Item,
   category: Item,
   assignee: Person.nullable(),
+  /** Проверяющий (релиз 1.4.0, ADR-0028): у задачи «На проверке»; null — проверка по правилам до 1.4.0 или задача не на проверке. */
+  reviewer: Person.nullable(),
   dueDate: z.string().nullable(),
   overdue: z.boolean(),
   urgent: z.boolean(),
@@ -49,7 +52,7 @@ export const Task = z.object({
   archived: z.boolean(),
   commentCount: z.number().int(),
   version: z.number().int(),
-  /** Кнопки процесса, доступные текущему пользователю (ADR-0022): take, start, submit, accept, return. */
+  /** Кнопки процесса, доступные текущему пользователю (ADR-0022, ADR-0028): take, start, submit, complete, accept, return. */
   actions: z.array(z.enum(PROCESS_ACTIONS)),
 });
 const TaskDetail = Task.extend({
@@ -63,15 +66,15 @@ const TaskDetail = Task.extend({
 });
 const Comment = z.object({
   id: z.string(), body: z.string(), author: Person.nullable(), automatic: z.boolean(), createdAt: z.string(),
-  /** Комментарий перехода между колонками (релиз 1.2.0): откуда и куда. */
-  transition: z.object({ from: z.string().nullable(), to: z.string() }).nullable(),
+  /** Комментарий перехода между колонками (релиз 1.2.0): откуда, куда и проверяющий, зафиксированный переходом (1.4.0). */
+  transition: z.object({ from: z.string().nullable(), to: z.string(), reviewer: z.string().nullable() }).nullable(),
 });
 
 const view = requirePerm('ib.work');
 
 type TaskOut = z.infer<typeof Task>;
 const asTask = (t: unknown) => t as TaskOut;
-/** Пользователь с правами сессии: процесс задач проверяет их в сервисе (tasks.assign, tasks.review, tasks.status.override). */
+/** Пользователь с правами сессии: процесс задач проверяет их в сервисе (tasks.assign, tasks.status.override; tasks.review — задачи до 1.4.0). */
 const taskActor = (request: Parameters<typeof actorOf>[0]): TaskActor => ({ ...actorOf(request), perms: request.user?.permissions ?? new Set<string>() });
 
 export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
@@ -215,7 +218,7 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     preHandler: view,
     schema: {
       tags,
-      summary: 'Шаг процесса: take — взять себе, start — в работу, submit — на проверку, accept — принять, return — вернуть в работу',
+      summary: 'Шаг процесса: take — взять себе, start — в работу, submit — на проверку (проверяющий фиксируется; нет руководителя — 409 NO_REVIEWER), complete — завершить без проверки (только исполнитель без руководителя), accept — принять, return — вернуть в работу (только проверяющий)',
       params: IdParams.extend({ action: z.enum(PROCESS_ACTIONS) }),
       body: Version.extend({ comment: z.string().max(svc.COMMENT_MAX).optional() }),
       response: { 200: Task, ...errors },
@@ -223,6 +226,22 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
   }, async (request) => {
     const actor = taskActor(request);
     const [t] = await withActions(db, actor, [await runAction(db, actor, request.params.id, request.params.action, request.body)]);
+    return asTask(t);
+  });
+
+  // «Заменить проверяющего» (релиз 1.4.0, ADR-0028): задача «На проверке», новый — активный сотрудник ИБ, не исполнитель.
+  app.post('/tasks/:id/reviewer', {
+    preHandler: requirePerm('tasks.status.override'),
+    schema: {
+      tags,
+      summary: 'Заменить проверяющего задачи «На проверке» (право tasks.status.override); запись в журнале, уведомление новому проверяющему',
+      params: IdParams,
+      body: Version.extend({ reviewerId: z.string().uuid(), comment: z.string().max(svc.COMMENT_MAX).optional() }),
+      response: { 200: Task, ...errors },
+    },
+  }, async (request) => {
+    const actor = taskActor(request);
+    const [t] = await withActions(db, actor, [await replaceReviewer(db, actor, request.params.id, request.body)]);
     return asTask(t);
   });
 

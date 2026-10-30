@@ -5,7 +5,7 @@ import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsCo
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
   status: { id: 's', value: 'Backlog', color: null, systemKey: 'new' }, priority: { id: 'p', value: 'Обычный', color: null, systemKey: 'normal' },
-  category: { id: 'c', value: 'Проект', color: 'accent', systemKey: null }, assignee: null, record: null, automationId: null, recipientLabel: null, document: null, evidence: null,
+  category: { id: 'c', value: 'Проект', color: 'accent', systemKey: null }, assignee: null, reviewer: null, record: null, automationId: null, recipientLabel: null, document: null, evidence: null,
   completedAt: null, createdBy: null, createdAt: '', updatedAt: '', archived: false, commentCount: 0, version: 1, actions: [], ...extra,
 });
 
@@ -57,14 +57,19 @@ describe('процесс по кнопкам', () => {
   it('кнопка на карточке: своя работа или «Проверить»; подсказка, когда кнопок нет', () => {
     expect(cardStep({ actions: ['take'] })).toEqual({ action: 'take', label: 'Взять себе' });
     expect(cardStep({ actions: ['submit'] })).toEqual({ action: 'submit', label: 'На проверку' });
+    expect(cardStep({ actions: ['complete'] })).toEqual({ action: 'complete', label: 'Завершить' });
     expect(cardStep({ actions: ['accept', 'return'] })).toEqual({ action: 'review', label: 'Проверить' });
     expect(cardStep({ actions: [] })).toBeNull();
     const me = { id: 'me', fullName: 'Я' };
-    const review = { status: st('r', 'review'), assignee: me, actions: [], archived: false };
+    const review = { status: st('r', 'review'), assignee: me, reviewer: null, actions: [], archived: false };
     expect(processHint(review, 'me', ['tasks.review'])).toMatch(/Свою задачу нельзя принять/);
     expect(processHint({ ...review, assignee: { id: 'b', fullName: 'Б' } }, 'me', ['tasks.review'])).toMatch(/автор задачи или руководитель исполнителя$/);
     expect(processHint({ ...review, status: st('w', 'work'), assignee: { id: 'b', fullName: 'Б' } }, 'me', [])).toMatch(/исполнитель/);
     expect(processHint({ ...review, actions: ['accept'] }, 'me', [])).toBeNull();
+    // С 1.4.0 — проверяющий задачи (ADR-0028).
+    const lead = { id: 'l', fullName: 'Руководитель' };
+    expect(processHint({ ...review, reviewer: lead }, 'me', [])).toBe('Задачу проверяет Руководитель');
+    expect(processHint({ ...review, reviewer: lead, assignee: { id: 'b', fullName: 'Б' } }, 'me', ['tasks.review'])).toBe('Принять или вернуть может только проверяющий: Руководитель');
   });
 });
 

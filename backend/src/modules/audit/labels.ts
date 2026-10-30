@@ -91,6 +91,8 @@ const ACTION_LABELS: Record<string, string> = {
   'notifications.cleaned': 'Удалены старые уведомления',
   'task.commented': 'Комментарий к задаче',
   'task.transition': 'Задача: переход между колонками',
+  'task.reviewer_replaced': 'Задача: проверяющий заменён',
+  'tasks.reviewers_assigned': 'Проверяющие назначены задачам на проверке (обновление 1.4.0)',
   'document.submitted': 'Документ отправлен на согласование',
   'document.approved_stage': 'Этап документа согласован',
   'document.approved': 'Документ утверждён',

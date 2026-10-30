@@ -36,6 +36,9 @@ export const tasksApi = {
   // Кнопки процесса (релиз 1.2.0, ADR-0022): кто может — решает backend.
   action: (id: string, action: Task['actions'][number], version: number, comment?: string) =>
     request<Task>('POST', `/api/v1/tasks/${id}/actions/${action}`, { version, ...(comment ? { comment } : {}) }),
+  // «Заменить проверяющего» (релиз 1.4.0): задача «На проверке», право «Задачи: свободная смена статуса».
+  replaceReviewer: (id: string, version: number, reviewerId: string, comment?: string) =>
+    request<Task>('POST', `/api/v1/tasks/${id}/reviewer`, { version, reviewerId, ...(comment ? { comment } : {}) }),
   archive: (id: string, version: number) => request<Task>('POST', `/api/v1/tasks/${id}/archive`, { version }),
   restore: (id: string, version: number) => request<Task>('POST', `/api/v1/tasks/${id}/restore`, { version }),
   remove: (id: string, version: number) => request<undefined>('POST', `/api/v1/tasks/${id}/delete`, { version }),

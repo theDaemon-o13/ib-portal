@@ -85,7 +85,7 @@ export async function closeEvidenceTasks(tx: Db, evidenceIds: readonly string[],
   const done = await statusIdOf(tx, 'done');
   const now = new Date();
   for (const t of open) {
-    await tx.task.update({ where: { id: t.id }, data: { statusId: done, completedAt: now, version: { increment: 1 } } });
+    await tx.task.update({ where: { id: t.id }, data: { statusId: done, completedAt: now, reviewerId: null, version: { increment: 1 } } });
     // Системная задача закрывается сама, без проверки (решение владельца, этап Б); комментарий перехода — в ленте задачи.
     await recordTransition(tx, { taskId: t.id, from: t.statusId, to: done, actorId: null, kind: 'system', comment: `${comment}. Задача закрыта автоматически` });
     await tx.auditLog.create({

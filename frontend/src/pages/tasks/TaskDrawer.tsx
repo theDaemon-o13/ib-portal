@@ -72,6 +72,8 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   const [stepping, setStepping] = useState<ProcessAction | null>(null);
   const [stepComment, setStepComment] = useState('');
   const [moveComment, setMoveComment] = useState('');
+  /** «Заменить проверяющего» (релиз 1.4.0): выбранный сотрудник и комментарий; null — форма закрыта. */
+  const [swap, setSwap] = useState<{ reviewerId: string; comment: string } | null>(null);
   const t = task.data;
 
   // Черновик — из задачи при открытии и после «Перечитать».
@@ -128,6 +130,14 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
       step.mutate({ action: a });
     }
   };
+  const replaceReviewer = useMutation({
+    mutationFn: (v: { reviewerId: string; comment: string }) => tasksApi.replaceReviewer(id, t?.version ?? 0, v.reviewerId, v.comment.trim() || undefined),
+    onSuccess: async (r) => {
+      setSwap(null);
+      await Promise.all([afterSave(`Задача #${r.number}: проверяет ${r.reviewer?.fullName ?? '—'}`), qc.invalidateQueries({ queryKey: tkeys.comments(id) })]);
+    },
+    onError,
+  });
   const archive = useMutation({
     mutationFn: () => (t?.archived ? tasksApi.restore(id, t.version) : tasksApi.archive(id, t?.version ?? 0)),
     onSuccess: (r) => afterSave(r.archived ? `Задача #${r.number} в архиве` : `Задача #${r.number} снова на доске`),
@@ -177,6 +187,8 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   const assigneeLocked = !canAssign && !!t?.assignee && !(mine && t.status.systemKey === 'assigned');
   const assigneeOptions = canAssign ? people0 : people0.filter((p) => p.id === me?.id);
   const hint = t && me ? processHint(t, me.id, perms) : null;
+  const canSwap = canOverride && !readOnly && t?.status.systemKey === 'review';
+  const swapOptions = people0.filter((p) => p.id !== t?.assignee?.id && p.id !== t?.reviewer?.id);
 
   return (
     <Overlay>
@@ -226,6 +238,7 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                     {assigneeOptions.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
                   </select>
                 </label>
+                {t.reviewer && <div className="field-ro"><span>Проверяет</span><b data-testid="task-reviewer">{t.reviewer.fullName}</b></div>}
                 <label>Срок<input className="inp" type="date" value={draft.dueDate} disabled={readOnly} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} /></label>
                 <label>Приоритет
                   <select className="inp" value={draft.priorityId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, priorityId: e.target.value })}>
@@ -269,7 +282,7 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
               {stepping && (
                 <form className="grid-gap" onSubmit={(e) => { e.preventDefault(); step.mutate({ action: stepping, comment: stepComment }); }}>
                   <textarea className="inp" required maxLength={4000} autoFocus aria-label="Комментарий к шагу" value={stepComment} onChange={(e) => setStepComment(e.target.value)}
-                    placeholder={stepping === 'submit' ? 'Что сделано, где результат' : stepping === 'return' ? 'Что доделать' : 'Комментарий: что проверено'} />
+                    placeholder={stepping === 'submit' || stepping === 'complete' ? 'Что сделано, где результат' : stepping === 'return' ? 'Что доделать' : 'Комментарий: что проверено'} />
                   <div className="row">
                     <button className="btn sm primary" type="submit" disabled={step.isPending || !stepComment.trim()}>{ACTION_LABEL[stepping]}</button>
                     <button className="btn sm" type="button" onClick={() => setStepping(null)}>Отмена</button>
@@ -277,6 +290,31 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                 </form>
               )}
               {hint && <div className="hint">{hint}</div>}
+            </div>
+          )}
+
+          {canSwap && t && (
+            <div className="process" aria-label="Проверяющий">
+              <div className="eyebrow">Проверяющий · {t.reviewer?.fullName ?? 'не назначен (правила до 1.4.0)'}</div>
+              {!swap && (
+                <div className="row">
+                  <button className="btn sm" type="button" disabled={conflict} onClick={() => setSwap({ reviewerId: '', comment: '' })}>Заменить проверяющего</button>
+                </div>
+              )}
+              {swap && (
+                <form className="grid-gap" onSubmit={(e) => { e.preventDefault(); replaceReviewer.mutate(swap); }}>
+                  <select className="inp" required aria-label="Новый проверяющий" value={swap.reviewerId} onChange={(e) => setSwap({ ...swap, reviewerId: e.target.value })}>
+                    <option value="">— выберите сотрудника</option>
+                    {swapOptions.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+                  </select>
+                  <textarea className="inp" maxLength={4000} aria-label="Комментарий к замене" value={swap.comment}
+                    onChange={(e) => setSwap({ ...swap, comment: e.target.value })} placeholder="Почему меняете (по желанию)" />
+                  <div className="row">
+                    <button className="btn sm primary" type="submit" disabled={replaceReviewer.isPending || !swap.reviewerId}>Заменить</button>
+                    <button className="btn sm" type="button" onClick={() => setSwap(null)}>Отмена</button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
 
@@ -343,7 +381,7 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                 <div>
                   <div className="who">
                     {c.author?.fullName ?? (c.automatic ? 'Автоматизация' : 'Система')} · {formatDateTime(c.createdAt)}
-                    {c.transition && <span className="chip tr-chip">{c.transition.from ? `${c.transition.from} → ` : ''}{c.transition.to}</span>}
+                    {c.transition && <span className="chip tr-chip">{c.transition.from ? `${c.transition.from} → ` : ''}{c.transition.to}{c.transition.reviewer ? ` → ${c.transition.reviewer}` : ''}</span>}
                   </div>
                   <div className="tx">{c.body}</div>
                 </div>

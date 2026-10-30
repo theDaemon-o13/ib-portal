@@ -13,6 +13,7 @@ import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
 import { assertIbHeadValid, assertKioskExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
+import { reassignReviewsOf } from '../tasks/reviewer.js';
 
 const include = {
   roles: { include: { role: { select: { id: true, name: true } } } },
@@ -275,6 +276,8 @@ export async function setActive(db: Db, actor: Actor, id: string, version: numbe
     if (clearHead) await auditIbHead(tx, actor, u, 'cleared', `Пользователи: снята отметка «Начальник ИБ» — ${who(u)} отключён; этап «Начальник ИБ» без исполнителя`);
     if (!active) {
       await assertUsersManageKept(tx, actor.id);
+      // Его задачи «На проверке» переходят к следующему по цепочке исполнителя (релиз 1.4.0, ADR-0028).
+      await reassignReviewsOf(tx, actor, id, u.fullName);
       // Отключённый пользователь сразу теряет доступ.
       await tx.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     }

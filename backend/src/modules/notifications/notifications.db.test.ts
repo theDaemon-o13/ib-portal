@@ -13,7 +13,7 @@ import { runAction } from '../tasks/process.js';
 import * as tasks from '../tasks/service.js';
 import * as svc from './service.js';
 
-/** Начальник ← руководитель группы (с tasks.review) ← исполнитель; автор — отдельный начальник; посторонний с tasks.review. */
+/** Начальник ← руководитель группы ← исполнитель (проверяющий — руководитель группы); автор — отдельный начальник; посторонний. */
 async function team(tx: Tx) {
   const boss = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник' });
   const lead = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Руководитель группы', manager: { connect: { id: boss.id } } });
@@ -55,30 +55,28 @@ describe('уведомления о задачах', () => {
       expect((await kinds(tx, x.staff.id)).length).toBe(2);
     }));
 
-  it('«ждёт проверки» — автору с правом и старшим над исполнителем с правом; исполнителю — нет; «вернули» и «принята» — исполнителю', () =>
+  it('«ждёт вашей проверки» — только проверяющему (руководитель исполнителя); автору, старшим и исполнителю — нет; «вернули» и «принята» — исполнителю', () =>
     inTx(async (tx) => {
       const x = await team(tx);
       let t = await tasks.createTask(tx, x.A, { title: 'На проверку', categoryId: x.project.id, assigneeId: x.staff.id });
       t = await runAction(tx, x.S, t.id, 'start', { version: t.version });
       t = await runAction(tx, x.S, t.id, 'submit', { version: t.version, comment: 'Готово, отчёт в письме' });
-      for (const u of [x.author, x.lead, x.boss]) expect(await kinds(tx, u.id)).toEqual(['task_submitted']);
-      expect((await inbox(tx, x.boss.id))[0]).toBe(`task_submitted: Задача #${t.number} «На проверку» ждёт проверки | Исполнитель: Готово, отчёт в письме`);
-      expect(await kinds(tx, x.stranger.id)).toEqual([]);
+      expect(await inbox(tx, x.lead.id)).toEqual([`task_submitted: Задача #${t.number} «На проверку» ждёт вашей проверки | Исполнитель: Готово, отчёт в письме`]);
+      for (const u of [x.author, x.boss, x.stranger]) expect(await kinds(tx, u.id)).toEqual([]);
       expect(await kinds(tx, x.staff.id)).toEqual(['task_assigned']);
 
       t = await runAction(tx, x.L, t.id, 'return', { version: t.version, comment: 'Нет отчёта' });
       t = await runAction(tx, x.S, t.id, 'submit', { version: t.version, comment: 'Приложил' });
-      await runAction(tx, x.B, t.id, 'accept', { version: t.version, comment: 'Принято' });
+      await runAction(tx, x.L, t.id, 'accept', { version: t.version, comment: 'Принято' });
       expect(await inbox(tx, x.staff.id)).toEqual([
         `task_assigned: Вам назначена задача #${t.number} «На проверку» | Назначил: Автор`,
         `task_returned: Задачу #${t.number} «На проверку» вернули в работу | Руководитель группы: Нет отчёта`,
-        `task_accepted: Задача #${t.number} «На проверку» принята | Начальник: Принято`,
+        `task_accepted: Задача #${t.number} «На проверку» принята | Руководитель группы: Принято`,
       ]);
-      // Руководитель вернул сам — второе «ждёт проверки» получил, о своём возврате — нет.
       expect(await kinds(tx, x.lead.id)).toEqual(['task_submitted', 'task_submitted']);
     }));
 
-  it('у исполнителя нет руководителя — «ждёт проверки» всем с tasks.review; автор без права — не получает', () =>
+  it('у исполнителя нет руководителя — «Завершить» без проверки: «выполнена» автору; «ждёт проверки» — никому', () =>
     inTx(async (tx) => {
       const x = await team(tx);
       const lone = await makeUser(tx, ['ib_staff'], { fullName: 'Без руководителя' });
@@ -86,9 +84,9 @@ describe('уведомления о задачах', () => {
       await tx.task.update({ where: { id: t.id }, data: { createdBy: x.plainAuthor.id } });
       const L = await actorFor(tx, lone.id);
       t = await runAction(tx, L, t.id, 'start', { version: t.version });
-      await runAction(tx, L, t.id, 'submit', { version: t.version, comment: 'Готово' });
-      expect(await kinds(tx, x.stranger.id)).toEqual(['task_submitted']);
-      expect(await kinds(tx, x.plainAuthor.id)).toEqual([]);
+      await runAction(tx, L, t.id, 'complete', { version: t.version, comment: 'Готово' });
+      expect(await inbox(tx, x.plainAuthor.id)).toEqual([`task_completed: Задача #${t.number} «Одиночка» выполнена | Без руководителя: Готово`]);
+      expect(await tx.notification.count({ where: { taskId: t.id, kind: 'task_submitted' } })).toBe(0);
       expect(await kinds(tx, lone.id)).toEqual(['task_assigned']);
     }));
 
@@ -115,7 +113,9 @@ describe('уведомления о задачах', () => {
       expect(await kinds(tx, x.author.id)).toEqual(['task_commented', 'task_commented']);
       t = await runAction(tx, x.S, t.id, 'start', { version: t.version });
       await runAction(tx, x.S, t.id, 'submit', { version: t.version, comment: 'Готово' });
-      expect(await kinds(tx, x.author.id)).toEqual(['task_commented', 'task_commented', 'task_submitted']);
+      // Комментарий шага не приходит «комментарием»: автор его не получает, проверяющий — «ждёт вашей проверки».
+      expect(await kinds(tx, x.author.id)).toEqual(['task_commented', 'task_commented']);
+      expect(await kinds(tx, x.lead.id)).toEqual(['task_submitted']);
     }));
 
   it('откат действия — уведомления нет', () =>

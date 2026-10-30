@@ -101,19 +101,19 @@ describe('Уведомления', () => {
     task = t;
   });
 
-  it('руководитель: «ждёт проверки» с комментарием; «Прочитать все» обнуляет; о своём действии — ничего', async () => {
+  it('руководитель-проверяющий: «ждёт вашей проверки» с комментарием; «Прочитать все» обнуляет; о своём действии — ничего', async () => {
     head.password = await loginAs(head.login, head.password);
     await ui.goto(`/dashboard?n=${++navSeq}`);
     await ui.waitFor(`document.querySelector('[data-testid=bell-count]')?.textContent === '1'`, 'значок: 1');
     await ui.click(bell, 'значок');
-    await ui.waitFor(`${item('ждёт проверки')}?.textContent.includes('Доступ проверен')`, '«ждёт проверки» с комментарием');
+    await ui.waitFor(`${item('ждёт вашей проверки')}?.textContent.includes('Доступ проверен')`, '«ждёт вашей проверки» с комментарием');
     const m = ui.mark();
     await ui.click($.button('Прочитать все', pop));
     assert.deepEqual((await ui.request(m, 'POST', '/notifications/read-all')).status, 200);
     await ui.waitFor(`!document.querySelector('[data-testid=bell-count]') && document.title === 'Портал ИБ'`, 'значок погас');
     await ui.waitFor(`${pop}?.textContent.includes('Новых уведомлений нет')`, 'непрочитанных нет');
     await ui.click(`[...${pop}.querySelectorAll('.notif-tabs button')].find((b) => b.textContent === 'Все')`);
-    await ui.waitFor(`!!${item('ждёт проверки')} && !${item('ждёт проверки')}.classList.contains('unread')`, 'во «Все» — прочитанным');
+    await ui.waitFor(`!!${item('ждёт вашей проверки')} && !${item('ждёт вашей проверки')}.classList.contains('unread')`, 'во «Все» — прочитанным');
     await ui.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
     await ui.waitFor(`!${pop}`, 'панель закрыта');
 

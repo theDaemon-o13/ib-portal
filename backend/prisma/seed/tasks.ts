@@ -2,6 +2,8 @@
 // Однократный шаг: порядок колонок, прежние названия по умолчанию → новые, признаки комментария, перенос задач
 // «Новые» с исполнителем в «Поставленные». Каждый запуск: выравнивание открытых задач после работы backend 1.1.0.
 import type { Prisma } from '../../src/generated/prisma/client.js';
+import { reviewerFor } from '../../src/lib/hierarchy.js';
+import { recordTransition } from '../../src/modules/tasks/flow.js';
 import { once } from './registers.js';
 
 type Tx = Prisma.TransactionClient;
@@ -77,4 +79,48 @@ export async function seedTaskProcess(tx: Tx): Promise<void> {
   // После отката на 1.1.0 и повторной выкладки: 1.1.0 создаёт задачи с исполнителем в Backlog.
   const fixed = await align(tx, await statusIds(tx), 'system', 'Колонка выровнена по исполнителю при обновлении');
   if (fixed > 0) console.log(`Задачи: выровнено по исполнителю ${fixed} (Backlog ↔ «Поставленные»)`);
+}
+
+/**
+ * Релиз 1.4.0 (ADR-0028), однократно: задачам, уже стоящим «На проверке» без проверяющего, — проверяющий по текущей
+ * цепочке исполнителя (ближний активный руководитель с ib.work). Без цепочки задача остаётся на правилах до 1.4.0.
+ * Повторный запуск ничего не меняет: отметка в seed_markers и только задачи с reviewer_id IS NULL.
+ * Каждой — переход «На проверке» → «На проверке» (migration) с reviewer_id; в выводе и в журнале — число и номера.
+ */
+export async function seedTaskReviewers(tx: Tx): Promise<void> {
+  await once(tx, 'tasks.reviewer.v1_4', async () => {
+    const review = (await statusIds(tx)).review;
+    const tasks = await tx.task.findMany({
+      where: { statusId: review, deletedAt: null, completedAt: null, reviewerId: null, assigneeId: { not: null } },
+      select: { id: true, number: true, assigneeId: true },
+      orderBy: { number: 'asc' },
+    });
+    const set: { id: string; number: number; reviewer: string }[] = [];
+    const legacy: number[] = [];
+    for (const t of tasks) {
+      const r = t.assigneeId ? await reviewerFor(tx, t.assigneeId) : null;
+      if (!r) {
+        legacy.push(t.number);
+        continue;
+      }
+      await tx.task.update({ where: { id: t.id }, data: { reviewerId: r.id, version: { increment: 1 } } });
+      await recordTransition(tx, {
+        taskId: t.id, from: review, to: review, actorId: null, kind: 'migration', reviewerId: r.id,
+        comment: `Проверяющий назначен при обновлении на 1.4.0: ${r.fullName}`,
+      });
+      set.push({ id: t.id, number: t.number, reviewer: r.fullName });
+    }
+    const nums = (list: number[]) => (list.length ? list.map((n) => `#${n}`).join(', ') : '—');
+    const summary = `Задачи 1.4.0: проверяющий назначен ${set.length} задачам на проверке (${nums(set.map((x) => x.number))}); `
+      + `без цепочки руководителей, по правилам до 1.4.0 — ${legacy.length} (${nums(legacy)})`;
+    await tx.auditLog.create({
+      data: {
+        userId: null, action: 'tasks.reviewers_assigned', entity: 'task', entityId: null,
+        diff: { summary: `Обновление 1.4.0: ${summary}`, after: { assigned: set, legacy } },
+      },
+    });
+    // Строку summary печатает once; id — отдельной строкой для журнала выкладок.
+    if (set.length) console.log(`Задачи 1.4.0: id задач с назначенным проверяющим: ${set.map((x) => x.id).join(', ')}`);
+    return summary;
+  });
 }

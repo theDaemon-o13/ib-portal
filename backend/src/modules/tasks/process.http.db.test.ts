@@ -24,6 +24,7 @@ describe('процесс задач по HTTP', () => {
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
       const other = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
       const head = await makeUser(tx, ['ib_staff', 'ib_head'], { passwordHash: hash });
+      await tx.user.update({ where: { id: staff.id }, data: { managerId: head.id } });
       const app = await appWith(tx);
       const login = async (l: string) => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });
@@ -46,12 +47,13 @@ describe('процесс задач по HTTP', () => {
       expect([denied.statusCode, denied.json().error.code]).toEqual([403, 'NO_OVERRIDE']);
       expect((await patch(H, { version: t.version, statusId: work })).statusCode).toBe(200);
 
-      // Кнопка процесса: исполнитель отправляет на проверку с комментарием; начальнику (старший — нет, автор — нет) кнопок нет,
-      // у исполнителя нет руководителя — значит, принимает любой с tasks.review.
+      // Кнопка процесса: исполнитель отправляет на проверку — проверяющий его руководитель, кнопки только у него.
       const submitted = await post(S, `/api/v1/tasks/${t.id}/actions/submit`, { version: t.version + 1, comment: 'Готово' });
-      expect(submitted.statusCode).toBe(200);
+      expect([submitted.statusCode, submitted.json().reviewer?.id]).toEqual([200, head.id]);
       const view = await app.inject({ url: `/api/v1/tasks/${t.id}`, headers: { cookie: H } });
-      expect(view.json().actions).toEqual(['accept', 'return']);
+      expect([view.json().actions, view.json().reviewer?.fullName]).toEqual([['accept', 'return'], head.fullName]);
+      // «Заменить проверяющего» — только по праву tasks.status.override (маршрут).
+      expect((await post(S, `/api/v1/tasks/${t.id}/reviewer`, { version: t.version + 2, reviewerId: other.id })).statusCode).toBe(403);
       expect((await post(S, `/api/v1/tasks/${t.id}/actions/accept`, { version: t.version + 2, comment: 'сам' })).statusCode).toBe(409);
       expect((await post(H, `/api/v1/tasks/${t.id}/actions/accept`, { version: t.version + 2, comment: 'Принято' })).json().status.systemKey).toBe('done');
       expect((await post(H, `/api/v1/tasks/${t.id}/actions/unknown`, { version: 1 })).statusCode).toBe(400);

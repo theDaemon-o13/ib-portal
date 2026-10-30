@@ -117,6 +117,18 @@ async function main() {
       AND ((s.system_key = 'new' AND t.assignee_id IS NOT NULL) OR (s.system_key = 'assigned' AND t.assignee_id IS NULL))`;
   check(Number(misplaced[0]?.n ?? 0) === 0, 'открытые задачи: в Backlog — без исполнителя, в «Поставленные» — с исполнителем',
     `не на месте: ${misplaced[0]?.n} — выполните seed (migrate)`);
+  // Релиз 1.4.0 (ADR-0028): проверяющий задачи на проверке — активный и не исполнитель.
+  const badReviewers = await prisma.$queryRaw<{ number: number }[]>`
+    SELECT t.number FROM tasks t JOIN catalog_items s ON s.id = t.status_id JOIN users u ON u.id = t.reviewer_id
+    WHERE t.deleted_at IS NULL AND t.completed_at IS NULL AND s.system_key = 'review'
+      AND (NOT u.is_active OR t.reviewer_id = t.assignee_id) ORDER BY t.number`;
+  check(badReviewers.length === 0, 'задачи на проверке: проверяющий активен и не исполнитель',
+    `задачи ${badReviewers.map((r) => `#${r.number}`).join(', ')} — «Заменить проверяющего» в карточке`);
+  const legacyReview = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM tasks t JOIN catalog_items s ON s.id = t.status_id
+    WHERE t.deleted_at IS NULL AND t.completed_at IS NULL AND s.system_key = 'review' AND t.reviewer_id IS NULL`;
+  const legacyN = Number(legacyReview[0]?.n ?? 0);
+  if (legacyN) console.log(`· задач на проверке без проверяющего (правила до 1.4.0, tasks.review): ${legacyN}`);
 
   const sysItems = await prisma.catalogItem.findMany({ where: { isSystem: true, deletedAt: null }, select: { catalogCode: true, systemKey: true } });
   const missingItems = SYSTEM_ITEMS.filter((i) => !sysItems.some((x) => x.catalogCode === i.catalog && x.systemKey === i.key)).map((i) => i.value);
