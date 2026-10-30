@@ -1,8 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  registersApi, VULN_REGISTER_KEY, type BulkSelection, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, type ScanPreview,
+  registersApi, VULN_REGISTER_KEY, type BulkSelection, type ImportPreview, type RegisterDetail, type RegisterField, type RegisterRecord, 
   FILTER_PARAMS,
 } from '../../api/registers';
 import { useToast } from '../../components/Toast';
@@ -13,7 +13,6 @@ import { BASIS_TONES, deadlineChip, deadlineFieldOf, describeFilter, filterFromP
 import { ExportZipDialog } from './ExportZipDialog';
 import { rkeys } from './keys';
 import { RecordDrawer } from './RecordDrawer';
-import { ScanImportDialog } from './ScanImportDialog';
 
 interface Col {
   key: string;
@@ -88,30 +87,6 @@ function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
 }
 
 /** Загруженные отчёты сканера: отдел · дата · хостов · уязвимостей, внутри — хосты. */
-function ScanReports({ registerId }: { registerId: string }) {
-  const reports = useQuery({ queryKey: rkeys.scanReports(registerId), queryFn: () => registersApi.scanReports(registerId) });
-  const items = reports.data?.items ?? [];
-  if (!items.length) return null;
-  return (
-    <div className="scan-reports">
-      {items.map((r) => (
-        <details key={r.id} className="scan-report">
-          <summary>
-            <b>{r.label}</b>
-            <span className="hint"> · хостов: {r.hostsCount} · уязвимостей в отчёте: {r.rowsTotal} · новых: {r.createdCount} · передан в ДИКТ {formatDate(r.notifiedDate)}</span>
-          </summary>
-          <div className="tbl-wrap">
-            <table className="cat-tbl">
-              <thead><tr><th>Хост</th><th>IP-адрес</th><th>ОС</th></tr></thead>
-              <tbody>{r.hosts.map((h, i) => <tr key={i}><td>{h.name}</td><td className="mono">{h.ip}</td><td>{h.os}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </details>
-      ))}
-    </div>
-  );
-}
-
 export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; canEdit: boolean; canDelete: boolean }) {
   const toast = useToast();
   const [qInput, setQInput] = useState('');
@@ -126,7 +101,6 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   const [withTasks, setWithTasks] = useState(false);
   const [picked, setPicked] = useState<Picked>(NOTHING);
   const [bulk, setBulk] = useState<{ mode: BulkMode; selection: BulkSelection } | null>(null);
-  const [scanPreview, setScanPreview] = useState<ScanPreview | null>(null);
   const [pin, setPin] = useState(() => loadPin(reg.id));
   // ?record=<id> — открыть карточку записи по ссылке (из доказательства, задачи).
   // Адрес реестра — в хеше (#id/records): убираем только ?record, не трогая хеш.
@@ -248,7 +222,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     }
   };
 
-  // Одна кнопка «Импорт из Excel»: отчёт сканера или выгрузку реестра распознаёт backend.
+  // Выгрузка реестра. Отчёт сканера backend не примет: его загружают в узел раздела «Уязвимости» (ADR-0029).
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -257,8 +231,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     try {
       const p = await registersApi.previewFile(reg.id, file);
       setImportFile(file);
-      if (p.format === 'scan') setScanPreview(p.scan);
-      else setPreview(p.records);
+      setPreview(p.records);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Не удалось прочитать файл', 'error');
     } finally {
@@ -275,18 +248,17 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
         <div className="row">
           {canEdit && (
             <>
-              <button className={isVulns ? 'btn primary' : 'btn'} type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Импорт из Excel</button>
+              <button className="btn" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Импорт из Excel</button>
               <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => void onFile(e)} aria-label="Файл импорта" />
             </>
           )}
           <button className="btn" type="button" onClick={() => void exportFile()} disabled={busy}>Экспорт в Excel</button>
           {hasFiles && <button className="btn" type="button" onClick={() => setZipOpen(true)}>Выгрузка для проверки</button>}
           <span className="hint">
-            {isVulns ? 'Отчёт сканера (листы «Хосты» и уязвимости, дата в имени файла) или выгрузка реестра — тип файла определяется сам. ' : ''}
+            {isVulns ? 'Сканы и новые записи — в разделе «Уязвимости». ' : ''}
             Выгруженный файл после заполнения в ДИКТ обновляет записи по колонке ID. Перед применением — предпросмотр.
           </span>
         </div>
-        {isVulns && <ScanReports registerId={reg.id} />}
       </div>
       <div className="rec-tools">
         <input className="inp" type="search" placeholder="Поиск по реестру" value={qInput} onChange={(e) => setQInput(e.target.value)} aria-label="Поиск по реестру" />
@@ -323,7 +295,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
           </span>
         )}
         <span className="hint mono">{rows.length} из {total}</span>
-        {canEdit && !archiveView && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
+        {canEdit && !archiveView && !isVulns && <button className="btn primary sm" type="button" onClick={() => setOpen('new')}>Новая запись</button>}
       </div>
       {archiveView && <div className="panel-b hint archive-note">Архив реестра: записи не участвуют в сроках, автоматизациях и на дашборде. Отметьте нужные и нажмите «Вернуть выбранные».</div>}
       {nPicked > 0 && (
@@ -393,7 +365,6 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       )}
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
       {preview && <ImportDialog reg={reg} preview={preview} file={importFile} onClose={() => setPreview(null)} />}
-      {scanPreview && <ScanImportDialog key={scanPreview.id} reg={reg} preview={scanPreview} file={importFile} onClose={() => setScanPreview(null)} onReplace={setScanPreview} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
       {bulk && <BulkDialog reg={reg} mode={bulk.mode} selection={bulk.selection} onClose={() => setBulk(null)} onDone={() => { setBulk(null); setPicked(NOTHING); }} />}
     </>

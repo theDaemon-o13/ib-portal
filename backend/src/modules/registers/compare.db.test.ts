@@ -82,7 +82,7 @@ describe('сравнение выгрузки реестра', () => {
       await expectCode(compare.compareWithRegister(tx, store, x.actor, p.id, Buffer.from(SAMPLE), { all: true }), 'FILE_MISMATCH');
       const c = await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, { fieldId: x.f.level, values: [high] });
       expect(c.missing.map((m) => m.number)).toEqual([b.number]);
-      expect(c).toMatchObject({ format: 'records', noKey: 1, outOfScopeRows: 1, badKeyRows: 0, incompleteScan: null });
+      expect(c).toMatchObject({ noKey: 1, outOfScopeRows: 1, badKeyRows: 0 });
       expect(c.missing[0]?.key).toBe('B · 2');
       // «Весь реестр»: C в файле есть, D закрыта, E в архиве — отсутствует только B.
       expect((await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, { all: true })).missing.map((m) => m.number)).toEqual([b.number]);
@@ -128,6 +128,6 @@ describe('сравнение по HTTP', () => {
       expect((await app.inject({ method: 'POST', url, headers: headers(await login(board.login)), payload: exported.buffer })).statusCode).toBe(403);
       const ok = await app.inject({ method: 'POST', url, headers: headers(await login(staff.login)), payload: exported.buffer });
       expect(ok.statusCode).toBe(200);
-      expect(ok.json()).toMatchObject({ format: 'records', scope: { all: true } });
+      expect(ok.json()).toMatchObject({ scope: { all: true } });
     }));
 });

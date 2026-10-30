@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest';
+import type { ScanSummary } from '../../api/vulns';
+import { applyLabel, defaultSelection, dueHint, lastScanOf, parseView, selectionBody, sumStats, toggleAll, toggleOne, viewPath } from './logic';
+
+const item = (key: string) => ({ key }) as ScanSummary['groups']['new'][number];
+const summary = {
+  groups: { new: [item('a'), item('b')], reopened: [item('c')], changed: [item('d')], unchanged: [item('e')], gone: [{ key: 'f' }, { key: 'g' }] },
+} as unknown as ScanSummary;
+
+describe('раздел «Уязвимости»: логика', () => {
+  it('выбор по умолчанию: новые, повторные, изменившиеся — да, пропавшие — нет', () => {
+    const s = defaultSelection(summary);
+    expect(selectionBody(s)).toEqual({ new: ['a', 'b'], reopened: ['c'], changed: ['d'], gone: [] });
+    expect(applyLabel(s)).toBe('Загрузить: новых 2, повторно 1, обновить 1');
+  });
+
+  it('выбор строки и «все по группе»', () => {
+    let s = defaultSelection(summary);
+    s = toggleOne(s, 'new', 'a');
+    expect([...s.new]).toEqual(['b']);
+    s = toggleAll(s, 'new', summary);
+    expect([...s.new]).toEqual(['a', 'b']);
+    s = toggleAll(s, 'new', summary);
+    expect(s.new.size).toBe(0);
+    s = toggleAll(s, 'gone', summary);
+    expect([...s.gone]).toEqual(['f', 'g']);
+    expect(applyLabel(s)).toBe('Загрузить: повторно 1, обновить 1, устранено 2');
+    expect(applyLabel({ new: new Set(), reopened: new Set(), changed: new Set(), gone: new Set() })).toBe('Сохранить скан без изменений в реестре');
+  });
+
+  it('адрес экрана: разбор и обратно; мусор — главная раздела', () => {
+    const id = '11111111-2222-4333-8444-555555555555';
+    for (const kind of ['group', 'node', 'scan'] as const) {
+      expect(parseView(`${kind}/${id}`)).toEqual({ kind, id });
+      expect(viewPath({ kind, id })).toBe(`/vulns/${kind}/${id}`);
+    }
+    expect(parseView('')).toEqual({ kind: 'root' });
+    expect(parseView('node/abc')).toEqual({ kind: 'root' });
+    expect(parseView(`other/${id}`)).toEqual({ kind: 'root' });
+    expect(viewPath({ kind: 'root' })).toBe('/vulns');
+  });
+
+  it('счётчики группы и последний скан', () => {
+    const n = (o: number, last: string | null) => ({
+      open: o, overdue: 1, critical: 2, notHandedOver: 3, lastScan: last ? { id: last, scanDate: last, handedOver: false } : null,
+    });
+    expect(sumStats([n(1, null), n(2, null)])).toEqual({ open: 3, overdue: 2, critical: 4, notHandedOver: 6 });
+    const list = [n(1, '2026-10-01'), n(1, null), n(1, '2026-10-15')] as never[];
+    expect(lastScanOf(list)?.scanDate).toBe('2026-10-15');
+    expect(lastScanOf([])).toBeNull();
+  });
+
+  it('подпись срока: не начался, просрочено, сегодня, через N, продлён', () => {
+    const today = '2026-10-30';
+    expect(dueHint(null, today, false)).toEqual({ text: 'не начался', tone: '' });
+    expect(dueHint('2026-10-28', today, true)).toEqual({ text: 'просрочено на 2 дн.', tone: 'over' });
+    expect(dueHint(today, today, false).text).toBe('сегодня');
+    expect(dueHint('2026-11-02', today, true)).toEqual({ text: 'через 3 дн. · продлён', tone: 'ext' });
+  });
+});

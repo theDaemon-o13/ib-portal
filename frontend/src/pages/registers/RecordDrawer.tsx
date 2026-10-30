@@ -20,8 +20,9 @@ const TEXT_MAX = 4000;
 const TEXT_MAX_MULTILINE = 20_000;
 
 const VIA: Record<string, string> = {
-  import: ' · импорт Excel', type_change: ' · смена типа поля', scan_import: ' · отчёт сканера', auto: ' · пересчёт', automation: ' · автоматизация',
+  import: ' · импорт Excel', type_change: ' · смена типа поля', scan_import: ' · скан', auto: ' · пересчёт', automation: ' · автоматизация',
   files: ' · файлы', compare: ' · сравнение с файлом (статус по отчёту)',
+  handover: ' · передача ИКТ', extension: ' · продление по обоснованию ОИКТ', extension_cancel: ' · отмена продления', transfer: ' · перенос',
 };
 
 /** Критичность уязвимости: считается по Оценке, пока её не исправили вручную. */
@@ -162,8 +163,10 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
 }
 
 /** Карточка записи: форма собирается из описания полей реестра. */
-export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCreated }: {
+export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCreated, extra }: {
   reg: RegisterDetail; recordId: string | null; canEdit: boolean; canDelete: boolean; onClose: () => void; onCreated: (id: string) => void;
+  /** Блок раздела «Уязвимости» (срок, сканы) — над событиями и историей. */
+  extra?: ReactNode;
 }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -374,6 +377,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
               </div>
             </div>
           )}
+          {extra}
           {!isNew && (events.data?.items.length ?? 0) > 0 && (
             <div>
               <div className="eyebrow">События автоматизаций</div>

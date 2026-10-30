@@ -1,0 +1,99 @@
+/* Раздел «Уязвимости»: разметка по docs/prototype/vulnerabilities-demo.html. Всё — с приставкой v- или внутри .v-root. */
+.v-root{display:grid;grid-template-columns:272px minmax(0,1fr);gap:14px;align-items:start}
+.v-main{min-width:0}
+.v-tree{padding:10px 8px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.v-tree-h{display:flex;justify-content:space-between;align-items:center;padding:4px 8px 8px}
+.v-tree-h b{font-family:var(--f-display);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.v-root .tn{display:flex;align-items:center;gap:7px;width:100%;border:0;background:none;text-align:left;padding:6px 8px;border-radius:10px;color:var(--fg);font-size:13px;min-width:0;cursor:pointer}
+.v-root .tn:hover{background:var(--hover)}
+.v-root .tn[aria-current="true"]{background:var(--accent-soft);color:var(--accent)}
+.v-root .tn .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.v-root .tn .c{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;display:flex;gap:6px}
+.v-root .tn .c .o{color:var(--crit);font-weight:600}
+.v-root .tn.g{font-weight:600}
+.v-root .tn.n{padding-left:24px}
+.v-root .tn.s{padding-left:42px;font-size:12.5px;color:var(--muted)}
+.v-root .tn.s[aria-current="true"]{color:var(--accent)}
+.v-root .tn.sys{color:var(--muted)}
+.ictdot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--low);display:inline-block}
+.ictdot.no{background:var(--high)}
+.v-root .tsep{height:1px;background:var(--line);margin:6px 8px}
+.v-legend{margin:4px 8px 2px;font-size:11.5px}
+.v-over{color:var(--crit);font-weight:600}
+.v-kind{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--fill-2);color:var(--muted);white-space:nowrap;vertical-align:middle}
+.v-crumbs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.v-crumbs button{border:0;background:none;padding:0;color:var(--accent);font-size:12.5px;cursor:pointer}
+.v-crumbs i{font-style:normal;color:var(--faint)}
+.v-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.v-kpi{padding:14px 16px;display:grid;gap:4px}
+.v-kpi .v{font-family:var(--f-display);font-size:30px;font-weight:600;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.v-kpi .v.crit{color:var(--crit)}.v-kpi .v.high{color:var(--high)}
+.v-kpi .l{color:var(--muted);font-size:12.5px;font-weight:500}
+.v-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+.v-grid>*{min-width:0}
+.v-w8{grid-column:span 8}.v-w4{grid-column:span 4}
+.v-mt{margin-top:12px}
+.v-r{text-align:right;font-variant-numeric:tabular-nums}
+.v-click tbody tr{cursor:pointer}
+.v-await{display:flex;justify-content:space-between;gap:8px;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:6px 0;color:var(--fg);font-size:13px;text-align:left;cursor:pointer}
+.v-tcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.v-tcard{padding:16px 18px;display:grid;gap:12px;text-align:left;cursor:pointer;color:var(--fg);font:inherit}
+.v-tcard:hover{box-shadow:inset 0 1px 0 var(--hl),0 0 0 2px var(--accent-soft),var(--shadow)}
+.v-tcard h3{margin:0;font-family:var(--f-display);font-size:17px;font-weight:600;letter-spacing:-.015em}
+.v-tstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.v-tstats div{display:grid;gap:1px}
+.v-tstats b{font-family:var(--f-display);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.v-tstats span{font-size:11.5px;color:var(--muted)}
+.v-tstats .bad b{color:var(--crit)}
+.v-tlast{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.v-filters{gap:8px;flex-wrap:wrap}
+.v-filters .inp{width:auto}
+.v-grow{flex:1;min-width:180px}
+.v-recs td{font-size:12.5px}
+.v-pk b{display:block;font-weight:600;font-size:13px}
+.v-pk span{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.v-dl{display:grid;gap:1px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.v-dl small{font-size:11px;color:var(--muted)}
+.v-dl.over small{color:var(--crit);font-weight:600}
+.v-dl.ext small{color:var(--info)}
+.v-cnt{font-size:12.5px;color:var(--muted);padding:10px 18px;border-top:1px solid var(--line)}
+.v-between{justify-content:space-between}
+.v-dcards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.v-dcard{border:1px solid var(--line);background:var(--solid);border-radius:var(--r-md);padding:12px 14px;text-align:left;display:grid;gap:3px;color:var(--fg);cursor:pointer}
+.v-dcard b{font-family:var(--f-display);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.v-dcard span{font-size:12px;color:var(--muted)}
+.v-dcard[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.v-dcard.k-new b{color:var(--accent)}.v-dcard.k-reopened b{color:var(--crit)}.v-dcard.k-changed b{color:var(--high)}.v-dcard.k-gone b{color:var(--low)}
+.v-chg{font-size:11.5px;color:var(--muted)}
+.v-chg b{color:var(--fg);font-weight:600}
+.v-facts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.v-facts>div{padding:7px 12px;border-radius:12px;background:var(--fill-2);font-size:12.5px;display:grid;gap:1px}
+.v-facts span{font-size:11px;color:var(--muted)}
+.v-facts b{font-weight:600}
+.note.v-ok{background:var(--low-soft);margin-bottom:12px}
+.note.v-warn{background:var(--high-soft);margin-bottom:12px}
+.v-shift{padding:12px 18px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.v-shift:last-child{border-bottom:0}
+.v-shift.cancel{opacity:.6}
+.v-shift.cancel b{text-decoration:line-through}
+.v-modal{display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 48px);overflow:auto}
+.v-modal h2{margin:0}
+.v-list{max-height:320px;overflow:auto}
+.v-days{width:90px;text-align:right;margin-left:auto}
+.v-drop{display:grid;gap:10px;justify-items:center;text-align:center;padding:28px 20px;border:1.5px dashed var(--line-2);border-radius:var(--r-md)}
+.v-dlbox{border-radius:var(--r-md);background:var(--fill-2);padding:12px 14px;display:grid;gap:7px;font-size:13px}
+.v-dlbox .ln{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.v-dlbox .ln.off{color:var(--muted);text-decoration:line-through}
+.v-dlbox .ln.total{border-top:1px solid var(--line);padding-top:7px}
+.v-seen{display:grid;gap:4px}
+/* Таблица групп с последним сканом шире половины рабочей области: блок передач — под ней. */
+@media (max-width:1600px){
+  .v-w8,.v-w4{grid-column:span 12}
+}
+@media (max-width:900px){
+  .v-root{grid-template-columns:minmax(0,1fr)}
+  .v-tree{position:static;max-height:280px}
+  .v-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v-w8,.v-w4{grid-column:span 12}
+  .v-dcards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

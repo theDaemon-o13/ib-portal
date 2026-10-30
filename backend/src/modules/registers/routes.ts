@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import type { FileStore } from '../../lib/file-store.js';
 import { badRequest, conflict } from '../../lib/errors.js';
+import { isVulnRegister } from '../vulns/definition.js';
 import { TEXT_MAX_MULTILINE } from '../../lib/field-settings.js';
 import { PageQuery } from '../../lib/pagination.js';
 import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
@@ -424,7 +425,11 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   app.post('/registers/:id/records', {
     preHandler: edit,
     schema: { tags: ['register-records'], summary: 'Создать запись', params: IdParams, body: z.object({ values: Values }), response: { 201: RegisterRecord, ...errors } },
-  }, async (request, reply) => reply.status(201).send(asRecord(await records.createRecord(db, actorOf(request), request.params.id, request.body))));
+  }, async (request, reply) => {
+    // Записи уязвимостей появляются из сканов и переносом из «Без группы» (ADR-0029): без узла запись потеряется.
+    if (isVulnRegister(await loadRegister(db, request.params.id))) throw conflict('VULN_CREATE_IN_NODE', 'Записи реестра уязвимостей появляются из сканов: загрузите скан в разделе «Уязвимости»');
+    return reply.status(201).send(asRecord(await records.createRecord(db, actorOf(request), request.params.id, request.body)));
+  });
 
   app.patch('/register-records/:id', {
     preHandler: edit,
@@ -630,16 +635,13 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       conditions: z.array(z.object({ fieldId: z.string(), label: z.string(), values: z.array(z.object({ id: z.string(), label: z.string() })) })),
     }),
   ]);
-  const IncompleteScan = z.object({ previousReport: z.string(), missingHosts: z.array(z.string()) }).nullable();
   const CompareResult = z.object({
     importId: z.string(),
     file: z.object({ id: z.string(), name: z.string(), sha256: z.string() }),
-    format: z.enum(['records', 'scan']),
     key: z.array(z.object({ id: z.string(), label: z.string() })),
     scope: ScopeOut,
     missing: z.array(z.object({ id: z.string(), number: z.number().int(), title: z.string(), key: z.string(), statusId: z.string().nullable() })),
     noKey: z.number().int(), outOfScopeRows: z.number().int(), badKeyRows: z.number().int(),
-    incompleteScan: IncompleteScan,
     status: z.object({ fieldId: z.string(), options: z.array(z.object({ id: z.string(), label: z.string(), isClosed: z.boolean() })) }).nullable(),
   });
   const Condition = z.object({ fieldId: z.string().uuid(), values: z.array(z.string().uuid()).min(1).max(200) });
@@ -652,7 +654,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   const StatusChanges = z.array(z.object({ recordId: z.string().uuid(), optionId: z.string().uuid() })).min(1).max(bulk.BULK_MAX_IDS);
   const StatusPreview = z.object({
     total: z.number().int(), willChange: z.number().int(),
-    skipped: z.array(z.object({ number: z.number().int().nullable(), reason: z.string() })), incompleteScan: IncompleteScan,
+    skipped: z.array(z.object({ number: z.number().int().nullable(), reason: z.string() })),
   });
   const scopeOf = (q: { scope?: string; scopeField?: string; scopeValues?: string; conditions?: string }): compare.CompareScope => {
     if (q.scope === 'all') return { all: true };
@@ -696,18 +698,6 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     return compare.compareWithRegister(db, store, actorOf(request), request.params.id, request.body, scopeOf(request.query));
   });
 
-  app.get('/register-imports/:id/not-in-file', {
-    preHandler: edit,
-    schema: {
-      tags: ['register-excel'],
-      summary: 'Устарел с 1.5.0: подсказка окна отчёта сканера — 409. «Пропали» считает предпросмотр скана узла',
-      params: IdParams, querystring: z.object({ systemId: z.string().uuid().optional() }),
-      response: { 200: z.object({ scope: z.object({ conditions: z.array(Condition) }).nullable(), label: z.string(), count: z.number().int() }), ...errors },
-    },
-  }, async () => {
-    throw conflict('VULN_IMPORT_IN_NODE', 'Отчёт сканера загружают в разделе «Уязвимости», из узла');
-  });
-
   app.post('/registers/:id/records/compare-status/preview', {
     preHandler: edit,
     schema: {
@@ -726,7 +716,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       tags: ['register-records'], summary: 'Статус записям, которых нет в файле: применить (пакетами, с журналом и ссылкой на файл)', params: IdParams,
       body: z.object({
         importId: z.string().uuid(), scope: ScopeIn, changes: StatusChanges, reason: z.string().max(1000).nullable().optional(),
-        expected: z.object({ willChange: z.number().int() }), acknowledgeIncompleteScan: z.boolean().optional(),
+        expected: z.object({ willChange: z.number().int() }),
       }),
       response: { 200: z.object({ changed: z.number().int(), skipped: z.number().int() }), ...errors },
     },
@@ -734,7 +724,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     await sameRegister(request.params.id, request.body.importId);
     const b = request.body;
     return compare.applyCompareStatus(db, store, actorOf(request), b.importId, b.scope, b.changes, {
-      expected: b.expected, reason: b.reason ?? null, acknowledgeIncompleteScan: !!b.acknowledgeIncompleteScan,
+      expected: b.expected, reason: b.reason ?? null,
     });
   });
 

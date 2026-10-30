@@ -76,7 +76,7 @@ const BUCKETS: Omit<MonitorBucket, 'count'>[] = [
   { key: 'd8_14', label: '8–14 дн.', tone: 'med' },
   { key: 'd15_30', label: '15–30 дн.', tone: null },
   { key: 'd31', label: 'Более 30 дн.', tone: 'low' },
-  { key: 'none', label: 'Без срока', tone: 'muted' },
+  { key: 'none', label: 'Не передано ИКТ', tone: 'muted' },
 ];
 
 /** Открытые уязвимости: срочное сначала (дни до срока), при равенстве — выше Оценка. */

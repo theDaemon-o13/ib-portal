@@ -34,11 +34,8 @@ export type FieldPatch = Body<'/api/v1/register-fields/{id}', 'patch'>;
 export type RecordValues = Body<'/api/v1/registers/{id}/records', 'post'>['values'];
 export type Widget = Res<'/api/v1/registers/{id}/analytics', 'get'>['items'][number];
 export type Deadline = NonNullable<RegisterRecord['deadline']>;
-export type ScanPreview = Res<'/api/v1/registers/{id}/scan-imports', 'post', 201>;
 /** Предпросмотр «Импорта из Excel»: как распознан файл и что в нём. */
 export type FilePreview = Res<'/api/v1/registers/{id}/file-imports', 'post', 201>;
-export type ScanResult = Res<'/api/v1/scan-imports/{id}/apply', 'post'>;
-export type ScanApply = Body<'/api/v1/scan-imports/{id}/apply', 'post'>;
 export type ScanReport = Res<'/api/v1/registers/{id}/scan-reports', 'get'>['items'][number];
 export type AutomationRule = Res<'/api/v1/registers/{id}/automations', 'get'>['items'][number];
 export type NewRule = Body<'/api/v1/registers/{id}/automations', 'post'>;
@@ -81,7 +78,6 @@ export type CompareResult = Res<'/api/v1/register-imports/{id}/compare', 'post'>
 export type CompareScope = Body<'/api/v1/registers/{id}/records/compare-status/preview', 'post'>['scope'];
 export type CompareStatusPreview = Res<'/api/v1/registers/{id}/records/compare-status/preview', 'post'>;
 export type CompareStatusChange = { recordId: string; optionId: string };
-export type NotInReport = Res<'/api/v1/register-imports/{id}/not-in-file', 'get'>;
 export type BulkSelection = Body<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>['selection'];
 export type BulkPreview = Res<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>;
 export type BulkResult = Res<'/api/v1/registers/{id}/records/bulk-delete/apply', 'post'>;
@@ -198,14 +194,11 @@ export const registersApi = {
    * отчёт сканера это или выгрузка реестра, и возвращает соответствующий предпросмотр.
    */
   /** department — отдел, выбранный в окне, если в отчёте сканера его нет (ячейка A1 листа «Хосты»). */
-  async previewFile(registerId: string, file: File, department?: string): Promise<FilePreview> {
+  async previewFile(registerId: string, file: File): Promise<FilePreview> {
     const res = await fetch(`/api/v1/registers/${registerId}/file-imports`, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: {
-        'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name),
-        ...(department ? { 'X-Department': encodeURIComponent(department) } : {}),
-      },
+      headers: { 'Content-Type': XLSX_TYPE, 'X-File-Name': encodeURIComponent(file.name) },
       body: file,
     });
     if (!res.ok) throw await errorOf(res);
@@ -223,19 +216,14 @@ export const registersApi = {
     if (!res.ok) throw await errorOf(res);
     return (await res.json()) as CompareResult;
   },
-  /** Отчёт сканера: сколько открытых записей отдела (и системы) нет в этом отчёте — подсказка в окне импорта. */
-  notInReport: (importId: string, systemId: string) =>
-    request<NotInReport>('GET', `/api/v1/register-imports/${importId}/not-in-file${systemId ? `?systemId=${systemId}` : ''}`),
   compareStatusPreview: (registerId: string, body: { importId: string; scope: CompareScope; changes: CompareStatusChange[]; reason?: string | null }) =>
     request<CompareStatusPreview>('POST', `/api/v1/registers/${registerId}/records/compare-status/preview`, body),
   compareStatusApply: (registerId: string, body: {
     importId: string; scope: CompareScope; changes: CompareStatusChange[]; reason?: string | null;
-    expected: { willChange: number }; acknowledgeIncompleteScan: boolean;
+    expected: { willChange: number };
   }) => request<{ changed: number; skipped: number }>('POST', `/api/v1/registers/${registerId}/records/compare-status/apply`, body),
   cancelImport: (id: string) => request<undefined>('POST', `/api/v1/register-imports/${id}/cancel`),
 
-  applyScan: (id: string, body: ScanApply) => request<ScanResult>('POST', `/api/v1/scan-imports/${id}/apply`, body),
-  scanReports: (registerId: string) => request<Res<'/api/v1/registers/{id}/scan-reports', 'get'>>('GET', `/api/v1/registers/${registerId}/scan-reports`),
 
   rules: (registerId: string) => request<Res<'/api/v1/registers/{id}/automations', 'get'>>('GET', `/api/v1/registers/${registerId}/automations`),
   createRule: (registerId: string, body: NewRule) => request<AutomationRule>('POST', `/api/v1/registers/${registerId}/automations`, body),

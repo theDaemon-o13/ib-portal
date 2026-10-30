@@ -31,6 +31,12 @@ const paths: Record<IconName, ReactElement> = {
       <rect x="17" y="4" width="4" height="13" rx="1.5" />
     </>
   ),
+  bug: (
+    <>
+      <path d="M9 9a3 3 0 016 0v6a3 3 0 01-6 0z" />
+      <path d="M12 9v9M5 12h4M15 12h4M6 7l3 2M18 7l-3 2M6 18l3-2M18 18l-3-2" />
+    </>
+  ),
   docs: (
     <>
       <path d="M7 3h7l5 5v13H7z" />

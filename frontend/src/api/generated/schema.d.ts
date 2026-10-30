@@ -99,7 +99,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -246,7 +246,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -319,7 +319,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -5629,9 +5629,9 @@ export interface paths {
                                 description: string;
                                 isSystem: boolean;
                                 version: number;
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 activeUserCount: number;
                                 userCount: number;
                             }[];
@@ -5757,9 +5757,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -5904,9 +5904,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -6143,7 +6143,7 @@ export interface paths {
                 header?: never;
                 path: {
                     id: string;
-                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
+                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
                 };
                 cookie?: never;
             };
@@ -6168,9 +6168,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -15457,8 +15457,6 @@ export interface paths {
                                 name: string;
                                 sha256: string;
                             };
-                            /** @enum {string} */
-                            format: "records" | "scan";
                             key: {
                                 id: string;
                                 label: string;
@@ -15488,10 +15486,6 @@ export interface paths {
                             noKey: number;
                             outOfScopeRows: number;
                             badKeyRows: number;
-                            incompleteScan: {
-                                previousReport: string;
-                                missingHosts: string[];
-                            } | null;
                             status: {
                                 fieldId: string;
                                 options: {
@@ -15613,158 +15607,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/register-imports/{id}/not-in-file": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Устарел с 1.5.0: подсказка окна отчёта сканера — 409. «Пропали» считает предпросмотр скана узла */
-        get: {
-            parameters: {
-                query?: {
-                    systemId?: string;
-                };
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            scope: {
-                                conditions: {
-                                    /** Format: uuid */
-                                    fieldId: string;
-                                    values: string[];
-                                }[];
-                            } | null;
-                            label: string;
-                            count: number;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/registers/{id}/records/compare-status/preview": {
         parameters: {
             query?: never;
@@ -15827,10 +15669,6 @@ export interface paths {
                                 number: number | null;
                                 reason: string;
                             }[];
-                            incompleteScan: {
-                                previousReport: string;
-                                missingHosts: string[];
-                            } | null;
                         };
                     };
                 };
@@ -15992,7 +15830,6 @@ export interface paths {
                         expected: {
                             willChange: number;
                         };
-                        acknowledgeIncompleteScan?: boolean;
                     };
                 };
             };
@@ -18327,6 +18164,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            registerId: string;
                             nodes: {
                                 nodeId: string;
                                 open: number;
@@ -18738,6 +18576,17 @@ export interface paths {
                                 extendedDays: number;
                                 final: string | null;
                             };
+                            extensions: {
+                                id: string;
+                                days: number;
+                                dueBefore: string;
+                                dueAfter: string;
+                                basisNumber: string;
+                                basisDate: string;
+                                basisFileId: string;
+                                cancelledAt: string | null;
+                                active: boolean;
+                            }[];
                             scans: {
                                 id: string;
                                 scanDate: string;
@@ -19333,145 +19182,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/registers/{id}/file-imports": {
+    "/api/v1/vulns/extensions": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** Импорт из Excel одной кнопкой: тип файла определяется сам: выгрузка реестра (колонка ID, лист «_поля») — предпросмотр; отчёт сканера (колонки «Пакет» и «CVE») — в реестре уязвимостей 409, его загружают в узел */
-        post: {
+        /** Продления сроков узла (его и всей группы) или группы (её и её узлов) */
+        get: {
             parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
+                query?: {
+                    nodeId?: string;
+                    groupId?: string;
                 };
+                header?: never;
+                path?: never;
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": unknown;
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Default Response */
-                201: {
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
-                            /** @enum {string} */
-                            format: "scan";
-                            scan: {
+                            items: {
                                 id: string;
-                                status: string;
-                                expiresAt: string;
-                                summary: {
-                                    fileName: string;
-                                    sheet: string;
-                                    department: string;
-                                    departmentMissing: boolean;
-                                    reportDate: string | null;
-                                    rows: number;
-                                    created: number;
-                                    merged: number;
-                                    mergedChanged: number;
-                                    inFileDuplicates: number;
-                                    errorRows: number;
-                                    hostsCount: number;
-                                    hosts: {
-                                        name: string;
-                                        ip: string;
-                                        os: string;
-                                    }[];
-                                    critCounts: {
-                                        /** @enum {string} */
-                                        key: "critical" | "high" | "medium" | "low";
-                                        label: string;
-                                        count: number;
-                                    }[];
-                                    newOptions: {
-                                        field: string;
-                                        values: string[];
-                                    }[];
-                                    duplicates: {
-                                        row: number;
-                                        cve: string;
-                                        pkg: string;
-                                        recordId: string;
-                                        number: number;
-                                        hitsBefore: number | null;
-                                        hitsAfter: number | null;
-                                    }[];
-                                    items: {
-                                        row: number;
-                                        cve: string;
-                                        pkg: string;
-                                        cvss: number | null;
-                                        score: number | null;
-                                        crit: string;
-                                    }[];
-                                    errors: {
-                                        row: number;
-                                        field: string | null;
-                                        message: string;
-                                    }[];
-                                    warnings: string[];
+                                scope: string;
+                                nodeId: string | null;
+                                groupId: string | null;
+                                days: {
+                                    level: string;
+                                    days: number;
+                                }[];
+                                onlyOverdue: boolean;
+                                dueUntil: string | null;
+                                basisNumber: string;
+                                basisDate: string;
+                                basisFile: {
+                                    id: string;
+                                    name: string;
                                 };
-                            };
-                        } | {
-                            /** @enum {string} */
-                            format: "records";
-                            records: {
-                                id: string;
-                                status: string;
-                                expiresAt: string;
-                                summary: {
-                                    fileName: string;
-                                    rows: number;
-                                    added: number;
-                                    updated: number;
-                                    unchanged: number;
-                                    errorRows: number;
-                                    fieldChanges: {
-                                        fieldId: string;
-                                        label: string;
-                                        count: number;
-                                    }[];
-                                    errors: {
-                                        row: number;
-                                        id: string | null;
-                                        field: string | null;
-                                        message: string;
-                                    }[];
-                                    warnings: string[];
-                                    /** @enum {string} */
-                                    matchBy: "id" | "key";
-                                    keyField: {
-                                        id: string;
-                                        label: string;
-                                    } | null;
-                                    matches: {
-                                        row: number;
-                                        key: string;
-                                        number: number | null;
-                                        /** @enum {string} */
-                                        action: "add" | "update" | "unchanged" | "error";
-                                    }[];
-                                    missing: {
-                                        id: string;
-                                        number: number;
-                                        key: string;
-                                        title: string;
-                                    }[];
-                                    missingTotal: number;
-                                };
-                            };
+                                comment: string;
+                                recordsCount: number;
+                                createdBy: string;
+                                createdAt: string;
+                                cancelledAt: string | null;
+                                cancelledBy: string | null;
+                            }[];
                         };
                     };
                 };
@@ -19562,34 +19323,32 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/registers/{id}/scan-imports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
         put?: never;
-        /** Устарел с 1.5.0 — 409: отчёт сканера загружают в узел */
+        /** «Обновить сроки», применить: обоснование ОИКТ обязательно, expected — число записей предпросмотра (иначе 409 BULK_CHANGED) */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    id: string;
-                };
+                path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
-                    "application/json": unknown;
+                    "application/json": {
+                        nodeId?: string | null;
+                        groupId?: string | null;
+                        daysByLevel: {
+                            [key: string]: number;
+                        };
+                        onlyOverdue?: boolean;
+                        dueUntil?: string | null;
+                        basisNumber: string;
+                        basisDate: string;
+                        /** Format: uuid */
+                        basisFileId: string;
+                        comment?: string | null;
+                        expected: number;
+                    };
                 };
             };
             responses: {
@@ -19601,60 +19360,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             id: string;
-                            status: string;
-                            expiresAt: string;
-                            summary: {
-                                fileName: string;
-                                sheet: string;
-                                department: string;
-                                departmentMissing: boolean;
-                                reportDate: string | null;
-                                rows: number;
-                                created: number;
-                                merged: number;
-                                mergedChanged: number;
-                                inFileDuplicates: number;
-                                errorRows: number;
-                                hostsCount: number;
-                                hosts: {
-                                    name: string;
-                                    ip: string;
-                                    os: string;
-                                }[];
-                                critCounts: {
-                                    /** @enum {string} */
-                                    key: "critical" | "high" | "medium" | "low";
-                                    label: string;
-                                    count: number;
-                                }[];
-                                newOptions: {
-                                    field: string;
-                                    values: string[];
-                                }[];
-                                duplicates: {
-                                    row: number;
-                                    cve: string;
-                                    pkg: string;
-                                    recordId: string;
-                                    number: number;
-                                    hitsBefore: number | null;
-                                    hitsAfter: number | null;
-                                }[];
-                                items: {
-                                    row: number;
-                                    cve: string;
-                                    pkg: string;
-                                    cvss: number | null;
-                                    score: number | null;
-                                    crit: string;
-                                }[];
-                                errors: {
-                                    row: number;
-                                    field: string | null;
-                                    message: string;
-                                }[];
-                                warnings: string[];
-                            };
+                            records: number;
                         };
                     };
                 };
@@ -19751,14 +19457,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scan-imports/{id}": {
+    "/api/v1/vulns/extensions/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Устарел с 1.5.0 — 409 */
+        /** Продление: кому, сколько, было → стало */
         get: {
             parameters: {
                 query?: never;
@@ -19778,61 +19484,36 @@ export interface paths {
                     content: {
                         "application/json": {
                             id: string;
-                            status: string;
-                            expiresAt: string;
-                            summary: {
-                                fileName: string;
-                                sheet: string;
-                                department: string;
-                                departmentMissing: boolean;
-                                reportDate: string | null;
-                                rows: number;
-                                created: number;
-                                merged: number;
-                                mergedChanged: number;
-                                inFileDuplicates: number;
-                                errorRows: number;
-                                hostsCount: number;
-                                hosts: {
-                                    name: string;
-                                    ip: string;
-                                    os: string;
-                                }[];
-                                critCounts: {
-                                    /** @enum {string} */
-                                    key: "critical" | "high" | "medium" | "low";
-                                    label: string;
-                                    count: number;
-                                }[];
-                                newOptions: {
-                                    field: string;
-                                    values: string[];
-                                }[];
-                                duplicates: {
-                                    row: number;
-                                    cve: string;
-                                    pkg: string;
-                                    recordId: string;
-                                    number: number;
-                                    hitsBefore: number | null;
-                                    hitsAfter: number | null;
-                                }[];
-                                items: {
-                                    row: number;
-                                    cve: string;
-                                    pkg: string;
-                                    cvss: number | null;
-                                    score: number | null;
-                                    crit: string;
-                                }[];
-                                errors: {
-                                    row: number;
-                                    field: string | null;
-                                    message: string;
-                                }[];
-                                warnings: string[];
+                            scope: string;
+                            nodeId: string | null;
+                            groupId: string | null;
+                            days: {
+                                level: string;
+                                days: number;
+                            }[];
+                            onlyOverdue: boolean;
+                            dueUntil: string | null;
+                            basisNumber: string;
+                            basisDate: string;
+                            basisFile: {
+                                id: string;
+                                name: string;
                             };
-                            registerId: string;
+                            comment: string;
+                            recordsCount: number;
+                            createdBy: string;
+                            createdAt: string;
+                            cancelledAt: string | null;
+                            cancelledBy: string | null;
+                            items: {
+                                recordId: string;
+                                number: number;
+                                pkg: string;
+                                cve: string;
+                                days: number;
+                                dueBefore: string;
+                                dueAfter: string;
+                            }[];
                         };
                     };
                 };
@@ -19931,7 +19612,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scan-imports/{id}/apply": {
+    "/api/v1/vulns/extensions/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -19940,22 +19621,24 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Устарел с 1.5.0 — 409 */
+        /** «Обновить сроки», предпросмотр: кандидаты области, не участвующие, уровни, «было → станет». Ничего не меняет */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
-                path: {
-                    id: string;
-                };
+                path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
                     "application/json": {
-                        reportDate?: string | null;
-                        notifiedDate?: string | null;
-                        systemId?: string | null;
+                        nodeId?: string | null;
+                        groupId?: string | null;
+                        daysByLevel: {
+                            [key: string]: number;
+                        };
+                        onlyOverdue?: boolean;
+                        dueUntil?: string | null;
                     };
                 };
             };
@@ -19967,12 +19650,328 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            reportId: string;
-                            label: string;
-                            created: number;
-                            merged: number;
-                            updated: number;
-                            skipped: number;
+                            scopeLabel: string;
+                            levels: {
+                                id: string;
+                                label: string;
+                                count: number;
+                            }[];
+                            items: {
+                                recordId: string;
+                                number: number;
+                                pkg: string;
+                                cve: string;
+                                level: string;
+                                crit: string;
+                                days: number;
+                                dueBefore: string;
+                                dueAfter: string;
+                            }[];
+                            withDecision: number;
+                            notHandedOver: number;
+                            filteredOut: number;
+                            noChange: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/extensions/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отменить продление целиком: сроки возвращаются у записей в том же цикле, событие остаётся с отметкой */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            returned: number;
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/file-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Импорт из Excel одной кнопкой: тип файла определяется сам: выгрузка реестра (колонка ID, лист «_поля») — предпросмотр; отчёт сканера (колонки «Пакет» и «CVE») — в реестре уязвимостей 409, его загружают в узел */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            format: "records";
+                            records: {
+                                id: string;
+                                status: string;
+                                expiresAt: string;
+                                summary: {
+                                    fileName: string;
+                                    rows: number;
+                                    added: number;
+                                    updated: number;
+                                    unchanged: number;
+                                    errorRows: number;
+                                    fieldChanges: {
+                                        fieldId: string;
+                                        label: string;
+                                        count: number;
+                                    }[];
+                                    errors: {
+                                        row: number;
+                                        id: string | null;
+                                        field: string | null;
+                                        message: string;
+                                    }[];
+                                    warnings: string[];
+                                    /** @enum {string} */
+                                    matchBy: "id" | "key";
+                                    keyField: {
+                                        id: string;
+                                        label: string;
+                                    } | null;
+                                    matches: {
+                                        row: number;
+                                        key: string;
+                                        number: number | null;
+                                        /** @enum {string} */
+                                        action: "add" | "update" | "unchanged" | "error";
+                                    }[];
+                                    missing: {
+                                        id: string;
+                                        number: number;
+                                        key: string;
+                                        title: string;
+                                    }[];
+                                    missingTotal: number;
+                                };
+                            };
                         };
                     };
                 };
@@ -39846,7 +39845,7 @@ export interface paths {
                             deleted: boolean;
                             refs: {
                                 /** @enum {string} */
-                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare" | "vuln_scan";
+                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare" | "vuln_scan" | "vuln_extension";
                                 id: string;
                                 label: string;
                             }[];

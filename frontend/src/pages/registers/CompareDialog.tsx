@@ -14,12 +14,11 @@ type Step = 'scope' | 'result' | 'confirm';
 /**
  * «Сравнение» из окна импорта (релиз 1.1.0, ADR-0017): какие открытые записи области есть в реестре, но нет
  * в файле. Ключ — из настроек реестра, область — обязательно. Статус — свой у строки или один у отмеченных;
- * дальше предпросмотр → подтверждение (при неполном скане — галочкой) → журнал со ссылкой на файл.
+ * дальше предпросмотр → подтверждение → журнал со ссылкой на файл.
  */
-export function CompareDialog({ reg, importId, file, defaultScope = null, defaultLabel = null, onClose }: {
+export function CompareDialog({ reg, importId, file, onClose }: {
   reg: RegisterDetail; importId: string; file: File;
   /** Отчёт сканера (этап Б.2): область по умолчанию — отдел отчёта и выбранная система. */
-  defaultScope?: { conditions: { fieldId: string; values: string[] }[] } | null; defaultLabel?: string | null;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -29,7 +28,7 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
     ? reg.compareKeyFieldIds.map((id) => reg.fields.find((f) => f.id === id)?.label ?? '?').join(' + ')
     : 'ID записи';
   const [step, setStep] = useState<Step>('scope');
-  const [scopeField, setScopeField] = useState<string>(defaultScope ? 'default' : scopeFields[0]?.id ?? 'all');
+  const [scopeField, setScopeField] = useState<string>(scopeFields[0]?.id ?? 'all');
   const [scopeValues, setScopeValues] = useState<ReadonlySet<string>>(new Set());
   const [result, setResult] = useState<CompareResult | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
@@ -37,7 +36,6 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
   const [bulkStatus, setBulkStatus] = useState('');
   const [preview, setPreview] = useState<CompareStatusPreview | null>(null);
   const [changed, setChanged] = useState(false);
-  const [ack, setAck] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,6 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
 
   const field = scopeFields.find((f) => f.id === scopeField);
   const scope: CompareScope | null = scopeField === 'all' ? { all: true }
-    : scopeField === 'default' ? defaultScope
       : scopeValues.size ? { conditions: [{ fieldId: scopeField, values: [...scopeValues] }] } : null;
   const current = useMemo(() => new Map((result?.missing ?? []).map((m) => [m.id, m.statusId])), [result]);
   const changes = changesOf(choices, current);
@@ -83,11 +80,10 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
   const doPreview = () => scope && void run(() => registersApi.compareStatusPreview(reg.id, { importId, scope, changes, reason: reason || null }), (p) => {
     setPreview(p);
     setChanged(false);
-    setAck(false);
     setStep('confirm');
   });
   const doApply = () => scope && preview && void run(() => registersApi.compareStatusApply(reg.id, {
-    importId, scope, changes, reason: reason || null, expected: { willChange: preview.willChange }, acknowledgeIncompleteScan: ack,
+    importId, scope, changes, reason: reason || null, expected: { willChange: preview.willChange },
   }), (r) => {
     void qc.invalidateQueries({ queryKey: rkeys.records(reg.id) });
     void qc.invalidateQueries({ queryKey: rkeys.analytics(reg.id) });
@@ -113,9 +109,6 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
             <>
               <div className="grid-gap" role="radiogroup" aria-label="Область сравнения">
                 <b>Область сравнения</b>
-                {defaultScope && (
-                  <label className="check"><input type="radio" name="scope" checked={scopeField === 'default'} onChange={() => setScopeField('default')} /> Записи реестра: {defaultLabel}</label>
-                )}
                 {scopeFields.map((f) => (
                   <label key={f.id} className="check"><input type="radio" name="scope" checked={scopeField === f.id} onChange={() => { setScopeField(f.id); setScopeValues(new Set()); }} />
                     {' '}{f.systemKey === 'report' ? 'Конкретный прошлый отчёт' : f.label}
@@ -150,12 +143,6 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
                 {result.outOfScopeRows > 0 && ` Строк файла вне области: ${result.outOfScopeRows}.`}
                 {result.badKeyRows > 0 && ` Строк файла без ключа: ${result.badKeyRows}.`}
               </div>
-              {result.incompleteScan && (
-                <div className="note crit-note" role="alert" data-testid="incomplete-scan">
-                  Неполный скан: в отчёте нет хостов, которые были в «{result.incompleteScan.previousReport}»: {result.incompleteScan.missingHosts.join(', ')}.
-                  Хост мог быть выключен — отсутствие уязвимости в отчёте не значит, что она устранена.
-                </div>
-              )}
               {result.missing.length > 0 && result.status && (
                 <div className="row">
                   <span className="hint">Статус отмеченным ({picked.size}):</span>
@@ -210,12 +197,6 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
               )}
               <div className="hint">В истории каждой записи и в журнале будет ссылка на файл «{file.name}».</div>
               {changed && <div className="note" role="status">Записи изменились, пока окно было открыто. Проверьте число и подтвердите ещё раз.</div>}
-              {preview.incompleteScan && (
-                <label className="check">
-                  <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-                  Понимаю: не все хосты просканированы ({preview.incompleteScan.missingHosts.join(', ')})
-                </label>
-              )}
             </div>
           )}
 
@@ -232,7 +213,7 @@ export function CompareDialog({ reg, importId, file, defaultScope = null, defaul
             </>}
             {step === 'confirm' && <>
               <button className="btn" type="button" onClick={() => setStep('result')} disabled={busy}>Назад</button>
-              <button className="btn primary" type="button" disabled={!preview?.willChange || busy || (!!preview?.incompleteScan && !ack)} onClick={doApply}>
+              <button className="btn primary" type="button" disabled={!preview?.willChange || busy} onClick={doApply}>
                 {busy ? 'Выполняется…' : 'Подтвердить'}
               </button>
             </>}

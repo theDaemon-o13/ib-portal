@@ -13,6 +13,7 @@ import { RegistersPage } from './pages/registers/RegistersPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { StubPage } from './pages/stub/StubPage';
 import { TasksPage } from './pages/tasks/TasksPage';
+import { VulnsPage } from './pages/vulns/VulnsPage';
 
 export function App() {
   return (
@@ -38,6 +39,8 @@ export function App() {
             <Route key={item.path} path="/audit" element={<Section item={item}><AuditPage /></Section>} />
           ) : item.path === '/assessment' ? (
             <Route key={item.path} path="/assessment/:tab?" element={<Section item={item}><AssessmentPage /></Section>} />
+          ) : item.path === '/vulns' ? (
+            <Route key={item.path} path="/vulns/*" element={<Section item={item}><VulnsPage /></Section>} />
           ) : item.path === '/registers' ? (
             <Route key={item.path} path="/registers/:registerId?/:tab?" element={<Section item={item}><RegistersPage /></Section>} />
           ) : (

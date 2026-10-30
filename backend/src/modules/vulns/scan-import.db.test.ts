@@ -431,7 +431,7 @@ describe('импорт скана: отказы', () => {
 });
 
 describe('импорт скана по HTTP', () => {
-  it('records.edit: предпросмотр и применение; без права — 403; прежние маршруты на реестр — 409', () =>
+  it('records.edit: предпросмотр и применение; без права — 403; импорт отчёта на реестр — 409', () =>
     inTx(async (tx) => {
       const PASSWORD = 'Http-Scan-Pass-2026';
       const hash = await argon2Hasher.hash(PASSWORD);
@@ -458,9 +458,7 @@ describe('импорт скана по HTTP', () => {
       expect(applied.json()).toMatchObject({ created: 90 });
 
       const code = (res: { json: () => unknown }) => (res.json() as { error: { code: string } }).error.code;
-      for (const u of [`/api/v1/registers/${x.reg.id}/scan-imports`, `/api/v1/registers/${x.reg.id}/file-imports`]) {
-        const res = await app.inject({ method: 'POST', url: u, body: SAMPLE, headers: file(S) });
-        expect([res.statusCode, code(res)], u).toEqual([409, 'VULN_IMPORT_IN_NODE']);
-      }
+      const old = await app.inject({ method: 'POST', url: `/api/v1/registers/${x.reg.id}/file-imports`, body: SAMPLE, headers: file(S) });
+      expect([old.statusCode, code(old)]).toEqual([409, 'VULN_IMPORT_IN_NODE']);
     }));
 });

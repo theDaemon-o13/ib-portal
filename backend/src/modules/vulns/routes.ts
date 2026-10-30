@@ -17,36 +17,8 @@ import { vulnSectionRoutes } from './section.routes.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
-const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата в формате ГГГГ-ММ-ДД');
 
 const Host = z.object({ name: z.string(), ip: z.string(), os: z.string() });
-const ScanSummary = z.object({
-  fileName: z.string(),
-  sheet: z.string(),
-  department: z.string(),
-  departmentMissing: z.boolean(),
-  reportDate: z.string().nullable(),
-  rows: z.number().int(),
-  created: z.number().int(),
-  merged: z.number().int(),
-  mergedChanged: z.number().int(),
-  inFileDuplicates: z.number().int(),
-  errorRows: z.number().int(),
-  hostsCount: z.number().int(),
-  hosts: z.array(Host),
-  critCounts: z.array(z.object({ key: z.enum(['critical', 'high', 'medium', 'low']), label: z.string(), count: z.number().int() })),
-  newOptions: z.array(z.object({ field: z.string(), values: z.array(z.string()) })),
-  duplicates: z.array(z.object({
-    row: z.number().int(), cve: z.string(), pkg: z.string(), recordId: z.string(), number: z.number().int(),
-    hitsBefore: z.number().nullable(), hitsAfter: z.number().nullable(),
-  })),
-  items: z.array(z.object({
-    row: z.number().int(), cve: z.string(), pkg: z.string(), cvss: z.number().nullable(), score: z.number().nullable(), crit: z.string(),
-  })),
-  errors: z.array(z.object({ row: z.number().int(), field: z.string().nullable(), message: z.string() })),
-  warnings: z.array(z.string()),
-});
-export const ScanPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ScanSummary });
 const ScanReport = z.object({
   id: z.string(), label: z.string(), fileName: z.string(), department: z.string(), reportDate: z.string(), notifiedDate: z.string(),
   rowsTotal: z.number().int(), createdCount: z.number().int(), mergedCount: z.number().int(), hostsCount: z.number().int(),
@@ -55,8 +27,6 @@ const ScanReport = z.object({
 
 const view = requirePerm('ib.work');
 
-/** Отчёт сканера загружается только в узел (ADR-0029): прежние маршруты импорта на реестр отвечают 409. */
-const importInNode = () => conflict('VULN_IMPORT_IN_NODE', 'Отчёт сканера загружают в разделе «Уязвимости», из узла');
 const edit = requirePerm('records.edit');
 
 export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
@@ -70,10 +40,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
       summary: 'Импорт из Excel одной кнопкой: тип файла определяется сам: выгрузка реестра (колонка ID, лист «_поля») — предпросмотр; отчёт сканера (колонки «Пакет» и «CVE») — в реестре уязвимостей 409, его загружают в узел',
       params: IdParams, body: z.any(),
       response: {
-        201: z.discriminatedUnion('format', [
-          z.object({ format: z.literal('scan'), scan: ScanPreview }),
-          z.object({ format: z.literal('records'), records: ImportPreview }),
-        ]),
+        201: z.object({ format: z.literal('records'), records: ImportPreview }),
         ...errors,
       },
     },
@@ -86,38 +53,10 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
       if (!isVulnRegister(reg)) {
         throw badRequest('NOT_VULN_REGISTER', 'Файл распознан как отчёт сканера — его загружают в «Реестр уязвимостей»');
       }
-      throw importInNode();
+      // Отчёт сканера загружается только в узел (ADR-0029).
+      throw conflict('VULN_IMPORT_IN_NODE', 'Отчёт сканера загружают в разделе «Уязвимости», из узла');
     }
     return reply.status(201).send({ format, records: await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName) });
-  });
-
-  app.post('/registers/:id/scan-imports', {
-    preHandler: edit,
-    bodyLimit: IMPORT_BODY_LIMIT,
-    schema: { tags: ['vulns'], summary: 'Устарел с 1.5.0 — 409: отчёт сканера загружают в узел', params: IdParams, body: z.any(), response: { 201: ScanPreview, ...errors } },
-  }, async () => {
-    throw importInNode();
-  });
-
-  app.get('/scan-imports/:id', {
-    preHandler: edit,
-    schema: { tags: ['vulns'], summary: 'Устарел с 1.5.0 — 409', params: IdParams, response: { 200: ScanPreview.extend({ registerId: z.string() }), ...errors } },
-  }, async () => {
-    throw importInNode();
-  });
-
-  app.post('/scan-imports/:id/apply', {
-    preHandler: edit,
-    schema: {
-      tags: ['vulns'], summary: 'Устарел с 1.5.0 — 409', params: IdParams,
-      body: z.object({ reportDate: IsoDate.nullable().optional(), notifiedDate: IsoDate.nullable().optional(), systemId: z.string().uuid().nullable().optional() }),
-      response: {
-        200: z.object({ reportId: z.string(), label: z.string(), created: z.number().int(), merged: z.number().int(), updated: z.number().int(), skipped: z.number().int() }),
-        ...errors,
-      },
-    },
-  }, async () => {
-    throw importInNode();
   });
 
   app.get('/registers/:id/scan-reports', {

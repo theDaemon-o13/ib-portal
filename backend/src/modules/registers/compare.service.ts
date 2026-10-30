@@ -47,7 +47,6 @@ export interface MissingRecord {
 export interface CompareResult {
   importId: string;
   file: { id: string; name: string; sha256: string };
-  format: 'records' | 'scan';
   /** Поля ключа по порядку; пусто — по колонке ID. */
   key: { id: string; label: string }[];
   scope: { all: true; label: string } | { conditions: { fieldId: string; label: string; values: { id: string; label: string }[] }[]; label: string };
@@ -59,8 +58,6 @@ export interface CompareResult {
   outOfScopeRows: number;
   /** Строки файла, ключ которых не разобран (пусто или ошибка ячейки). */
   badKeyRows: number;
-  /** Отчёт сканера: хосты прошлого отчёта, которых нет в листе «Хосты» этого. null — проверять не с чем. */
-  incompleteScan: { previousReport: string; missingHosts: string[] } | null;
   /** Поле статуса и его значения — для простановки. */
   status: { fieldId: string; options: { id: string; label: string; isClosed: boolean }[] } | null;
 }
@@ -86,7 +83,7 @@ interface Computed extends CompareResult {
   values: Map<string, { version: number; values: Values }>;
 }
 
-async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string; payload: unknown }, buffer: Buffer, file: CompareResult['file'], scope: CompareScope): Promise<Computed> {
+async function compute(db: Db, reg: RegisterDef, imp: { id: string }, buffer: Buffer, file: CompareResult['file'], scope: CompareScope): Promise<Computed> {
   const keyFields = reg.compareKeyFieldIds.map((id) => reg.fields.find((f) => f.id === id && !f.archived)).filter((f): f is FieldMeta => !!f);
   const byId = keyFields.length === 0;
   // Область: проверка по настройкам реестра.
@@ -103,19 +100,17 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
 
   // Строки файла → значения полей ключа и области.
   const fileRows: { values: Map<string, StoredValue | null>; number: number | null; badKey: boolean }[] = [];
-  {
-    const { wb, ws } = await openRegisterSheet(buffer);
-    const { cols } = mapColumns(wb, ws, reg, []);
-    const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0];
-    if (byId && idCol === undefined) throw badRequest('NO_ID_COLUMN', 'Ключ сравнения — ID, а в файле нет колонки ID. Задайте ключ сравнения в настройках реестра');
-    const missingCols = keyFields.filter((f) => ![...cols.values()].some((c) => c.field?.id === f.id));
-    if (missingCols.length) throw badRequest('NO_KEY_COLUMN', `В файле нет колонок ключа сравнения: ${missingCols.map((f) => `«${f.label}»`).join(', ')}`);
-    for (const row of await readFileRows(db, reg, ws, cols)) {
-      const values = new Map<string, StoredValue | null>(row.values.map((v) => [v.field.id, v.value]));
-      const idText = idCol !== undefined ? String(row.row.getCell(idCol).value ?? '').trim() : '';
-      const number = /^\d+$/.test(idText) ? Number(idText) : null;
-      fileRows.push({ values, number, badKey: byId ? number === null : keyFields.some((f) => !values.has(f.id)) });
-    }
+  const { wb, ws } = await openRegisterSheet(buffer);
+  const { cols } = mapColumns(wb, ws, reg, []);
+  const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0];
+  if (byId && idCol === undefined) throw badRequest('NO_ID_COLUMN', 'Ключ сравнения — ID, а в файле нет колонки ID. Задайте ключ сравнения в настройках реестра');
+  const missingCols = keyFields.filter((f) => ![...cols.values()].some((c) => c.field?.id === f.id));
+  if (missingCols.length) throw badRequest('NO_KEY_COLUMN', `В файле нет колонок ключа сравнения: ${missingCols.map((f) => `«${f.label}»`).join(', ')}`);
+  for (const row of await readFileRows(db, reg, ws, cols)) {
+    const values = new Map<string, StoredValue | null>(row.values.map((v) => [v.field.id, v.value]));
+    const idText = idCol !== undefined ? String(row.row.getCell(idCol).value ?? '').trim() : '';
+    const number = /^\d+$/.test(idText) ? Number(idText) : null;
+    fileRows.push({ values, number, badKey: byId ? number === null : keyFields.some((f) => !values.has(f.id)) });
   }
 
   // Записи реестра: открытые (не в архиве, не закрыты).
@@ -174,7 +169,7 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
 
   const st = statusField(reg);
   return {
-    importId: imp.id, file, format: 'records',
+    importId: imp.id, file,
     key: keyFields.map((f) => ({ id: f.id, label: f.label })),
     scope: where.length
       ? (() => {
@@ -185,7 +180,7 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
         return { conditions, label: scopeLabel(conditions.map((c) => ({ label: c.label, values: c.values.map((v) => v.label) }))) };
       })()
       : { all: true, label: 'Весь реестр' },
-    missing, noKey, outOfScopeRows, badKeyRows, incompleteScan: null,
+    missing, noKey, outOfScopeRows, badKeyRows,
     status: st ? { fieldId: st.id, options: st.options.filter((o) => !o.archived).map((o) => ({ id: o.id, label: o.label, isClosed: o.isClosed })) } : null,
     missingIds: new Set(missing.map((m) => m.id)), values,
   };
@@ -203,8 +198,8 @@ function assertNotVulns(reg: RegisterDef) {
 }
 
 const toResult = (c: Computed): CompareResult => ({
-  importId: c.importId, file: c.file, format: c.format, key: c.key, scope: c.scope, missing: c.missing,
-  noKey: c.noKey, outOfScopeRows: c.outOfScopeRows, badKeyRows: c.badKeyRows, incompleteScan: c.incompleteScan, status: c.status,
+  importId: c.importId, file: c.file, key: c.key, scope: c.scope, missing: c.missing,
+  noKey: c.noKey, outOfScopeRows: c.outOfScopeRows, badKeyRows: c.badKeyRows, status: c.status,
 });
 
 /** Сравнение: файл из окна импорта (sha256 = предпросмотр), область — обязательно. Записи не меняются. */
@@ -225,8 +220,8 @@ export async function compareWithRegister(db: Db, store: FileStore, actor: Actor
   const c = await compute(db, reg, imp, buffer, file, scope);
   await auditSettings(db, actor, {
     action: 'register.compare.run', entity: 'register', entityId: reg.id,
-    summary: `«${reg.name}»: сравнение с файлом «${file.name}» (${c.scope.label}) — нет в файле ${c.missing.length}${c.incompleteScan ? `; неполный скан: нет хостов ${c.incompleteScan.missingHosts.length}` : ''}`,
-    after: { importId, fileId: file.id, sha256, key: c.key.map((k) => k.id), scope, missing: c.missing.length, noKey: c.noKey, incompleteScan: c.incompleteScan },
+    summary: `«${reg.name}»: сравнение с файлом «${file.name}» (${c.scope.label}) — нет в файле ${c.missing.length}`,
+    after: { importId, fileId: file.id, sha256, key: c.key.map((k) => k.id), scope, missing: c.missing.length, noKey: c.noKey },
   });
   return toResult(c);
 }
@@ -240,7 +235,6 @@ export interface StatusPreview {
   total: number;
   willChange: number;
   skipped: { number: number | null; reason: string }[];
-  incompleteScan: CompareResult['incompleteScan'];
 }
 
 async function planStatus(db: Db, store: FileStore, importId: string, scope: CompareScope, changes: StatusChange[], reason: string | null) {
@@ -285,21 +279,18 @@ async function planStatus(db: Db, store: FileStore, importId: string, scope: Com
 
 export async function previewCompareStatus(db: Db, store: FileStore, importId: string, scope: CompareScope, changes: StatusChange[], reason: string | null): Promise<StatusPreview> {
   const p = await planStatus(db, store, importId, scope, changes, reason);
-  return { total: changes.length, willChange: p.apply.length, skipped: p.skipped, incompleteScan: p.c.incompleteScan };
+  return { total: changes.length, willChange: p.apply.length, skipped: p.skipped };
 }
 
 export async function applyCompareStatus(
   db: Db, store: FileStore, actor: Actor, importId: string, scope: CompareScope, changes: StatusChange[],
-  opts: { expected: { willChange: number }; reason: string | null; acknowledgeIncompleteScan: boolean },
+  opts: { expected: { willChange: number }; reason: string | null },
 ): Promise<{ changed: number; skipped: number }> {
   const p = await planStatus(db, store, importId, scope, changes, opts.reason);
   if (p.apply.length !== opts.expected.willChange) {
     throw new AppError(409, 'BULK_CHANGED', 'Записи изменились после предпросмотра — проверьте числа и подтвердите ещё раз', {
-      preview: { total: changes.length, willChange: p.apply.length, skipped: p.skipped, incompleteScan: p.c.incompleteScan },
+      preview: { total: changes.length, willChange: p.apply.length, skipped: p.skipped },
     });
-  }
-  if (p.c.incompleteScan && !opts.acknowledgeIncompleteScan) {
-    throw conflict('INCOMPLETE_SCAN', `Неполный скан: в отчёте нет хостов ${p.c.incompleteScan.missingHosts.join(', ')}. Подтвердите, что понимаете это`);
   }
   const meta = { via: 'compare', importId, fileId: p.c.file.id, sha256: p.c.file.sha256, fileName: p.c.file.name };
   let changed = 0;
@@ -312,11 +303,10 @@ export async function applyCompareStatus(
   const label = (id: string) => p.st.options.find((o) => o.id === id)?.label ?? '?';
   await auditSettings(db, actor, {
     action: 'register_records.compare_status', entity: 'register', entityId: p.reg.id,
-    summary: `«${p.reg.name}»: по сравнению с файлом «${p.c.file.name}» статус изменён у ${changed} записей${p.skipped.length ? `, пропущено ${p.skipped.length}` : ''}${p.c.incompleteScan ? ' (неполный скан подтверждён)' : ''}`,
+    summary: `«${p.reg.name}»: по сравнению с файлом «${p.c.file.name}» статус изменён у ${changed} записей${p.skipped.length ? `, пропущено ${p.skipped.length}` : ''}`,
     after: {
       ...meta, scope, changed, skipped: p.skipped.length,
       changes: p.apply.map((a) => ({ recordId: a.recordId, number: a.number, status: label(a.optionId) })),
-      incompleteScan: p.c.incompleteScan,
     },
   });
   return { changed, skipped: p.skipped.length };

@@ -7,7 +7,6 @@ export const rkeys = {
   history: (id: string) => ['registers', 'history', id] as const,
   decisions: (id: string) => ['registers', 'decisions', id] as const,
   analytics: (id: string) => ['registers', 'analytics', id] as const,
-  scanReports: (id: string) => ['registers', 'scanReports', id] as const,
   rules: (id: string) => ['registers', 'rules', id] as const,
   /** Все события реестра (журнал и карточки записей). */
   events: (id: string) => ['registers', 'events', id] as const,

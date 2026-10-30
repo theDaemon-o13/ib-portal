@@ -253,6 +253,7 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
       tags: ['vulns'], summary: 'Счётчики раздела: по узлам (открыто, просрочено, критических, не передано ИКТ), сканы узлов, сканы, ждущие передачи',
       response: {
         200: z.object({
+          registerId: z.string(),
           nodes: z.array(NodeStats),
           awaiting: z.array(z.object({ id: z.string(), nodeId: z.string(), nodeLabel: z.string(), scanDate: z.string(), fileName: z.string(), createdAt: z.string() })),
         }),

@@ -19,6 +19,7 @@ import {
 } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { auditSettings, type Actor } from '../settings/common.js';
+import { isVulnRegister } from '../vulns/definition.js';
 import { applyDerived } from '../vulns/derive.js';
 import {
   assertNotArchived,
@@ -586,6 +587,11 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
         payload.updates.push({ row: rowNumber, recordId: rec.id, number: rec.number, version: rec.version, changes });
         matches.push({ row: rowNumber, key: matchRaw, number: rec.number, action: 'update' });
       }
+    } else if (isVulnRegister(reg)) {
+      // Записи уязвимостей появляются из сканов и переносом (ADR-0029): без узла запись потеряется.
+      errorRows++;
+      issue({ row: rowNumber, id: '', field: 'ID', message: 'Новые записи реестра уязвимостей появляются из сканов — пустой ID здесь не создаёт запись' });
+      matches.push({ row: rowNumber, key: matchRaw, number: null, action: 'error' });
     } else {
       payload.creates.push({ row: rowNumber, values: changes });
       matches.push({ row: rowNumber, key: matchRaw, number: null, action: 'add' });

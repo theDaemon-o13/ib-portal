@@ -60,6 +60,7 @@ export async function overview(db: Db) {
   const nodes = await db.vulnNode.findMany({ include: { group: true, systemType: true } });
   const labels = new Map(nodes.map((n) => [n.id, nodeLabel(n)]));
   return {
+    registerId: reg.id,
     nodes: nodes.map((n) => {
       const own = scans.filter((s) => s.nodeId === n.id);
       const first = own[0];

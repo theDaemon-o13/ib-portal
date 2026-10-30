@@ -153,6 +153,35 @@ describe('уязвимости: перенос прежнего реестра �
     }));
 });
 
+describe('уязвимости: страница «Реестры»', () => {
+  it('новые записи только из сканов: создание по API — 409, пустой ID в обратном импорте — ошибка строки; правка по ID работает', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      const r = await legacyRecord(tx, x, { pkg: 'Curl', cve: 'CVE-2024-2222', notified: '2026-10-01' });
+      await seedVulnLegacy(tx);
+      await x.reload();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load((await excel.exportRegister(tx, x.reg.id)).buffer as unknown as ExcelJS.Buffer);
+      const ws = must(wb.getWorksheet('Реестр'));
+      let col = 0;
+      ws.getRow(1).eachCell((c, i) => {
+        if (c.value === x.vf.comment.label) col = i;
+      });
+      for (let i = 2; i <= ws.rowCount; i++) if (ws.getRow(i).getCell(1).value === r.number) ws.getRow(i).getCell(col).value = 'Комментарий ДИКТ';
+      const added = ws.addRow([]);
+      added.getCell(col).value = 'Без ID';
+      const p = await excel.previewImport(tx, x.actor, x.reg.id, Buffer.from(await wb.xlsx.writeBuffer()), 'ДИКТ.xlsx');
+      expect([p.summary.added, p.summary.updated, p.summary.errorRows]).toEqual([0, 1, 1]);
+
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL });
+      const staff = await makeUser(tx, ['ib_staff'], { passwordHash: await argon2Hasher.hash(PASSWORD) });
+      const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: staff.login, password: PASSWORD } });
+      const cookie = `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;
+      const created = await app.inject({ method: 'POST', url: `/api/v1/registers/${x.reg.id}/records`, headers: { cookie, origin: TEST_PORTAL_URL }, payload: { values: { [x.vf.cve.id]: 'CVE-1' } } });
+      expect([created.statusCode, (created.json() as { error: { code: string } }).error.code]).toEqual([409, 'VULN_CREATE_IN_NODE']);
+    }));
+});
+
 describe('уязвимости: «Перенести» из «Без группы»', () => {
   async function setup(tx: Tx) {
     const x = await vulnRegister(tx);
