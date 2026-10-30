@@ -2,16 +2,17 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
-import { KIOSK_PERMISSION, PERMISSION_CODES } from '../../lib/permissions.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requireAnyPerm } from '../../plugins/rbac.js';
+import { requireAuth } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
 const tags = ['notifications'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse };
 /** Любой вошедший пользователь, кроме настенного монитора. */
-const anyUser = requireAnyPerm(PERMISSION_CODES.filter((c) => c !== KIOSK_PERMISSION));
+// Любой вошедший (релиз 1.4.0): «Читатель документов» без прав и переводчик тоже получают уведомления.
+// Данные — только свои: каждый маршрут берёт id пользователя из сессии. Настенный монитор сюда не попадает (auth).
+const anyUser = requireAuth();
 
 const Notification = z.object({
   id: z.string(),

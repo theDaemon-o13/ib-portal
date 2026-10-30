@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ApiError } from './api/client';
+import { nkeys } from './api/notifications';
 import { App } from './App';
 import { installInputTracking, markExpired } from './auth/session';
 import { ME_KEY } from './auth/useMe';
@@ -25,9 +26,10 @@ const onApiError = (error: unknown) => {
   }
 };
 
-const queryClient = new QueryClient({
+const queryClient: QueryClient = new QueryClient({
   queryCache: new QueryCache({ onError: onApiError }),
-  mutationCache: new MutationCache({ onError: onApiError }),
+  // После любого успешного действия — пересчитать «ждёт вашего действия» (меню и колокольчик, релиз 1.4.0).
+  mutationCache: new MutationCache({ onError: onApiError, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: nkeys.attention }); } }),
   defaultOptions: { queries: { refetchOnWindowFocus: true } },
 });
 

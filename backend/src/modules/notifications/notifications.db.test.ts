@@ -257,4 +257,58 @@ describe('уведомления по HTTP', () => {
     }));
 });
 
+describe('индикаторы и уведомления по HTTP (1.4.0)', () => {
+  it('«Читатель документов» без прав: свои уведомления видит, чужие — нет; /me/attention — нули; два пользователя — разные цифры; срок цифру не меняет', () =>
+    inTx(async (tx) => {
+      const PASSWORD = 'Attention-Test-Pass-2026';
+      const hash = await argon2Hasher.hash(PASSWORD);
+      const x = await team(tx);
+      const reader = await makeUser(tx, ['doc_reader'], { fullName: 'Читатель', passwordHash: hash });
+      await tx.user.updateMany({ where: { id: { in: [x.lead.id, x.boss.id, x.staff.id] } }, data: { passwordHash: hash } });
+      const wall = await makeUser(tx, ['kiosk'], { passwordHash: hash });
+      // Уведомления: читателю — своё, руководителю группы — своё (например, о документе и сроке).
+      await svc.notify(tx, { kind: 'doc_translation', to: [reader.id], title: 'Документ ждёт перевода', actorId: x.boss.id });
+      await svc.notify(tx, { kind: 'doc_commented', to: [x.lead.id], title: 'Чужое уведомление', actorId: x.boss.id });
+      // Задача на проверке у руководителя группы.
+      let t = await tasks.createTask(tx, x.B, { title: 'На проверку', categoryId: x.project.id, assigneeId: x.staff.id });
+      t = await runAction(tx, x.S, t.id, 'start', { version: t.version });
+      await runAction(tx, x.S, t.id, 'submit', { version: t.version, comment: 'готово' });
+
+      const app = await buildApp({
+        db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher,
+        sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, logger: { level: 'silent' },
+        trustProxy: '172.31.250.6', kioskAllowedIps: parseIpList('10.20.30.40'),
+      });
+      const login = async (l: string, ip = '10.0.0.5') => {
+        const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD }, remoteAddress: '172.31.250.6', headers: { 'x-forwarded-for': ip } });
+        return `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;
+      };
+      const get = (cookie: string, url: string) => app.inject({ url, headers: { cookie } });
+      const R = await login(reader.login);
+      const L = await login(x.lead.login);
+      const B = await login(x.boss.login);
+
+      const readerList = await get(R, '/api/v1/notifications');
+      expect(readerList.statusCode).toBe(200);
+      expect((readerList.json() as { items: { title: string }[] }).items.map((n) => n.title)).toEqual(['Документ ждёт перевода']);
+      expect((await get(R, '/api/v1/notifications/count')).json()).toEqual({ unread: 1 });
+      const leadItems = (await get(L, '/api/v1/notifications')).json() as { items: { id: string }[] };
+      expect((await app.inject({ method: 'POST', url: `/api/v1/notifications/${leadItems.items[0]?.id}/read`, headers: { cookie: R } })).statusCode).toBe(404);
+      expect((await get(R, '/api/v1/me/attention')).json()).toEqual({ tasks: 0, documents: 0, total: 0 });
+
+      const lead = (await get(L, '/api/v1/me/attention')).json() as { tasks: number; documents: number; total: number };
+      const boss = (await get(B, '/api/v1/me/attention')).json() as { tasks: number; documents: number; total: number };
+      expect([lead.tasks, boss.tasks]).toEqual([1, 0]);
+      expect(lead.total).toBe(lead.tasks + lead.documents);
+
+      // «Срок завтра» и «просрочено» — уведомления, а не действие: цифра не меняется.
+      await svc.notify(tx, { kind: 'task_due_tomorrow', to: [x.lead.id], taskId: t.id, title: 'Срок завтра', actorId: null, dedupeKey: `t:${t.id}` });
+      await svc.notify(tx, { kind: 'task_overdue', to: [x.lead.id], taskId: t.id, title: 'Просрочено', actorId: null, dedupeKey: `o:${t.id}` });
+      expect((await get(L, '/api/v1/me/attention')).json()).toEqual(lead);
+
+      const K = await login(wall.login, '10.20.30.40');
+      expect((await app.inject({ url: '/api/v1/me/attention', remoteAddress: '172.31.250.6', headers: { cookie: K, 'x-forwarded-for': '10.20.30.40' } })).statusCode).toBe(403);
+    }));
+});
+
 const overdueWord = () => [1, 3, 5, 11, 22].map(svc.overdueCountLabel);

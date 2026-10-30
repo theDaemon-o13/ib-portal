@@ -5,7 +5,11 @@ import type { paths } from './generated/schema';
 export type NotificationPage = JsonOf<paths['/api/v1/notifications']['get']['responses'][200]>;
 export type PortalNotification = NotificationPage['items'][number];
 
+/** Что ждёт действия пользователя (1.4.0): задачи на его проверке, документы «ждут вас», сумма — колокольчик. */
+export type Attention = JsonOf<paths['/api/v1/me/attention']['get']['responses'][200]>;
+
 export const notificationsApi = {
+  attention: () => request<Attention>('GET', '/api/v1/me/attention'),
   list: (unread: boolean, cursor?: string) =>
     request<NotificationPage>('GET', `/api/v1/notifications?limit=20${unread ? '&unread=true' : ''}${cursor ? `&cursor=${cursor}` : ''}`),
   count: () => request<{ unread: number }>('GET', '/api/v1/notifications/count'),
@@ -15,6 +19,8 @@ export const notificationsApi = {
 
 export const nkeys = {
   all: ['notifications'] as const,
+  /** Меню и колокольчик делят один запрос; после любого успешного действия обновляется (main.tsx). */
+  attention: ['attention'] as const,
   count: ['notifications', 'count'] as const,
   list: (unread: boolean) => ['notifications', 'list', unread] as const,
 };
@@ -23,12 +29,12 @@ export const nkeys = {
 export const NOTIFY_POLL_MS = 45_000;
 const PORTAL_TITLE = 'Портал ИБ';
 
-/** Заголовок вкладки: «(3) Портал ИБ»; без непрочитанных — «Портал ИБ». */
-export function tabTitle(unread: number): string {
-  return unread > 0 ? `(${unread > 99 ? '99+' : unread}) ${PORTAL_TITLE}` : PORTAL_TITLE;
+/** Заголовок вкладки: «(3) Портал ИБ» — сколько ждёт вашего действия; ничего — «Портал ИБ». */
+export function tabTitle(waiting: number): string {
+  return waiting > 0 ? `(${waiting > 99 ? '99+' : waiting}) ${PORTAL_TITLE}` : PORTAL_TITLE;
 }
 
-export const badge = (unread: number) => (unread > 99 ? '99+' : String(unread));
+export const badge = (n: number) => (n > 99 ? '99+' : String(n));
 
 /** «только что», «5 мин назад», «сегодня, 14:20», «вчера, 14:20», «27.10.2026, 14:20». */
 export function whenLabel(iso: string, now = new Date()): string {

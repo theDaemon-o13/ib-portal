@@ -253,7 +253,7 @@ describe('Документы: маршрут 1.2.0', () => {
     // Начальник ИБ: счётчик «ждёт вас»; «Согласовать» — только с файлом версии.
     await loginAs(users.head);
     await openDocs(id);
-    await ui.waitFor(`Number(document.querySelector('nav .nav-n.acc')?.textContent) >= 1`, 'счётчик «ждёт вас» у «Документы»');
+    await ui.waitFor(`Number(document.querySelector('[data-testid=nav-docs-n]')?.textContent) >= 1`, 'счётчик «ждёт вас» у «Документы»');
     await ui.click($.button('Согласовать', panel));
     assert.equal(await ui.evaluate(`!!${$.button('Согласовать', `${panel}.querySelector('form')`)}`), false, 'без файла кнопка неактивна');
     await pickInForm('Согласовать', 'Одобрено.pdf');

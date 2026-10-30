@@ -1,4 +1,5 @@
 // Уведомления (релиз 1.2.0, ADR-0023): значок в меню, число в заголовке вкладки, список, переход к задаче, «Прочитать все».
+// С 1.4.0 число на значке и в заголовке — «ждёт вашего действия» (GET /me/attention), непрочитанные — только в списке.
 // Пользователи прогона: начальник ИБ и его подчинённый; создаёт их супер-администратор из E2E_LOGIN.
 //
 //   npm run test:e2e   (логин и пароль — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
@@ -78,47 +79,68 @@ after(async () => {
 });
 
 describe('Уведомления', () => {
-  it('исполнитель: значок и «(1) Портал ИБ», щелчок открывает задачу и гасит значок', async () => {
+  it('исполнитель: назначение — уведомление в списке (выделено), на значке и в заголовке цифры нет; щелчок открывает задачу', async () => {
     const category = (await api('GET', '/api/v1/catalogs/task_categories/items')).items.find((c) => !c.systemKey);
     task = await api('POST', '/api/v1/tasks', { title: `${RUN} проверить доступ`, categoryId: category.id, assigneeId: staff.id });
     staff.password = await loginAs(staff.login, staff.password);
     await ui.goto(`/dashboard?n=${++navSeq}`);
-    await ui.waitFor(`document.querySelector('[data-testid=bell-count]')?.textContent === '1'`, 'значок: 1');
-    await ui.waitFor(`document.title === '(1) Портал ИБ'`, 'число в заголовке вкладки');
+    // Цифра на значке — только «ждёт вашего действия» (1.4.0): у исполнителя ничего не ждёт его проверки.
+    const att = await api('GET', '/api/v1/me/attention');
+    assert.deepEqual([att.tasks, att.total], [0, att.documents]);
+    await ui.waitFor(`document.querySelectorAll('nav.nav a').length > 0`, 'меню');
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=bell-count]')?.textContent ?? null`), att.total ? String(att.total) : null, 'на значке — сумма «ждёт вашего действия»');
+    assert.equal(await ui.evaluate(`!!document.querySelector('[data-testid=nav-tasks-n]')`), false, 'у «Задачи» цифры нет');
     await ui.click(bell, 'значок');
-    await ui.waitFor(`!!${item(`${RUN} проверить доступ`)}`, 'уведомление в списке');
+    await ui.waitFor(`${item(`${RUN} проверить доступ`)}?.classList.contains('unread')`, 'непрочитанное выделено в списке');
+    assert.match(await ui.text(`[...${pop}.querySelectorAll('.notif-tabs button')][0]`), /^Непрочитанные · \d+$/);
     assert.match(await ui.text(item(`${RUN} проверить доступ`)), /Вам назначена задача .*Назначил: Начальник Уведомлений/);
     const m = ui.mark();
     await ui.click(item(`${RUN} проверить доступ`));
     assert.equal((await ui.request(m, 'POST', '/read')).status, 204);
     await ui.waitFor(`location.pathname === '/tasks' && location.search.includes(${JSON.stringify(task.id)})`, 'переход к задаче');
     await ui.waitFor(`!!document.querySelector('aside.drawer form.task-form')`, 'карточка задачи');
-    await ui.waitFor(`!document.querySelector('[data-testid=bell-count]') && document.title === 'Портал ИБ'`, 'значок погас');
 
-    // Шаги процесса: в работу и на проверку — уведомление руководителю.
+    // Шаги процесса: в работу и на проверку — проверяет руководитель (начальник прогона).
     let t = await api('POST', `/api/v1/tasks/${task.id}/actions/start`, { version: (await api('GET', `/api/v1/tasks/${task.id}`)).version });
     t = await api('POST', `/api/v1/tasks/${task.id}/actions/submit`, { version: t.version, comment: 'Доступ проверен' });
+    assert.equal(t.reviewer?.id, head.id);
     task = t;
   });
 
-  it('руководитель-проверяющий: «ждёт вашей проверки» с комментарием; «Прочитать все» обнуляет; о своём действии — ничего', async () => {
+  it('проверяющий: на значке, в заголовке и у «Задачи» — 1; «Прочитать все» цифру не меняет; принял — цифра пропала; у исполнителя — 0', async () => {
     head.password = await loginAs(head.login, head.password);
     await ui.goto(`/dashboard?n=${++navSeq}`);
-    await ui.waitFor(`document.querySelector('[data-testid=bell-count]')?.textContent === '1'`, 'значок: 1');
+    const att = await api('GET', '/api/v1/me/attention');
+    assert.equal(att.tasks, 1, 'одна задача на проверке у начальника');
+    const total = String(att.total);
+    await ui.waitFor(`document.querySelector('[data-testid=bell-count]')?.textContent === ${JSON.stringify(total)}`, `значок: ${total}`);
+    await ui.waitFor(`document.title === ${JSON.stringify(`(${total}) Портал ИБ`)}`, 'число в заголовке вкладки');
+    await ui.waitFor(`document.querySelector('[data-testid=nav-tasks-n]')?.textContent === '1'`, '«Задачи»: 1');
+
     await ui.click(bell, 'значок');
     await ui.waitFor(`${item('ждёт вашей проверки')}?.textContent.includes('Доступ проверен')`, '«ждёт вашей проверки» с комментарием');
     const m = ui.mark();
     await ui.click($.button('Прочитать все', pop));
     assert.deepEqual((await ui.request(m, 'POST', '/notifications/read-all')).status, 200);
-    await ui.waitFor(`!document.querySelector('[data-testid=bell-count]') && document.title === 'Портал ИБ'`, 'значок погас');
     await ui.waitFor(`${pop}?.textContent.includes('Новых уведомлений нет')`, 'непрочитанных нет');
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=bell-count]')?.textContent`), total, 'прочитанные уведомления не меняют цифру: задача всё ещё ждёт проверки');
     await ui.click(`[...${pop}.querySelectorAll('.notif-tabs button')].find((b) => b.textContent === 'Все')`);
     await ui.waitFor(`!!${item('ждёт вашей проверки')} && !${item('ждёт вашей проверки')}.classList.contains('unread')`, 'во «Все» — прочитанным');
     await ui.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
     await ui.waitFor(`!${pop}`, 'панель закрыта');
 
-    // Начальник принимает — уведомление получает исполнитель, сам начальник — нет.
-    await api('POST', `/api/v1/tasks/${task.id}/actions/accept`, { version: task.version, comment: 'Принято' });
+    // Начальник принимает в карточке — цифра пропадает сразу (действие пересчитывает «ждёт вашего действия»).
+    await ui.goto(`/tasks?task=${task.id}&n=${++navSeq}`);
+    await ui.waitFor(`!!document.querySelector('aside.drawer .process')`, 'карточка проверки');
+    await ui.click($.button('Принять', `document.querySelector('aside.drawer')`));
+    await ui.type(`document.querySelector('aside.drawer textarea[aria-label="Комментарий к шагу"]')`, 'Принято');
+    const acc = ui.mark();
+    await ui.click($.button('Принять', `document.querySelector('aside.drawer')`));
+    assert.equal((await ui.request(acc, 'POST', `/api/v1/tasks/${task.id}/actions/accept`)).status, 200);
+    await ui.waitFor(`!document.querySelector('[data-testid=nav-tasks-n]')`, '«Задачи»: цифры нет');
+    const after = await api('GET', '/api/v1/me/attention');
+    assert.equal(after.tasks, 0);
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=bell-count]')?.textContent ?? null`), after.total ? String(after.total) : null);
     const count = await api('GET', '/api/v1/notifications/count');
     assert.equal(count.unread, 0, 'о собственном действии уведомления нет');
   });

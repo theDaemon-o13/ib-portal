@@ -2,11 +2,18 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { badge, nkeys, notificationsApi, NOTIFY_POLL_MS, tabTitle, whenLabel, type PortalNotification } from '../api/notifications';
+
+/** «Ждёт вашего действия» — один запрос на меню и колокольчик (одинаковый ключ). Монитору и до входа не вызывается. */
+export function useAttention(enabled = true) {
+  return useQuery({ queryKey: nkeys.attention, queryFn: notificationsApi.attention, refetchInterval: NOTIFY_POLL_MS, enabled });
+}
 import { Overlay } from './Overlay';
 import { useToast } from './Toast';
 
 /**
- * Значок уведомлений в меню (релиз 1.2.0, ADR-0023): число непрочитанных, оно же в заголовке вкладки «(3) Портал ИБ».
+ * Значок уведомлений в меню (релиз 1.2.0, ADR-0023). С 1.4.0 число на значке и в заголовке вкладки «(3) Портал ИБ» —
+ * сколько ждёт вашего действия: задачи на вашей проверке + документы «ждут вас» (GET /me/attention, решение владельца).
+ * Непрочитанные уведомления на значке не показываются — только выделением в открытом списке.
  * Опрос раз в 45 с фоновым запросом (сессию не продлевает); в скрытой вкладке — пауза, при возвращении — сразу.
  * Всплывающих сообщений нет (решение владельца В-6).
  */
@@ -18,7 +25,10 @@ export function NotificationBell() {
   const [unreadOnly, setUnreadOnly] = useState(true);
   const box = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLElement>(null);
-  const count = useQuery({ queryKey: nkeys.count, queryFn: notificationsApi.count, refetchInterval: NOTIFY_POLL_MS });
+  const attention = useAttention();
+  const waiting = attention.data?.total ?? 0;
+  // Непрочитанные — только для открытого списка («Непрочитанные · N», «Прочитать все»).
+  const count = useQuery({ queryKey: nkeys.count, queryFn: notificationsApi.count, enabled: open });
   const unread = count.data?.unread ?? 0;
   const list = useInfiniteQuery({
     queryKey: nkeys.list(unreadOnly),
@@ -29,9 +39,9 @@ export function NotificationBell() {
   });
 
   useEffect(() => {
-    document.title = tabTitle(unread);
+    document.title = tabTitle(waiting);
     return () => { document.title = tabTitle(0); };
-  }, [unread]);
+  }, [waiting]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
@@ -65,12 +75,14 @@ export function NotificationBell() {
 
   return (
     <div className="bell-wrap" ref={box}>
-      <button type="button" className={`bell${unread ? ' has' : ''}`} aria-haspopup="dialog" aria-expanded={open}
-        aria-label={unread ? `Уведомления: непрочитанных ${unread}` : 'Уведомления'} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className={`bell${waiting ? ' has' : ''}`} aria-haspopup="dialog" aria-expanded={open}
+        aria-label={waiting ? `Уведомления; ждут вашего действия: ${waiting}` : 'Уведомления'}
+        title={attention.data && waiting ? `Ждут вашего действия: задачи на проверке — ${attention.data.tasks}, документы — ${attention.data.documents}` : undefined}
+        onClick={() => setOpen((v) => !v)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
           <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" />
         </svg>
-        {unread > 0 && <span className="bell-n" data-testid="bell-count">{badge(unread)}</span>}
+        {waiting > 0 && <span className="bell-n" data-testid="bell-count">{badge(waiting)}</span>}
       </button>
       {/* Панель — в <body>: внутри стеклянного меню position: fixed и размытие отсчитываются от меню. */}
       {open && (

@@ -141,7 +141,9 @@ describe('Доска задач', () => {
     await ui.waitFor(`${card('просроченная')}?.classList.contains('late')`, 'просроченная выделена');
     assert.match(await ui.text(card('просроченная')), /просрочено · 10\.01\.2020/);
     assert.equal(await ui.evaluate(`!!${card('срочная')}.querySelector('.chip.crit')`), true, 'срочная — с меткой «срочно»');
-    await ui.waitFor(`Number(document.querySelector('nav .nav-n')?.textContent) >= 1`, 'счётчик просроченных у «Задачи»');
+    // С 1.4.0 у «Задачи» — только задачи на вашей проверке; просроченные — на доске и дашборде, не цифрой в меню.
+    const att = await api('GET', '/api/v1/me/attention');
+    await ui.waitFor(att.tasks ? `document.querySelector('[data-testid=nav-tasks-n]')?.textContent === '${att.tasks}'` : `!document.querySelector('[data-testid=nav-tasks-n]')`, 'цифра у «Задачи» = задачам на моей проверке');
   });
 
   it('перетаскивание мышью меняет статус; фильтр по категории', async () => {

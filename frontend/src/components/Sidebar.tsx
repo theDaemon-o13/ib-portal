@@ -1,14 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { authApi, type Me } from '../api/client';
-import { docsApi, dkeys } from '../api/documents';
 import { evidenceApi, ekeys } from '../api/evidence';
-import { tasksApi, tkeys } from '../api/tasks';
 import { isKiosk, visibleNav } from '../nav';
 import { PortalCredit } from './AboutPortal';
 import { Brand } from './Brand';
 import { Icon } from './Icons';
-import { NotificationBell } from './NotificationBell';
+import { NotificationBell, useAttention } from './NotificationBell';
 import { ThemeSwitch } from './ThemeSwitch';
 
 function initials(fullName: string): string {
@@ -19,18 +17,11 @@ function initials(fullName: string): string {
 export function Sidebar({ me }: { me: Me }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  // Число просроченных задач отдела у пункта «Задачи»; уведомления — значок рядом с «Портал ИБ».
-  const summary = useQuery({
-    queryKey: tkeys.summary,
-    queryFn: tasksApi.summary,
-    enabled: me.permissions.includes('ib.work'),
-    refetchInterval: 60_000,
-  });
-  const overdue = summary.data?.overdue ?? 0;
-  // «Документы» видят все: сколько документов ждёт вашего этапа; сотрудникам ИБ — ещё просроченный пересмотр.
-  const docs = useQuery({ queryKey: dkeys.summary, queryFn: docsApi.summary, refetchInterval: 60_000 });
-  const waiting = docs.data?.waitingForMe ?? 0;
-  const reviewOverdue = docs.data?.reviewOverdue ?? 0;
+  // Цифры в меню (релиз 1.4.0) — только то, что ждёт вашего действия: «Задачи» — на вашей проверке, «Документы» —
+  // «ждут вас». Тот же запрос, что у колокольчика. Просроченное — на дашборде и в фильтре доски.
+  const attention = useAttention(!isKiosk(me.permissions));
+  const reviewing = attention.data?.tasks ?? 0;
+  const waiting = attention.data?.documents ?? 0;
   // Доказательства на проверке — тем, кто их проверяет.
   const ev = useQuery({ queryKey: ekeys.summary, queryFn: evidenceApi.summary, enabled: me.permissions.includes('evidence.review'), refetchInterval: 60_000 });
   const pendingEvidence = ev.data?.pending ?? 0;
@@ -63,17 +54,14 @@ export function Sidebar({ me }: { me: Me }) {
           <NavLink key={item.path} to={item.path}>
             <Icon name={item.icon} />
             <span>{item.title}</span>
-            {item.path === '/tasks' && overdue > 0 && (
-              <span className="nav-n" title={`Просрочено задач: ${overdue}, из них мои: ${summary.data?.overdueMine ?? 0}`} aria-label={`просрочено задач: ${overdue}`}>{overdue}</span>
+            {item.path === '/tasks' && reviewing > 0 && (
+              <span className="nav-n acc" data-testid="nav-tasks-n" title={`Ждут вашей проверки: ${reviewing}`} aria-label={`ждут вашей проверки: ${reviewing}`}>{reviewing}</span>
             )}
             {item.path === '/documents' && waiting > 0 && (
-              <span className="nav-n acc" title={`Ждут вашего согласования: ${waiting}`} aria-label={`ждут вас: ${waiting}`}>{waiting}</span>
+              <span className="nav-n acc" data-testid="nav-docs-n" title={`Ждут вас: ${waiting}`} aria-label={`ждут вас: ${waiting}`}>{waiting}</span>
             )}
             {item.path === '/evidence' && pendingEvidence > 0 && (
               <span className="nav-n acc" title={`На проверке: ${pendingEvidence}`} aria-label={`доказательств на проверке: ${pendingEvidence}`}>{pendingEvidence}</span>
-            )}
-            {item.path === '/documents' && reviewOverdue > 0 && (
-              <span className="nav-n" title={`Пересмотр просрочен: ${reviewOverdue}`} aria-label={`пересмотр просрочен: ${reviewOverdue}`}>{reviewOverdue}</span>
             )}
           </NavLink>
         ))}
