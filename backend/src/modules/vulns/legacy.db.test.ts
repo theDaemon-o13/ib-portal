@@ -10,6 +10,7 @@ import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { seedVulnLegacy } from '../../../prisma/seed/vuln-legacy.js';
+import { seedVulnDepartments } from '../../../prisma/seed/vulns.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import * as excel from '../registers/excel.service.js';
@@ -110,6 +111,21 @@ describe('уязвимости: перенос прежнего реестра �
       const version = (await tx.registerRecord.findUniqueOrThrow({ where: { id: a.id } })).version;
       expect(await seedVulnLegacy(tx)).toMatchObject({ records: 0, reports: 0 });
       expect((await tx.registerRecord.findUniqueOrThrow({ where: { id: a.id } })).version).toBe(version);
+    }));
+
+  it('seed заполняет «Отдел» у записей, загруженных до 1.1.0, по отчёту; журнал по записи; без отчёта — нет; повторно — ничего', () =>
+    inTx(async (tx) => {
+      const x = await vulnRegister(tx);
+      const { option } = await legacyReport(tx, x, unique('Отдел карт · 01.09.2026'));
+      const a = await legacyRecord(tx, x, { pkg: '7-Zip', cve: 'CVE-2025-0411', extra: { [x.vf.report.id]: option.id } });
+      const manual = await legacyRecord(tx, x, { pkg: 'Curl', cve: 'CVE-2026-11111' });
+      expect(await seedVulnDepartments(tx)).toContain('заполнено у записей 1');
+      await x.reload();
+      const dept = async (id: string) => ((await tx.registerRecord.findUniqueOrThrow({ where: { id } })).values as Values)[x.vf.department.id];
+      expect(x.vf.department.options.find((o) => o.label === 'Отдел карт')?.id).toBe(await dept(a.id));
+      expect(await dept(manual.id)).toBeUndefined();
+      expect((await records.recordHistory(tx, a.id))[0]?.summary).toContain('«Отдел» — «Отдел карт» по отчёту');
+      expect(await seedVulnDepartments(tx)).toContain('заполнено у записей 0');
     }));
 
   it('служебные поля вручную не меняются: карточка — 409, обратный импорт Excel — колонка только для чтения', () =>

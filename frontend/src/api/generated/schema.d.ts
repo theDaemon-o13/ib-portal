@@ -15620,7 +15620,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Отчёт сканера: сколько открытых записей отдела (и выбранной системы) нет в этом отчёте — подсказка «нажмите «Сравнение»» */
+        /** Устарел с 1.5.0: подсказка окна отчёта сканера — 409. «Пропали» считает предпросмотр скана узла */
         get: {
             parameters: {
                 query?: {
@@ -17564,6 +17564,745 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vulns/nodes/{id}/scan-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Импорт скана в узел, шаг 1: предпросмотр сравнения с реестром узла (пять групп, охват). Записи не меняются. Тело — файл .xlsx, имя — в X-File-Name */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            status: string;
+                            expiresAt: string;
+                            summary: {
+                                node: {
+                                    id: string;
+                                    label: string;
+                                };
+                                fileName: string;
+                                sheets: {
+                                    name: string;
+                                    rows: number;
+                                }[];
+                                scanDate: string | null;
+                                coverageTitle: string;
+                                hostsCount: number;
+                                hosts: {
+                                    name: string;
+                                    ip: string;
+                                    os: string;
+                                }[];
+                                rows: number;
+                                inFileDuplicates: number;
+                                errorRows: number;
+                                errors: {
+                                    sheet?: string;
+                                    row: number;
+                                    field: string | null;
+                                    message: string;
+                                }[];
+                                notes: {
+                                    sheet?: string;
+                                    row: number;
+                                    field: string | null;
+                                    message: string;
+                                }[];
+                                warnings: string[];
+                                previousScan: {
+                                    id: string;
+                                    scanDate: string;
+                                    fileName: string;
+                                    handedOver: boolean;
+                                } | null;
+                                coverage: {
+                                    newHosts: string[];
+                                    goneHosts: string[];
+                                };
+                                counts: {
+                                    new: number;
+                                    reopened: number;
+                                    changed: number;
+                                    unchanged: number;
+                                    gone: number;
+                                };
+                                critCounts: {
+                                    /** @enum {string} */
+                                    key: "critical" | "high" | "medium" | "low";
+                                    label: string;
+                                    count: number;
+                                }[];
+                                newOptions: {
+                                    field: string;
+                                    values: string[];
+                                }[];
+                                groups: {
+                                    new: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    reopened: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    changed: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    unchanged: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    gone: {
+                                        key: string;
+                                        recordId: string;
+                                        number: number;
+                                        pkg: string;
+                                        cve: string;
+                                        crit: string;
+                                        status: string;
+                                        due: string | null;
+                                    }[];
+                                };
+                                archived: {
+                                    number: number;
+                                    pkg: string;
+                                    cve: string;
+                                }[];
+                                systemId: string | null;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/scan-imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Предпросмотр импорта скана */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            status: string;
+                            expiresAt: string;
+                            summary: {
+                                node: {
+                                    id: string;
+                                    label: string;
+                                };
+                                fileName: string;
+                                sheets: {
+                                    name: string;
+                                    rows: number;
+                                }[];
+                                scanDate: string | null;
+                                coverageTitle: string;
+                                hostsCount: number;
+                                hosts: {
+                                    name: string;
+                                    ip: string;
+                                    os: string;
+                                }[];
+                                rows: number;
+                                inFileDuplicates: number;
+                                errorRows: number;
+                                errors: {
+                                    sheet?: string;
+                                    row: number;
+                                    field: string | null;
+                                    message: string;
+                                }[];
+                                notes: {
+                                    sheet?: string;
+                                    row: number;
+                                    field: string | null;
+                                    message: string;
+                                }[];
+                                warnings: string[];
+                                previousScan: {
+                                    id: string;
+                                    scanDate: string;
+                                    fileName: string;
+                                    handedOver: boolean;
+                                } | null;
+                                coverage: {
+                                    newHosts: string[];
+                                    goneHosts: string[];
+                                };
+                                counts: {
+                                    new: number;
+                                    reopened: number;
+                                    changed: number;
+                                    unchanged: number;
+                                    gone: number;
+                                };
+                                critCounts: {
+                                    /** @enum {string} */
+                                    key: "critical" | "high" | "medium" | "low";
+                                    label: string;
+                                    count: number;
+                                }[];
+                                newOptions: {
+                                    field: string;
+                                    values: string[];
+                                }[];
+                                groups: {
+                                    new: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    reopened: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    changed: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    unchanged: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                    }[];
+                                    gone: {
+                                        key: string;
+                                        recordId: string;
+                                        number: number;
+                                        pkg: string;
+                                        cve: string;
+                                        crit: string;
+                                        status: string;
+                                        due: string | null;
+                                    }[];
+                                };
+                                archived: {
+                                    number: number;
+                                    pkg: string;
+                                    cve: string;
+                                }[];
+                                systemId: string | null;
+                            };
+                            registerId: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/scan-imports/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Импорт скана, шаг 2: выбранное — одной транзакцией. Если записи узла или поля изменились после предпросмотра — ничего (409 IMPORT_STALE) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        scanDate?: string | null;
+                        systemId?: string | null;
+                        selected?: {
+                            new?: string[];
+                            reopened?: string[];
+                            changed?: string[];
+                            gone?: string[];
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            scanId: string;
+                            created: number;
+                            reopened: number;
+                            changed: number;
+                            unchanged: number;
+                            gone: number;
+                            skipped: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/registers/{id}/file-imports": {
         parameters: {
             query?: never;
@@ -17573,7 +18312,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Импорт из Excel одной кнопкой: тип файла определяется сам — отчёт сканера (лист «Хосты», колонки «CVE» и «Пакет») или выгрузка реестра (колонка ID, лист «_поля»). Шаг 1: предпросмотр */
+        /** Импорт из Excel одной кнопкой: тип файла определяется сам: выгрузка реестра (колонка ID, лист «_поля») — предпросмотр; отчёт сканера (колонки «Пакет» и «CVE») — в реестре уязвимостей 409, его загружают в узел */
         post: {
             parameters: {
                 query?: never;
@@ -17808,7 +18547,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отчёт сканера, шаг 1: предпросмотр (новые, дубли «CVE + пакет», хосты). Тело — файл .xlsx, имя — в X-File-Name */
+        /** Устарел с 1.5.0 — 409: отчёт сканера загружают в узел */
         post: {
             parameters: {
                 query?: never;
@@ -17989,7 +18728,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Предпросмотр отчёта сканера */
+        /** Устарел с 1.5.0 — 409 */
         get: {
             parameters: {
                 query?: never;
@@ -18171,7 +18910,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отчёт сканера, шаг 2: применить одной транзакцией. Дата отчёта обязательна, если её нет в имени файла */
+        /** Устарел с 1.5.0 — 409 */
         post: {
             parameters: {
                 query?: never;

@@ -1,5 +1,6 @@
 // Сравнение с реестром (релиз 1.1.0, задача 4, ADR-0017): какие открытые записи области есть в реестре,
-// но нет в файле — выгрузке реестра или отчёте сканера. Файл берётся из предпросмотра импорта (та же sha256),
+// но нет в файле — выгрузке реестра. Реестр уязвимостей сравнивается при импорте скана в узел (релиз 1.5.0, ADR-0029).
+// Файл берётся из предпросмотра импорта (та же sha256),
 // хранится в files как доказательство (register_imports.file_id). Записи при сравнении не меняются.
 // Сотрудник проставляет статус отсутствующим: предпросмотр → применение с expected (ADR-0016), пакетами,
 // обычной правкой записи с историей; в журнале — id и sha256 файла.
@@ -8,10 +9,10 @@ import type { Readable } from 'node:stream';
 import type { Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import type { FileStore } from '../../lib/file-store.js';
-import { parseCell, type StoredValue, type Values } from '../../lib/register-values.js';
+import type { StoredValue, Values } from '../../lib/register-values.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { uploadFile } from '../files/service.js';
-import { deptKey, norm as scanNorm, parseScanReport } from '../vulns/scan-parser.js';
+import { isVulnRegister } from '../vulns/definition.js';
 import { assertNotArchived, isClosed, loadRegister, normalizeImportKeys, type FieldMeta, type RegisterDef } from './definition.js';
 import { mapColumns, openRegisterSheet, readFileRows } from './excel.service.js';
 import { lockErrors } from './record-rules.js';
@@ -74,17 +75,6 @@ function partOf(f: FieldMeta, v: StoredValue | undefined, normText: Map<string, 
   return String(v);
 }
 
-/** Значение поля из текста ячейки отчёта сканера: список — по названию (и архивного значения), иначе — как при импорте. */
-function storedFromText(f: FieldMeta, text: string | null): StoredValue | null {
-  if (text === null || text.trim() === '') return null;
-  if (f.type === 'select' || f.type === 'catalog') {
-    const t = scanNorm(text);
-    return f.options.find((o) => scanNorm(o.label) === t)?.id ?? null;
-  }
-  const r = parseCell(f, text, { users: [], linkTargets: new Map() });
-  return r.ok ? r.value : null;
-}
-
 const readAll = async (stream: Readable): Promise<Buffer> => {
   const chunks: Buffer[] = [];
   for await (const c of stream) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c as Uint8Array));
@@ -110,29 +100,10 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
     return { field, values: new Set(c.values) };
   });
   const inScope = (values: Values) => where.every((w) => w.values.has(String(values[w.field.id] ?? '')));
-  // Отчёт, выбранный в области (одно значение «Отчёт сканирования»), — для «неполного скана».
-  const reportCond = where.find((w) => w.field.systemKey === 'report' && w.values.size === 1);
 
   // Строки файла → значения полей ключа и области.
   const fileRows: { values: Map<string, StoredValue | null>; number: number | null; badKey: boolean }[] = [];
-  let incompleteScan: CompareResult['incompleteScan'] = null;
-  const format: CompareResult['format'] = imp.kind === 'scan' ? 'scan' : 'records';
-  if (format === 'scan') {
-    if (byId) throw badRequest('NO_COMPARE_KEY', 'Отчёт сканера сравнивается по ключу из полей — задайте ключ сравнения в настройках реестра');
-    const parsed = await parseScanReport(buffer, file.name);
-    for (const r of parsed.rows) {
-      const values = new Map<string, StoredValue | null>();
-      for (const f of [...keyFields, ...where.map((w) => w.field)]) {
-        const col = f.systemKey as keyof typeof r | null | undefined;
-        const raw = col && col in r ? r[col] : null;
-        values.set(f.id, storedFromText(f, raw === null || raw === undefined ? null : String(raw)));
-      }
-      fileRows.push({ values, number: null, badKey: keyFields.some((f) => values.get(f.id) == null) });
-    }
-    // Отдел — как в предпросмотре: из A1 или выбранный в окне импорта.
-    const department = (imp.payload as { department?: string }).department ?? parsed.department;
-    incompleteScan = await scanCoverage(db, reg, department, parsed.hosts.map((h) => h.name), reportCond?.field, reportCond?.values ?? new Set());
-  } else {
+  {
     const { wb, ws } = await openRegisterSheet(buffer);
     const { cols } = mapColumns(wb, ws, reg, []);
     const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0];
@@ -203,7 +174,7 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
 
   const st = statusField(reg);
   return {
-    importId: imp.id, file, format,
+    importId: imp.id, file, format: 'records',
     key: keyFields.map((f) => ({ id: f.id, label: f.label })),
     scope: where.length
       ? (() => {
@@ -214,36 +185,21 @@ async function compute(db: Db, reg: RegisterDef, imp: { id: string; kind: string
         return { conditions, label: scopeLabel(conditions.map((c) => ({ label: c.label, values: c.values.map((v) => v.label) }))) };
       })()
       : { all: true, label: 'Весь реестр' },
-    missing, noKey, outOfScopeRows, badKeyRows, incompleteScan,
+    missing, noKey, outOfScopeRows, badKeyRows, incompleteScan: null,
     status: st ? { fieldId: st.id, options: st.options.filter((o) => !o.archived).map((o) => ({ id: o.id, label: o.label, isClosed: o.isClosed })) } : null,
     missingIds: new Set(missing.map((m) => m.id)), values,
   };
 }
 
-/**
- * «Неполный скан»: хосты прошлого отчёта, которых нет в новом. Прошлый отчёт — выбранный в области
- * «Отчёт сканирования» (одно значение), иначе последний отчёт того же отдела, не в архиве.
- */
-async function scanCoverage(db: Db, reg: RegisterDef, department: string, hosts: string[], scopeField: FieldMeta | undefined, scopeValues: Set<string>) {
-  let report = null;
-  if (scopeField?.systemKey === 'report' && scopeValues.size === 1) {
-    const label = scopeField.options.find((o) => scopeValues.has(o.id))?.label;
-    if (label) report = await db.scanReport.findFirst({ where: { registerId: reg.id, label }, orderBy: { createdAt: 'desc' }, include: { hosts: true } });
-  }
-  if (!report) {
-    const all = await db.scanReport.findMany({ where: { registerId: reg.id, archivedAt: null }, orderBy: { createdAt: 'desc' }, include: { hosts: true }, take: 50 });
-    report = all.find((r) => scanNorm(r.department) === scanNorm(department)) ?? null;
-  }
-  if (!report) return null;
-  const now = new Set(hosts.map(scanNorm));
-  const missingHosts = report.hosts.filter((h) => !now.has(scanNorm(h.name))).map((h) => h.name);
-  return missingHosts.length ? { previousReport: report.label, missingHosts } : null;
-}
-
 async function loadImport(db: Db, importId: string) {
   const imp = await db.registerImport.findUnique({ where: { id: importId }, include: { file: true } });
-  if (!imp || (imp.kind !== 'records' && imp.kind !== 'scan')) throw notFound('Импорт');
+  if (!imp || imp.kind !== 'records') throw notFound('Импорт');
   return imp;
+}
+
+/** Реестр уязвимостей сравнивается при импорте скана в узел: записи принадлежат узлам, а не всему реестру. */
+function assertNotVulns(reg: RegisterDef) {
+  if (isVulnRegister(reg)) throw conflict('VULN_COMPARE_IN_NODE', 'Реестр уязвимостей сравнивается при импорте скана: откройте узел в разделе «Уязвимости»');
 }
 
 const toResult = (c: Computed): CompareResult => ({
@@ -256,11 +212,9 @@ export async function compareWithRegister(db: Db, store: FileStore, actor: Actor
   const imp = await loadImport(db, importId);
   const reg = await loadRegister(db, imp.registerId);
   assertNotArchived(reg);
+  assertNotVulns(reg);
   const sha256 = createHash('sha256').update(buffer).digest('hex');
   if (sha256 !== imp.fileSha256) throw badRequest('FILE_MISMATCH', 'Это не тот файл, что в предпросмотре импорта. Загрузите его снова');
-  if (imp.kind === 'scan' && !(imp.payload as { department?: string }).department?.trim()) {
-    throw badRequest('DEPARTMENT_REQUIRED', 'В отчёте не указан отдел (ячейка A1 листа «Хосты»). Выберите отдел в окне импорта');
-  }
   // Файл — доказательство: в хранилище один раз на предпросмотр импорта.
   let file = imp.file && imp.file.sha256 === sha256 && !imp.file.deletedAt ? { id: imp.file.id, name: imp.file.originalName, sha256 } : null;
   if (!file) {
@@ -294,6 +248,7 @@ async function planStatus(db: Db, store: FileStore, importId: string, scope: Com
   if (!imp.file || imp.file.deletedAt) throw conflict('COMPARE_FILE_MISSING', 'Сначала выполните сравнение с реестром');
   const reg = await loadRegister(db, imp.registerId);
   assertNotArchived(reg);
+  assertNotVulns(reg);
   const st = statusField(reg);
   if (!st) throw badRequest('NO_STATUS', 'В реестре нет поля статуса');
   const buffer = await readAll(store.open(imp.file.storageKey));
@@ -365,39 +320,4 @@ export async function applyCompareStatus(
     },
   });
   return { changed, skipped: p.skipped.length };
-}
-
-// ---------------------------------------------------------------- подсказка в окне отчёта сканера (этап Б.2)
-
-export interface NotInReport {
-  /** Область по умолчанию: отдел отчёта и выбранная система; null — отдела нет в реестре или в отчёте. */
-  scope: { conditions: ScopeCondition[] } | null;
-  label: string;
-  count: number;
-}
-
-/**
- * «N записей нет в этом отчёте — нажмите «Сравнение»»: открытые записи отдела отчёта (и выбранной системы),
- * которые не совпали ни с одной строкой отчёта. Файл не читается: совпадения уже посчитаны в предпросмотре.
- */
-export async function notInReport(db: Db, importId: string, systemId: string | null): Promise<NotInReport> {
-  const imp = await loadImport(db, importId);
-  if (imp.kind !== 'scan') throw badRequest('NOT_SCAN', 'Подсказка — только для отчёта сканера');
-  const reg = await loadRegister(db, imp.registerId);
-  const payload = imp.payload as { department?: string; merges?: { recordId: string }[] };
-  const dept = reg.fields.find((f) => f.systemKey === 'department' && !f.archived);
-  const system = reg.fields.find((f) => f.systemKey === 'system' && !f.archived);
-  const department = (payload.department ?? '').trim();
-  const option = dept && department ? dept.options.find((o) => deptKey(o.label) === deptKey(department)) : undefined;
-  const sys = systemId && system ? system.options.find((o) => o.id === systemId) : undefined;
-  const label = `${department ? `отдел «${department}»` : 'отдел не указан в отчёте'}, ${sys ? `система «${sys.label}»` : 'все системы'}`;
-  if (!dept || !option) return { scope: null, label, count: 0 };
-  const conditions: ScopeCondition[] = [{ fieldId: dept.id, values: [option.id] }, ...(sys && system ? [{ fieldId: system.id, values: [sys.id] }] : [])];
-  const matched = new Set((payload.merges ?? []).map((m) => m.recordId));
-  const rows = await db.registerRecord.findMany({ where: { registerId: reg.id, deletedAt: null, archivedAt: null }, select: { id: true, values: true } });
-  const count = rows.filter((r) => {
-    const v = r.values as Values;
-    return !isClosed(reg, v) && conditions.every((c) => c.values.includes(String(v[c.fieldId] ?? ''))) && !matched.has(r.id);
-  }).length;
-  return { scope: { conditions }, label, count };
 }

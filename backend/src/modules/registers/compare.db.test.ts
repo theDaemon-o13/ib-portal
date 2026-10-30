@@ -10,42 +10,21 @@ import type { Values } from '../../lib/register-values.js';
 import { expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { makeRegister } from '../../test/registers-fixture.js';
-import { SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister } from '../../test/vulns-fixture.js';
+import { SAMPLE, vulnRegister } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import { sweepOrphanFiles } from '../files/links.js';
-import { seedVulnDepartments } from '../../../prisma/seed/vulns.js';
-import * as scan from '../vulns/scan-import.service.js';
-import { parseScanReport } from '../vulns/scan-parser.js';
 import * as compare from './compare.service.js';
 import * as excel from './excel.service.js';
 import { XLSX_TYPE } from './routes.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
 
-// Релиз 1.1.0, задача 4: сравнение с реестром — «Нет в файле», неполный скан, статус с журналом и файлом.
+// Релиз 1.1.0, задача 4: сравнение с реестром — «Нет в файле», статус с журналом и файлом.
 
 const root = mkdtempSync(join(tmpdir(), 'ibportal-compare-'));
 const store = diskFileStore(root);
 afterAll(() => rmSync(root, { recursive: true, force: true }));
-
-/** Отчёт сканера без строки уязвимости `cve` и без хоста `host`. */
-async function reportWithout(cve: string, host: string): Promise<Buffer> {
-  const wb = await sampleBook();
-  for (const ws of wb.worksheets) {
-    const rows: number[] = [];
-    ws.eachRow((row, n) => {
-      const cells = (row.values as unknown[]).map((v) => String(v ?? ''));
-      if (cells.includes(cve) || cells.includes(host)) rows.push(n);
-    });
-    for (const n of rows.reverse()) ws.spliceRows(n, 1);
-  }
-  return toBuffer(wb);
-}
-
-async function firstHost(): Promise<string> {
-  return must((await parseScanReport(SAMPLE, SAMPLE_NAME)).hosts[0]).name;
-}
 
 describe('настройки сравнения', () => {
   it('seed: реестр уязвимостей — ключ «CVE / БДУ + Пакет», область «Отдел», «Система», «Отчёт сканирования»; DLP — ключ импорта', () =>
@@ -118,100 +97,14 @@ describe('сравнение выгрузки реестра', () => {
     }));
 });
 
-describe('сравнение отчёта сканера', () => {
-  it('ключ «CVE + пакет» в области отчёта, неполный скан; статус — с подтверждением, журналом и ссылкой на файл', () =>
+describe('реестр уязвимостей (релиз 1.5.0)', () => {
+  it('сравнивается при импорте скана в узел: выгрузка реестра здесь — 409, статус по сравнению — тоже', () =>
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
-      const first = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
-      await scan.applyScan(tx, x.actor, first.id, {});
-      await x.reload();
-      const report = must(x.vf.report.options.at(-1));
-      const victim = must((await tx.registerRecord.findMany({ where: { registerId: x.reg.id, deletedAt: null }, orderBy: { number: 'asc' } }))[0]);
-      const cve = String((victim.values as Values)[x.vf.cve.id]);
-      const host = await firstHost();
-      const buffer = await reportWithout(cve, host);
-      const name = 'scan-report-sample-2026-10-22.xlsx';
-      const p = await scan.previewScan(tx, x.actor, x.reg.id, buffer, name);
-
-      const scope = { fieldId: x.vf.report.id, values: [report.id] };
-      const c = await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, scope);
-      expect(c.format).toBe('scan');
-      expect(c.missing.map((m) => m.id)).toContain(victim.id);
-      expect(c.missing.every((m) => m.key.includes('·'))).toBe(true);
-      expect(c.incompleteScan).toMatchObject({ previousReport: report.label, missingHosts: [host] });
-      // Полный отчёт тех же уязвимостей: отсутствующих нет.
-      const full = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
-      const cf = await compare.compareWithRegister(tx, store, x.actor, full.id, SAMPLE, scope);
-      expect([cf.missing.length, cf.incompleteScan]).toEqual([0, null]);
-
-      const fixed = x.opt('status', 'fixed');
-      const changes = c.missing.map((m) => ({ recordId: m.id, optionId: fixed }));
-      const pv = await compare.previewCompareStatus(tx, store, p.id, scope, changes, null);
-      expect(pv).toMatchObject({ total: changes.length, willChange: changes.length, skipped: [] });
-      await expectCode(compare.applyCompareStatus(tx, store, x.actor, p.id, scope, changes, { expected: { willChange: pv.willChange + 1 }, reason: null, acknowledgeIncompleteScan: true }), 'BULK_CHANGED');
-      await expectCode(compare.applyCompareStatus(tx, store, x.actor, p.id, scope, changes, { expected: { willChange: pv.willChange }, reason: null, acknowledgeIncompleteScan: false }), 'INCOMPLETE_SCAN');
-      const done = await compare.applyCompareStatus(tx, store, x.actor, p.id, scope, changes, { expected: { willChange: pv.willChange }, reason: null, acknowledgeIncompleteScan: true });
-      expect(done).toEqual({ changed: changes.length, skipped: 0 });
-      expect((await records.getRecord(tx, victim.id)).values[x.vf.status.id]).toBe(fixed);
-
-      // История записи: правка «по сравнению» со ссылкой на файл отчёта.
-      const upd = must(await tx.auditLog.findFirst({ where: { entityId: victim.id, action: 'register_record.updated' }, orderBy: { id: 'desc' } }));
-      expect(upd.diff).toMatchObject({ after: { via: 'compare', importId: p.id, fileId: c.file.id, sha256: c.file.sha256 } });
-      const sum = must(await tx.auditLog.findFirst({ where: { entityId: x.reg.id, action: 'register_records.compare_status' } }));
-      expect(sum.diff).toMatchObject({ after: { fileId: c.file.id, changed: changes.length, incompleteScan: { missingHosts: [host] } } });
-
-      // Повторно: записи закрыты — больше не «нет в файле».
-      const again = await compare.previewCompareStatus(tx, store, p.id, scope, changes, null);
-      expect(again.willChange).toBe(0);
-      expect(again.skipped[0]?.reason).toContain('нашлась в файле, закрыта');
-    }));
-});
-
-describe('этап Б.2: отдел, подсказка, область по умолчанию', () => {
-  it('seed заполняет «Отдел» у записей, загруженных до 1.1.0, по отчёту; журнал по записи и сводный; повторно — ничего', () =>
-    inTx(async (tx) => {
-      const x = await vulnRegister(tx);
-      const first = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
-      await scan.applyScan(tx, x.actor, first.id, {});
-      await x.reload();
-      const deptId = x.vf.department.id;
-      // Как до 1.1.0: у записей нет отдела.
-      await tx.$executeRaw`UPDATE register_records SET "values" = "values" - ${deptId} WHERE register_id = ${x.reg.id}::uuid`;
-      const manual = await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.vf.cve.id]: 'CVE-2026-11111' } });
-      expect(await seedVulnDepartments(tx)).toContain('заполнено у записей 90');
-      const rows = await tx.registerRecord.findMany({ where: { registerId: x.reg.id, deletedAt: null } });
-      expect(rows.filter((r) => (r.values as Values)[deptId] !== undefined)).toHaveLength(90);
-      expect((rows.find((r) => r.id === manual.id)?.values as Values)[deptId]).toBeUndefined();
-      const one = must(rows.find((r) => r.id !== manual.id));
-      const h = await records.recordHistory(tx, one.id);
-      expect(h[0]?.summary).toContain('«Отдел» — «Отдел платёжных карт» по отчёту');
-      expect(await seedVulnDepartments(tx)).toContain('заполнено у записей 0');
-    }));
-
-  it('подсказка «нет в этом отчёте» и сравнение по умолчанию — отдел и система; без системы — «все системы»', () =>
-    inTx(async (tx) => {
-      const x = await vulnRegister(tx);
-      const sys = must(await tx.catalogItem.findFirst({ where: { catalogCode: 'systems', deletedAt: null, archivedAt: null } }));
-      const first = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
-      await scan.applyScan(tx, x.actor, first.id, { systemId: sys.id });
-      await x.reload();
-      const victim = must((await tx.registerRecord.findMany({ where: { registerId: x.reg.id, deletedAt: null }, orderBy: { number: 'asc' } }))[0]);
-      const buffer = await reportWithout(String((victim.values as Values)[x.vf.cve.id]), 'нет такого хоста');
-      const p = await scan.previewScan(tx, x.actor, x.reg.id, buffer, 'scan-report-sample-2026-11-15.xlsx');
-
-      const all = await compare.notInReport(tx, p.id, null);
-      expect(all).toMatchObject({ count: 1, label: 'отдел «Отдел платёжных карт», все системы' });
-      const withSys = await compare.notInReport(tx, p.id, sys.id);
-      expect(withSys).toMatchObject({ count: 1, label: `отдел «Отдел платёжных карт», система «${sys.value}»` });
-      const other = must(await tx.catalogItem.findFirst({ where: { catalogCode: 'systems', deletedAt: null, id: { not: sys.id } } }));
-      expect((await compare.notInReport(tx, p.id, other.id)).count).toBe(0);
-
-      const c = await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, must(withSys.scope));
-      expect(c.missing.map((m) => m.id)).toEqual([victim.id]);
-      expect(c.scope.label).toBe(`отдел «Отдел платёжных карт», система «${sys.value}»`);
-      // Прежний вид области (одно условие) по-прежнему принимается.
-      const legacy = await compare.compareWithRegister(tx, store, x.actor, p.id, buffer, { fieldId: x.vf.department.id, values: [must(x.vf.department.options[0]).id] });
-      expect(legacy.missing.map((m) => m.id)).toEqual([victim.id]);
+      const exported = await excel.exportRegister(tx, x.reg.id);
+      const p = await excel.previewImport(tx, x.actor, x.reg.id, exported.buffer, exported.fileName);
+      await expectCode(compare.compareWithRegister(tx, store, x.actor, p.id, exported.buffer, { all: true }), 'VULN_COMPARE_IN_NODE');
+      await expectCode(compare.previewCompareStatus(tx, store, p.id, { all: true }, [], null), 'COMPARE_FILE_MISSING');
     }));
 });
 
@@ -220,7 +113,7 @@ describe('сравнение по HTTP', () => {
     inTx(async (tx: Tx) => {
       const PASSWORD = 'Http-Compare-Pass-2026';
       const hash = await argon2Hasher.hash(PASSWORD);
-      const x = await vulnRegister(tx);
+      const x = await makeRegister(tx);
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
       const board = await makeUser(tx, ['doc_reader'], { passwordHash: hash });
       const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, files: store });
@@ -228,12 +121,13 @@ describe('сравнение по HTTP', () => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });
         return `ib_session=${res.cookies.find((c) => c.name === 'ib_session')?.value}`;
       };
-      const p = await scan.previewScan(tx, x.actor, x.reg.id, SAMPLE, SAMPLE_NAME);
+      const exported = await excel.exportRegister(tx, x.reg.id);
+      const p = await excel.previewImport(tx, x.actor, x.reg.id, exported.buffer, exported.fileName);
       const url = `/api/v1/register-imports/${p.id}/compare?scope=all`;
       const headers = (cookie: string) => ({ cookie, 'content-type': XLSX_TYPE });
-      expect((await app.inject({ method: 'POST', url, headers: headers(await login(board.login)), payload: SAMPLE })).statusCode).toBe(403);
-      const ok = await app.inject({ method: 'POST', url, headers: headers(await login(staff.login)), payload: SAMPLE });
+      expect((await app.inject({ method: 'POST', url, headers: headers(await login(board.login)), payload: exported.buffer })).statusCode).toBe(403);
+      const ok = await app.inject({ method: 'POST', url, headers: headers(await login(staff.login)), payload: exported.buffer });
       expect(ok.statusCode).toBe(200);
-      expect(ok.json()).toMatchObject({ format: 'scan', scope: { all: true } });
+      expect(ok.json()).toMatchObject({ format: 'records', scope: { all: true } });
     }));
 });

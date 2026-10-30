@@ -259,7 +259,7 @@ function applyInput(
   return { values, changed };
 }
 
-function describeChanges(
+export function describeChanges(
   reg: RegisterDef, before: Values, after: Values, fields: FieldMeta[], users: ReadonlyMap<string, UserRef>, links?: ReadonlyMap<string, string>,
 ): Change[] {
   return fields.map((f) => ({

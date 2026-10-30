@@ -8,7 +8,7 @@ import * as records from '../modules/registers/records.service.js';
 import { optionByKey, vulnFields, VULN_REGISTER_KEY, type VulnFields } from '../modules/vulns/definition.js';
 import { actorFor, makeUser, type Tx } from './db.js';
 
-export const SAMPLE_NAME = 'scan-report-sample-2026-10-15.xlsx';
+export const SAMPLE_NAME = 'vuln-windows-2026-10-15.xlsx';
 export const SAMPLE = readFileSync(new URL(`../../test/fixtures/${SAMPLE_NAME}`, import.meta.url));
 
 export interface VulnFixture {

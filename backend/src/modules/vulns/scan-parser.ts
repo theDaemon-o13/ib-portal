@@ -1,16 +1,18 @@
-// Разбор отчёта сканера (.xlsx) без БД: лист уязвимостей, лист «Хосты», дата из имени файла.
-// Лист уязвимостей распознаётся по заголовкам «Пакет» и «CVE»; колонки — по названию, в любом порядке.
+// Разбор отчёта сканера (.xlsx) без БД — по содержимому листов, а не по их названиям (релиз 1.5.0, ADR-0029).
+// Лист хостов — где в первых 12 строках есть «Имя хоста»; строка над заголовком — охват скана.
+// Листы находок — все листы с колонками «Пакет» и «CVE» (или «Идентификатор…»); несколько листов объединяются.
+// Колонки — по названию, в любом порядке. «Оценка» из файла не читается: её считает портал (п. 7.1).
 import ExcelJS from 'exceljs';
 import { badRequest } from '../../lib/errors.js';
 import { cellPrimitive, formatDateRu, isIsoDate, parseNumberText, TEXT_MAX } from '../../lib/register-values.js';
 
 export const SCAN_MAX_ROWS = 20_000;
-export const HOSTS_SHEET = 'хосты';
 /** Строки, среди которых ищется строка заголовков (над таблицей бывает шапка отчёта). */
-const HEADER_SEARCH_ROWS = 10;
+export const HEADER_SEARCH_ROWS = 12;
 
 export type ScanColumn = 'pkg' | 'cve' | 'level' | 'cvss' | 'exploit' | 'vector' | 'fixVersion' | 'desc' | 'hits';
 
+/** Подписи колонок для сообщений. */
 export const SCAN_HEADERS: Record<ScanColumn, string> = {
   pkg: 'Пакет',
   cve: 'CVE',
@@ -23,8 +25,22 @@ export const SCAN_HEADERS: Record<ScanColumn, string> = {
   hits: 'Обнаружений',
 };
 
+/** Распознавание заголовка колонки находок: точное название или начало (нормализованные). */
+const HEADER_MATCH: Record<ScanColumn, { exact: string[]; prefix?: string[] }> = {
+  pkg: { exact: ['пакет'] },
+  cve: { exact: ['cve'], prefix: ['идентификатор'] },
+  level: { exact: ['уровень'] },
+  cvss: { exact: ['cvss'] },
+  exploit: { exact: ['эксплойт'] },
+  vector: { exact: ['сетевой вектор'] },
+  fixVersion: { exact: ['обновить до версии'], prefix: ['обновить до'] },
+  desc: { exact: ['краткое описание', 'описание'] },
+  hits: { exact: ['обнаружений'] },
+};
+
 export interface ScanRow {
-  /** Номер строки на листе (для сообщений). */
+  /** Лист и номер строки на нём (для сообщений). */
+  sheet: string;
   row: number;
   pkg: string;
   cve: string;
@@ -44,20 +60,30 @@ export interface ScanHostRow {
 }
 
 export interface ScanIssue {
+  sheet?: string;
   row: number;
   field: string | null;
   message: string;
 }
 
 export interface ParsedScan {
+  /** Листы находок и число строк с каждого. */
+  sheets: { name: string; rows: number }[];
+  /** Первый лист находок (для сообщений прежнего формата). */
   sheet: string;
-  /** Ячейка A1 листа «Хосты» — отдел. */
+  /** Охват скана — строка над заголовком листа хостов («Отдел платёжных карт»); пусто, если её нет. */
+  coverageTitle: string;
+  /** То же, что coverageTitle: так называлось до 1.5.0 (ячейка A1 листа «Хосты»). */
   department: string;
+  hostsSheet: string | null;
   hosts: ScanHostRow[];
   rows: ScanRow[];
+  /** Строки, пропущенные целиком (нет пакета или идентификатора, слишком длинный текст). */
   errors: ScanIssue[];
+  /** Строки, которые загрузятся, но со значением, заменённым на пустое (CVSS или «Обнаружений» не число). */
+  notes: ScanIssue[];
   warnings: string[];
-  /** Дата отчёта из имени файла (ГГГГ-ММ-ДД) или null — тогда её вводят в предпросмотре. */
+  /** Дата скана из имени файла (ГГГГ_ММ_ДД, ГГГГ-ММ-ДД, ГГГГ.ММ.ДД) или null — тогда её вводят в предпросмотре. */
   reportDate: string | null;
 }
 
@@ -75,21 +101,26 @@ function text(cell: unknown): string | null {
   return s === '' ? null : s;
 }
 
-/** Дата отчёта в имени файла: «Отчёт 2026-10-15.xlsx» → 2026-10-15. */
+/** Дата скана в имени файла: «Отчёт_Windows_2026_10_15.xlsx», «… 2026-10-15», «… 2026.10.15» → 2026-10-15. */
 export function reportDateFromFileName(fileName: string): string | null {
-  const m = /(\d{4})-(\d{2})-(\d{2})/.exec(fileName);
+  const m = /(\d{4})[_\-.](\d{2})[_\-.](\d{2})/.exec(fileName);
   if (!m) return null;
   const iso = `${m[1]}-${m[2]}-${m[3]}`;
   return isIsoDate(iso) ? iso : null;
 }
 
+function columnOf(header: string): ScanColumn | undefined {
+  const h = norm(header);
+  return (Object.keys(HEADER_MATCH) as ScanColumn[]).find((k) => HEADER_MATCH[k].exact.includes(h) || (HEADER_MATCH[k].prefix ?? []).some((p) => h.startsWith(p)));
+}
+
+/** Строка заголовков листа находок: есть «Пакет» и «CVE» / «Идентификатор». */
 export function headerMap(ws: ExcelJS.Worksheet): { row: number; cols: Map<ScanColumn, number> } | null {
   for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, ws.rowCount); r++) {
     const cols = new Map<ScanColumn, number>();
     ws.getRow(r).eachCell((cell, col) => {
       const h = text(cell.value);
-      if (!h) return;
-      const key = (Object.keys(SCAN_HEADERS) as ScanColumn[]).find((k) => norm(SCAN_HEADERS[k]) === norm(h));
+      const key = h ? columnOf(h) : undefined;
       if (key && !cols.has(key)) cols.set(key, col);
     });
     if (cols.has('pkg') && cols.has('cve')) return { row: r, cols };
@@ -97,41 +128,44 @@ export function headerMap(ws: ExcelJS.Worksheet): { row: number; cols: Map<ScanC
   return null;
 }
 
-function parseHosts(ws: ExcelJS.Worksheet, warnings: string[]): { department: string; hosts: ScanHostRow[] } {
-  let headerRow = 0;
-  const cols = { name: 0, ip: 0, os: 0 };
-  for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, ws.rowCount) && !headerRow; r++) {
+/** Строка заголовков листа хостов: колонка «Имя хоста». */
+export function hostsHeader(ws: ExcelJS.Worksheet): { row: number; name: number; ip: number; os: number } | null {
+  for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, ws.rowCount); r++) {
+    const found = { row: r, name: 0, ip: 0, os: 0 };
     ws.getRow(r).eachCell((cell, col) => {
       const h = norm(text(cell.value) ?? '');
-      if (h === 'имя хоста') {
-        headerRow = r;
-        cols.name = col;
-      } else if (h === 'ip-адрес' || h === 'ip адрес' || h === 'ip') cols.ip = col;
-      else if (h === 'ос') cols.os = col;
+      if (h === 'имя хоста') found.name = col;
+      else if (h.startsWith('ip') && !found.ip) found.ip = col;
+      else if ((h === 'ос' || h.startsWith('операц')) && !found.os) found.os = col;
+    });
+    if (found.name) return found;
+  }
+  return null;
+}
+
+function parseHosts(ws: ExcelJS.Worksheet, h: NonNullable<ReturnType<typeof hostsHeader>>): { coverageTitle: string; hosts: ScanHostRow[] } {
+  // Охват — ближайшая непустая строка над заголовком: первая непустая ячейка.
+  let coverageTitle = '';
+  for (let r = h.row - 1; r >= 1 && !coverageTitle; r--) {
+    ws.getRow(r).eachCell((cell) => {
+      if (!coverageTitle) coverageTitle = (text(cell.value) ?? '').slice(0, 200);
     });
   }
-  const a1 = text(ws.getCell('A1').value) ?? '';
-  // A1 — отдел, если это не сама строка заголовков.
-  const department = headerRow === 1 ? '' : a1.slice(0, 200);
-  if (!headerRow) {
-    warnings.push('На листе «Хосты» нет колонки «Имя хоста» — хосты не сохранятся');
-    return { department, hosts: [] };
-  }
   const hosts: ScanHostRow[] = [];
-  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+  for (let r = h.row + 1; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
-    const name = text(row.getCell(cols.name).value);
+    const name = text(row.getCell(h.name).value);
     if (!name) continue;
     hosts.push({
       name: name.slice(0, 255),
-      ip: cols.ip ? (text(row.getCell(cols.ip).value) ?? '').slice(0, 100) : '',
-      os: cols.os ? (text(row.getCell(cols.os).value) ?? '').slice(0, 255) : '',
+      ip: h.ip ? (text(row.getCell(h.ip).value) ?? '').slice(0, 100) : '',
+      os: h.os ? (text(row.getCell(h.os).value) ?? '').slice(0, 255) : '',
     });
   }
-  return { department, hosts };
+  return { coverageTitle, hosts };
 }
 
-export async function parseScanReport(buffer: Buffer, fileName: string): Promise<ParsedScan> {
+export async function readScanWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
   if (buffer.length === 0) throw badRequest('BAD_FILE', 'Файл пустой');
   const wb = new ExcelJS.Workbook();
   try {
@@ -139,82 +173,109 @@ export async function parseScanReport(buffer: Buffer, fileName: string): Promise
   } catch {
     throw badRequest('BAD_FILE', 'Не удалось прочитать файл. Нужна книга Excel (.xlsx)');
   }
-  let found: { ws: ExcelJS.Worksheet; row: number; cols: Map<ScanColumn, number> } | null = null;
-  for (const ws of wb.worksheets) {
-    if (norm(ws.name) === HOSTS_SHEET) continue;
-    const h = headerMap(ws);
-    if (h) {
-      found = { ws, ...h };
-      break;
-    }
-  }
-  if (!found) {
-    throw badRequest('NOT_SCAN_REPORT', 'Это не отчёт сканера: нет листа с колонками «Пакет» и «CVE». Обычный файл реестра загружайте кнопкой «Импорт из Excel»');
-  }
-  const { ws, cols } = found;
-  if (ws.rowCount - found.row > SCAN_MAX_ROWS) throw badRequest('TOO_MANY_ROWS', `В отчёте больше ${SCAN_MAX_ROWS} строк`);
-
-  const warnings: string[] = [];
-  const missing = (Object.keys(SCAN_HEADERS) as ScanColumn[]).filter((k) => !cols.has(k));
-  if (missing.length) warnings.push(`Нет колонок: ${missing.map((k) => `«${SCAN_HEADERS[k]}»`).join(', ')} — эти поля останутся пустыми`);
-
-  const rows: ScanRow[] = [];
-  const errors: ScanIssue[] = [];
-  for (let r = found.row + 1; r <= ws.rowCount; r++) {
-    const row = ws.getRow(r);
-    const get = (k: ScanColumn) => (cols.has(k) ? row.getCell(cols.get(k) as number).value : null);
-    const values = (Object.keys(SCAN_HEADERS) as ScanColumn[]).map((k) => text(get(k)));
-    if (values.every((v) => v === null)) continue;
-    const rowErrors: ScanIssue[] = [];
-    const pkg = text(get('pkg'));
-    const cve = text(get('cve'));
-    if (!pkg) rowErrors.push({ row: r, field: SCAN_HEADERS.pkg, message: 'Не указан пакет' });
-    if (!cve) rowErrors.push({ row: r, field: SCAN_HEADERS.cve, message: 'Не указан идентификатор уязвимости (CVE или БДУ)' });
-    const num = (k: ScanColumn): number | null | 'bad' => {
-      const v = cellPrimitive(get(k));
-      if (v === null) return null;
-      if (typeof v === 'number') return v;
-      if (v instanceof Date) return 'bad';
-      return parseNumberText(v) ?? 'bad';
-    };
-    const cvss = num('cvss');
-    if (cvss === 'bad' || (typeof cvss === 'number' && (cvss < 0 || cvss > 10))) {
-      rowErrors.push({ row: r, field: SCAN_HEADERS.cvss, message: `CVSS — число от 0 до 10, в файле «${text(get('cvss')) ?? ''}»` });
-    }
-    const hits = num('hits');
-    if (hits === 'bad' || (typeof hits === 'number' && (!Number.isInteger(hits) || hits < 0))) {
-      rowErrors.push({ row: r, field: SCAN_HEADERS.hits, message: `«Обнаружений» — целое число, в файле «${text(get('hits')) ?? ''}»` });
-    }
-    const long = (Object.keys(SCAN_HEADERS) as ScanColumn[]).find((k) => (text(get(k)) ?? '').length > TEXT_MAX);
-    if (long) rowErrors.push({ row: r, field: SCAN_HEADERS[long], message: `Не длиннее ${TEXT_MAX} символов` });
-    if (rowErrors.length) {
-      errors.push(...rowErrors);
-      continue;
-    }
-    rows.push({
-      row: r,
-      pkg: pkg as string,
-      cve: cve as string,
-      level: text(get('level')),
-      cvss: typeof cvss === 'number' ? cvss : null,
-      exploit: text(get('exploit')),
-      vector: text(get('vector')),
-      fixVersion: text(get('fixVersion')),
-      desc: text(get('desc')),
-      hits: typeof hits === 'number' ? hits : null,
-    });
-  }
-
-  const hostsSheet = wb.worksheets.find((w) => norm(w.name) === HOSTS_SHEET);
-  let department = '';
-  let hosts: ScanHostRow[] = [];
-  if (hostsSheet) ({ department, hosts } = parseHosts(hostsSheet, warnings));
-  else warnings.push('В книге нет листа «Хосты» — отчёт сохранится без списка хостов');
-
-  return { sheet: ws.name, department, hosts, rows, errors, warnings, reportDate: reportDateFromFileName(fileName) };
+  return wb;
 }
 
-/** Ключ дубля: «CVE + пакет» без учёта регистра и лишних пробелов. */
+export async function parseScanReport(buffer: Buffer, fileName: string): Promise<ParsedScan> {
+  const wb = await readScanWorkbook(buffer);
+  const hostsWs = wb.worksheets.map((ws) => ({ ws, h: hostsHeader(ws) })).find((x) => x.h);
+  const finding = wb.worksheets
+    .filter((ws) => ws !== hostsWs?.ws)
+    .map((ws) => ({ ws, h: headerMap(ws) }))
+    .filter((x): x is { ws: ExcelJS.Worksheet; h: NonNullable<ReturnType<typeof headerMap>> } => !!x.h);
+  if (!finding.length) {
+    throw badRequest('NOT_SCAN_REPORT', 'Это не отчёт сканера: нет листа с колонками «Пакет» и «CVE» (или «Идентификатор»). Выгрузку реестра загружайте кнопкой «Импорт из Excel» на странице «Реестры»');
+  }
+  const total = finding.reduce((n, f) => n + Math.max(0, f.ws.rowCount - f.h.row), 0);
+  if (total > SCAN_MAX_ROWS) throw badRequest('TOO_MANY_ROWS', `В отчёте больше ${SCAN_MAX_ROWS} строк`);
+
+  const warnings: string[] = [];
+  const rows: ScanRow[] = [];
+  const errors: ScanIssue[] = [];
+  const notes: ScanIssue[] = [];
+  const sheets: ParsedScan['sheets'] = [];
+  for (const { ws, h } of finding) {
+    const { cols } = h;
+    const missing = (Object.keys(SCAN_HEADERS) as ScanColumn[]).filter((k) => !cols.has(k));
+    if (missing.length) warnings.push(`Лист «${ws.name}»: нет колонок ${missing.map((k) => `«${SCAN_HEADERS[k]}»`).join(', ')} — эти поля останутся пустыми`);
+    let count = 0;
+    for (let r = h.row + 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      const get = (k: ScanColumn) => (cols.has(k) ? row.getCell(cols.get(k) as number).value : null);
+      if ((Object.keys(SCAN_HEADERS) as ScanColumn[]).every((k) => text(get(k)) === null)) continue;
+      const at = { sheet: ws.name, row: r };
+      const pkg = text(get('pkg'));
+      const cve = text(get('cve'));
+      if (!pkg || !cve) {
+        errors.push({ ...at, field: !pkg ? SCAN_HEADERS.pkg : SCAN_HEADERS.cve, message: !pkg ? 'Нет пакета — строка пропущена' : 'Нет идентификатора (CVE или БДУ) — строка пропущена' });
+        continue;
+      }
+      const long = (Object.keys(SCAN_HEADERS) as ScanColumn[]).find((k) => (text(get(k)) ?? '').length > TEXT_MAX);
+      if (long) {
+        errors.push({ ...at, field: SCAN_HEADERS[long], message: `Не длиннее ${TEXT_MAX} символов — строка пропущена` });
+        continue;
+      }
+      const num = (k: ScanColumn): number | null | 'bad' => {
+        const v = cellPrimitive(get(k));
+        if (v === null) return null;
+        if (typeof v === 'number') return v;
+        if (v instanceof Date) return 'bad';
+        return parseNumberText(v) ?? 'bad';
+      };
+      let cvss = num('cvss');
+      if (cvss === 'bad' || (typeof cvss === 'number' && (cvss < 0 || cvss > 10))) {
+        notes.push({ ...at, field: SCAN_HEADERS.cvss, message: `CVSS «${text(get('cvss')) ?? ''}» не число от 0 до 10 — считается пустым` });
+        cvss = null;
+      }
+      let hits = num('hits');
+      if (hits === 'bad' || (typeof hits === 'number' && (!Number.isInteger(hits) || hits < 0))) {
+        notes.push({ ...at, field: SCAN_HEADERS.hits, message: `«Обнаружений» «${text(get('hits')) ?? ''}» не целое число — считается пустым` });
+        hits = null;
+      }
+      rows.push({
+        ...at, pkg, cve,
+        level: text(get('level')),
+        cvss,
+        exploit: text(get('exploit')),
+        vector: text(get('vector')),
+        fixVersion: text(get('fixVersion')),
+        desc: text(get('desc')),
+        hits,
+      });
+      count++;
+    }
+    sheets.push({ name: ws.name, rows: count });
+  }
+
+  let coverageTitle = '';
+  let hosts: ScanHostRow[] = [];
+  if (hostsWs?.h) ({ coverageTitle, hosts } = parseHosts(hostsWs.ws, hostsWs.h));
+  else warnings.push('В книге нет листа с колонкой «Имя хоста» — охват скана не сохранится');
+
+  return {
+    sheets, sheet: finding[0]?.ws.name ?? '', coverageTitle, department: coverageTitle, hostsSheet: hostsWs?.ws.name ?? null,
+    hosts, rows, errors, notes, warnings, reportDate: reportDateFromFileName(fileName),
+  };
+}
+
+/** Ключ дубля: «CVE + пакет» без учёта регистра и лишних пробелов (сравнение строк файла между собой). */
 export function dupKey(cve: string, pkg: string): string {
   return `${norm(cve)}\u0000${norm(pkg)}`;
+}
+
+/** Повтор ключа в файле — одна строка, «Обнаружений» — большее (первая строка остаётся, её номер — в сообщениях). */
+export function mergeDuplicates(rows: readonly ScanRow[]): { unique: ScanRow[]; duplicates: number } {
+  const byKey = new Map<string, ScanRow>();
+  let duplicates = 0;
+  for (const r of rows) {
+    const key = dupKey(r.cve, r.pkg);
+    const first = byKey.get(key);
+    if (!first) {
+      byKey.set(key, { ...r });
+      continue;
+    }
+    duplicates++;
+    if (r.hits !== null && (first.hits === null || r.hits > first.hits)) first.hits = r.hits;
+  }
+  return { unique: [...byKey.values()], duplicates };
 }

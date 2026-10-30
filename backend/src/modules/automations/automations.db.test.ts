@@ -6,7 +6,7 @@ import type { Values } from '../../lib/register-values.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { makeRegister } from '../../test/registers-fixture.js';
-import { handedOverRecord, SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
+import { handedOverRecord, SAMPLE, SAMPLE_NAME, toBuffer, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import * as excel from '../registers/excel.service.js';
@@ -183,8 +183,8 @@ describe('правила любого реестра', () => {
     }));
 });
 
-describe('автоматизации и отчёт сканера по HTTP', () => {
-  it('сотрудник ИБ: загрузка отчёта и события — да, правила — нет; без ib.work — ничего', () =>
+describe('автоматизации по HTTP', () => {
+  it('сотрудник ИБ: события — да, правила — нет; без ib.work — ничего', () =>
     inTx(async (tx) => {
       const PASSWORD = 'Http-Vuln-Pass-2026';
       const hash = await argon2Hasher.hash(PASSWORD);
@@ -200,18 +200,9 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       const [A, S, L] = [await login(admin.login), await login(staff.login), await login(lawyer.login)];
       const base = `/api/v1/registers/${x.reg.id}`;
 
-      const up = await app.inject({
-        method: 'POST', url: `${base}/scan-imports`, body: SAMPLE,
-        headers: { cookie: S, 'content-type': XLSX_TYPE, 'x-file-name': encodeURIComponent(SAMPLE_NAME) },
-      });
-      expect(up.statusCode).toBe(201);
-      const preview = up.json() as { id: string; summary: { created: number; reportDate: string } };
-      expect([preview.summary.created, preview.summary.reportDate]).toEqual([90, '2026-10-15']);
-      expect((await app.inject({ url: `/api/v1/scan-imports/${preview.id}`, headers: { cookie: S } })).statusCode).toBe(200);
-      const applied = await app.inject({ method: 'POST', url: `/api/v1/scan-imports/${preview.id}/apply`, headers: { cookie: S }, payload: {} });
-      expect(applied.statusCode).toBe(200);
-      // Сроки отчёта 15.10 подходят (29.10) или уже прошли — события появились сразу после применения, без ожидания часа.
-      // …и сразу стали задачами (этап 5).
+      // Просроченная запись — как после передачи ИКТ. Прогон правил — по расписанию или кнопкой.
+      await vuln(tx, x, 'CVE-2026-0404', '2026-01-10', 'critical');
+      expect((await app.inject({ method: 'POST', url: `${base}/automations/run`, headers: { cookie: A } })).json()).toMatchObject({ ran: true });
       const events = await app.inject({ url: `${base}/automation-events?limit=5`, headers: { cookie: S } });
       expect(events.statusCode).toBe(200);
       expect((events.json() as { total: number }).total).toBeGreaterThan(0);
@@ -219,11 +210,9 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       expect([ev.status, ev.tasks.length > 0]).toEqual(['processed', true]);
       // Ручная отметка «обработано» (наследие этапа 5) убрана в 1.0.0: событие закрывается своими задачами.
       expect((await app.inject({ method: 'POST', url: `/api/v1/automation-events/${ev.id}/process`, headers: { cookie: S } })).statusCode).toBe(404);
-      const reports = await app.inject({ url: `${base}/scan-reports`, headers: { cookie: S } });
-      expect((reports.json() as { items: { hostsCount: number }[] }).items[0]?.hostsCount).toBe(12);
+      expect((await app.inject({ url: `${base}/scan-reports`, headers: { cookie: S } })).statusCode).toBe(200);
       const recs = await app.inject({ url: `${base}/records?sort=deadline&limit=1`, headers: { cookie: S } });
-      // Срочное — первым: самый ранний срок отчёта 15.10 — критические, 15.10 + 14 = 29.10.
-      expect((recs.json() as { items: { deadline: { date: string; state: string } }[] }).items[0]?.deadline).toMatchObject({ date: '2026-10-29' });
+      expect((recs.json() as { items: { deadline: { date: string; state: string } }[] }).items[0]?.deadline).toMatchObject({ state: 'overdue' });
 
       const rule = { condition: { kind: 'before', fieldId: x.vf.due.id, days: 7 }, action: { eventType: 'remind', recipients: [{ kind: 'label', itemId: await labelId(tx, 'Руководитель ДИКТ') }] } };
       expect((await app.inject({ url: `${base}/automations`, headers: { cookie: S } })).statusCode).toBe(200);
@@ -254,13 +243,9 @@ describe('одна кнопка «Импорт из Excel»', () => {
         headers: { cookie, 'content-type': XLSX_TYPE, 'x-file-name': encodeURIComponent(name) },
       });
 
-      // Отчёт сканера без даты в имени: предпросмотр есть, применить без даты нельзя.
+      // Отчёт сканера — только в узел (ADR-0029): в реестре уязвимостей 409 с подсказкой.
       const s = await upload(x.reg.id, SAMPLE, 'отчёт сканера.xlsx');
-      expect(s.statusCode).toBe(201);
-      const scanPrev = s.json() as { format: string; scan: { id: string; summary: { created: number; reportDate: string | null } } };
-      expect([scanPrev.format, scanPrev.scan.summary.created, scanPrev.scan.summary.reportDate]).toEqual(['scan', 90, null]);
-      const noDate = await app.inject({ method: 'POST', url: `/api/v1/scan-imports/${scanPrev.scan.id}/apply`, headers: { cookie }, payload: {} });
-      expect([noDate.statusCode, (noDate.json() as { error: { code: string } }).error.code]).toEqual([400, 'REPORT_DATE_REQUIRED']);
+      expect([s.statusCode, (s.json() as { error: { code: string } }).error.code]).toEqual([409, 'VULN_IMPORT_IN_NODE']);
 
       // Выгрузка того же реестра — обычный импорт по колонке ID.
       const exported = await excel.exportRegister(tx, x.reg.id);
@@ -272,19 +257,13 @@ describe('одна кнопка «Импорт из Excel»', () => {
       const wrong = await upload(other.reg.id, SAMPLE, SAMPLE_NAME);
       expect((wrong.json() as { error: { code: string } }).error.code).toBe('NOT_VULN_REGISTER');
 
-      // Без листа «Хосты» это уже не отчёт сканера и не выгрузка.
-      const book = await sampleBook();
-      book.removeWorksheet(must(book.worksheets.find((w) => w.name === 'Хосты')).id);
-      const noHosts = await upload(x.reg.id, await toBuffer(book), SAMPLE_NAME);
-      expect((noHosts.json() as { error: { code: string } }).error.code).toBe('UNKNOWN_FORMAT');
-
       const plain = new ExcelJS.Workbook();
       plain.addWorksheet('Лист1').addRow(['Имя', 'Дата', 'Сумма']);
       const unknown = await upload(x.reg.id, await toBuffer(plain), 'что-то.xlsx');
       expect(unknown.statusCode).toBe(400);
       const err = (unknown.json() as { error: { code: string; message: string } }).error;
       expect(err.code).toBe('UNKNOWN_FORMAT');
-      expect(err.message).toContain('лист «Хосты» и лист с колонками «CVE» и «Пакет»');
+      expect(err.message).toContain('лист с колонками «Пакет» и «CVE» или «Идентификатор»');
       expect(err.message).toContain('колонка «ID» или скрытый лист «_поля»');
       expect(err.message).toContain('«Лист1»: «Имя», «Дата», «Сумма»');
     }));

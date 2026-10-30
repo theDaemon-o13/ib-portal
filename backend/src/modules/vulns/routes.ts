@@ -2,16 +2,16 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import type { FileStore } from '../../lib/file-store.js';
-import { badRequest } from '../../lib/errors.js';
+import { badRequest, conflict } from '../../lib/errors.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
-import { runAutomations } from '../automations/service.js';
 import { importKeyField, loadRegister } from '../registers/definition.js';
 import * as excel from '../registers/excel.service.js';
 import { IMPORT_BODY_LIMIT, ImportPreview } from '../registers/routes.js';
 import { actorOf } from '../settings/common.js';
 import { isVulnRegister } from './definition.js';
 import { detectFormat } from './import-detect.js';
+import { fileNameOf } from './section.routes.js';
 import * as scan from './scan-import.service.js';
 import { vulnSectionRoutes } from './section.routes.js';
 
@@ -55,19 +55,8 @@ const ScanReport = z.object({
 
 const view = requirePerm('ib.work');
 
-/** Отдел, выбранный в окне импорта (заголовок X-Department, URL-кодирование), — когда в A1 листа «Хосты» его нет. */
-function departmentOf(raw: unknown): string | null {
-  return typeof raw === 'string' && raw ? fileNameOf(raw, '').slice(0, 200) : null;
-}
-
-function fileNameOf(raw: unknown, fallback: string): string {
-  if (typeof raw !== 'string' || !raw) return fallback;
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
+/** Отчёт сканера загружается только в узел (ADR-0029): прежние маршруты импорта на реестр отвечают 409. */
+const importInNode = () => conflict('VULN_IMPORT_IN_NODE', 'Отчёт сканера загружают в разделе «Уязвимости», из узла');
 const edit = requirePerm('records.edit');
 
 export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
@@ -78,7 +67,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
     bodyLimit: IMPORT_BODY_LIMIT,
     schema: {
       tags: ['vulns'],
-      summary: 'Импорт из Excel одной кнопкой: тип файла определяется сам — отчёт сканера (лист «Хосты», колонки «CVE» и «Пакет») или выгрузка реестра (колонка ID, лист «_поля»). Шаг 1: предпросмотр',
+      summary: 'Импорт из Excel одной кнопкой: тип файла определяется сам: выгрузка реестра (колонка ID, лист «_поля») — предпросмотр; отчёт сканера (колонки «Пакет» и «CVE») — в реестре уязвимостей 409, его загружают в узел',
       params: IdParams, body: z.any(),
       response: {
         201: z.discriminatedUnion('format', [
@@ -97,7 +86,7 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
       if (!isVulnRegister(reg)) {
         throw badRequest('NOT_VULN_REGISTER', 'Файл распознан как отчёт сканера — его загружают в «Реестр уязвимостей»');
       }
-      return reply.status(201).send({ format, scan: await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileName, departmentOf(request.headers['x-department'])) });
+      throw importInNode();
     }
     return reply.status(201).send({ format, records: await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName) });
   });
@@ -105,45 +94,30 @@ export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
   app.post('/registers/:id/scan-imports', {
     preHandler: edit,
     bodyLimit: IMPORT_BODY_LIMIT,
-    schema: {
-      tags: ['vulns'],
-      summary: 'Отчёт сканера, шаг 1: предпросмотр (новые, дубли «CVE + пакет», хосты). Тело — файл .xlsx, имя — в X-File-Name',
-      params: IdParams, body: z.any(), response: { 201: ScanPreview, ...errors },
-    },
-  }, async (request, reply) => {
-    if (!Buffer.isBuffer(request.body)) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
-    return reply.status(201).send(await scan.previewScan(db, actorOf(request), request.params.id, request.body, fileNameOf(request.headers['x-file-name'], 'scan.xlsx'), departmentOf(request.headers['x-department'])));
+    schema: { tags: ['vulns'], summary: 'Устарел с 1.5.0 — 409: отчёт сканера загружают в узел', params: IdParams, body: z.any(), response: { 201: ScanPreview, ...errors } },
+  }, async () => {
+    throw importInNode();
   });
 
   app.get('/scan-imports/:id', {
     preHandler: edit,
-    schema: { tags: ['vulns'], summary: 'Предпросмотр отчёта сканера', params: IdParams, response: { 200: ScanPreview.extend({ registerId: z.string() }), ...errors } },
-  }, async (request) => scan.getScanImport(db, request.params.id));
+    schema: { tags: ['vulns'], summary: 'Устарел с 1.5.0 — 409', params: IdParams, response: { 200: ScanPreview.extend({ registerId: z.string() }), ...errors } },
+  }, async () => {
+    throw importInNode();
+  });
 
   app.post('/scan-imports/:id/apply', {
     preHandler: edit,
     schema: {
-      tags: ['vulns'],
-      summary: 'Отчёт сканера, шаг 2: применить одной транзакцией. Дата отчёта обязательна, если её нет в имени файла',
-      params: IdParams,
+      tags: ['vulns'], summary: 'Устарел с 1.5.0 — 409', params: IdParams,
       body: z.object({ reportDate: IsoDate.nullable().optional(), notifiedDate: IsoDate.nullable().optional(), systemId: z.string().uuid().nullable().optional() }),
       response: {
-        200: z.object({
-          reportId: z.string(), label: z.string(), created: z.number().int(), merged: z.number().int(), updated: z.number().int(), skipped: z.number().int(),
-        }),
+        200: z.object({ reportId: z.string(), label: z.string(), created: z.number().int(), merged: z.number().int(), updated: z.number().int(), skipped: z.number().int() }),
         ...errors,
       },
     },
-  }, async (request) => {
-    const result = await scan.applyScan(db, actorOf(request), request.params.id, request.body);
-    // Новые записи сразу проверяются правилами (например, уже просроченные) — не ждать часового прогона.
-    const imp = await scan.getScanImport(db, request.params.id);
-    try {
-      await runAutomations(db, { registerId: imp.registerId, trigger: 'import', actorId: request.user?.id ?? null });
-    } catch (err) {
-      request.log.error({ err }, 'автоматизации после импорта отчёта не выполнены');
-    }
-    return result;
+  }, async () => {
+    throw importInNode();
   });
 
   app.get('/registers/:id/scan-reports', {

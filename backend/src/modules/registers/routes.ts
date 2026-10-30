@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import type { FileStore } from '../../lib/file-store.js';
-import { badRequest } from '../../lib/errors.js';
+import { badRequest, conflict } from '../../lib/errors.js';
 import { TEXT_MAX_MULTILINE } from '../../lib/field-settings.js';
 import { PageQuery } from '../../lib/pagination.js';
 import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
@@ -700,11 +700,13 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     preHandler: edit,
     schema: {
       tags: ['register-excel'],
-      summary: 'Отчёт сканера: сколько открытых записей отдела (и выбранной системы) нет в этом отчёте — подсказка «нажмите «Сравнение»»',
+      summary: 'Устарел с 1.5.0: подсказка окна отчёта сканера — 409. «Пропали» считает предпросмотр скана узла',
       params: IdParams, querystring: z.object({ systemId: z.string().uuid().optional() }),
       response: { 200: z.object({ scope: z.object({ conditions: z.array(Condition) }).nullable(), label: z.string(), count: z.number().int() }), ...errors },
     },
-  }, async (request) => compare.notInReport(db, request.params.id, request.query.systemId ?? null));
+  }, async () => {
+    throw conflict('VULN_IMPORT_IN_NODE', 'Отчёт сканера загружают в разделе «Уязвимости», из узла');
+  });
 
   app.post('/registers/:id/records/compare-status/preview', {
     preHandler: edit,
