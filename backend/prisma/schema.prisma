@@ -97,6 +97,10 @@ model User {
   assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
   sessions             Session[]
   auditEntries         AuditLog[]
+  vulnGroups           VulnGroup[]          @relation("VulnGroupCreator")
+  vulnNodes            VulnNode[]           @relation("VulnNodeCreator")
+  vulnScans            VulnScan[]           @relation("VulnScanCreator")
+  vulnHandovers        VulnScan[]           @relation("VulnScanHandover")
 
   @@index([managerId])
   @@map("users")
@@ -261,6 +265,7 @@ model CatalogItem {
   mailSources     TaskMailSource[]
   documents       Document[]
   evidence        Evidence[]
+  vulnNodes       VulnNode[]
 
   @@unique([catalogCode, systemKey])
   @@index([catalogCode, sortOrder])
@@ -469,6 +474,8 @@ model RegisterRecord {
   tasks     Task[]
   evidence  Evidence[]
   files     RegisterRecordFile[]
+  vuln      VulnRecord?
+  vulnScans VulnRecordScan[]
 
   @@unique([registerId, number])
   @@index([searchTsv], type: Gin)
@@ -528,6 +535,7 @@ model RegisterImport {
   file       File?       @relation(fields: [fileId], references: [id], onDelete: Restrict)
   author     User        @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   scanReport ScanReport?
+  vulnScan   VulnScan?
 
   @@index([registerId, createdAt])
   @@map("register_imports")
@@ -564,6 +572,7 @@ model ScanReport {
   import   RegisterImport @relation(fields: [importId], references: [id], onDelete: Restrict)
   author   User           @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   hosts    ScanHost[]
+  vulnScan VulnScan?
 
   @@index([registerId, reportDate])
   @@map("scan_reports")
@@ -581,6 +590,146 @@ model ScanHost {
 
   @@index([reportId, sortOrder])
   @@map("scan_hosts")
+}
+
+// ---------------------------------------------------------------------------
+// Раздел «Уязвимости» (релиз 1.5.0, ADR-0029): группы, узлы «группа × тип систем», сканы.
+// Записи — строки системного реестра уязвимостей; принадлежность узлу — vuln_records.
+// ---------------------------------------------------------------------------
+
+/// Группа: сервис или подразделение. «Без группы» — системная (kind temporary, system_key ungrouped).
+/// Название уникально без учёта регистра и крайних пробелов (индекс vuln_groups_name_uq в SQL миграции).
+model VulnGroup {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  /// service | department | temporary (CHECK в SQL миграции)
+  kind      String
+  systemKey String?  @unique @map("system_key")
+  /// NULL — создана seed.
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version   Int      @default(1)
+
+  creator User?      @relation("VulnGroupCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  nodes   VulnNode[]
+
+  @@map("vuln_groups")
+}
+
+/// Узел = группа × значение справочника «Типы систем». Узел «Из прежнего реестра» — без типа (system_key legacy).
+/// Один тип в группе — один узел (частичный уникальный индекс в SQL миграции).
+model VulnNode {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId      String   @map("group_id") @db.Uuid
+  systemTypeId String?  @map("system_type_id") @db.Uuid
+  systemKey    String?  @unique @map("system_key")
+  createdBy    String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  group      VulnGroup    @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  systemType CatalogItem? @relation(fields: [systemTypeId], references: [id], onDelete: Restrict)
+  creator    User?        @relation("VulnNodeCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  scans      VulnScan[]
+  records    VulnRecord[]
+
+  @@index([groupId])
+  @@map("vuln_nodes")
+}
+
+/// Скан узла: итог загрузки отчёта сканера. Не меняется (триггер), кроме однократной передачи ИКТ.
+/// Отчёт прежнего реестра (1.1.0–1.4.0) — скан «Без группы» со ссылкой legacy_report_id, без файла и снимка.
+model VulnScan {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nodeId         String    @map("node_id") @db.Uuid
+  importId       String?   @unique @map("import_id") @db.Uuid
+  legacyReportId String?   @unique @map("legacy_report_id") @db.Uuid
+  fileId         String?   @map("file_id") @db.Uuid
+  fileName       String    @map("file_name")
+  fileSha256     String    @map("file_sha256")
+  scanDate       DateTime  @map("scan_date") @db.Date
+  /// Строка над заголовком листа хостов: «Отдел платёжных карт».
+  coverageTitle  String    @default("") @map("coverage_title")
+  /// [{ name, ip, os }]; у сканов прежнего реестра пусто — хосты в scan_hosts.
+  hosts          Json      @default("[]")
+  hostsCount     Int       @default(0) @map("hosts_count")
+  /// Снимок строк файла с посчитанной Оценкой (после объединения повторов ключа).
+  findings       Json      @default("[]")
+  findingsCount  Int       @default(0) @map("findings_count")
+  /// Ключи по пяти группам сравнения, выбранное, охват (новые и выбывшие хосты), система импорта.
+  comparison     Json?
+  previousScanId String?   @map("previous_scan_id") @db.Uuid
+  createdBy      String    @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Передача отчёта ИКТ — один раз: от неё идёт срок записей (ADR-0030).
+  handedOverOn   DateTime? @map("handed_over_on") @db.Date
+  handedOverTo   String?   @map("handed_over_to")
+  handoverFileId String?   @map("handover_file_id") @db.Uuid
+  handedOverBy   String?   @map("handed_over_by") @db.Uuid
+  handedOverAt   DateTime? @map("handed_over_at") @db.Timestamptz(3)
+
+  node         VulnNode         @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  import       RegisterImport?  @relation(fields: [importId], references: [id], onDelete: Restrict)
+  legacyReport ScanReport?      @relation(fields: [legacyReportId], references: [id], onDelete: Restrict)
+  file         File?            @relation("VulnScanFile", fields: [fileId], references: [id], onDelete: Restrict)
+  previous     VulnScan?        @relation("VulnScanPrevious", fields: [previousScanId], references: [id], onDelete: Restrict)
+  next         VulnScan[]       @relation("VulnScanPrevious")
+  creator      User             @relation("VulnScanCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  handoverFile File?            @relation("VulnScanHandoverFile", fields: [handoverFileId], references: [id], onDelete: Restrict)
+  handedBy     User?            @relation("VulnScanHandover", fields: [handedOverBy], references: [id], onDelete: Restrict)
+  seen         VulnRecordScan[]
+  deadlineOf   VulnRecord[]     @relation("VulnRecordDeadlineScan")
+  firstOf      VulnRecord[]     @relation("VulnRecordFirstScan")
+  lastOf       VulnRecord[]     @relation("VulnRecordLastScan")
+
+  @@index([nodeId, scanDate(sort: Desc), createdAt(sort: Desc)])
+  @@map("vuln_scans")
+}
+
+/// Запись реестра уязвимостей в узле. key_norm — «пакет␀идентификатор» без регистра и лишних пробелов,
+/// уникален в узле (частичный индекс в SQL); в «Без группы» и у удалённых записей — NULL.
+model VulnRecord {
+  recordId       String    @id @map("record_id") @db.Uuid
+  nodeId         String    @map("node_id") @db.Uuid
+  keyNorm        String?   @map("key_norm")
+  /// Скан, от передачи ИКТ которого идёт срок; NULL — срок не начался (или срок из прежнего реестра).
+  deadlineScanId String?   @map("deadline_scan_id") @db.Uuid
+  firstScanId    String?   @map("first_scan_id") @db.Uuid
+  lastScanId     String?   @map("last_scan_id") @db.Uuid
+  /// Растёт при повторном обнаружении: продления и передача прошлого цикла не действуют.
+  cycle          Int       @default(1)
+  reopenedAt     DateTime? @map("reopened_at") @db.Timestamptz(3)
+  /// Запись пришла из реестра до 1.5.0.
+  legacy         Boolean   @default(false)
+  version        Int       @default(1)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  record       RegisterRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  node         VulnNode       @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  deadlineScan VulnScan?      @relation("VulnRecordDeadlineScan", fields: [deadlineScanId], references: [id], onDelete: Restrict)
+  firstScan    VulnScan?      @relation("VulnRecordFirstScan", fields: [firstScanId], references: [id], onDelete: Restrict)
+  lastScan     VulnScan?      @relation("VulnRecordLastScan", fields: [lastScanId], references: [id], onDelete: Restrict)
+
+  @@index([nodeId])
+  @@map("vuln_records")
+}
+
+/// В каких сканах встречалась запись и что с ней сделал скан. Только пополняется.
+model VulnRecordScan {
+  recordId String @map("record_id") @db.Uuid
+  scanId   String @map("scan_id") @db.Uuid
+  /// new | reopened | changed | unchanged | fixed | legacy (CHECK в SQL миграции)
+  outcome  String
+  cycle    Int
+  /// «было → стало» по полям: [{ fieldId, label, from, to }]
+  changes  Json?
+
+  record RegisterRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  scan   VulnScan       @relation(fields: [scanId], references: [id], onDelete: Restrict)
+
+  @@id([recordId, scanId])
+  @@index([scanId])
+  @@map("vuln_record_scans")
 }
 
 // ---------------------------------------------------------------------------
@@ -1204,6 +1353,8 @@ model File {
   recordLinks   RegisterRecordFile[]
   imports       RegisterImport[]
   text          FileText?
+  vulnScans     VulnScan[] @relation("VulnScanFile")
+  vulnHandovers VulnScan[] @relation("VulnScanHandoverFile")
 
   @@index([uploadedBy, uploadedAt])
   @@map("files")

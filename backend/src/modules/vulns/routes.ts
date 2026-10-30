@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
+import type { FileStore } from '../../lib/file-store.js';
 import { badRequest } from '../../lib/errors.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
@@ -12,6 +13,7 @@ import { actorOf } from '../settings/common.js';
 import { isVulnRegister } from './definition.js';
 import { detectFormat } from './import-detect.js';
 import * as scan from './scan-import.service.js';
+import { vulnSectionRoutes } from './section.routes.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
@@ -68,7 +70,9 @@ function fileNameOf(raw: unknown, fallback: string): string {
 }
 const edit = requirePerm('records.edit');
 
-export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+export const vulnRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
+  await app.register(vulnSectionRoutes, { db, store });
+
   app.post('/registers/:id/file-imports', {
     preHandler: edit,
     bodyLimit: IMPORT_BODY_LIMIT,

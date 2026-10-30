@@ -17,6 +17,7 @@ export const CATALOGS = [
   { code: 'task_priorities', name: 'Приоритеты задач', description: 'Карточка задачи, черновик задачи из письма', kind: 'values', hasColor: false },
   { code: 'mail_rules', name: 'Правила разбора почты', description: 'Почта → задача: ключевые слова определяют категорию письма и ответственного', kind: 'mail_rules', hasColor: false },
   { code: 'systems', name: 'Системы', description: 'Владелец системы, поле «Система» реестров, риски ИБ (актив), формы подтверждения', kind: 'values', hasColor: false },
+  { code: 'system_types', name: 'Типы систем', description: 'Раздел «Уязвимости»: узлы групп — группа × тип систем (БД, серверы, рабочие станции …)', kind: 'values', hasColor: false },
   { code: 'document_types', name: 'Типы документов', description: 'Реестр внутренних документов ИБ', kind: 'values', hasColor: false },
   { code: 'notify_recipients', name: 'Получатели уведомлений', description: 'Метки получателей событий автоматизаций: пользователи портала и e-mail', kind: 'values', hasColor: false },
 ] as const satisfies readonly CatalogDef[];

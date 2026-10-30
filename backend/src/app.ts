@@ -109,7 +109,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(journalRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(auditRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
-  await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(taskRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db, docUrlPrefix: deps.docUrlPrefix ?? '' });

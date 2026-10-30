@@ -7,6 +7,15 @@ import { catalogItemUsage, formTemplateUsage } from './usage.js';
 
 const add = (m: Map<string, number>, id: string, n: number) => m.set(id, (m.get(id) ?? 0) + n);
 
+/** Узлы раздела «Уязвимости» (релиз 1.5.0): тип систем узла. Узлы не удаляются — значение только в архив. */
+catalogItemUsage.register('vuln_nodes', async (db: Db, ids) => {
+  const out = new Map<string, number>();
+  if (!ids.length) return out;
+  const rows = await db.vulnNode.groupBy({ by: ['systemTypeId'], where: { systemTypeId: { in: [...ids] } }, _count: { _all: true } });
+  for (const r of rows) if (r.systemTypeId) add(out, r.systemTypeId, r._count._all);
+  return out;
+});
+
 catalogItemUsage.register('tasks', async (db: Db, ids) => {
   const out = new Map<string, number>();
   if (!ids.length) return out;

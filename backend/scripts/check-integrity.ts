@@ -315,6 +315,17 @@ async function main() {
   const headOk = ibHeads.every((h) => h.isActive && !h.roles.some((r) => r.role.code === 'super_admin')
     && h.roles.some((r) => r.role.permissions.some((p) => p.permissionCode === 'ib.work')));
   check(ibHeads.length <= 1 && headOk, ibHeads.length ? 'отметка «Начальник ИБ»: один держатель, активный, с доступом к разделам ИБ' : 'отметка «Начальник ИБ» не поставлена (этап документов без исполнителя)', 'проверьте карточку пользователя с отметкой');
+  // Раздел «Уязвимости» (1.5.0, ADR-0029): группы, узлы, сканы и записи узлов не удаляются, сканы записи только пополняются.
+  const vulnPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public.' || t, p)) AS granted
+    FROM unnest(ARRAY['vuln_groups', 'vuln_nodes', 'vuln_scans', 'vuln_records', 'vuln_record_scans']) AS t, unnest(ARRAY['DELETE', 'TRUNCATE']) AS p`;
+  const vulnSeen = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT has_table_privilege('ibportal_app', 'public.vuln_record_scans', 'UPDATE') AS granted`;
+  check(vulnPrivs[0]?.granted === false && vulnSeen[0]?.granted === false, 'ibportal_app: нет DELETE и TRUNCATE в разделе «Уязвимости», сканы записи только пополняются');
+  const ungrouped = await prisma.vulnNode.count({ where: { systemKey: 'legacy', group: { systemKey: 'ungrouped' } } });
+  check(ungrouped === 1, 'есть «Без группы / Из прежнего реестра»', 'выполните seed');
+  const badTypes = await prisma.vulnNode.count({ where: { systemTypeId: { not: null }, systemType: { catalogCode: { not: 'system_types' } } } });
+  check(badTypes === 0, 'тип узла — значение справочника «Типы систем»', 'проверьте vuln_nodes.system_type_id');
   const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });
   check(retiredUsers === 0, 'в ролях «Юрист» и «Правление» нет пользователей (перенесены в «Читатель документов»)', 'выполните seed');
 
