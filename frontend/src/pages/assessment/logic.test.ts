@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Answer, AssessmentSummary, Methodology } from '../../api/assessments';
 import {
-  defaultAssessmentId, deltaTone, logText, donutArcs, n1, radarAnchor, radarPoint, radarPolygon, scalePct, scaleZones, sectionsOf, signed,
+  defaultAssessmentId, defaultTaskTitle, deltaTone, logText, planCounts, taskState, donutArcs, n1, radarAnchor, radarPoint, radarPolygon, scalePct, scaleZones, sectionsOf, signed,
   unanswered, weakSections,
 } from './logic';
 
@@ -98,5 +98,17 @@ describe('самооценка: списки и подписи', () => {
     expect(logText(`Самооценка «${t}» зафиксирована: 34 из 96`, t)).toBe('Зафиксирована: 34 из 96');
     expect(logText(`Самооценка «${t}»: название, дата`, t)).toBe('Название, дата');
     expect(logText('Самооценка «Другая» создана', t)).toBe('Самооценка «Другая» создана');
+  });
+
+  it('задачи по разрывам: название по умолчанию, состояние, счётчики плана', () => {
+    expect(defaultTaskTitle('Контроль устранения уязвимостей')).toBe('Контроль устранения уязвимостей: усилить');
+    const t = (code: string, done = false, deleted = false) => ({ code, done, deleted, archived: false, status: done ? 'Выполнено' : 'Поставленные' });
+    expect(taskState(t('1.1'))).toEqual({ text: 'Поставленные', tone: 'acc' });
+    expect(taskState(t('1.1', true))).toEqual({ text: 'Выполнено', tone: 'low' });
+    expect(taskState({ ...t('1.1'), archived: true })).toEqual({ text: 'в архиве · Поставленные', tone: '' });
+    expect(taskState(t('1.1', false, true)).text).toBe('удалена');
+    const gap = (code: string, g: number) => ({ code, name: code, domainNo: 1, level: 1, target: 1 + g, gap: g, key: false });
+    expect(planCounts({ gaps: [gap('1.1', 2), gap('5.3', 1), gap('7.1', 1)], gapPoints: 4 }, [t('1.1', true), t('1.1'), t('5.3', false, true)]))
+      .toEqual({ gaps: 3, points: 4, withoutTask: 2, done: 1, total: 2 });
   });
 });

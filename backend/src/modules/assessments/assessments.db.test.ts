@@ -61,12 +61,15 @@ describe('самооценка: права (ADR-0026)', () => {
       const urls: [string, string][] = [
         ['GET', '/api/v1/assessments'], ['GET', '/api/v1/assessments/methodology'], ['GET', `/api/v1/assessments/${id}`],
         ['GET', `/api/v1/assessments/${id}/log`], ['GET', `/api/v1/assessments/${id}/answers/1.1/history`],
-        ['GET', `/api/v1/assessments/compare?a=${id}&b=${id}`],
+        ['GET', `/api/v1/assessments/compare?a=${id}&b=${id}`], ['GET', '/api/v1/assessments/assignees'],
+        ['POST', `/api/v1/assessments/${id}/answers/1.1/tasks`],
         ['POST', '/api/v1/assessments'], ['PATCH', `/api/v1/assessments/${id}`], ['PUT', `/api/v1/assessments/${id}/answers/1.1`],
         ['POST', `/api/v1/assessments/${id}/finalize`], ['POST', `/api/v1/assessments/${id}/reopen`], ['POST', `/api/v1/assessments/${id}/archive`],
       ];
+      // Тело — корректное для любого из маршрутов (лишние поля отбрасываются): проверяется право, а не схема.
+      const validBody = { version: 1, title: 'x', assessedOn: '2026-10-30', categoryId: id, assigneeId: owner.id };
       for (const [method, url] of urls) {
-        const res = await app.inject({ method: method as 'GET', url, headers: { cookie: A, origin: TEST_PORTAL_URL }, payload: method === 'GET' ? undefined : { version: 1, title: 'x', assessedOn: '2026-10-30' } });
+        const res = await app.inject({ method: method as 'GET', url, headers: { cookie: A, origin: TEST_PORTAL_URL }, payload: method === 'GET' ? undefined : validBody });
         expect(res.statusCode, `${method} ${url}`).toBe(403);
       }
       const mine = await app.inject({ url: `/api/v1/assessments/${id}`, headers: { cookie: O } });

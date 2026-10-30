@@ -114,6 +114,13 @@ details.sa-target p{white-space:pre-line;margin:8px 0 2px}
 .sa-sec-x{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:8px 18px 12px;border-top:1px solid var(--line)}
 .sa-sec-hist{padding:0 18px 14px}
 
+.sa-tasks{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* план */
+.sa-plan td{vertical-align:top}
+.sa-plan td .btn.ghost{white-space:normal;text-align:left;justify-content:flex-start}
+.sa-add{margin-top:6px}
+
 /* история */
 .sa-cmp{max-height:520px;overflow:auto}
 .sa-list td,.sa-cmp td{vertical-align:middle}

@@ -7,7 +7,8 @@ import { akeys, assessmentsApi, type Answer, type AnswerPatch, type Assessment, 
 import { ApiError } from '../../api/client';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
-import { changedText, LEVELS, levelName, logText, n1, type Section, sectionsOf } from './logic';
+import { GapTaskDialog } from './GapTaskDialog';
+import { changedText, LEVELS, levelName, logText, n1, type Section, sectionsOf, taskState } from './logic';
 
 /** Ответ сервера — в кэш оценки: ответ раздела, итог и версия оценки. */
 function applySaved(old: Assessment | undefined, code: string, res: SaveAnswerResult): Assessment | undefined {
@@ -63,6 +64,8 @@ function SectionCard({ a, s, answer, editable, flash, save, busy }: {
   save: (code: string, body: Omit<AnswerPatch, 'version'>) => void; busy: boolean;
 }) {
   const [history, setHistory] = useState(false);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const tasks = a.tasks.filter((t) => t.code === s.code && !t.deleted);
   const m = a.methodology;
   const gap = answer.targetLevel !== null && answer.targetLevel > (answer.level ?? 0);
   return (
@@ -105,12 +108,22 @@ function SectionCard({ a, s, answer, editable, flash, save, busy }: {
         </label>
       </div>
       <div className="sa-sec-x">
-        <span className="hint">{changedText(answer)}</span>
-        <button className="btn ghost sm" type="button" aria-expanded={history} onClick={() => setHistory(!history)}>
-          {history ? 'Скрыть историю' : 'История раздела'}
-        </button>
+        <div className="sa-tasks">
+          {tasks.map((t) => {
+            const st = taskState(t);
+            return <span key={t.id} className={`chip ${st.tone}`} title={`${t.title} · ${t.assignee ?? 'без исполнителя'}`}>#{t.number} · {st.text}</span>;
+          })}
+          {a.status !== 'archived' && <button className="btn sm" type="button" onClick={() => setTaskOpen(true)}>Создать задачу</button>}
+        </div>
+        <div className="row">
+          <span className="hint">{changedText(answer)}</span>
+          <button className="btn ghost sm" type="button" aria-expanded={history} onClick={() => setHistory(!history)}>
+            {history ? 'Скрыть историю' : 'История раздела'}
+          </button>
+        </div>
       </div>
       {history && <div className="sa-sec-hist"><SectionHistory a={a} code={s.code} /></div>}
+      {taskOpen && <GapTaskDialog a={a} s={s} onClose={() => setTaskOpen(false)} />}
     </article>
   );
 }

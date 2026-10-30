@@ -20,6 +20,9 @@ export type SaveAnswerResult = Res<'/api/v1/assessments/{id}/answers/{code}', 'p
 export type NewAssessment = Body<'/api/v1/assessments', 'post'>;
 export type AssessmentPatch = Body<'/api/v1/assessments/{id}', 'patch'>;
 export type AnswerPatch = Body<'/api/v1/assessments/{id}/answers/{code}', 'put'>;
+export type LinkedTask = Assessment['tasks'][number];
+export type NewGapTask = Body<'/api/v1/assessments/{id}/answers/{code}/tasks', 'post'>;
+export type Assignee = Res<'/api/v1/assessments/assignees', 'get'>['items'][number];
 
 export const akeys = {
   all: ['assessments'] as const,
@@ -28,6 +31,7 @@ export const akeys = {
   log: (id: string) => ['assessments', 'log', id] as const,
   history: (id: string, code: string) => ['assessments', 'history', id, code] as const,
   compare: (a: string, b: string) => ['assessments', 'compare', a, b] as const,
+  assignees: ['assessments', 'assignees'] as const,
 };
 
 const base = '/api/v1/assessments';
@@ -45,4 +49,7 @@ export const assessmentsApi = {
   log: (id: string) => request<{ items: LogEntry[] }>('GET', `${base}/${id}/log`),
   history: (id: string, code: string) => request<{ items: LogEntry[] }>('GET', `${base}/${id}/answers/${code}/history`),
   compare: (a: string, b: string) => request<Comparison>('GET', `${base}/compare?a=${a}&b=${b}`),
+  // Задачи по разрывам (Д3): ставит раздел, исполнители — сотрудники с ib.work.
+  assignees: () => request<{ items: Assignee[] }>('GET', `${base}/assignees`),
+  createTask: (id: string, code: string, body: NewGapTask) => request<LinkedTask>('POST', `${base}/${id}/answers/${code}/tasks`, body),
 };

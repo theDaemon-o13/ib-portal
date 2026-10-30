@@ -11,6 +11,8 @@ export const NOTIFICATION_KINDS = [
   'task_due_tomorrow', 'task_overdue', 'task_overdue_summary',
   // Документы (релиз 1.2.0, этап Г5, ADR-0024).
   'doc_waiting', 'doc_translation', 'doc_returned', 'doc_commented', 'doc_deadline_changed', 'doc_party_due_tomorrow', 'doc_party_overdue',
+  // Самооценка (этап Д, правило 11): «Пора провести самооценку»; ссылка — по виду уведомления.
+  'assessment_reminder',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -141,6 +143,8 @@ export function overdueCountLabel(n: number): string {
 /** С какого дня «просрочено» приходит по одной задаче; что просрочено раньше — одним сводным (решение владельца после этапа В). */
 export const OVERDUE_SINCE_KEY = 'notifications.overdue_since';
 export const OVERDUE_BOARD_LINK = '/tasks?overdue=1';
+/** Напоминание о переоценке ведёт в раздел «Самооценка» (ссылки на сущность у уведомления нет). */
+export const ASSESSMENT_LINK = '/assessment/overview';
 
 /**
  * «Срок завтра» — исполнителю (нет исполнителя — автору); «просрочено» — исполнителю и автору (решение В-2).
@@ -242,6 +246,7 @@ export async function listNotifications(db: Db, userId: string, q: { unread?: bo
       task: n.task ? { id: n.task.id, number: n.task.number, deleted: n.task.deletedAt !== null } : null,
       /** Куда ведёт щелчок: задача (если не удалена) или доска с фильтром «просрочено» у сводного. */
       link: n.kind === 'task_overdue_summary' ? OVERDUE_BOARD_LINK
+        : n.kind === 'assessment_reminder' ? ASSESSMENT_LINK
         : n.task && !n.task.deletedAt ? `/tasks?task=${n.task.id}`
           : n.document && !n.document.deletedAt ? `/documents?doc=${n.document.id}` : null,
     })),

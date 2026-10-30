@@ -59,8 +59,14 @@ const Delta = z.object({
   domains: z.array(z.object({ no: z.number().int(), sum: z.number().int().nullable(), avg: z.number().nullable() })),
   sections: z.array(z.object({ code: z.string(), from: z.number().int().nullable(), to: z.number().int().nullable(), delta: z.number().int().nullable() })),
 });
+const LinkedTask = z.object({
+  code: z.string(), id: z.string(), number: z.number().int(), title: z.string(), assignee: z.string().nullable(), dueDate: z.string().nullable(),
+  status: z.string(), done: z.boolean(), archived: z.boolean(), deleted: z.boolean(),
+});
 const Detail = Summary.extend({
   profile: Profile, reopenComment: z.string(), methodology: Methodology, answers: z.array(Answer), score: Score,
+  /** Задачи по разделам (связи раздела); в самой задаче следа самооценки нет. */
+  tasks: z.array(LinkedTask),
   previous: z.object({
     id: z.string(), title: z.string(), assessedOn: z.string(), total: z.number().int(), level: LevelRef,
     domains: z.array(z.object({ no: z.number().int(), sum: z.number().int(), avg: z.number().nullable() })),
@@ -83,6 +89,14 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     preHandler: owner,
     schema: { tags, summary: 'Активная методика', response: { 200: Methodology, ...errors } },
   }, async () => (await svc.activeMethodology(db)).content as z.infer<typeof Methodology>);
+
+  app.get('/assessments/assignees', {
+    preHandler: owner,
+    schema: {
+      tags, summary: 'Исполнители для задачи по разрыву: активные сотрудники с ib.work, только id и имя',
+      response: { 200: z.object({ items: z.array(z.object({ id: z.string(), fullName: z.string() })) }), ...errors },
+    },
+  }, async () => svc.taskAssignees(db));
 
   app.get('/assessments/compare', {
     preHandler: owner,
@@ -135,6 +149,19 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
       response: { 200: z.object({ answer: Answer.nullable(), score: Score, version: z.number().int() }), ...errors },
     },
   }, async (request) => svc.saveAnswer(db, actorOf(request), request.params.id, request.params.code, request.body));
+
+  app.post('/assessments/:id/answers/:code/tasks', {
+    preHandler: owner,
+    schema: {
+      tags,
+      summary: 'Задача по разрыву на общей доске (без «Задачи: постановка другим»); в задаче следа самооценки нет',
+      params: IdParams.extend({ code: z.string().regex(/^\d{1,2}\.\d{1,2}$/) }),
+      body: z.object({
+        title: z.string().max(svc.TASK_TITLE_MAX), categoryId: z.string().uuid(), assigneeId: z.string().uuid(), dueDate: Day.nullable().optional(),
+      }),
+      response: { 201: LinkedTask, ...errors },
+    },
+  }, async (request, reply) => reply.status(201).send(await svc.createGapTask(db, actorOf(request), request.params.id, request.params.code, request.body)));
 
   app.get('/assessments/:id/answers/:code/history', {
     preHandler: owner,

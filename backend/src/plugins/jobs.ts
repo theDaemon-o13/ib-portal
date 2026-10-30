@@ -8,6 +8,7 @@ import type { Db } from '../lib/db.js';
 import type { FileStore } from '../lib/file-store.js';
 import { runAutomations } from '../modules/automations/service.js';
 import { processPendingTexts } from '../modules/files/text.js';
+import { notifyReassessment } from '../modules/assessments/service.js';
 import { notifyPartyDeadlines } from '../modules/documents/notify.js';
 import { cleanupNotifications, notifyDeadlines } from '../modules/notifications/service.js';
 
@@ -65,9 +66,11 @@ export function installJobs(app: FastifyInstance, opts: JobsOptions): void {
         const d = await notifyDeadlines(opts.db, now);
         // Документы (Г5): «срок ответственного лица завтра» и «просрочен» — автору.
         const p = await notifyPartyDeadlines(opts.db, now);
+        // Самооценка (этап Д): за 30 дней до годовщины последней зафиксированной — «Пора провести самооценку».
+        const reassessment = await notifyReassessment(opts.db, now);
         const cleaned = await cleanupNotifications(opts.db, now);
-        if (d.dueTomorrow || d.overdue || d.overdueSummary || p.dueTomorrow || p.overdue || cleaned) {
-          app.log.info({ ...d, partyDueTomorrow: p.dueTomorrow, partyOverdue: p.overdue, cleaned }, 'уведомления о сроках');
+        if (d.dueTomorrow || d.overdue || d.overdueSummary || p.dueTomorrow || p.overdue || reassessment || cleaned) {
+          app.log.info({ ...d, partyDueTomorrow: p.dueTomorrow, partyOverdue: p.overdue, reassessment, cleaned }, 'уведомления о сроках');
         }
       } catch (err) {
         // Ошибка прогона не роняет backend: следующий прогон — по расписанию.

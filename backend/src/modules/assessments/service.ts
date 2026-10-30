@@ -6,7 +6,12 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { compareScores, score, sectionsOf, type AnswerInput, type Methodology, type Score } from '../../lib/assessment-score.js';
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { formatDateRu } from '../../lib/register-values.js';
+import { addDaysIso, todayIso } from '../../lib/today.js';
+import { notify } from '../notifications/service.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
+import { assertAssignee, createTask } from '../tasks/service.js';
+import { userOptions } from '../users/service.js';
 
 export const TITLE_MAX = 200;
 export const COMMENT_MAX = 4000;
@@ -128,6 +133,33 @@ export async function createAssessment(db: Db, actor: Actor, input: { title: str
   });
 }
 
+/** Задачи по разделам оценки (связи assessment_links) и их состояние на доске. */
+async function linkedTasks(db: Db, assessmentId: string) {
+  const links = await db.assessmentLink.findMany({
+    where: { entityType: 'task', answer: { assessmentId } },
+    select: { entityId: true, createdAt: true, answer: { select: { sectionCode: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!links.length) return [];
+  const tasks = await db.task.findMany({
+    where: { id: { in: links.map((l) => l.entityId) } },
+    select: {
+      id: true, number: true, title: true, dueDate: true, completedAt: true, archivedAt: true, deletedAt: true,
+      status: { select: { value: true } }, assignee: { select: { fullName: true } },
+    },
+  });
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  return links.flatMap((l) => {
+    const t = byId.get(l.entityId);
+    if (!t) return [];
+    return [{
+      code: l.answer.sectionCode, id: t.id, number: t.number, title: t.title, assignee: t.assignee?.fullName ?? null,
+      dueDate: t.dueDate ? isoDay(t.dueDate) : null, status: t.status.value, done: t.completedAt !== null,
+      archived: t.archivedAt !== null, deleted: t.deletedAt !== null,
+    }];
+  });
+}
+
 export async function getAssessment(db: Db, id: string) {
   const r = await getRow(db, id);
   const m = snapshotOf(r);
@@ -144,6 +176,7 @@ export async function getAssessment(db: Db, id: string) {
       updatedAt: a.updatedAt.toISOString(), updatedBy: a.updater?.fullName ?? null,
     })),
     score: s,
+    tasks: await linkedTasks(db, id),
     previous: prev && prevScore ? {
       id: prev.id, title: prev.title, assessedOn: isoDay(prev.assessedOn), total: prevScore.total, level: prevScore.level,
       domains: prevScore.domains.map((d) => ({ no: d.no, sum: d.sum, avg: d.avg })),
@@ -336,4 +369,77 @@ export async function compareAssessments(db: Db, aId: string, bId: string) {
     })),
     delta: compareScores({ score: sb, answers: answersOf(b) }, { score: sa, answers: answersOf(a) }),
   };
+}
+
+// ---------------------------------------------------------------- задачи по разрывам (ADR-0026)
+
+export const TASK_TITLE_MAX = 300;
+
+/** Исполнители для формы задачи: активные сотрудники с ib.work, только id и имя. */
+export async function taskAssignees(db: Db) {
+  return { items: (await userOptions(db, 'ib')).map((u) => ({ id: u.id, fullName: u.fullName })) };
+}
+
+/**
+ * Задача по разрыву раздела — на общей доске. Право даёт сам раздел (assessment.manage): «Задачи: постановка другим»
+ * не нужно; исполнитель — активный сотрудник с ib.work. Задача — обычная ручная (source = 'manual'): в её карточке
+ * и журнале нет ни раздела, ни баллов, ни ссылки; связь — только в assessment_links, видна внутри раздела.
+ */
+export async function createGapTask(db: Db, actor: Actor, id: string, code: string,
+  input: { title: string; categoryId: string; assigneeId: string; dueDate?: string | null }) {
+  return withTx(db, async (tx) => {
+    const r = await getRow(tx, id);
+    if (r.status === 'archived') throw conflict('ARCHIVED', 'Оценка в архиве: задачи по ней не ставятся');
+    const answer = r.answers.find((x) => x.sectionCode === code);
+    if (!answer) throw notFound('Раздел');
+    await assertAssignee(tx, input.assigneeId);
+    // Постановка другому — по праву раздела, а не tasks.assign (решение владельца 1 по этапу Д).
+    const task = await createTask(tx, { ...actor, perms: new Set(['tasks.assign']) }, {
+      title: input.title, categoryId: input.categoryId, assigneeId: input.assigneeId, dueDate: input.dueDate ?? null,
+    });
+    await tx.assessmentLink.create({ data: { answerId: answer.id, entityType: 'task', entityId: task.id, createdBy: actor.id } });
+    const name = sectionsOf(snapshotOf(r)).find((s) => s.code === code)?.name ?? code;
+    await auditSettings(tx, actor, {
+      action: 'assessment.task_linked', entity: ENTITY, entityId: id,
+      summary: `Самооценка «${r.title}», ${code} ${name}: поставлена задача #${task.number}`,
+      after: { code, taskId: task.id },
+    });
+    const linked = (await linkedTasks(tx, id)).find((t) => t.id === task.id);
+    if (!linked) throw new Error('задача по разрыву не найдена после создания');
+    return linked;
+  });
+}
+
+// ---------------------------------------------------------------- напоминание о переоценке (правило 11)
+
+export const REMIND_DAYS = 30;
+export const REMINDER_KIND = 'assessment_reminder' as const;
+export const REMINDER_LINK = '/assessment/overview';
+
+/** Годовщина даты оценки; 29 февраля → 1 марта следующего года. */
+export function anniversaryOf(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y + 1, m - 1, d)).toISOString().slice(0, 10);
+}
+
+/**
+ * За 30 дней до годовщины последней зафиксированной оценки — «Пора провести самооценку» всем активным держателям
+ * assessment.manage. Без повторов (dedupe_key по дате годовщины); не приходит, если черновик уже есть.
+ */
+export async function notifyReassessment(db: Db, now = new Date()): Promise<number> {
+  if (await db.assessment.count({ where: { status: 'draft' } })) return 0;
+  const last = await db.assessment.findFirst({ where: { status: 'final' }, orderBy: [{ assessedOn: 'desc' }, { finalizedAt: 'desc' }] });
+  if (!last) return 0;
+  const assessed = isoDay(last.assessedOn);
+  const anniversary = anniversaryOf(assessed);
+  if (todayIso(now) < addDaysIso(anniversary, -REMIND_DAYS)) return 0;
+  const owners = await db.user.findMany({
+    where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'assessment.manage' } } } } } },
+    select: { id: true },
+  });
+  return notify(db, {
+    kind: REMINDER_KIND, to: owners.map((u) => u.id), actorId: null, dedupeKey: `assessment_reminder:${anniversary}`,
+    title: 'Пора провести самооценку',
+    body: `${formatDateRu(anniversary)} — год с оценки «${last.title}» от ${formatDateRu(assessed)}. Создайте новую оценку в разделе «Самооценка».`,
+  });
 }

@@ -1,6 +1,6 @@
 // Самооценка: чистые функции без React (тесты — logic.test.ts). Расчёт итога — на backend; здесь только то,
 // что нужно для показа: геометрия графиков, подписи, порядок списков.
-import type { Answer, AssessmentSummary, Methodology, Score } from '../../api/assessments';
+import type { Answer, AssessmentSummary, LinkedTask, Methodology, Score } from '../../api/assessments';
 
 export const MAX_LEVEL = 4;
 export const LEVELS = [1, 2, 3, 4] as const;
@@ -153,4 +153,27 @@ export function logText(summary: string, title: string): string {
   if (!summary.startsWith(prefix)) return summary;
   const rest = summary.slice(prefix.length).replace(/^[,:]?\s*/, '');
   return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : summary;
+}
+
+/** Название задачи по разрыву по умолчанию: название раздела без кода и баллов (решение владельца 8). */
+export const defaultTaskTitle = (sectionName: string) => `${sectionName}: усилить`;
+
+/** Состояние задачи с доски — подпись и тон: выполнена, в архиве, удалена или статус колонки. */
+export function taskState(t: Pick<LinkedTask, 'status' | 'done' | 'archived' | 'deleted'>): { text: string; tone: string } {
+  if (t.deleted) return { text: 'удалена', tone: '' };
+  if (t.archived) return { text: `в архиве · ${t.status}`, tone: '' };
+  return { text: t.status, tone: t.done ? 'low' : 'acc' };
+}
+
+/** Счётчики «Плана»: разрывы, баллы при достижении целей, разрывы без задачи, задачи выполнено из всех. */
+export function planCounts(score: Pick<Score, 'gaps' | 'gapPoints'>, tasks: readonly Pick<LinkedTask, 'code' | 'done' | 'deleted'>[]) {
+  const live = tasks.filter((t) => !t.deleted);
+  const withTask = new Set(live.map((t) => t.code));
+  return {
+    gaps: score.gaps.length,
+    points: score.gapPoints,
+    withoutTask: score.gaps.filter((g) => !withTask.has(g.code)).length,
+    done: live.filter((t) => t.done).length,
+    total: live.length,
+  };
 }

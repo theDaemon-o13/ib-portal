@@ -1,5 +1,5 @@
 // Раздел «Самооценка» (этап Д, docs/self-assessment.md, раздел 10): личный раздел по праву assessment.manage.
-// Шапка — выбор оценки, статус и действия; вкладки «Обзор», «Чек-лист», «История». Расчёт итога — на backend.
+// Шапка — выбор оценки, статус и действия; вкладки «Обзор», «Чек-лист», «План улучшений», «История». Расчёт итога — на backend.
 import { useQuery } from '@tanstack/react-query';
 import { NavLink, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
@@ -10,11 +10,13 @@ import { ArchiveDialog, NewAssessmentDialog, ProfileDialog, ReopenDialog } from 
 import { History } from './History';
 import { defaultAssessmentId, STATUS_TONE } from './logic';
 import { Overview } from './Overview';
+import { Plan } from './Plan';
 import { useAssessmentAction } from './useAssessmentAction';
 
 const TABS = [
   { key: 'overview', title: 'Обзор' },
   { key: 'checklist', title: 'Чек-лист' },
+  { key: 'plan', title: 'План улучшений' },
   { key: 'history', title: 'История' },
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
@@ -89,6 +91,7 @@ export function AssessmentPage() {
                 : !a ? <div className="hint sa-wait">Загрузка…</div>
                   : (tab as Tab) === 'overview' ? <Overview a={a} />
                     : (tab as Tab) === 'checklist' ? <Checklist a={a} />
+                      : (tab as Tab) === 'plan' ? <Plan a={a} />
                       : <History a={a} items={items} onOpen={open} onArchive={(x) => setDialog({ archive: x })} />}
             </>
           )}

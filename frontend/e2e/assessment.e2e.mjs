@@ -4,8 +4,9 @@
 //
 // Пользователь только с ролью «Самооценка» (без ib.work): пункт меню, новая оценка, ответы с итогом «предварительно»,
 // «Зафиксировать» недоступно до 24 из 24, фиксация, только просмотр, возврат в черновик, журнал, архив.
+// Задача по разрыву из «Плана улучшений» — на общей доске; в карточке у исполнителя нет следа самооценки.
 // Сотрудник ИБ без роли: пункта нет, прямой адрес уводит из раздела, API — 403.
-// Удаления оценок нет: оценка прогона уходит в архив, тестовые пользователи отключаются.
+// Удаления оценок нет: оценки прогона уходят в архив, задача — в архив, тестовые пользователи отключаются.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser } from './browser.mjs';
@@ -15,10 +16,12 @@ const LOGIN = process.env.E2E_LOGIN;
 const PASSWORD = process.env.E2E_PASSWORD;
 const RUN = `E2E-${Date.now().toString(36)}`;
 const TITLE = `${RUN} самооценка`;
+const TITLE2 = `${RUN} оценка с задачей`;
 
 let ui;
 let navSeq = 0;
 const users = {};
+let gapTask;
 
 async function api(method, path, body) {
   const res = await ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify(body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
@@ -68,9 +71,9 @@ const status = () => ui.evaluate(`document.querySelector('.sa-bar .chip')?.datas
 const tab = (title) => `[...document.querySelectorAll('.page-tabs a')].find((a) => a.textContent === ${JSON.stringify(title)})`;
 const finalizeBtn = `[...document.querySelectorAll('.sa-bar button')].find((b) => b.textContent === 'Зафиксировать')`;
 
-/** Оценка прогона по названию (держатель права видит все оценки). */
-async function mine() {
-  return (await ok('GET', '/api/v1/assessments')).items.find((a) => a.title === TITLE);
+/** Оценки прогона по названию (держатель права видит все оценки). */
+async function mine(title = TITLE) {
+  return (await ok('GET', '/api/v1/assessments')).items.find((a) => a.title === title);
 }
 
 before(async () => {
@@ -86,10 +89,16 @@ after(async () => {
   // Оценку прогона — в архив (удаления нет); это делает владелец: у администратора права на раздел нет.
   if (users.owner) {
     await loginAs(users.owner.login, users.owner.password).catch(() => undefined);
-    const a = await mine().catch(() => undefined);
-    if (a && a.status !== 'archived') await api('POST', `/api/v1/assessments/${a.id}/archive`, { version: a.version });
+    for (const title of [TITLE, TITLE2]) {
+      const a = await mine(title).catch(() => undefined);
+      if (a && a.status !== 'archived') await api('POST', `/api/v1/assessments/${a.id}/archive`, { version: a.version });
+    }
   }
   await loginAs(LOGIN, PASSWORD).catch(() => undefined);
+  if (gapTask) {
+    const t = (await api('GET', `/api/v1/tasks/${gapTask.id}`)).json;
+    if (t && !t.archived) await api('POST', `/api/v1/tasks/${gapTask.id}/archive`, { version: t.version });
+  }
   for (const u of Object.values(users)) {
     const cur = (await api('GET', `/api/v1/users?q=${encodeURIComponent(u.login)}`)).json?.items.find((x) => x.id === u.id);
     if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version });
@@ -182,6 +191,45 @@ describe('Самооценка', () => {
     assert.equal((await ui.request(m, 'POST', '/archive')).status, 200);
     await ui.waitFor(`document.querySelector('.sa-bar .chip')?.dataset.status === 'archived'`, 'оценка в архиве');
     assert.ok(!(await ui.evaluate(`!!${finalizeBtn}`)), 'у архивной оценки нет «Зафиксировать»');
+  });
+
+  it('задача по разрыву из «Плана»: на доске у исполнителя, без следа самооценки в карточке', async () => {
+    users.owner.password = await loginAs(users.owner.login, users.owner.password);
+    const created = await ok('POST', '/api/v1/assessments', { title: TITLE2, assessedOn: '2026-10-30' });
+    const ans = created.answers.find((x) => x.code === '5.3');
+    await ok('PUT', `/api/v1/assessments/${created.id}/answers/5.3`, { version: ans.version, level: 1, targetLevel: 3, comment: `${RUN} подробность` });
+
+    await ui.goto(`/assessment/plan?id=${created.id}`);
+    const row = `document.querySelector('.sa-plan tr[data-code="5.3"]')`;
+    await ui.waitFor(`!!${row}`, 'разрыв 5.3 в плане');
+    assert.equal(await ui.evaluate(`document.querySelector('.kpis .kpi .v').textContent`), '1', 'один раздел с разрывом');
+    await ui.click($.button('Создать задачу', row), '«Создать задачу»');
+    const form = `document.querySelector('form.modal')`;
+    await ui.waitFor(`!!${form}`, 'окно задачи');
+    assert.match(await ui.evaluate(`${form}.textContent`), /Задача будет видна всем на доске «Задачи»/);
+    assert.equal(await ui.evaluate(`${$.field('Название', form)}.value`), 'Контроль устранения уязвимостей: усилить');
+    await ui.waitFor(`${$.field('Категория', form)}.options.length > 1 && ${$.field('Исполнитель', form)}.options.length > 1`, 'списки формы');
+    await ui.select($.field('Категория', form), await ui.evaluate(`${$.field('Категория', form)}.options[1].value`));
+    await ui.select($.field('Исполнитель', form), users.staff.id);
+    const m = ui.mark();
+    await ui.click($.button('Поставить задачу', form));
+    const req = await ui.request(m, 'POST', '/answers/5.3/tasks');
+    assert.equal(req.status, 201);
+    const task = await ui.response(req);
+    gapTask = task;
+    await ui.waitFor(`${row}?.textContent.includes('#${task.number}') && !document.querySelector('form.modal')`, 'задача в плане');
+    assert.match(await toastText(), new RegExp(`Задача #${task.number} поставлена на доску`));
+
+    // Исполнитель видит обычную ручную задачу: ни раздела, ни баллов, ни названия оценки.
+    users.staff.password = await loginAs(users.staff.login, users.staff.password);
+    await ui.goto(`/tasks?task=${task.id}`);
+    await ui.waitFor(`document.querySelector('aside.drawer .dr-title')?.textContent === 'Контроль устранения уязвимостей: усилить'`, 'карточка задачи');
+    await ui.waitFor(`[...document.querySelectorAll('aside.drawer .eyebrow')].some((e) => e.textContent.startsWith('Комментарии'))`, 'карточка загружена');
+    const card = await ui.evaluate(`document.querySelector('aside.drawer').textContent`);
+    for (const trace of ['5.3', 'Самооценк', TITLE2, 'подробность']) assert.ok(!card.includes(trace), `в карточке нет «${trace}»`);
+    const dto = JSON.stringify(await ok('GET', `/api/v1/tasks/${task.id}`));
+    assert.ok(!dto.includes('assessment') && !dto.includes(created.id), 'в API задачи нет ссылки на самооценку');
+    assert.match(dto, /"source":"manual"/);
   });
 
   it('без роли «Самооценка»: пункта нет, прямой адрес уводит из раздела, API — 403', async () => {

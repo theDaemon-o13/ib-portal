@@ -33090,6 +33090,18 @@ export interface paths {
                                 }[];
                                 gapPoints: number;
                             };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
                             previous: {
                                 id: string;
                                 title: string;
@@ -33274,6 +33286,132 @@ export interface paths {
                                     };
                                     key?: boolean;
                                 }[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Исполнители для задачи по разрыву: активные сотрудники с ib.work, только id и имя */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                fullName: string;
                             }[];
                         };
                     };
@@ -33702,6 +33840,18 @@ export interface paths {
                                 }[];
                                 gapPoints: number;
                             };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
                             previous: {
                                 id: string;
                                 title: string;
@@ -33978,6 +34128,18 @@ export interface paths {
                                 }[];
                                 gapPoints: number;
                             };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
                             previous: {
                                 id: string;
                                 title: string;
@@ -34283,6 +34445,152 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/answers/{code}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Задача по разрыву на общей доске (без «Задачи: постановка другим»); в задаче следа самооценки нет */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    code: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        /** Format: uuid */
+                        categoryId: string;
+                        /** Format: uuid */
+                        assigneeId: string;
+                        dueDate?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            id: string;
+                            number: number;
+                            title: string;
+                            assignee: string | null;
+                            dueDate: string | null;
+                            status: string;
+                            done: boolean;
+                            archived: boolean;
+                            deleted: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -34698,6 +35006,18 @@ export interface paths {
                                 }[];
                                 gapPoints: number;
                             };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
                             previous: {
                                 id: string;
                                 title: string;
@@ -34973,6 +35293,18 @@ export interface paths {
                                 }[];
                                 gapPoints: number;
                             };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
                             previous: {
                                 id: string;
                                 title: string;
@@ -35249,6 +35581,18 @@ export interface paths {
                                 }[];
                                 gapPoints: number;
                             };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
                             previous: {
                                 id: string;
                                 title: string;
