@@ -851,6 +851,7 @@ const icons={
  docs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>',
  evidence:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>'
 };
+icons.assess='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>';
 icons.monitor='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="4" width="19" height="12.5" rx="1.5"/><path d="M8 20h8M12 16.5V20M6.5 12.5l3-3 2.5 2 4.5-4.5"/></svg>';
 const cmtIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4z"/></svg>';
 const clipIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5l-8.6 8.6a5 5 0 01-7.1-7.1l8.6-8.6a3.3 3.3 0 014.7 4.7l-8.6 8.6a1.7 1.7 0 01-2.4-2.4l7.9-7.9"/></svg>';
@@ -858,7 +859,7 @@ const clipIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 function renderNav(){
   const overdueTasks=tasks.filter(t=>t.status!=='done'&&diff(t.due)<0).length;
   const docAlerts=docs.filter(x=>['over'].includes(docState(x).k)).length;
-  const items=[['dash','Дашборд'],['monitor','Мониторинг'],['builder','Конструктор реестров'],['tasks','Задачи',overdueTasks],['docs','Документы',docAlerts],['evidence','Доказательства',evidence.filter(e=>e.status==='На проверке').length],['settings','Настройки']];
+  const items=[['dash','Дашборд'],['monitor','Мониторинг'],['builder','Конструктор реестров'],['tasks','Задачи',overdueTasks],['docs','Документы',docAlerts],['evidence','Доказательства',evidence.filter(e=>e.status==='На проверке').length],['assess','Самооценка'],['settings','Настройки']];
   document.getElementById('nav').innerHTML=items.filter(([k])=>viewAllowed(k)).map(([k,t,c])=>`<button data-nav="${k}" ${S.view===k?'aria-current="page"':''}>${icons[k]}<span>${t}</span>${c?`<span class="cnt">${c}</span>`:''}</button>`).join('');
 }
 
@@ -866,7 +867,7 @@ function render(){
   if(!viewAllowed(S.view))S.view='docs';
   renderNav();
   const m=document.getElementById('main');
-  m.innerHTML=({dash:viewDash,monitor:viewMonitor,builder:viewBuilder,tasks:viewTasks,docs:viewDocs,evidence:viewEvidence,settings:viewSettings})[S.view]();
+  m.innerHTML=({dash:viewDash,monitor:viewMonitor,builder:viewBuilder,tasks:viewTasks,docs:viewDocs,evidence:viewEvidence,assess:viewAssess,settings:viewSettings})[S.view]();
   if(S.view==='tasks')bindDnD();
   if(S.view==='builder'&&S.tab==='records')layoutRecords();
   postRender();
@@ -1316,14 +1317,16 @@ const PERMS=[
  ['docs.approve.legal','Документы: этап «Юридический отдел»','Согласование этапа'],
  ['docs.approve.board','Документы: этап «Утверждение правлением»','Утверждение документа'],
  ['settings.manage','Настройки: справочники и шаблоны форм',''],
- ['users.manage','Настройки: пользователи, роли и права','']
+ ['users.manage','Настройки: пользователи, роли и права',''],
+ ['assessment.manage','Самооценка','Личный раздел «Самооценка»; только в системной роли «Самооценка», в другие роли не выдаётся']
 ];
 const PROLES=[
  {id:'super',name:'Супер-администратор',desc:'Полный доступ к настройкам, удаление задач и записей',sys:true,perms:['ib.work','records.edit','records.delete','tasks.delete','evidence.review','docs.manage','settings.manage','users.manage']},
  {id:'ib',name:'Сотрудник ИБ',desc:'Повседневная работа отдела',perms:['ib.work','records.edit','evidence.review']},
  {id:'doc_head',name:'Начальник ИБ',desc:'Согласует документы на этапе «Начальник ИБ»',perms:['docs.approve.head']},
  {id:'doc_legal',name:'Юрист',desc:'Согласует документы на этапе «Юридический отдел»',perms:['docs.approve.legal']},
- {id:'doc_board',name:'Правление',desc:'Утверждает документы',perms:['docs.approve.board']}
+ {id:'doc_board',name:'Правление',desc:'Утверждает документы',perms:['docs.approve.board']},
+ {id:'assess',name:'Самооценка',desc:'Обычно назначается одному сотруднику',sys:true,perms:['assessment.manage']}
 ];
 const LOCKED_PERMS=['settings.manage','users.manage'];
 const stagePerms=[null,'docs.approve.head','docs.approve.legal','docs.approve.board'];
@@ -1333,7 +1336,7 @@ const USERS=[
  ['С. Калинова','s.karimova','Специалист ИБ','Отдел ИБ',['ib']],
  ['А. Незнамов','a.nazarov','Специалист ИБ','Отдел ИБ',['ib']],
  ['Ф. Юдинцева','f.yusupova','Специалист ИБ','Отдел ИБ',['ib']],
- ['З. Хвостов','z.kholov','Начальник отдела ИБ','Отдел ИБ',['ib','doc_head']],
+ ['З. Хвостов','z.kholov','Начальник отдела ИБ','Отдел ИБ',['ib','doc_head','assess']],
  ['М. Рябинова','m.rajabova','Юрист','Юридический отдел',['doc_legal']],
  ['Ш. Дубравин','sh.davlatov','Председатель правления','Правление',['doc_board']]
 ].map(u=>({name:u[0],login:u[1],title:u[2],dept:u[3],roles:u[4],active:true}));
@@ -1345,7 +1348,10 @@ function permsOf(u){return [...new Set(u.roles.flatMap(r=>(PROLES.find(x=>x.id==
 function hasPerm(p){return permsOf(curUser()).includes(p)}
 function canEditCats(){return hasPerm('settings.manage')}
 function canUsers(){return hasPerm('users.manage')}
-function viewAllowed(k){return hasPerm('ib.work')||k==='docs'}
+// «Самооценка» — личный раздел (docs/self-assessment.md): только по праву assessment.manage, без ib.work.
+function viewAllowed(k){if(k==='assess')return hasPerm('assessment.manage');return hasPerm('ib.work')||k==='docs'}
+// Раздел «Самооценка» — отдельный прототип docs/prototype/self-assessment-demo.html, встроенный сюда целиком.
+function viewAssess(){return '<iframe src="self-assessment-demo.html" title="Самооценка" style="width:100%;height:calc(100vh - 40px);border:0;border-radius:16px;background:transparent"></iframe>'}
 function permName(p){const x=PERMS.find(z=>z[0]===p);return x?x[1]:p}
 function usersWithPerm(p){return USERS.filter(u=>u.active&&permsOf(u).includes(p))}
 function roleName(id){const r=PROLES.find(x=>x.id===id);return r?r.name:id}
