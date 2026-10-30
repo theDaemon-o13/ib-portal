@@ -2,7 +2,12 @@
 # Сборка релиза на машине разработчика (Mac). На сервере нет Node и git — только Docker,
 # поэтому туда передаются только образы и файлы эксплуатации, без исходников.
 #
-#   ./deploy/scripts/make-release.sh [--allow-dirty] [--force]
+#   ./deploy/scripts/make-release.sh [--allow-dirty] [--force] [--from <версия на сервере>]
+#
+# --from 1.1.0 — версия, которая сейчас на сервере, если промежуточные релизы туда не выкладывались: RELEASE.md
+# описывает обновление сразу до VERSION одним migrate — все миграции и изменения после этой версии, откат на неё,
+# предпроверки из deploy/prechecks/<VERSION>-from-<версия>.md (выверены для схемы этой версии; файл обязателен).
+# Без --from — обновление с предыдущего тега, предпроверки — deploy/prechecks/<VERSION>.md.
 #
 # Результат:
 #   dist/ibportal-<VERSION>/              папка релиза (см. RELEASE.md внутри)
@@ -15,12 +20,15 @@ cd "$ROOT"
 
 ALLOW_DIRTY=0
 FORCE=0
-for arg in "$@"; do
-  case "$arg" in
+FROM=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --allow-dirty) ALLOW_DIRTY=1 ;;
     --force) FORCE=1 ;;
-    *) echo "неизвестный параметр: $arg" >&2; exit 1 ;;
+    --from) shift; FROM="${1:-}"; [[ "$FROM" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "--from: версия вида 1.1.0" >&2; exit 1; } ;;
+    *) echo "неизвестный параметр: $1" >&2; exit 1 ;;
   esac
+  shift
 done
 
 die() { echo "ОШИБКА: $*" >&2; exit 1; }
@@ -47,6 +55,17 @@ fi
 PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "HEAD^" 2>/dev/null || true)"
 [ "$PREV_TAG" = "$TAG" ] && PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$TAG^" 2>/dev/null || true)"
 PREV_VERSION="${PREV_TAG#v}"
+# Версия на сервере задана явно: промежуточные релизы (SKIPPED) туда не выкладывались.
+SKIPPED=""
+if [ -n "$FROM" ]; then
+  git rev-parse -q --verify "refs/tags/v$FROM" >/dev/null || die "--from $FROM: тега v$FROM нет"
+  [ -f "deploy/prechecks/$VERSION-from-$FROM.md" ] || die "--from $FROM: нет deploy/prechecks/$VERSION-from-$FROM.md (предпроверки для схемы $FROM)"
+  PREV_TAG="v$FROM"
+  PREV_VERSION="$FROM"
+  SKIPPED="$(git tag -l 'v[0-9]*' | sed 's/^v//' | sort -V | awk -v a="$FROM" -v b="$VERSION" '
+    function cmp(x, y,   i, p, q) { split(x, p, "."); split(y, q, "."); for (i = 1; i <= 3; i++) { if (p[i] + 0 != q[i] + 0) return (p[i] + 0 < q[i] + 0) ? -1 : 1 } return 0 }
+    cmp($0, a) > 0 && cmp($0, b) < 0' | tr '\n' ' ' | sed 's/ $//')"
+fi
 
 if [ -e "$OUT" ]; then
   [ "$FORCE" = 1 ] || die "$OUT уже есть (--force, чтобы пересобрать)"
@@ -115,7 +134,24 @@ chmod +x "$OUT"/scripts/*.sh
 
 # 4. RELEASE.md из шаблона
 info "RELEASE.md"
+summary_of() {
+  awk -v v="$1" '
+    /^## / { if (found) exit; if (index($0, "[" v "]")) { found=1; next } }
+    found && /^### / { exit }
+    found { print }' CHANGELOG.md | sed -e '/./,$!d'
+}
 changes() {
+  # С --from: сводки всех версий после версии на сервере, по порядку, — каждая под своим заголовком.
+  if [ -n "$FROM" ]; then
+    local v
+    for v in $SKIPPED $VERSION; do
+      echo "### $v"
+      echo
+      summary_of "$v"
+      echo
+    done
+    return
+  fi
   # Сводка раздела CHANGELOG этой версии — текст до первого подраздела «### » (подробности — в CHANGELOG.md
   # архива); раздела нет — «Не выпущено» целиком (пробная сборка).
   local section
@@ -140,12 +176,14 @@ migrations() {
     echo "Первая установка: $(printf '%s\n' "$list" | wc -l | tr -d ' ') миграций создают схему на пустой базе (сервис \`migrate\`, \`docs/deploy.md\`, раздел 5). Данных до установки нет — влияния на данные нет."
     return
   fi
-  echo "Применяются командой \`docker compose --profile tools run --rm migrate\` (шаг 5)."
+  local total
+  total="$(printf '%s\n' "$list" | wc -l | tr -d ' ')"
+  echo "Применяются одной командой \`docker compose --profile tools run --rm migrate\` (шаг 5): всего **$total** с версии $PREV_VERSION, по порядку, затем шаги seed."
   echo
-  echo "| Миграция | Влияние на данные |"
-  echo "|---|---|"
+  echo "| Релиз | Миграция | Влияние на данные |"
+  echo "|---|---|---|"
   while read -r f; do
-    local name impact
+    local name impact rel
     name="$(basename "$(dirname "$f")")"
     # Строка «Влияние на данные» и её продолжение (комментарии до пустой строки) — одной строкой таблицы.
     impact="$(awk '
@@ -153,7 +191,9 @@ migrations() {
       found && /^-- *[^ ]/ { sub(/^-- */, ""); out=out " " $0; next }
       found { exit }
       END { print out }' "$f" | sed 's/|/\\|/g' || true)"
-    echo "| \`$name\` | ${impact:-**не указано — уточнить у разработчика до выкладки**} |"
+    # Релиз миграции — первый тег, в котором она есть; ни в одном — эта версия.
+    rel="$(for t in $SKIPPED; do git cat-file -e "v$t:$f" 2>/dev/null && { echo "$t"; break; }; done)"
+    echo "| ${rel:-$VERSION} | \`$name\` | ${impact:-**не указано — уточнить у разработчика до выкладки**} |"
   done <<< "$list"
 }
 env_changes() {
@@ -173,10 +213,20 @@ env_changes() {
 # Проверки до выкладки конкретной версии (запросы «сколько строк затронет» на проде) — deploy/prechecks/<VERSION>.md.
 prechecks() {
   local f="deploy/prechecks/$VERSION.md"
+  [ -n "$FROM" ] && f="deploy/prechecks/$VERSION-from-$FROM.md"
   if [ -f "$f" ]; then cat "$f"; else echo "Для этой версии отдельных проверок нет."; fi
 }
 
-CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" PRECHECKS="$(prechecks)" \
+# Путь обновления: с какой версии и какие пропущены (их миграции и seed идут в этом же migrate).
+path_note() {
+  if [ -n "$SKIPPED" ]; then
+    echo "**Обновление с $PREV_VERSION сразу до $VERSION.** Версии $(echo "$SKIPPED" | sed 's/ /, /g') на сервер не выкладывались: один \`migrate\` применяет их миграции и шаги seed вместе с миграциями $VERSION, по порядку. Откат — на $PREV_VERSION."
+  else
+    echo "Обновление с ${PREV_VERSION:-—} до $VERSION."
+  fi
+}
+
+CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" PRECHECKS="$(prechecks)" PATH_NOTE="$(path_note)" \
 VERSION="$VERSION" DATE="$(date '+%Y-%m-%d %H:%M')" COMMIT="$COMMIT" \
 PREV_VERSION="${PREV_VERSION:-нет (первая установка)}" ROLLBACK_VERSION="${PREV_VERSION:-<прежняя версия>}" \
 perl -pe 's/\{\{(\w+)\}\}/exists $ENV{$1} ? $ENV{$1} : $&/ge' deploy/RELEASE.template.md > "$OUT/RELEASE.md"
