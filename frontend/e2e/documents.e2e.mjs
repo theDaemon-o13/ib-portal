@@ -312,9 +312,14 @@ describe('Документы: маршрут 1.2.0', () => {
     await ui.click($.button('На подписание', panel));
     await act('На подписание', 'POST', `/api/v1/documents/${id}/actions/to_signing`);
 
-    // Автор загружает подписанный PDF и дату подписания.
+    // Автор: уведомление «ждёт подписанного PDF» ведёт на документ (Г5).
     await loginAs(users.owner);
-    await openDocs(id);
+    await ui.goto(`/tasks?n=${++navSeq}`);
+    await ui.click(`document.querySelector('button.bell')`, 'значок уведомлений');
+    const note = `[...document.querySelectorAll('.notif-pop .notif')].find((n) => n.textContent.includes(${JSON.stringify(`«${title}» ждёт подписанного PDF`)}))`;
+    await ui.waitFor(`!!${note}`, 'уведомление о подписании');
+    await ui.click(note);
+    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(title)}`, 'переход к документу из уведомления');
     await ui.click($.button('Загрузить подписанный PDF', panel));
     await pickInForm('Подписание', 'Подписан.pdf');
     req = await act('Подписан', 'POST', `/api/v1/documents/${id}/sign`);

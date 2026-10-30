@@ -9,6 +9,8 @@ import { addDaysIso, todayIso } from '../../lib/today.js';
 export const NOTIFICATION_KINDS = [
   'task_assigned', 'task_unassigned', 'task_submitted', 'task_returned', 'task_accepted', 'task_moved', 'task_commented',
   'task_due_tomorrow', 'task_overdue', 'task_overdue_summary',
+  // Документы (релиз 1.2.0, этап Г5, ADR-0024).
+  'doc_waiting', 'doc_translation', 'doc_returned', 'doc_commented', 'doc_deadline_changed', 'doc_party_due_tomorrow', 'doc_party_overdue',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -24,6 +26,7 @@ export interface NotifyInput {
   title: string;
   body?: string;
   taskId?: string;
+  documentId?: string;
   /** Кто сделал; null — система. Сам он уведомление не получает. */
   actorId: string | null;
   dedupeKey?: string;
@@ -40,7 +43,7 @@ export async function notify(db: Db, n: NotifyInput): Promise<number> {
   const res = await db.notification.createMany({
     data: active.map((u) => ({
       userId: u.id, kind: n.kind, title: clip(n.title), body: clip((n.body ?? '').trim()),
-      taskId: n.taskId ?? null, actorId: n.actorId, dedupeKey: n.dedupeKey ?? null,
+      taskId: n.taskId ?? null, documentId: n.documentId ?? null, actorId: n.actorId, dedupeKey: n.dedupeKey ?? null,
     })),
     skipDuplicates: true,
   });
@@ -226,7 +229,7 @@ export async function listNotifications(db: Db, userId: string, q: { unread?: bo
   const limit = q.limit ?? LIST_LIMIT;
   const rows = await db.notification.findMany({
     where: { userId, ...(q.unread ? { readAt: null } : {}) },
-    include: { actor: { select: { fullName: true } }, task: { select: { id: true, number: true, deletedAt: true } } },
+    include: { actor: { select: { fullName: true } }, task: { select: { id: true, number: true, deletedAt: true } }, document: { select: { id: true, deletedAt: true } } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
     ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
@@ -238,7 +241,9 @@ export async function listNotifications(db: Db, userId: string, q: { unread?: bo
       createdAt: n.createdAt.toISOString(), read: n.readAt !== null,
       task: n.task ? { id: n.task.id, number: n.task.number, deleted: n.task.deletedAt !== null } : null,
       /** Куда ведёт щелчок: задача (если не удалена) или доска с фильтром «просрочено» у сводного. */
-      link: n.kind === 'task_overdue_summary' ? OVERDUE_BOARD_LINK : n.task && !n.task.deletedAt ? `/tasks?task=${n.task.id}` : null,
+      link: n.kind === 'task_overdue_summary' ? OVERDUE_BOARD_LINK
+        : n.task && !n.task.deletedAt ? `/tasks?task=${n.task.id}`
+          : n.document && !n.document.deletedAt ? `/documents?doc=${n.document.id}` : null,
     })),
     nextCursor: rows.length > limit ? page.at(-1)?.id ?? null : null,
     unread: await unreadCount(db, userId),

@@ -17,6 +17,7 @@ import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
+import { notifyDocComment, notifyReturned, notifyStage } from './notify.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
 import {
   addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
@@ -881,6 +882,9 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
       });
     }
     if (action === 'to_review') await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на проверку сотрудникам (версия ${w.no})`);
+    const ref = { id, number: d.number, title: w.title, ownerId: d.ownerId };
+    if (back) await notifyReturned(tx, ref, actor.id, stageName(w.stage), comment);
+    else await notifyStage(tx, ref, w.id, rule.to, actor.id);
 
     const self = selfApproved ? ' — согласовано автором (начальник ИБ), без независимого согласования' : '';
     await auditSettings(tx, actor, {
@@ -1009,6 +1013,7 @@ export async function addDocumentComment(db: Db, actor: Actor, id: string, input
     const w = activeWorking(d);
     if (!w || w.stage !== 12) throw conflict('WRONG_STAGE', `Комментарии — на этапе «${stageName(12)}». Обновите страницу`);
     const c = await tx.documentComment.create({ data: { documentId: id, versionId: w.id, authorId: actor.id, body } });
+    await notifyDocComment(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, actor.id, body);
     await auditSettings(tx, actor, {
       action: 'document.commented', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): комментарий`,

@@ -11,6 +11,7 @@ import { MIME_BY_EXT } from '../../lib/file-type.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
+import { notifyDeadlineChanged, notifyPartiesDone } from './notify.js';
 import { cleanComment, forbiddenWith, rolesOf, routeContext } from './service.js';
 import { stageName } from './status.js';
 
@@ -137,6 +138,7 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
         data.dueDate = due;
         changes.push({ label: 'Срок', from: formatDateRu(iso(p.dueDate)), to: formatDateRu(iso(due)) });
         await tx.documentDeadlineChange.create({ data: { documentId: id, partyId, fromDate: p.dueDate, toDate: due, comment, actorId: actor.id } });
+        await notifyDeadlineChanged(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, `ответа ${p.fullName}`, [], iso(p.dueDate), iso(due), comment, actor.id);
       }
     }
     if (!changes.length) return;
@@ -182,6 +184,7 @@ export async function approveParty(db: Db, actor: Actor, id: string, partyId: st
       summary: `Документ #${d.number} «${w.title}»: ${p.fullName} согласовал(а)${files.length ? `, ответ — ${files.map((f) => `«${f.originalName}»`).join(', ')}` : ''}`,
       after: { partyId, comment, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
     });
+    await notifyPartiesDone(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, w.id, actor.id);
   });
 }
 

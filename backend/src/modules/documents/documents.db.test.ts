@@ -9,6 +9,8 @@ import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from
 import type { Actor } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as tr from './translations.js';
+import { notifyPartyDeadlines } from './notify.js';
+import { listNotifications } from '../notifications/service.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
 import { addMonthsIso, FIXED_FILE, type DocAction } from './status.js';
@@ -779,5 +781,89 @@ describe('документы: этап 15 — перевод (Г4)', () => {
       await tr.removeTranslation(tx, await x.as(x.owner), id, t.id, await cur(tx, id));
       expect((await view(tx, x.owner, id)).translations).toEqual([]);
       expect(await sqlError(tx, `DELETE FROM document_translations WHERE id = '${t.id}'`)).toMatch(/permission denied/);
+    }));
+});
+
+describe('документы: уведомления (Г5)', () => {
+  /** Уведомления пользователя по документу: вид и заголовок. */
+  const inbox = async (tx: Tx, u: User, id: string) =>
+    (await tx.notification.findMany({ where: { userId: u.id, documentId: id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })).map((n) => `${n.kind}: ${n.title}`);
+
+  it('«ждёт вас» по этапам, возврат и комментарий — автору; о своих действиях — нет; ссылка ведёт на документ', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Политика ИБ');
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Таджикский', translatorId: x.legal.id, dueDate: '2026-11-20' });
+      await moveTo(tx, x, id, 12);
+      await svc.addDocumentComment(tx, await x.as(x.staff), id, { body: 'Нет срока в п. 4' });
+      await svc.addDocumentComment(tx, await x.as(x.owner), id, { body: 'Добавил' });
+      await moveTo(tx, x, id, 13);
+      await move(tx, x.head, id, 'return', { comment: 'Уточнить раздел 3' });
+      expect(await inbox(tx, x.owner, id)).toEqual([
+        expect.stringMatching(/^doc_commented: Комментарий к документу #\d+ «Политика ИБ»$/),
+        expect.stringMatching(/^doc_returned: Документ #\d+ «Политика ИБ» вернули на доработку$/),
+      ]);
+      expect(await inbox(tx, x.head, id)).toEqual([expect.stringMatching(/^doc_waiting: .* ждёт вашего согласования$/)]);
+      expect(await inbox(tx, x.staff, id)).toEqual([]);
+
+      await moveTo(tx, x, id, 15);
+      // Последнее лицо согласовал сам начальник ИБ — себе уведомления нет; переводчику — его язык.
+      expect(await inbox(tx, x.head, id)).toHaveLength(2);
+      expect(await inbox(tx, x.legal, id)).toEqual([expect.stringMatching(/^doc_translation: .* ждёт перевода на Таджикский$/)]);
+      const t = must((await view(tx, x.head, id)).translations[0]);
+      await tr.addTranslationFiles(tx, await x.as(x.legal), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.legal.id)).id] });
+      expect((await inbox(tx, x.head, id)).at(-1)).toMatch(/переводы готовы — можно на подписание/);
+      expect((await inbox(tx, x.chief, id)).at(-1)).toMatch(/переводы готовы — можно на подписание/);
+      await move(tx, x.chief, id, 'to_signing');
+      expect((await inbox(tx, x.owner, id)).at(-1)).toMatch(/^doc_waiting: .* ждёт подписанного PDF$/);
+
+      const list = await listNotifications(tx, x.owner.id, {});
+      expect(list.items.find((n) => n.kind === 'doc_waiting')?.link).toBe(`/documents?doc=${id}`);
+    }));
+
+  it('все лица согласовали — начальнику ИБ; свой документ начальника ИБ ждёт другого начальника', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const head2 = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Второй начальник' });
+      const own = await x.create('Свой', x.head.id);
+      await move(tx, x.head, own, 'to_review');
+      await move(tx, x.head, own, 'to_head');
+      expect(await inbox(tx, head2, own)).toEqual([expect.stringMatching(/ждёт вашего согласования/)]);
+      expect(await inbox(tx, x.head, own)).toEqual([]);
+
+      const id = await x.create();
+      await moveTo(tx, x, id, 14);
+      const p = await addParty(tx, x.owner, id);
+      await parties.approveParty(tx, await x.as(x.owner), id, p.id, await cur(tx, id));
+      expect((await inbox(tx, x.head, id)).at(-1)).toMatch(/^doc_waiting: .*: все ответственные лица согласовали$/);
+    }));
+
+  it('сменили срок: лица — автору, перевода — переводчику и автору; срок лица завтра и просрочен — автору, без дублей', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Регламент');
+      const p = await addParty(tx, x.owner, id, { dueDate: '2026-11-10' });
+      await parties.updateParty(tx, await x.as(x.head), id, p.id, { ...(await cur(tx, id)), dueDate: '2026-11-15', comment: 'Отсрочка' });
+      expect(await inbox(tx, x.owner, id)).toEqual([expect.stringMatching(/^doc_deadline_changed: .*срок ответа Петров П\. П\. перенесён с 10\.11\.2026 на 15\.11\.2026$/)]);
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Английский', translatorId: x.staff.id, dueDate: '2026-11-20' });
+      const t = must((await view(tx, x.owner, id)).translations[0]);
+      await tr.updateTranslation(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), dueDate: '2026-11-25', comment: 'Объём больше' });
+      expect(await inbox(tx, x.staff, id)).toEqual([expect.stringMatching(/срок перевода на Английский перенесён/)]);
+      expect(await inbox(tx, x.owner, id)).toHaveLength(1);
+
+      const at = (iso: string) => new Date(`${iso}T06:00:00Z`);
+      expect(await notifyPartyDeadlines(tx, at('2026-11-14'))).toMatchObject({ dueTomorrow: expect.any(Number) });
+      expect((await inbox(tx, x.owner, id)).at(-1)).toMatch(/^doc_party_due_tomorrow: .*срок ответа Петров П\. П\. — завтра, 15\.11\.2026$/);
+      await notifyPartyDeadlines(tx, at('2026-11-14'));
+      await notifyPartyDeadlines(tx, at('2026-11-17'));
+      await notifyPartyDeadlines(tx, at('2026-11-18'));
+      const mine = await inbox(tx, x.owner, id);
+      expect(mine.filter((m) => m.startsWith('doc_party_due_tomorrow'))).toHaveLength(1);
+      expect(mine.filter((m) => m.startsWith('doc_party_overdue'))).toEqual([expect.stringMatching(/Петров П\. П\. не ответил\(а\) в срок \(15\.11\.2026\)/)]);
+      // Согласовавшее лицо — без напоминаний; архивный документ — тоже.
+      await svc.setDocumentArchived(tx, await x.as(x.admin), id, (await cur(tx, id)).version, true);
+      await tx.documentParty.update({ where: { id: p.id }, data: { dueDate: new Date('2026-11-16T00:00:00Z') } });
+      await notifyPartyDeadlines(tx, at('2026-11-20'));
+      expect(await inbox(tx, x.owner, id)).toHaveLength(mine.length);
     }));
 });

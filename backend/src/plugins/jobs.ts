@@ -8,6 +8,7 @@ import type { Db } from '../lib/db.js';
 import type { FileStore } from '../lib/file-store.js';
 import { runAutomations } from '../modules/automations/service.js';
 import { processPendingTexts } from '../modules/files/text.js';
+import { notifyPartyDeadlines } from '../modules/documents/notify.js';
 import { cleanupNotifications, notifyDeadlines } from '../modules/notifications/service.js';
 
 export interface JobsOptions {
@@ -62,8 +63,12 @@ export function installJobs(app: FastifyInstance, opts: JobsOptions): void {
         // Уведомления (этап В): «срок завтра» и «просрочено» без дублей (уникальный dedupe_key), очистка — раз в сутки.
         const now = opts.now?.() ?? new Date();
         const d = await notifyDeadlines(opts.db, now);
+        // Документы (Г5): «срок ответственного лица завтра» и «просрочен» — автору.
+        const p = await notifyPartyDeadlines(opts.db, now);
         const cleaned = await cleanupNotifications(opts.db, now);
-        if (d.dueTomorrow || d.overdue || d.overdueSummary || cleaned) app.log.info({ ...d, cleaned }, 'уведомления о сроках');
+        if (d.dueTomorrow || d.overdue || d.overdueSummary || p.dueTomorrow || p.overdue || cleaned) {
+          app.log.info({ ...d, partyDueTomorrow: p.dueTomorrow, partyOverdue: p.overdue, cleaned }, 'уведомления о сроках');
+        }
       } catch (err) {
         // Ошибка прогона не роняет backend: следующий прогон — по расписанию.
         app.log.error({ err }, 'автоматизации: прогон не выполнен');
