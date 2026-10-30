@@ -7,8 +7,11 @@
 //
 // Свои записи прогона помечены RUN и в конце уходят в архив, плитка удаляется (мягко).
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, portalToday, sleep } from './browser.mjs';
+
+const ExcelJS = createRequire(new URL('../../backend/package.json', import.meta.url))('exceljs');
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -55,11 +58,32 @@ before(async () => {
   assert.ok(vulns, 'нет реестра уязвимостей');
   field = (key) => vulns.fields.find((f) => f.systemKey === key);
   // Уязвимости прогона: срок из решения ИБ (п. 7.3) — от −3 до +10 дней; половина критические.
+  // Записи появляются только из скана (релиз 1.5.0, ADR-0029): своя группа прогона, скан, затем решение ИБ в карточке.
+  const type = (await api('GET', '/api/v1/catalogs/system_types/items')).items[0];
+  const group = await api('POST', '/api/v1/vulns/groups', { name: `${RUN} дашборд`, kind: 'service', systemTypeIds: [type.id] });
+  const nodeId = group.nodes[0].id;
+  const book = new ExcelJS.Workbook();
+  const ws = book.addWorksheet('Находки');
+  ws.addRow(['Пакет', 'CVE', 'Уровень', 'CVSS']);
+  for (let i = 0; i < VULNS; i++) ws.addRow([`Пакет ${RUN}`, `${RUN}-${String(i).padStart(2, '0')}`, 'Важная', 5]);
+  const b64 = Buffer.from(await book.xlsx.writeBuffer()).toString('base64');
+  const applied = await ui.evaluate(`(async () => {
+    const bin = Uint8Array.from(atob(${JSON.stringify(b64)}), (c) => c.charCodeAt(0));
+    const prev = await fetch('/api/v1/vulns/nodes/${nodeId}/scan-imports', { method: 'POST',
+      headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'X-File-Name': encodeURIComponent('dashboard-e2e.xlsx') }, body: bin });
+    if (prev.status !== 201) return { error: 'предпросмотр ' + prev.status + ' ' + await prev.text() };
+    const { id } = await prev.json();
+    const ap = await fetch('/api/v1/vulns/scan-imports/' + id + '/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scanDate: ${JSON.stringify(portalToday())} }) });
+    return ap.status === 200 ? ap.json() : { error: 'применение ' + ap.status + ' ' + await ap.text() };
+  })()`);
+  assert.ok(!applied.error, `скан прогона: ${applied.error}`);
+  const page = await api('GET', `/api/v1/vulns/nodes/${nodeId}/records?state=all&limit=200`);
   const crit = field('crit').options.find((o) => o.systemKey === 'critical');
-  for (let i = 0; i < VULNS; i++) {
-    const rec = await api('POST', `/api/v1/registers/${vulns.id}/records`, {
+  for (const r of page.items) {
+    const i = Number(r.values[field('cve').id].split('-').pop());
+    const rec = await api('PATCH', `/api/v1/register-records/${r.id}`, {
+      version: r.version,
       values: {
-        [field('cve').id]: `${RUN}-${String(i).padStart(2, '0')}`,
         [field('measures').id]: 'Сегментация сети (e2e)',
         [field('newDue').id]: iso(i - 3),
         ...(i % 2 === 0 ? { [field('crit').id]: crit.id } : {}),

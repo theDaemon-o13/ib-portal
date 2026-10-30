@@ -15,7 +15,9 @@ import { SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister, type VulnFixtu
 import { seedVulnLegacy } from '../../../prisma/seed/vuln-legacy.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
+import { runAutomations } from '../automations/service.js';
 import { uploadFile, getFileMeta } from '../files/service.js';
+import { vulnsBlock } from '../monitor/service.js';
 import * as records from '../registers/records.service.js';
 import * as groups from './groups.service.js';
 import * as scan from './scan-import.service.js';
@@ -163,6 +165,24 @@ describe('передача ИКТ', () => {
       await tx.$executeRaw`SAVEPOINT s2`;
       await expect(tx.$executeRaw`UPDATE vuln_scans SET handed_over_on = '2026-10-16' WHERE id = ${a.scanId}::uuid`).rejects.toThrow(/скан не меняется/);
       await tx.$executeRaw`ROLLBACK TO SAVEPOINT s2`;
+    }));
+});
+
+describe('«Не передано ИКТ» и п. 7.4', () => {
+  it('до передачи нет событий и просрочки; корзина монитора «Не передано ИКТ»; передача давней датой — просрочка и события сразу', () =>
+    inTx(async (tx) => {
+      const { x, node } = await setup(tx);
+      const s1 = await load(tx, x, node.id, 'vuln-2026-01-10.xlsx');
+      await runAutomations(tx, { registerId: x.reg.id, trigger: 'import', actorId: x.adminId });
+      const ids = (await tx.vulnRecord.findMany({ where: { nodeId: node.id }, select: { recordId: true } })).map((r) => r.recordId);
+      expect(await tx.automationEvent.count({ where: { recordId: { in: ids } } })).toBe(0);
+      const none = must((await vulnsBlock(tx, x.reg, todayIso())).buckets.find((b) => b.key === 'none'));
+      expect(none.label).toBe('Не передано ИКТ');
+      expect(none.count).toBeGreaterThanOrEqual(90);
+
+      await scans.handOverScan(tx, x.actor, s1.scanId, { date: '2026-01-10' });
+      await runAutomations(tx, { registerId: x.reg.id, trigger: 'import', actorId: x.adminId });
+      expect(await tx.automationEvent.count({ where: { recordId: { in: ids } } })).toBeGreaterThan(0);
     }));
 });
 
