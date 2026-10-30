@@ -84,6 +84,19 @@ describe('доказательства: форма подтверждения', 
       // Чужой файл к своему доказательству не приложить.
       await expectCode(svc.createEvidence(tx, a, { ...base, confirmedBy: 'ДИКТ', fileIds: [await x.file(x.reviewer)] }), 'FILE_NOT_YOURS');
     }));
+
+  it('файлы в карточке — в том порядке, в каком их приложили (первый показывается в предпросмотре)', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const ids = [await x.file(x.staff, 'выгрузка.csv', 'text/csv'), await x.file(x.staff, 'GPO.png'), await x.file(x.staff, 'Политика.pdf', 'application/pdf')];
+      // Приложены в обратном порядке загрузки — порядок карточки следует выбору, а не времени загрузки.
+      const order = [ids[1], ids[2], ids[0]] as string[];
+      const id = await svc.createEvidence(tx, await actorFor(tx, x.staff.id), {
+        kind: 'form', object: { type: 'system', id: x.system.id }, templateId: x.tplId,
+        values: { [x.len.id]: 14, [x.age.id]: 90, [x.mfa.id]: 'да' }, confirmedBy: 'ДИКТ', fileIds: order,
+      });
+      expect((await x.card(x.staff, id)).fileList.map((f) => f.name)).toEqual(['GPO.png', 'Политика.pdf', 'выгрузка.csv']);
+    }));
 });
 
 describe('доказательства: проверка ИБ', () => {

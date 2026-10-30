@@ -37,7 +37,8 @@ const include = {
   uploader: { select: { id: true, fullName: true } },
   reviewer: { select: { id: true, fullName: true } },
   decision: { select: { id: true, documentTitle: true, documentNumber: true, documentDate: true, reviewDue: true, option: { select: { label: true } } } },
-  files: { where: { removedAt: null }, orderBy: { addedAt: 'asc' }, include: { file: { include: withUploader } } },
+  // Уже приложенные одним запросом (одинаковое added_at) — по времени загрузки: форма загружает по одному, по порядку.
+  files: { where: { removedAt: null }, orderBy: [{ addedAt: 'asc' }, { file: { uploadedAt: 'asc' } }, { fileId: 'asc' }], include: { file: { include: withUploader } } },
 } satisfies Prisma.EvidenceInclude;
 type Row = Prisma.EvidenceGetPayload<{ include: typeof include }>;
 
@@ -297,8 +298,12 @@ async function linkFiles(tx: Db, actor: Actor, evidenceId: string, fileIds: read
   const files = await claimFiles(tx, actor.id, fileIds);
   const existing = await tx.evidenceFile.findMany({ where: { evidenceId, fileId: { in: files.map((f) => f.id) } }, select: { fileId: true } });
   if (existing.length) throw conflict('FILE_ALREADY_ADDED', 'Этот файл уже был приложен к доказательству. Загрузите его заново');
-  await tx.evidenceFile.createMany({ data: files.map((f) => ({ evidenceId, fileId: f.id, addedBy: actor.id })) });
-  return files;
+  // Порядок — как приложил пользователь (fileIds): строки одного запроса получают added_at с шагом 1 мс, иначе у них
+  // одинаковое время и порядок в карточке (и какой файл показан первым) случаен.
+  const ordered = [...files].sort((a, b) => fileIds.indexOf(a.id) - fileIds.indexOf(b.id));
+  const base = Date.now();
+  await tx.evidenceFile.createMany({ data: ordered.map((f, i) => ({ evidenceId, fileId: f.id, addedBy: actor.id, addedAt: new Date(base + i) })) });
+  return ordered;
 }
 
 // ---------------------------------------------------------------- создание
