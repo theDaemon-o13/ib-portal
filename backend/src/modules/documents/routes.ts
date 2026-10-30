@@ -132,7 +132,7 @@ type DetailOut = z.infer<typeof DocDetail>;
 const Result = z.object({ document: DocDetail.nullable() });
 
 // Раздел «Документы» открыт всем вошедшим (и без ib.work). Кто что видит и может — решает сервис:
-// автор — владелец или docs.manage, старший над автором, начальник ИБ — docs.approve.head (CLAUDE.md, правило 8).
+// автор — владелец или docs.manage, старший над автором, начальник ИБ — отметка «Является начальником ИБ» (1.4.0, ADR-0027).
 const anyUser = requireAuth();
 
 export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: string }> = async (app, { db, docUrlPrefix = '' }) => {
@@ -249,7 +249,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/sign', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 16: подписанный PDF и дата подписания (автор или docs.approve.head). Пересмотр — от даты подписания',
+      tags, summary: 'Этап 16: подписанный PDF и дата подписания (автор или начальник ИБ). Пересмотр — от даты подписания',
       params: IdParams,
       body: Version.extend({ stage: Stage, fileId: z.string().uuid(), signedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
       response: { 200: Result, ...errors },
@@ -262,7 +262,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/cancel-revision', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Отменить пересмотр (автор или docs.approve.head, с комментарием): версия — в историю, действующей остаётся подписанная',
+      tags, summary: 'Отменить пересмотр (автор или начальник ИБ, с комментарием): версия — в историю, действующей остаётся подписанная',
       params: IdParams,
       body: Version.extend({ comment: z.string().max(svc.COMMENT_MAX) }),
       response: { 200: Result, ...errors },
@@ -323,7 +323,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
 
   app.post('/documents/:id/parties', {
     preHandler: anyUser,
-    schema: { tags, summary: 'Этап 14: добавить ответственное лицо (автор или docs.approve.head, этапы 11–14)', params: IdParams, body: At.extend(PartyBody), response: { 200: Result, ...errors } },
+    schema: { tags, summary: 'Этап 14: добавить ответственное лицо (автор или начальник ИБ, этапы 11–14)', params: IdParams, body: At.extend(PartyBody), response: { 200: Result, ...errors } },
   }, async (request) => {
     await parties.addParty(db, actorOf(request), request.params.id, request.body);
     return result(request, request.params.id);
@@ -381,7 +381,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/translations', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, docs.approve.head; этапы 11–15',
+      tags, summary: 'Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, начальник ИБ; этапы 11–15',
       params: IdParams,
       body: At.extend({ language: z.string().max(translations.LANGUAGE_MAX), translatorId: z.string().uuid(), dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
       response: { 200: Result, ...errors },
@@ -417,7 +417,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/translations/:translationId/files', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, docs.approve.head', params: TrParams,
+      tags, summary: 'Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, начальник ИБ', params: TrParams,
       body: At.extend({ fileIds: z.array(z.string().uuid()).min(1).max(20) }), response: { 200: Result, ...errors },
     },
   }, async (request) => {
@@ -436,7 +436,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/blockers', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Открыть блокер (автор, старший над автором, docs.approve.head): останавливает шаги вперёд', params: IdParams,
+      tags, summary: 'Открыть блокер (автор, старший над автором, начальник ИБ): останавливает шаги вперёд', params: IdParams,
       body: At.extend({ text: z.string().max(parties.BLOCKER_MAX) }), response: { 200: Result, ...errors },
     },
   }, async (request) => {

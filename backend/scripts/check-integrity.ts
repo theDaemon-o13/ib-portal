@@ -291,6 +291,14 @@ async function main() {
     SELECT bool_or(has_table_privilege('ibportal_app', 'public.' || t, p)) AS granted
     FROM unnest(ARRAY['assessments', 'assessment_answers', 'assessment_links']) AS t, unnest(ARRAY['DELETE', 'TRUNCATE']) AS p`;
   check(assessmentPrivs[0]?.granted === false, 'ibportal_app: нет DELETE и TRUNCATE на оценках самооценки');
+  // Отметка «Начальник ИБ» (1.4.0, ADR-0027): не больше одной (индекс); держатель — активный, с ib.work, не супер-администратор.
+  const ibHeads = await prisma.user.findMany({
+    where: { isIbHead: true },
+    select: { isActive: true, roles: { select: { role: { select: { code: true, permissions: { select: { permissionCode: true } } } } } } },
+  });
+  const headOk = ibHeads.every((h) => h.isActive && !h.roles.some((r) => r.role.code === 'super_admin')
+    && h.roles.some((r) => r.role.permissions.some((p) => p.permissionCode === 'ib.work')));
+  check(ibHeads.length <= 1 && headOk, ibHeads.length ? 'отметка «Начальник ИБ»: один держатель, активный, с доступом к разделам ИБ' : 'отметка «Начальник ИБ» не поставлена (этап документов без исполнителя)', 'проверьте карточку пользователя с отметкой');
   const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });
   check(retiredUsers === 0, 'в ролях «Юрист» и «Правление» нет пользователей (перенесены в «Читатель документов»)', 'выполните seed');
 

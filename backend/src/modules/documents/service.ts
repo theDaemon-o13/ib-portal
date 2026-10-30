@@ -1,8 +1,8 @@
 // Документы (этап 6, ADR-0010; маршрут 1.2.0 — ADR-0024): реестр внутренних документов ИБ, версии, маршрут, пересмотр.
 // Права: маршруты пускают любого вошедшего (requireAuth), а кто что может — решает этот сервис (status.ts, MOVES):
-// автор — владелец или docs.manage; старший — над владельцем (ADR-0020); начальник ИБ — docs.approve.head, но не
-// супер-администратор (ни через какую роль). Свой документ на этапе 13 начальник ИБ согласует сам, только если
-// другого начальника ИБ нет, — с отметкой «без независимого согласования».
+// автор — владелец или docs.manage; старший — над владельцем (ADR-0020); начальник ИБ — пользователь с отметкой
+// «Является начальником ИБ» (1.4.0, ADR-0027; одна на портал, супер-администратору не ставится). Свой документ на этапе 13
+// начальник ИБ согласует сам — другого начальника ИБ не бывает — с отметкой «без независимого согласования».
 // Без ib.work видны только подписанные документы, «ждёт вас» и те, где вы действовали в текущем круге.
 // Текст фиксируется файлами: 13 → 14 — версия, одобренная начальником ИБ, 14 → 15 — финальная, 16 — подписанный PDF.
 import { randomUUID } from 'node:crypto';
@@ -42,14 +42,19 @@ export interface DocAccess {
   superAdmin: boolean;
   ibWork: boolean;
   manage: boolean;
+  /** Отметка «Является начальником ИБ» (1.4.0): этапы и действия начальника ИБ. */
+  ibHead: boolean;
 }
 
 /** Права читаются из БД в той же транзакции, что и действие: снятая минуту назад роль уже не действует. */
 export async function accessOf(db: Db, userId: string): Promise<DocAccess> {
-  const links = await db.userRole.findMany({
-    where: { userId, user: { isActive: true } },
-    select: { role: { select: { code: true, permissions: { select: { permissionCode: true } } } } },
-  });
+  const [links, user] = await Promise.all([
+    db.userRole.findMany({
+      where: { userId, user: { isActive: true } },
+      select: { role: { select: { code: true, permissions: { select: { permissionCode: true } } } } },
+    }),
+    db.user.findUnique({ where: { id: userId }, select: { isActive: true, isIbHead: true } }),
+  ]);
   const perms = new Set(links.flatMap((l) => l.role.permissions.map((p) => p.permissionCode)));
   return {
     userId,
@@ -57,6 +62,7 @@ export async function accessOf(db: Db, userId: string): Promise<DocAccess> {
     superAdmin: links.some((l) => l.role.code === 'super_admin'),
     ibWork: perms.has('ib.work'),
     manage: perms.has('docs.manage'),
+    ibHead: user?.isActive === true && user.isIbHead,
   };
 }
 
@@ -65,7 +71,7 @@ export async function accessOf(db: Db, userId: string): Promise<DocAccess> {
  * без «моих» согласований. Пользователь-заглушка: результат одинаков для всех, кому он виден, и кэшируется.
  */
 export const DEPARTMENT_VIEW: DocAccess = {
-  userId: '00000000-0000-0000-0000-000000000000', perms: new Set(['ib.work']), superAdmin: false, ibWork: true, manage: false,
+  userId: '00000000-0000-0000-0000-000000000000', perms: new Set(['ib.work']), superAdmin: false, ibWork: true, manage: false, ibHead: false,
 };
 
 const permName = (code: string) => PERMISSIONS.find((p) => p.code === code)?.name ?? code;
@@ -135,32 +141,24 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
   return map;
 }
 
-/** Пользователь, для которого считаются действия: права, его подчинённые, есть ли другой начальник ИБ. */
+/** Пользователь, для которого считаются действия: права и его подчинённые. */
 interface Who {
   a: DocAccess;
   subordinates: ReadonlySet<string>;
-  /** Есть другой активный пользователь с docs.approve.head (не супер-администратор): свой документ согласует он. */
-  otherHead: boolean;
   /** Версии, по которым пользователь принимал решения, и в каких кругах. */
   acted: ReadonlyMap<string, readonly number[]>;
   /** Условия переходов по рабочим версиям. */
   facts: ReadonlyMap<string, RouteFacts>;
 }
 
-const isHead = (a: DocAccess) => a.perms.has('docs.approve.head') && !a.superAdmin;
+/** Начальник ИБ — по отметке; супер-администратору её не ставят (409), проверка здесь — на случай испорченных данных. */
+const isHead = (a: DocAccess) => a.ibHead && !a.superAdmin;
 
-const HEADS_WHERE: Prisma.UserWhereInput = {
-  isActive: true,
-  AND: [
-    { roles: { some: { role: { permissions: { some: { permissionCode: 'docs.approve.head' } } } } } },
-    { roles: { none: { role: { code: 'super_admin' } } } },
-  ],
-};
+const HEADS_WHERE: Prisma.UserWhereInput = { isActive: true, isIbHead: true };
 
 async function whoOf(db: Db, a: DocAccess, versionIds: readonly string[], factIds: readonly string[] = versionIds): Promise<Who> {
-  const [subs, others, rows, facts] = await Promise.all([
+  const [subs, rows, facts] = await Promise.all([
     subordinateIdsOf(db, a.userId),
-    isHead(a) ? db.user.count({ where: { ...HEADS_WHERE, id: { not: a.userId } } }) : 0,
     versionIds.length
       ? db.documentApproval.findMany({ where: { actorId: a.userId, versionId: { in: [...versionIds] }, decision: { not: 'migrated' } }, select: { versionId: true, round: true } })
       : [],
@@ -168,7 +166,7 @@ async function whoOf(db: Db, a: DocAccess, versionIds: readonly string[], factId
   ]);
   const acted = new Map<string, number[]>();
   for (const r of rows) acted.set(r.versionId, [...(acted.get(r.versionId) ?? []), r.round]);
-  return { a, subordinates: new Set(subs), otherHead: others > 0, acted, facts };
+  return { a, subordinates: new Set(subs), acted, facts };
 }
 
 export function rolesOf(w: Who, d: DocRow): Set<DocRole> {
@@ -182,14 +180,12 @@ export function rolesOf(w: Who, d: DocRow): Set<DocRole> {
 /** Рабочая версия, с которой можно действовать: есть, не отменена, документ не в архиве. */
 export const activeWorking = (d: DocRow): VersionRow | null => (d.archivedAt || !d.workingVersion || d.workingVersion.cancelledAt ? null : d.workingVersion);
 
-/** Свой документ на этапе 13: при другом начальнике ИБ согласует он (решение владельца 6). */
-const ownApprovalBlocked = (w: Who, d: DocRow) => d.ownerId === w.a.userId && w.otherHead;
 
 /** Действия маршрута по ролям пользователя (без условий данных). */
 function roleActions(w: Who, d: DocRow): DocAction[] {
   const v = activeWorking(d);
   if (!v) return [];
-  return allowedActions(v.stage, rolesOf(w, d)).filter((x) => !(x === 'approve' && ownApprovalBlocked(w, d)));
+  return allowedActions(v.stage, rolesOf(w, d));
 }
 
 /**
@@ -373,10 +369,10 @@ async function getRow(db: Db, id: string) {
 export const HINTS: Record<number, string> = {
   11: `автор: владелец или право «${permName('docs.manage')}»`,
   12: 'автор или старший над автором; комментируют сотрудники ИБ',
-  13: `право «${permName('docs.approve.head')}»`,
-  14: `право «${permName('docs.approve.head')}»`,
-  15: `право «${permName('docs.approve.head')}» или старший над автором`,
-  16: `автор или право «${permName('docs.approve.head')}»`,
+  13: 'начальник ИБ (отметка в карточке пользователя)',
+  14: 'начальник ИБ (отметка в карточке пользователя)',
+  15: 'начальник ИБ или старший над автором',
+  16: 'автор или начальник ИБ',
 };
 
 /** Решения, которыми этап пройден: кто перевёл документ дальше. */
@@ -518,9 +514,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     /** Почему вы не можете действовать на текущем этапе (для подсказки в карточке). */
     blockedReason: gated ? gated.reason
       : !stuck ? null
-      : working.stage === 13 && ownApprovalBlocked(who, d) && isHead(a)
-        ? 'Свой документ согласует другой начальник ИБ: так сохраняется разделение полномочий'
-        : `Этап «${stageName(working.stage)}» — ${HINTS[working.stage] ?? ''}`,
+      : `Этап «${stageName(working.stage)}» — ${HINTS[working.stage] ?? ''}`,
     returned,
     files: fileRows.map((f) => ({
       id: f.id, kind: f.kind as 'draft' | 'head_approved' | 'final', kindName: FILE_KIND_NAMES[f.kind] ?? f.kind, round: f.round,
@@ -822,11 +816,8 @@ export function cleanComment(v: string | undefined, required: string | null): st
 }
 
 /** Почему действие недоступно (403): по ролям этапа. */
-function moveDenied(action: DocAction, who: Who, d: DocRow): AppError {
-  if (action === 'approve' && ownApprovalBlocked(who, d) && isHead(who.a)) {
-    return forbiddenWith('SEPARATION_OF_DUTIES', `Свой документ согласует другой пользователь с правом «${permName('docs.approve.head')}»: так сохраняется разделение полномочий`);
-  }
-  if (MOVES[action].who.includes('head') && who.a.superAdmin && who.a.perms.has('docs.approve.head')) {
+function moveDenied(action: DocAction, who: Who): AppError {
+  if (MOVES[action].who.includes('head') && who.a.superAdmin && who.a.ibHead) {
     return forbiddenWith('SEPARATION_OF_DUTIES', 'Супер-администратор не согласует документы: так сохраняется разделение полномочий');
   }
   return forbiddenWith('FORBIDDEN', `«${MOVES[action].label}» — ${HINTS[MOVES[action].from[0] as number] ?? ''}`);
@@ -842,7 +833,7 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
     const comment = cleanComment(input.comment, action === 'return' ? 'Напишите, что нужно исправить' : null);
     const { d, w, who } = await routeContext(tx, actor, id, input);
     if (!rule.from.includes(w.stage)) throw conflict('WRONG_STAGE', `«${rule.label}» — не на этапе «${stageName(w.stage)}». Обновите страницу`);
-    if (!roleActions(who, d).includes(action)) throw moveDenied(action, who, d);
+    if (!roleActions(who, d).includes(action)) throw moveDenied(action, who);
     const blocked = gate(who, d, action);
     if (blocked) throw conflict(blocked.code, blocked.reason);
 
@@ -952,7 +943,7 @@ export async function cancelRevision(db: Db, actor: Actor, id: string, input: { 
     if (!w || !d.approvedVersion) throw conflict('NO_REVISION', 'Пересмотр не идёт: отменять нечего. Обновите страницу');
     const roles = rolesOf(await whoOf(tx, a, []), d);
     if (!roles.has('author') && !roles.has('head')) {
-      throw forbiddenWith('FORBIDDEN', `Пересмотр отменяет автор (владелец или право «${permName('docs.manage')}») или пользователь с правом «${permName('docs.approve.head')}»`);
+      throw forbiddenWith('FORBIDDEN', `Пересмотр отменяет автор (владелец или право «${permName('docs.manage')}») или начальник ИБ`);
     }
     const res = await tx.document.updateMany({ where: { id, version: input.version }, data: { workingVersionId: null, version: { increment: 1 } } });
     if (res.count === 0) throw versionConflict();

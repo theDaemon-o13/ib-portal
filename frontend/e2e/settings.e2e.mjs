@@ -415,3 +415,78 @@ describe('Пользователи', () => {
     await ui.waitFor(`document.querySelector('.audit-tbl tbody tr[data-audit]')?.textContent.includes(${JSON.stringify(`e2e.${RUN}`)})`, 'последняя запись журнала про тестового пользователя');
   });
 });
+
+describe('Отметка «Является начальником ИБ» (1.4.0)', () => {
+  const json = (method, path, body) => ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
+    .then(async (r) => ({ status: r.status, body: await r.json() }))`);
+  const people = [];
+
+  after(async () => {
+    // Уборка: пользователи теста отключаются (отметка снимается вместе с отключением).
+    for (const p of people) {
+      const cur = await ui.evaluate(`fetch('/api/v1/users?limit=100&q=${p.login}').then((r) => r.json()).then((j) => j.items.find((u) => u.id === '${p.id}'))`);
+      if (cur?.isActive) await json('POST', `/api/v1/users/${p.id}/disable`, { version: cur.version });
+    }
+  });
+
+  it('отметить, передать через «Передать от …?», отключить держателя с предупреждением', async () => {
+    const roles = await ui.evaluate(`fetch('/api/v1/roles').then((r) => r.json())`);
+    const staff = roles.items.find((r) => r.code === 'ib_staff').id;
+    for (const k of ['ha', 'hb']) {
+      const r = await json('POST', '/api/v1/users', { login: `e2e.${RUN}.${k}`, fullName: tag(`Начальник ${k.toUpperCase()}`), roleIds: [staff] });
+      assert.equal(r.status, 201);
+      people.push({ id: r.body.user.id, login: r.body.user.login, fullName: r.body.user.fullName });
+    }
+    const [a, b] = people;
+    const chip = (u) => `!!${$.row(u.login)}?.querySelector('[data-testid=ib-head-chip]')`;
+    const dialog = `document.querySelector('[role=alertdialog]')`;
+
+    // Отметить A: если отметка уже у кого-то (прошлые прогоны, данные dev), портал спрашивает о передаче.
+    await ui.goto('/settings/users');
+    await revealRow(a.login);
+    await ui.click($.button('Изменить', $.row(a.login)), '«Изменить» у A');
+    await ui.waitFor(`!!${$.editing}`, 'карточка A');
+    let m = ui.mark();
+    await ui.click($.button('Отметить', `${$.editing}.querySelector('[data-testid=ib-head]')`), '«Отметить»');
+    const first = await ui.request(m, 'PUT', '/ib-head');
+    if (first.status === 409) {
+      await ui.waitFor(`${dialog}?.querySelector('h2')?.textContent.startsWith('Передать от ')`, 'вопрос о передаче');
+      m = ui.mark();
+      await ui.click($.button('Передать', dialog), '«Передать»');
+      assert.equal((await ui.request(m, 'PUT', '/ib-head')).status, 200);
+    } else {
+      assert.equal(first.status, 200);
+    }
+    await ui.waitFor(`${$.editing}?.querySelector('[data-testid=ib-head]')?.textContent.includes('Да')`, 'в карточке A — «Да»');
+    await ui.click($.button('Отмена', $.editing), '«Отмена»');
+    await ui.waitFor(chip(a), 'метка «Начальник ИБ» у A в списке');
+
+    // Передать B: вопрос с ФИО держателя.
+    await revealRow(b.login);
+    await ui.click($.button('Изменить', $.row(b.login)), '«Изменить» у B');
+    await ui.waitFor(`!!${$.editing}`, 'карточка B');
+    m = ui.mark();
+    await ui.click($.button('Отметить', `${$.editing}.querySelector('[data-testid=ib-head]')`), '«Отметить» у B');
+    assert.equal((await ui.request(m, 'PUT', '/ib-head')).status, 409);
+    await ui.waitFor(`${dialog}?.querySelector('h2')?.textContent === ${JSON.stringify(`Передать от ${a.fullName}?`)}`, '«Передать от A?»');
+    m = ui.mark();
+    await ui.click($.button('Передать', dialog), '«Передать»');
+    const moved = await ui.request(m, 'PUT', '/ib-head');
+    assert.equal(moved.status, 200);
+    assert.equal(moved.json.transfer, true);
+    await ui.waitFor(`!${dialog}`, 'окно закрыто');
+    await ui.click($.button('Отмена', $.editing), '«Отмена»');
+    await ui.waitFor(`${chip(b)} && !(${chip(a)})`, 'метка перешла к B');
+
+    // Отключить держателя: сначала предупреждение, отметка снимается вместе с отключением.
+    m = ui.mark();
+    await ui.click($.button('Отключить', $.row(b.login)), '«Отключить» у B');
+    await ui.waitFor(`${dialog}?.textContent.includes('У пользователя отметка «Начальник ИБ», этап останется без исполнителя')`, 'предупреждение');
+    assert.deepEqual(ui.requestsSince(m).filter((r) => r.method !== 'GET'), [], 'до подтверждения ничего не отправлено');
+    await ui.click($.button('Отключить', dialog), '«Отключить» в окне');
+    const off = await ui.request(m, 'POST', '/disable');
+    assert.equal(off.status, 200);
+    assert.equal((await ui.response(off)).isIbHead, false);
+    await ui.waitFor(`${$.row(b.login)}?.textContent.includes('Отключён') && !(${chip(b)})`, 'B отключён, метки нет');
+  });
+});

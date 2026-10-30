@@ -1,9 +1,10 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import type { Me } from '../../api/client';
+import { ApiError, type Me } from '../../api/client';
 import { settingsApi, type AdminUser, type WithTemporaryPassword } from '../../api/settings';
 import { ReadOnlyNote } from '../../components/LockIcon';
+import { ConfirmDialog, type ConfirmAsk } from './ConfirmDialog';
 import { formatDateTime, initials } from './logic';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
 import { keys, useAction } from './useAction';
@@ -57,6 +58,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
   const [edit, setEdit] = useState<Draft>(empty);
   const [add, setAdd] = useState<Draft>(empty);
   const [shown, setShown] = useState<{ title: string; result: WithTemporaryPassword } | null>(null);
+  const [ask, setAsk] = useState<ConfirmAsk | null>(null);
 
   const invalidate = [keys.users, keys.roles, keys.userOptions, keys.journal, ['auth', 'me']];
   const create = useAction(() => settingsApi.createUser({ ...add, login: add.login.trim(), managerId: add.managerId || null }), {
@@ -80,6 +82,39 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
   const unlock = useAction((u: AdminUser) => settingsApi.unlockUser(u.id, u.version), {
     invalidate, success: (r) => `Блокировка входа снята: ${r.fullName}`,
   });
+  // Отметка «Начальник ИБ» (1.4.0): одна на портал. Занята — сервер отвечает 409 с ФИО держателя, спрашиваем о передаче.
+  const ibHead = useAction(({ u, value, transfer }: { u: AdminUser; value: boolean; transfer?: boolean }) =>
+    settingsApi.setIbHead(u.id, { version: u.version, value, ...(transfer ? { transfer } : {}) }), {
+    invalidate,
+    success: (r) => (r.isIbHead ? `${r.fullName} — начальник ИБ` : `Отметка «Начальник ИБ» снята: ${r.fullName}`),
+    onDone: () => setAsk(null),
+    handle: (err, { u, value, transfer }) => {
+      const holder = err instanceof ApiError && err.code === 'IB_HEAD_TAKEN' ? (err.details?.holder as { fullName: string } | undefined) : undefined;
+      if (!holder || !value || transfer) return false;
+      setAsk({
+        title: `Передать от ${holder.fullName}?`,
+        text: <>Отметка «Начальник ИБ» сейчас у {holder.fullName}. После передачи этап «Начальник ИБ» в документах выполняет {u.fullName}.</>,
+        confirm: 'Передать',
+        run: () => ibHead.mutate({ u, value: true, transfer: true }),
+      });
+      return true;
+    },
+  });
+  const unmarkHead = (u: AdminUser) => setAsk({
+    title: 'Снять отметку «Начальник ИБ»?',
+    text: <>У {u.fullName} снимется отметка. Этап «Начальник ИБ» в документах останется без исполнителя, пока отметку не поставят другому.</>,
+    confirm: 'Снять отметку',
+    run: () => ibHead.mutate({ u, value: false }),
+  });
+  const disable = (u: AdminUser) => {
+    if (!u.isIbHead) { toggleActive.mutate(u); return; }
+    setAsk({
+      title: `Отключить ${u.fullName}?`,
+      text: <>У пользователя отметка «Начальник ИБ», этап останется без исполнителя. Отметка снимется вместе с отключением.</>,
+      confirm: 'Отключить',
+      run: () => { setAsk(null); toggleActive.mutate(u); },
+    });
+  };
 
   const rows = users.data?.pages.flatMap((p) => p.items) ?? [];
   const active = rows.filter((u) => u.isActive).length;
@@ -124,7 +159,24 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                       <div className="mt6"><ManagerSelect form={`ue-${u.id}`} value={edit.managerId} exclude={u.id} onChange={(managerId) => setEdit({ ...edit, managerId })} /></div>
                     </td>
                     <td><RoleChecks value={edit.roleIds} onChange={(roleIds) => setEdit({ ...edit, roleIds })} /></td>
-                    <td />
+                    <td>
+                      {/* Отметка меняется сразу, отдельно от «Сохранить»: передача и снятие — с подтверждением. */}
+                      <div className="ib-head" data-testid="ib-head">
+                        <span className="eyebrow">Является начальником ИБ</span>
+                        {u.isIbHead ? (
+                          <>
+                            <span className="chip acc">Да</span>
+                            <button className="btn ghost sm" type="button" onClick={() => unmarkHead(u)} disabled={ibHead.isPending}>Снять отметку</button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="hint">Нет</span>
+                            <button className="btn ghost sm" type="button" onClick={() => ibHead.mutate({ u, value: true })} disabled={ibHead.isPending || !u.isActive}>Отметить</button>
+                          </>
+                        )}
+                        <div className="hint">Выполняет этап «Начальник ИБ» в документах. Отметка — только у одного пользователя</div>
+                      </div>
+                    </td>
                     <td>
                       <div className="row act">
                         <button className="btn primary sm" type="submit" form={`ue-${u.id}`} disabled={save.isPending}>Сохранить</button>
@@ -141,6 +193,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                       <span className="av">{initials(u.fullName)}</span>
                       <div>
                         <b>{u.fullName}</b>{self && <> <span className="chip acc">это вы</span></>}
+                        {u.isIbHead && <> <span className="chip info" data-testid="ib-head-chip" title="Является начальником ИБ: выполняет этап «Начальник ИБ» в документах">Начальник ИБ</span></>}
                         <div className="hint mono">{u.login}</div>
                       </div>
                     </div>
@@ -180,7 +233,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                         {u.locked && <button className="btn ghost sm" type="button" onClick={() => unlock.mutate(u)} disabled={unlock.isPending}>Разблокировать</button>}
                         {!self && u.isActive && <button className="btn ghost sm" type="button" onClick={() => reset.mutate(u)} disabled={reset.isPending}>Сбросить пароль</button>}
                         {!self && (
-                          <button className="btn ghost sm" type="button" onClick={() => toggleActive.mutate(u)} disabled={toggleActive.isPending}>
+                          <button className="btn ghost sm" type="button" onClick={() => (u.isActive ? disable(u) : toggleActive.mutate(u))} disabled={toggleActive.isPending}>
                             {u.isActive ? 'Отключить' : 'Включить'}
                           </button>
                         )}
@@ -216,6 +269,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
           Руководитель — сотрудник ИБ; все, кто выше по цепочке руководителей, — старшие над пользователем.
         </div>
       </div>
+      {ask && <ConfirmDialog ask={ask} busy={ibHead.isPending || toggleActive.isPending} onClose={() => setAsk(null)} />}
       {shown && (
         <TemporaryPasswordDialog
           title={shown.title}

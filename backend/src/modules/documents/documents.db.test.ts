@@ -24,7 +24,7 @@ async function fixture(tx: Tx) {
   const chief = await makeUser(tx, ['ib_staff'], { fullName: 'Руководитель автора' });
   const owner = await makeUser(tx, ['ib_staff'], { fullName: 'Автор Документа', manager: { connect: { id: chief.id } } });
   const staff = await makeUser(tx, ['ib_staff'], { fullName: 'Сотрудник ИБ' });
-  const head = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник ИБ' });
+  const head = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник ИБ', isIbHead: true });
   const legal = await makeUser(tx, ['doc_reader'], { fullName: 'Юрист' });
   const as = async (u: User): Promise<Actor> => actorFor(tx, u.id);
   const create = async (title = 'Политика информационной безопасности', ownerId = owner.id) =>
@@ -199,15 +199,20 @@ describe('документы: маршрут 1.2.0 (ADR-0024)', () => {
       await expectCode(move(tx, x.head, id, 'to_signing'), 'WRONG_STAGE');
     }));
 
-  it('супер-администратор не согласует ни через какую роль, но действует за автора (docs.manage)', () =>
+  it('этап «Начальник ИБ» — только по отметке: роль с docs.approve.head без отметки и супер-администратор не согласуют; за автора — docs.manage', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const adminHead = await makeUser(tx, ['super_admin', 'ib_head'], { fullName: 'Админ с правом начальника' });
+      const roleOnly = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Роль без отметки' });
       const id = await x.create();
       await move(tx, adminHead, id, 'to_review');
       await move(tx, adminHead, id, 'to_head');
-      await expectCode(move(tx, adminHead, id, 'approve'), 'SEPARATION_OF_DUTIES');
-      await expectCode(move(tx, adminHead, id, 'return', { comment: 'замечание' }), 'SEPARATION_OF_DUTIES');
+      await expectCode(move(tx, adminHead, id, 'approve'), 'FORBIDDEN');
+      await expectCode(move(tx, adminHead, id, 'return', { comment: 'замечание' }), 'FORBIDDEN');
+      // Право docs.approve.head (роль «Начальник ИБ» в старой базе) без отметки ничего не даёт.
+      await tx.rolePermission.createMany({ data: [{ roleId: (await tx.role.findUniqueOrThrow({ where: { code: 'ib_head' } })).id, permissionCode: 'docs.approve.head' }], skipDuplicates: true });
+      await expectCode(move(tx, roleOnly, id, 'approve'), 'FORBIDDEN');
+      expect((await view(tx, roleOnly, id)).waitingForMe).toBe(false);
       const d = await view(tx, adminHead, id);
       expect(d.can.actions).toEqual([]);
       expect(d.route.find((r) => r.stage === 13)?.approvers).not.toContain('Админ с правом начальника');
@@ -227,33 +232,12 @@ describe('документы: маршрут 1.2.0 (ADR-0024)', () => {
     }));
 });
 
-describe('документы: автор — начальник ИБ (решение владельца 6)', () => {
-  it('есть другой начальник ИБ — свой документ на этапе 13 согласует он', () =>
+describe('документы: автор — начальник ИБ (1.4.0: отметка одна)', () => {
+  it('другого начальника ИБ не бывает — свой документ согласует сам, с отметкой «без независимого согласования» в истории и карточке', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
-      const head2 = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Второй начальник' });
-      const id = await x.create('Свой документ', x.head.id);
-      await move(tx, x.head, id, 'to_review');
-      await move(tx, x.head, id, 'to_head');
-      const d = await view(tx, x.head, id);
-      expect(d.can.actions).toEqual(['return']);
-      expect(d.waitingForMe).toBe(false);
-      expect(d.blockedReason).toBeNull();
-      await expectCode(move(tx, x.head, id, 'approve'), 'SEPARATION_OF_DUTIES');
-      expect((await view(tx, head2, id)).waitingForMe).toBe(true);
-      await move(tx, head2, id, 'approve');
-      const after = await view(tx, x.head, id);
-      expect(after.route.find((r) => r.stage === 13)).toMatchObject({ actedBy: 'Второй начальник', selfApproved: false });
-    }));
-
-  it('другого начальника ИБ нет — согласует сам, с отметкой «без независимого согласования» в истории и карточке', () =>
-    inTx(async (tx) => {
-      const x = await fixture(tx);
-      // Остальные начальники ИБ в тестовой базе (если есть) на время транзакции отключены.
-      await tx.user.updateMany({
-        where: { id: { not: x.head.id }, roles: { some: { role: { permissions: { some: { permissionCode: 'docs.approve.head' } } } } } },
-        data: { isActive: false },
-      });
+      // Держатели старого права docs.approve.head не считаются «другим начальником ИБ».
+      await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Роль без отметки' });
       const id = await x.create('Свой документ', x.head.id);
       await move(tx, x.head, id, 'to_review');
       await move(tx, x.head, id, 'to_head');
@@ -821,14 +805,18 @@ describe('документы: уведомления (Г5)', () => {
       expect(list.items.find((n) => n.kind === 'doc_waiting')?.link).toBe(`/documents?doc=${id}`);
     }));
 
-  it('все лица согласовали — начальнику ИБ; свой документ начальника ИБ ждёт другого начальника', () =>
+  it('все лица согласовали — начальнику ИБ (отметка); держатель старого права без отметки уведомлений не получает', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
-      const head2 = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Второй начальник' });
+      const roleOnly = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Роль без отметки' });
+      const theirs = await x.create('Чужой');
+      await moveTo(tx, x, theirs, 13);
+      expect(await inbox(tx, x.head, theirs)).toEqual([expect.stringMatching(/ждёт вашего согласования/)]);
+      expect(await inbox(tx, roleOnly, theirs)).toEqual([]);
+      // Свой документ: о своих действиях уведомлений нет.
       const own = await x.create('Свой', x.head.id);
       await move(tx, x.head, own, 'to_review');
       await move(tx, x.head, own, 'to_head');
-      expect(await inbox(tx, head2, own)).toEqual([expect.stringMatching(/ждёт вашего согласования/)]);
       expect(await inbox(tx, x.head, own)).toEqual([]);
 
       const id = await x.create();

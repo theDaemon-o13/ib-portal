@@ -25,6 +25,7 @@ register.option.archived register.option.restored register.scan.applied register
 register.scan.restored register.updated register.archived register.restored role.created role.deleted role.permission.granted
 role.permission.revoked role.updated task.archived task.restored task.commented task.created task.deleted task.transition task.updated
 tasks.bulk_archive tasks.bulk_delete tasks.report_exported notifications.cleaned user.created user.password_reset user.unlocked user.updated user.enabled user.disabled
+user.ib_head.set user.ib_head.cleared user.ib_head.transferred
 audit.exported`.split(/\s+/);
 
 describe('подписи журнала', () => {

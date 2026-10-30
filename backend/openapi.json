@@ -9225,6 +9225,9 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "isIbHead": {
+                            "type": "boolean"
+                          },
                           "mustChangePassword": {
                             "type": "boolean"
                           },
@@ -9262,6 +9265,7 @@
                           "roles",
                           "manager",
                           "subordinateCount",
+                          "isIbHead",
                           "mustChangePassword",
                           "passwordExpiresAt",
                           "locked",
@@ -9632,6 +9636,9 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "isIbHead": {
+                          "type": "boolean"
+                        },
                         "mustChangePassword": {
                           "type": "boolean"
                         },
@@ -9669,6 +9676,7 @@
                         "roles",
                         "manager",
                         "subordinateCount",
+                        "isIbHead",
                         "mustChangePassword",
                         "passwordExpiresAt",
                         "locked",
@@ -10304,6 +10312,9 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "isIbHead": {
+                      "type": "boolean"
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -10341,6 +10352,7 @@
                     "roles",
                     "manager",
                     "subordinateCount",
+                    "isIbHead",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -10670,6 +10682,9 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "isIbHead": {
+                      "type": "boolean"
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -10707,6 +10722,7 @@
                     "roles",
                     "manager",
                     "subordinateCount",
+                    "isIbHead",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -11036,6 +11052,9 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "isIbHead": {
+                      "type": "boolean"
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -11073,6 +11092,384 @@
                     "roles",
                     "manager",
                     "subordinateCount",
+                    "isIbHead",
+                    "mustChangePassword",
+                    "passwordExpiresAt",
+                    "locked",
+                    "lockedUntil",
+                    "lastLoginAt",
+                    "version"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/ib-head": {
+      "put": {
+        "summary": "Отметка «Является начальником ИБ»: поставить или снять. Отметка у другого — 409 IB_HEAD_TAKEN (details.holder); transfer=true — передать",
+        "tags": [
+          "users"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "value": {
+                    "type": "boolean"
+                  },
+                  "transfer": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "version",
+                  "value"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "login": {
+                      "type": "string"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "position": {
+                      "type": "string"
+                    },
+                    "department": {
+                      "type": "string"
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "manager": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "login": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "isActive": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "login",
+                            "fullName",
+                            "isActive"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subordinateCount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "isIbHead": {
+                      "type": "boolean"
+                    },
+                    "mustChangePassword": {
+                      "type": "boolean"
+                    },
+                    "passwordExpiresAt": {
+                      "type": "string"
+                    },
+                    "locked": {
+                      "type": "boolean"
+                    },
+                    "lockedUntil": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "lastLoginAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "login",
+                    "fullName",
+                    "position",
+                    "department",
+                    "isActive",
+                    "roles",
+                    "manager",
+                    "subordinateCount",
+                    "isIbHead",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -11405,6 +11802,9 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "isIbHead": {
+                          "type": "boolean"
+                        },
                         "mustChangePassword": {
                           "type": "boolean"
                         },
@@ -11442,6 +11842,7 @@
                         "roles",
                         "manager",
                         "subordinateCount",
+                        "isIbHead",
                         "mustChangePassword",
                         "passwordExpiresAt",
                         "locked",
@@ -11781,6 +12182,9 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "isIbHead": {
+                      "type": "boolean"
+                    },
                     "mustChangePassword": {
                       "type": "boolean"
                     },
@@ -11818,6 +12222,7 @@
                     "roles",
                     "manager",
                     "subordinateCount",
+                    "isIbHead",
                     "mustChangePassword",
                     "passwordExpiresAt",
                     "locked",
@@ -68495,7 +68900,7 @@
     },
     "/api/v1/documents/{id}/sign": {
       "post": {
-        "summary": "Этап 16: подписанный PDF и дата подписания (автор или docs.approve.head). Пересмотр — от даты подписания",
+        "summary": "Этап 16: подписанный PDF и дата подписания (автор или начальник ИБ). Пересмотр — от даты подписания",
         "tags": [
           "documents"
         ],
@@ -70108,7 +70513,7 @@
     },
     "/api/v1/documents/{id}/cancel-revision": {
       "post": {
-        "summary": "Отменить пересмотр (автор или docs.approve.head, с комментарием): версия — в историю, действующей остаётся подписанная",
+        "summary": "Отменить пересмотр (автор или начальник ИБ, с комментарием): версия — в историю, действующей остаётся подписанная",
         "tags": [
           "documents"
         ],
@@ -76529,7 +76934,7 @@
     },
     "/api/v1/documents/{id}/parties": {
       "post": {
-        "summary": "Этап 14: добавить ответственное лицо (автор или docs.approve.head, этапы 11–14)",
+        "summary": "Этап 14: добавить ответственное лицо (автор или начальник ИБ, этапы 11–14)",
         "tags": [
           "documents"
         ],
@@ -86277,7 +86682,7 @@
     },
     "/api/v1/documents/{id}/translations": {
       "post": {
-        "summary": "Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, docs.approve.head; этапы 11–15",
+        "summary": "Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, начальник ИБ; этапы 11–15",
         "tags": [
           "documents"
         ],
@@ -91136,7 +91541,7 @@
     },
     "/api/v1/documents/{id}/translations/{translationId}/files": {
       "post": {
-        "summary": "Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, docs.approve.head",
+        "summary": "Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, начальник ИБ",
         "tags": [
           "documents"
         ],
@@ -94381,7 +94786,7 @@
     },
     "/api/v1/documents/{id}/blockers": {
       "post": {
-        "summary": "Открыть блокер (автор, старший над автором, docs.approve.head): останавливает шаги вперёд",
+        "summary": "Открыть блокер (автор, старший над автором, начальник ИБ): останавливает шаги вперёд",
         "tags": [
           "documents"
         ],

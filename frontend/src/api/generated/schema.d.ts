@@ -4080,6 +4080,7 @@ export interface paths {
                                     isActive: boolean;
                                 } | null;
                                 subordinateCount: number;
+                                isIbHead: boolean;
                                 mustChangePassword: boolean;
                                 passwordExpiresAt: string;
                                 locked: boolean;
@@ -4227,6 +4228,7 @@ export interface paths {
                                     isActive: boolean;
                                 } | null;
                                 subordinateCount: number;
+                                isIbHead: boolean;
                                 mustChangePassword: boolean;
                                 passwordExpiresAt: string;
                                 locked: boolean;
@@ -4521,6 +4523,7 @@ export interface paths {
                                 isActive: boolean;
                             } | null;
                             subordinateCount: number;
+                            isIbHead: boolean;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4670,6 +4673,7 @@ export interface paths {
                                 isActive: boolean;
                             } | null;
                             subordinateCount: number;
+                            isIbHead: boolean;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4823,6 +4827,7 @@ export interface paths {
                                 isActive: boolean;
                             } | null;
                             subordinateCount: number;
+                            isIbHead: boolean;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -4925,6 +4930,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/ib-head": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Отметка «Является начальником ИБ»: поставить или снять. Отметка у другого — 409 IB_HEAD_TAKEN (details.holder); transfer=true — передать */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        value: boolean;
+                        transfer?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            login: string;
+                            fullName: string;
+                            position: string;
+                            department: string;
+                            isActive: boolean;
+                            roles: {
+                                id: string;
+                                name: string;
+                            }[];
+                            manager: {
+                                id: string;
+                                login: string;
+                                fullName: string;
+                                isActive: boolean;
+                            } | null;
+                            subordinateCount: number;
+                            isIbHead: boolean;
+                            mustChangePassword: boolean;
+                            passwordExpiresAt: string;
+                            locked: boolean;
+                            lockedUntil: string | null;
+                            lastLoginAt: string | null;
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/reset-password": {
         parameters: {
             query?: never;
@@ -4977,6 +5138,7 @@ export interface paths {
                                     isActive: boolean;
                                 } | null;
                                 subordinateCount: number;
+                                isIbHead: boolean;
                                 mustChangePassword: boolean;
                                 passwordExpiresAt: string;
                                 locked: boolean;
@@ -5132,6 +5294,7 @@ export interface paths {
                                 isActive: boolean;
                             } | null;
                             subordinateCount: number;
+                            isIbHead: boolean;
                             mustChangePassword: boolean;
                             passwordExpiresAt: string;
                             locked: boolean;
@@ -24249,7 +24412,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 16: подписанный PDF и дата подписания (автор или docs.approve.head). Пересмотр — от даты подписания */
+        /** Этап 16: подписанный PDF и дата подписания (автор или начальник ИБ). Пересмотр — от даты подписания */
         post: {
             parameters: {
                 query?: never;
@@ -24640,7 +24803,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отменить пересмотр (автор или docs.approve.head, с комментарием): версия — в историю, действующей остаётся подписанная */
+        /** Отменить пересмотр (автор или начальник ИБ, с комментарием): версия — в историю, действующей остаётся подписанная */
         post: {
             parameters: {
                 query?: never;
@@ -26193,7 +26356,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 14: добавить ответственное лицо (автор или docs.approve.head, этапы 11–14) */
+        /** Этап 14: добавить ответственное лицо (автор или начальник ИБ, этапы 11–14) */
         post: {
             parameters: {
                 query?: never;
@@ -28540,7 +28703,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, docs.approve.head; этапы 11–15 */
+        /** Этап 15: язык перевода, переводчик (пользователь портала), срок — автор, старший над автором, начальник ИБ; этапы 11–15 */
         post: {
             parameters: {
                 query?: never;
@@ -29715,7 +29878,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, docs.approve.head */
+        /** Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, начальник ИБ */
         post: {
             parameters: {
                 query?: never;
@@ -30495,7 +30658,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Открыть блокер (автор, старший над автором, docs.approve.head): останавливает шаги вперёд */
+        /** Открыть блокер (автор, старший над автором, начальник ИБ): останавливает шаги вперёд */
         post: {
             parameters: {
                 query?: never;

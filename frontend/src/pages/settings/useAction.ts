@@ -9,7 +9,11 @@ import { useToast } from '../../components/Toast';
  */
 export function useAction<A, R>(
   fn: (args: A) => Promise<R>,
-  opts: { invalidate: QueryKey[]; success?: (result: R, args: A) => string | null; onDone?: (result: R) => void },
+  opts: {
+    invalidate: QueryKey[]; success?: (result: R, args: A) => string | null; onDone?: (result: R) => void;
+    /** Своя обработка ошибки (например, вопрос пользователю); true — обработана, общий текст не показывается. */
+    handle?: (err: unknown, args: A) => boolean;
+  },
 ) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -22,7 +26,8 @@ export function useAction<A, R>(
       if (text) toast(text);
       opts.onDone?.(result);
     },
-    onError: async (err) => {
+    onError: async (err, args) => {
+      if (opts.handle?.(err, args)) return;
       if (err instanceof ApiError && err.code === 'VERSION_CONFLICT') {
         await refresh();
         toast('Данные изменил другой пользователь. Обновили — проверьте и повторите', 'error');

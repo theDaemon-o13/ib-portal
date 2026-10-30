@@ -3,7 +3,7 @@
 // не хранится в открытом виде: ни в БД, ни в журнале аудита, ни в логах.
 import type { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
-import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { toPage } from '../../lib/pagination.js';
 import { passwordExpiresAt } from '../../lib/password-policy.js';
@@ -11,7 +11,7 @@ import { isRetiredRole } from '../../lib/permissions.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
-import { assertKioskExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
+import { assertIbHeadValid, assertKioskExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 
 const include = {
@@ -34,6 +34,8 @@ function toDto(u: UserRow, now = new Date()) {
     roles: u.roles.map((r) => r.role).sort((a, b) => a.name.localeCompare(b.name, 'ru')),
     manager: u.manager,
     subordinateCount: u._count.subordinates,
+    /** «Является начальником ИБ» (1.4.0): выполняет этап «Начальник ИБ» в маршруте документов; не больше одного. */
+    isIbHead: u.isIbHead,
     mustChangePassword: u.mustChangePassword,
     passwordExpiresAt: passwordExpiresAt(u.passwordChangedAt).toISOString(),
     locked: u.lockedUntil !== null && u.lockedUntil > now,
@@ -238,6 +240,7 @@ export async function updateUser(
     // Снятие роли не должно лишить себя или всех пользователей права users.manage.
     await assertUsersManageKept(tx, actor.id);
     await assertKioskExclusive(tx);
+    await assertIbHeadValid(tx);
     await auditSettings(tx, actor, {
       action: 'user.updated',
       entity: 'user',
@@ -265,8 +268,11 @@ export async function setActive(db: Db, actor: Actor, id: string, version: numbe
       if (u.version !== version) throw versionConflict();
       return toDto(u);
     }
-    const res = await tx.user.updateMany({ where: { id, version }, data: { isActive: active, version: { increment: 1 } } });
+    // Отключённый не остаётся начальником ИБ: отметка снимается (интерфейс предупреждает до подтверждения).
+    const clearHead = !active && u.isIbHead;
+    const res = await tx.user.updateMany({ where: { id, version }, data: { isActive: active, ...(clearHead ? { isIbHead: false } : {}), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.user.findUnique({ where: { id } }), 'Пользователь');
+    if (clearHead) await auditIbHead(tx, actor, u, 'cleared', `Пользователи: снята отметка «Начальник ИБ» — ${who(u)} отключён; этап «Начальник ИБ» без исполнителя`);
     if (!active) {
       await assertUsersManageKept(tx, actor.id);
       // Отключённый пользователь сразу теряет доступ.
@@ -278,6 +284,46 @@ export async function setActive(db: Db, actor: Actor, id: string, version: numbe
       entityId: id,
       summary: `Пользователи: ${active ? 'включён' : 'отключён'} ${u.fullName} (${u.login})`,
     });
+    return toDto(await getUser(tx, id));
+  });
+}
+
+type IbHeadChange = 'set' | 'cleared' | 'transferred';
+const IB_HEAD_ACTIONS: Record<IbHeadChange, string> = { set: 'user.ib_head.set', cleared: 'user.ib_head.cleared', transferred: 'user.ib_head.transferred' };
+
+async function auditIbHead(tx: Db, actor: Actor, u: { id: string }, change: IbHeadChange, summary: string, extra: Record<string, unknown> = {}) {
+  await auditSettings(tx, actor, { action: IB_HEAD_ACTIONS[change], entity: 'user', entityId: u.id, summary, after: { isIbHead: change !== 'cleared', ...extra } });
+}
+
+/**
+ * Отметка «Является начальником ИБ» (релиз 1.4.0, ADR-0027): не больше одного пользователя (уникальный индекс в БД).
+ * Отметка у другого — 409 IB_HEAD_TAKEN с его ФИО; transfer=true — снять у него и поставить этому одной транзакцией.
+ * Только активный пользователь с ib.work и без роли «Супер-администратор».
+ */
+export async function setIbHead(db: Db, actor: Actor, id: string, input: { version: number; value: boolean; transfer?: boolean }) {
+  return withTx(db, async (tx) => {
+    await lockRbac(tx);
+    const u = await getUser(tx, id);
+    if (u.version !== input.version) throw versionConflict();
+    if (u.isIbHead === input.value) return toDto(u);
+    if (!input.value) {
+      await tx.user.update({ where: { id }, data: { isIbHead: false, version: { increment: 1 } } });
+      await auditIbHead(tx, actor, u, 'cleared', `Пользователи: снята отметка «Начальник ИБ» — ${who(u)}; этап «Начальник ИБ» без исполнителя`);
+      return toDto(await getUser(tx, id));
+    }
+    if (!u.isActive) throw conflict('INACTIVE', 'Пользователь отключён. Сначала включите его');
+    const holder = await tx.user.findFirst({ where: { isIbHead: true }, select: { id: true, login: true, fullName: true } });
+    if (holder && !input.transfer) {
+      throw new AppError(409, 'IB_HEAD_TAKEN', `Отметка «Начальник ИБ» сейчас у ${holder.fullName}. Передать её?`, { holder });
+    }
+    if (holder) await tx.user.update({ where: { id: holder.id }, data: { isIbHead: false, version: { increment: 1 } } });
+    await tx.user.update({ where: { id }, data: { isIbHead: true, version: { increment: 1 } } });
+    await assertIbHeadValid(tx);
+    if (holder) {
+      await auditIbHead(tx, actor, u, 'transferred', `Пользователи: отметка «Начальник ИБ» передана: ${who(holder)} → ${who(u)}`, { from: who(holder), to: who(u) });
+    } else {
+      await auditIbHead(tx, actor, u, 'set', `Пользователи: ${who(u)} — отмечен «Начальник ИБ»`);
+    }
     return toDto(await getUser(tx, id));
   });
 }

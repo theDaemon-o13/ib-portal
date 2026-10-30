@@ -16,7 +16,7 @@ export const PERMISSIONS = [
   { code: 'docs.delete', name: 'Документы: удаление', description: 'Только неподписанные документы; подписанные — в архив' },
   {
     code: 'docs.approve.head', name: 'Документы: начальник ИБ',
-    description: 'Согласование документа, «Ознакомлен с финальной версией», возврат на доработку, перевод на подписание, подписание',
+    description: 'Не используется с 1.4.0: этап «Начальник ИБ» выполняет пользователь с отметкой «Является начальником ИБ». Остаётся ради отката на 1.3.0',
   },
   { code: 'settings.manage', name: 'Настройки: справочники и шаблоны форм', description: '' },
   { code: 'users.manage', name: 'Настройки: пользователи, роли и права', description: '' },
@@ -95,9 +95,10 @@ export const SYSTEM_ROLES = [
   {
     code: 'ib_head',
     name: 'Начальник ИБ',
-    description: 'Согласует документы, проверяет задачи, видит журнал',
+    description: 'Проверяет задачи, видит журнал. Этап «Начальник ИБ» в документах — по отметке в карточке пользователя',
+    // С 1.4.0 без docs.approve.head (только новая установка; существующая роль не перезаписывается).
     permissions: [
-      'docs.approve.head', 'tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete',
+      'tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete',
       'history.view', 'audit.view',
     ],
   },

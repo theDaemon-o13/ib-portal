@@ -169,6 +169,10 @@ before(async () => {
     });
     users[key] = { key, id: r.user.id, login: r.user.login, fullName: r.user.fullName, password: r.temporaryPassword, version: r.user.version };
   }
+  // Этап «Начальник ИБ» — по отметке (1.4.0): передать её начальнику прогона; отключение в after снимет её.
+  const marked = await api('PUT', `/api/v1/users/${users.head.id}/ib-head`, { version: users.head.version, value: true, transfer: true });
+  assert.equal(marked.isIbHead, true);
+  users.head.version = marked.version;
 });
 
 after(async () => {

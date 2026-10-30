@@ -14,20 +14,9 @@ import { notify } from '../notifications/service.js';
 export interface DocRef { id: string; number: number; title: string; ownerId: string }
 const label = (d: DocRef) => `#${d.number} «${d.title}»`;
 
-/** Начальники ИБ для документа: активные с docs.approve.head, не супер-администраторы; владельца — только если других нет. */
-async function headsFor(db: Db, ownerId: string): Promise<string[]> {
-  const heads = (await db.user.findMany({
-    where: {
-      isActive: true,
-      AND: [
-        { roles: { some: { role: { permissions: { some: { permissionCode: 'docs.approve.head' } } } } } },
-        { roles: { none: { role: { code: 'super_admin' } } } },
-      ],
-    },
-    select: { id: true },
-  })).map((u) => u.id);
-  const others = heads.filter((id) => id !== ownerId);
-  return others.length ? others : heads;
+/** Начальник ИБ — активный пользователь с отметкой (1.4.0, одна на портал); нет отметки — некому. О своих действиях уведомлений нет. */
+async function headsFor(db: Db): Promise<string[]> {
+  return (await db.user.findMany({ where: { isActive: true, isIbHead: true }, select: { id: true } })).map((u) => u.id);
 }
 
 async function pendingTranslations(db: Db, versionId: string) {
@@ -40,7 +29,7 @@ async function pendingTranslations(db: Db, versionId: string) {
 /** Переводы готовы (или языков нет) — начальникам ИБ и старшим над автором: можно на подписание. */
 async function notifyTranslationsReady(db: Db, d: DocRef, actorId: string | null) {
   await notify(db, {
-    kind: 'doc_waiting', to: [...(await headsFor(db, d.ownerId)), ...(await seniorIdsOf(db, d.ownerId))], documentId: d.id, actorId,
+    kind: 'doc_waiting', to: [...(await headsFor(db)), ...(await seniorIdsOf(db, d.ownerId))], documentId: d.id, actorId,
     title: `Документ ${label(d)}: переводы готовы — можно на подписание`,
   });
 }
@@ -56,7 +45,7 @@ export async function notifyTranslator(db: Db, d: DocRef, t: { language: string;
 /** Документ перешёл на этап stage: кого он теперь ждёт. */
 export async function notifyStage(db: Db, d: DocRef, versionId: string, stage: number, actorId: string): Promise<void> {
   if (stage === 13) {
-    await notify(db, { kind: 'doc_waiting', to: await headsFor(db, d.ownerId), documentId: d.id, actorId, title: `Документ ${label(d)} ждёт вашего согласования` });
+    await notify(db, { kind: 'doc_waiting', to: await headsFor(db), documentId: d.id, actorId, title: `Документ ${label(d)} ждёт вашего согласования` });
   } else if (stage === 15) {
     const pending = await pendingTranslations(db, versionId);
     for (const t of pending) await notifyTranslator(db, d, t, actorId);
@@ -71,7 +60,7 @@ export async function notifyPartiesDone(db: Db, d: DocRef, versionId: string, ac
   const left = await db.documentParty.count({ where: { versionId, removedAt: null, approvedAt: null } });
   if (left > 0) return;
   await notify(db, {
-    kind: 'doc_waiting', to: await headsFor(db, d.ownerId), documentId: d.id, actorId,
+    kind: 'doc_waiting', to: await headsFor(db), documentId: d.id, actorId,
     title: `Документ ${label(d)}: все ответственные лица согласовали`, body: 'Ознакомьтесь с финальной версией',
   });
 }

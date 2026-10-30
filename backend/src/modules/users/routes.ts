@@ -23,6 +23,8 @@ export const AdminUser = z.object({
   manager: z.object({ id: z.string(), login: z.string(), fullName: z.string(), isActive: z.boolean() }).nullable(),
   /** Прямых подчинённых. */
   subordinateCount: z.number().int(),
+  /** «Является начальником ИБ» (1.4.0): не больше одного пользователя. */
+  isIbHead: z.boolean(),
   mustChangePassword: z.boolean(),
   passwordExpiresAt: z.string(),
   locked: z.boolean(),
@@ -99,6 +101,16 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher 
       schema: { tags, summary, params: IdParams, body: Version, response: { 200: AdminUser, ...errors } },
     }, async (request) => svc.setActive(db, actorOf(request), request.params.id, request.body.version, active));
   }
+
+  app.put('/users/:id/ib-head', {
+    preHandler: manage,
+    schema: {
+      tags, params: IdParams,
+      summary: 'Отметка «Является начальником ИБ»: поставить или снять. Отметка у другого — 409 IB_HEAD_TAKEN (details.holder); transfer=true — передать',
+      body: Version.extend({ value: z.boolean(), transfer: z.boolean().optional() }),
+      response: { 200: AdminUser, ...errors },
+    },
+  }, async (request) => svc.setIbHead(db, actorOf(request), request.params.id, request.body));
 
   app.post('/users/:id/reset-password', {
     preHandler: manage,

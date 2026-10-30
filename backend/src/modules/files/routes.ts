@@ -27,7 +27,8 @@ export const FileOut = z.object({
 // Загружают сотрудники ИБ (доказательства, решения), участники документооборота (файлы версии, подписанный PDF)
 // и переводчики документа на этапе 15 — даже без прав (1.2.0, ADR-0024): проверка — в обработчике.
 // Читать файл может любой вошедший (и «Читатель документов» без прав, 1.2.0) — дальше решают ссылки на файл (сервис).
-const UPLOAD_PERMS = ['ib.work', 'docs.manage', 'docs.approve.head'] as const;
+// Начальник ИБ (отметка, 1.4.0) — всегда с ib.work.
+const UPLOAD_PERMS = ['ib.work', 'docs.manage'] as const;
 const signedIn = requireAuth();
 const readers = requireAuth();
 

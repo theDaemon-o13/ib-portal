@@ -32,7 +32,7 @@ export type DocAction = (typeof DOC_ACTIONS)[number];
 
 /**
  * Кто может действие: author — владелец или docs.manage; senior — старший над владельцем (ADR-0020);
- * head — docs.approve.head (не супер-администратор).
+ * head — начальник ИБ: отметка «Является начальником ИБ» (1.4.0), не супер-администратор.
  */
 export type DocRole = 'author' | 'senior' | 'head';
 

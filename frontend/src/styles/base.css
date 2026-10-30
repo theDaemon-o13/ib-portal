@@ -178,6 +178,7 @@ select.inp{appearance:auto}
 .role-checks{display:grid;gap:5px;font-size:12.5px;min-width:200px}
 .role-checks label{display:flex;gap:7px;align-items:center;color:var(--fg);font-weight:400}
 .role-checks input{accent-color:var(--accent);width:15px;height:15px}
+.ib-head{display:grid;gap:6px;justify-items:start;min-width:170px;font-size:12.5px}
 
 .split{display:grid;gap:12px;align-items:start}
 .set-split{grid-template-columns:248px minmax(0,1fr)}

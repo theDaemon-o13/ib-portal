@@ -63,6 +63,28 @@ export async function assertKioskExclusive(tx: Db): Promise<void> {
   }
 }
 
+/**
+ * Отметка «Является начальником ИБ» (релиз 1.4.0, ADR-0027) — только у активного пользователя с ib.work и без роли
+ * «Супер-администратор» (он не согласует документы). Проверяется после изменения ролей и прав, в той же транзакции.
+ */
+export async function assertIbHeadValid(tx: Db): Promise<void> {
+  const holder = await tx.user.findFirst({
+    where: { isIbHead: true },
+    select: {
+      fullName: true, isActive: true,
+      roles: { select: { role: { select: { code: true, permissions: { select: { permissionCode: true } } } } } },
+    },
+  });
+  if (!holder) return;
+  const roles = holder.roles.map((r) => r.role);
+  if (roles.some((r) => r.code === 'super_admin')) {
+    throw conflict('IB_HEAD_SUPER_ADMIN', `У ${holder.fullName} отметка «Начальник ИБ»: роль «Супер-администратор» с ней не сочетается — он не согласует документы. Сначала снимите отметку`);
+  }
+  if (!roles.some((r) => r.permissions.some((p) => p.permissionCode === 'ib.work'))) {
+    throw conflict('IB_HEAD_NOT_IB', `У ${holder.fullName} отметка «Начальник ИБ»: без доступа к разделам ИБ её оставить нельзя. Сначала снимите отметку`);
+  }
+}
+
 /** Есть ли у пользователя право настенного монитора (сумма прав его ролей). */
 export async function hasKioskRole(db: Db, userId: string): Promise<boolean> {
   return (await db.rolePermission.count({ where: { permissionCode: KIOSK_PERMISSION, role: { users: { some: { userId } } } } })) > 0;

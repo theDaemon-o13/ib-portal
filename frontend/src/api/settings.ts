@@ -85,6 +85,8 @@ export const settingsApi = {
   resetPassword: (id: string, version: number) =>
     request<WithTemporaryPassword>('POST', `/api/v1/users/${id}/reset-password`, { version }),
   unlockUser: (id: string, version: number) => request<AdminUser>('POST', `/api/v1/users/${id}/unlock`, { version }),
+  /** Отметка «Является начальником ИБ» (1.4.0): у другого — 409 IB_HEAD_TAKEN (details.holder), transfer — передать. */
+  setIbHead: (id: string, body: Body<'/api/v1/users/{id}/ib-head', 'put'>) => request<AdminUser>('PUT', `/api/v1/users/${id}/ib-head`, body),
 
   permissions: () => request<Res<'/api/v1/permissions', 'get'>>('GET', '/api/v1/permissions'),
   roles: () => request<Res<'/api/v1/roles', 'get'>>('GET', '/api/v1/roles'),

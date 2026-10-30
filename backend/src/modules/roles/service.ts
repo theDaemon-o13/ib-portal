@@ -5,7 +5,7 @@ import {
   APPROVAL_PERMISSIONS, ASSESSMENT_PERMISSION, ASSESSMENT_ROLE, KIOSK_PERMISSION, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
 } from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
-import { assertKioskExclusive, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
+import { assertIbHeadValid, assertKioskExclusive, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
 
 /** Коды прав из кода; строки прав до 1.2.0 (юрист, правление) остаются в БД до 1.3.0, в матрице их нет. */
 export async function listPermissions(db: Db) {
@@ -160,6 +160,7 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     await tx.role.update({ where: { id: roleId }, data: { version: { increment: 1 } } });
     if (!granted) await assertUsersManageKept(tx, actor.id);
     if (granted) await assertKioskExclusive(tx);
+    await assertIbHeadValid(tx);
     // Сняли право «Настенный монитор» с роли — 7-суточные сессии её пользователей закрываются (ADR-0012).
     let closed = 0;
     if (!granted && perm === KIOSK_PERMISSION) {
