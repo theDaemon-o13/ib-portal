@@ -58,7 +58,7 @@ const CalcRuleIn = z.union([BasisRule, CalcRule.extend({ kind: z.literal('due_da
 const CalcRuleOut = z.union([
   z.object({ kind: z.literal('vuln_score'), cvssFieldId: z.string(), exploitFieldId: z.string(), fixFieldId: z.string() }),
   BasisRule,
-  CalcRule.extend({ kind: z.literal('due_date').optional() }),
+  CalcRule.extend({ kind: z.literal('due_date').optional(), baseFieldId: z.string().nullable().optional(), addDaysFieldId: z.string().nullable().optional() }),
 ]);
 /** Настройки поля (этап 8б): фиксация при статусах записи и ограничения даты. */
 const FieldSettings = z.object({
@@ -92,6 +92,8 @@ const Field = z.object({
   linkRegisterId: z.string().nullable(),
   settings: FieldSettings,
   options: z.array(Option),
+  /** Служебное поле: значение ставит портал, в форме и импорте только для чтения (релиз 1.5.0). */
+  managed: z.boolean().optional(),
 });
 export const RegisterDetail = z.object({
   id: z.string(),

@@ -66,6 +66,8 @@ export async function seedVulns(tx: Tx): Promise<void> {
           overrideFieldId: ids.newDue,
           overrideWhenFilledFieldId: ids.measures,
           shiftToWorkday: true,
+          baseFieldId: ids.legacyDue,
+          addDaysFieldId: ids.extDays,
         },
       },
     });
@@ -181,6 +183,52 @@ export async function seedVulns(tx: Tx): Promise<void> {
   // отдела, область сравнения по умолчанию — отдел и система. Отдел заполняется у записей, загруженных из отчётов
   // (по названию отчёта в scan_reports); записи без отчёта остаются без отдела. Журнал — по каждой записи и сводный.
   await once(tx, 'system.register.vulns.v5.department', () => seedVulnDepartments(tx));
+
+  // Релиз 1.5.0 (ADR-0030): служебные поля «Срок из прежнего реестра» и «Продлено, дн.» и правило срока с ними.
+  await once(tx, 'system.register.vulns.v6.deadline-fields', () => seedVulnDeadlineFields(tx));
+}
+
+/** Шаг seed v6: поля добавляются в конец (в новом реестре они уже есть), правило срока получает их id. */
+export async function seedVulnDeadlineFields(tx: Tx): Promise<string> {
+  const reg = await tx.register.findUnique({ where: { systemKey: VULN_REGISTER_KEY } });
+  if (!reg) return 'Реестра уязвимостей нет — поля срока не нужны';
+  const ids: Partial<Record<'legacyDue' | 'extDays', string>> = {};
+  const added: string[] = [];
+  for (const key of ['legacyDue', 'extDays'] as const) {
+    const have = await tx.registerField.findFirst({ where: { registerId: reg.id, systemKey: key, deletedAt: null } });
+    if (have) {
+      ids[key] = have.id;
+      continue;
+    }
+    const spec = VULN_FIELDS.find((f) => f.key === key);
+    if (!spec) throw new Error(`нет описания поля ${key}`);
+    const max = await tx.registerField.aggregate({ where: { registerId: reg.id }, _max: { sortOrder: true } });
+    // Название свободно? Если администратор уже завёл поле с таким названием — системное получает пометку.
+    const clash = await tx.registerField.findFirst({ where: { registerId: reg.id, deletedAt: null, label: { equals: spec.label, mode: 'insensitive' } } });
+    const f = await tx.registerField.create({
+      data: { registerId: reg.id, label: clash ? `${spec.label} (портал)` : spec.label, type: spec.type, systemKey: key, sortOrder: (max._max.sortOrder ?? 0) + 1 },
+    });
+    ids[key] = f.id;
+    added.push(`«${f.label}»`);
+  }
+  const due = await tx.registerField.findFirst({ where: { registerId: reg.id, systemKey: 'due', deletedAt: null } });
+  if (!due?.calcRule) throw new Error('нет системного поля «Срок устранения»');
+  const before = due.calcRule as Record<string, unknown>;
+  if (before.baseFieldId === ids.legacyDue && before.addDaysFieldId === ids.extDays) {
+    return added.length ? `«${reg.name}»: добавлены поля ${added.join(', ')}` : `«${reg.name}»: поля срока уже настроены`;
+  }
+  const after = { ...before, baseFieldId: ids.legacyDue, addDaysFieldId: ids.extDays };
+  await tx.registerField.update({ where: { id: due.id }, data: { calcRule: after as Prisma.InputJsonValue, version: { increment: 1 } } });
+  await tx.auditLog.create({
+    data: {
+      userId: null, action: 'register.field.updated', entity: 'register_field', entityId: due.id,
+      diff: {
+        summary: `Seed 1.5.0: «${reg.name}», поле «${due.label}»: срок = срок из прежнего реестра или передача ИКТ + дни, плюс продления${added.length ? `; добавлены поля ${added.join(', ')}` : ''}`,
+        before: { calcRule: before }, after: { calcRule: after },
+      } as Prisma.InputJsonValue,
+    },
+  });
+  return `«${reg.name}»: поля срока ${added.length ? added.join(', ') : 'уже были'}, правило «${due.label}» — с продлениями и сроком из прежнего реестра`;
 }
 
 /** Шаг seed v5 (отдельно — для теста заполнения у записей, загруженных до 1.1.0). Повторный вызов ничего не меняет. */

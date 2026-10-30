@@ -40,7 +40,8 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
   const id = `rf-${f.id}`;
   // Фиксация статусом (этап 8б): заполненное зафиксированное поле — только чтение.
   const lockedNow = rec?.locked[f.id] === 'locked' && (rec.values[f.id] ?? '') !== '';
-  disabled = disabled || lockedNow;
+  // Служебное поле (релиз 1.5.0): значение ставит портал — передача ИКТ, перенос, продления.
+  disabled = disabled || lockedNow || !!f.managed;
   let control: ReactNode;
   switch (f.type) {
     case 'file':

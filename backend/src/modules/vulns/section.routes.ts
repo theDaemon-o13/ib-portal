@@ -8,6 +8,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as groups from './groups.service.js';
+import * as transfer from './transfer.service.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
@@ -31,6 +32,7 @@ export const VulnGroup = z.object({
 
 const view = requirePerm('ib.work');
 const structure = requirePerm('registers.manage');
+const edit = requirePerm('records.edit');
 
 export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db }) => {
   app.get('/vulns/groups', {
@@ -62,4 +64,20 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
       params: IdParams, body: z.object({ systemTypeIds: z.array(z.string().uuid()).min(1).max(50) }), response: { 200: VulnGroup, ...errors },
     },
   }, async (request) => groups.addNodes(db, actorOf(request), request.params.id, request.body.systemTypeIds));
+
+  app.post('/vulns/records/transfer', {
+    preHandler: edit,
+    schema: {
+      tags: ['vulns'],
+      summary: '«Перенести» и «Перенести выбранные» из «Без группы» в узел: ключ «Пакет + Идентификатор», который в узле уже есть, — отказ по строке',
+      body: z.object({ recordIds: z.array(z.string().uuid()).min(1).max(transfer.TRANSFER_MAX), nodeId: z.string().uuid() }),
+      response: {
+        200: z.object({
+          moved: z.array(z.object({ id: z.string(), number: z.number().int() })),
+          rejected: z.array(z.object({ id: z.string(), number: z.number().int().nullable(), title: z.string(), reason: z.string() })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => transfer.transferRecords(db, actorOf(request), request.body));
 };

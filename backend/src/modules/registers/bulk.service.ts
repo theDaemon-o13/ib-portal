@@ -12,6 +12,7 @@ import { auditSettings, type Actor } from '../settings/common.js';
 import { assertNotArchived, loadRegister, type RegisterDef } from './definition.js';
 import { DEPENDENCY_REASONS, recordDependencies, type DependencyReason } from './dependencies.js';
 import { deletedSnapshot, selectRecordIds, type SelectionQuery } from './records.service.js';
+import { releaseVulnKeys } from '../vulns/keys.js';
 
 export const BULK_BATCH = 200;
 /** Явный список id — не больше; больше — выбор «все по фильтру». */
@@ -180,6 +181,7 @@ export async function applyBulk(
         if (op === 'delete') {
           const res = await tx.registerRecord.updateMany({ where: { id: row.id, deletedAt: null }, data: { deletedAt: at, version: { increment: 1 } } });
           if (!res.count) continue;
+          await releaseVulnKeys(tx, [row.id]);
           await auditSettings(tx, actor, {
             action: 'register_record.deleted', entity: 'register_record', entityId: row.id,
             summary: `«${reg.name}»: удалена запись #${row.number} (${label})`,

@@ -16158,6 +16158,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -16308,6 +16320,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -16897,6 +16912,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -17047,6 +17074,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -17693,6 +17723,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -17843,6 +17885,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -18805,6 +18850,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -18955,6 +19012,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -19564,6 +19624,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -19714,6 +19786,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -20609,6 +20684,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -20759,6 +20846,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -21642,6 +21732,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -21792,6 +21894,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -22403,6 +22508,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -22553,6 +22670,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -23162,6 +23282,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -23312,6 +23444,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -23921,6 +24056,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -24071,6 +24218,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -24680,6 +24830,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -24830,6 +24992,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -25826,6 +25991,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -25976,6 +26153,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -26585,6 +26765,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -26735,6 +26927,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -27352,6 +27547,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -27502,6 +27709,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -28113,6 +28323,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -28263,6 +28485,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -28872,6 +29097,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -29022,6 +29259,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -29631,6 +29871,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -29781,6 +30033,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -30390,6 +30645,18 @@
                                         "enum": [
                                           "due_date"
                                         ]
+                                      },
+                                      "baseFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "addDaysFieldId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -30540,6 +30807,9 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "managed": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -46865,6 +47135,316 @@
                     "system",
                     "version",
                     "nodes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vulns/records/transfer": {
+      "post": {
+        "summary": "«Перенести» и «Перенести выбранные» из «Без группы» в узел: ключ «Пакет + Идентификатор», который в узле уже есть, — отказ по строке",
+        "tags": [
+          "vulns"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recordIds": {
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "nodeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "recordIds",
+                  "nodeId"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "rejected": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "title",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved",
+                    "rejected"
                   ],
                   "additionalProperties": false
                 }

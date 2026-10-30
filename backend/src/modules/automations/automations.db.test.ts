@@ -6,7 +6,7 @@ import type { Values } from '../../lib/register-values.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { makeRegister } from '../../test/registers-fixture.js';
-import { SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
+import { handedOverRecord, SAMPLE, SAMPLE_NAME, sampleBook, toBuffer, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import * as excel from '../registers/excel.service.js';
@@ -19,9 +19,7 @@ const DEC_1 = new Date('2026-12-01T06:00:00Z');
 const DEC_2 = new Date('2026-12-02T06:00:00Z');
 
 async function vuln(tx: Tx, x: VulnFixture, cve: string, notified: string, crit: string, extra: Values = {}) {
-  return records.createRecord(tx, x.actor, x.reg.id, {
-    values: { [x.vf.cve.id]: cve, [x.vf.notified.id]: notified, [x.vf.crit.id]: x.opt('crit', crit), ...extra },
-  });
+  return handedOverRecord(tx, x, { [x.vf.cve.id]: cve, [x.vf.notified.id]: notified, [x.vf.crit.id]: x.opt('crit', crit), ...extra });
 }
 
 /** Метка справочника «Получатели уведомлений» по названию — правило ссылается на неё по id. */

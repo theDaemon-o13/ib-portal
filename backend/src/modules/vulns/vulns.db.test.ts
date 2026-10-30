@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { describe, expect, it } from 'vitest';
 import { addDays, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
@@ -356,10 +357,13 @@ describe('контроль сроков в таблице', () => {
     inTx(async (tx) => {
       const x = await vulnRegister(tx);
       const today = todayIso();
-      const mk = async (cve: string, notified: string, crit: string, extra: Values = {}) =>
-        records.createRecord(tx, x.actor, x.reg.id, {
-          values: { [x.vf.cve.id]: cve, [x.vf.notified.id]: notified, [x.vf.crit.id]: x.opt('crit', crit), ...extra },
-        });
+      // «Уведомлено ДИКТ» с 1.5.0 ставит передача ИКТ (служебное поле) — записи создаются напрямую, как её результат.
+      const mk = async (cve: string, notified: string, crit: string, extra: Values = {}) => {
+        const values: Values = { [x.vf.cve.id]: cve, [x.vf.status.id]: x.opt('status', 'open'), [x.vf.crit.id]: x.opt('crit', crit), ...extra };
+        if (notified) values[x.vf.notified.id] = notified;
+        const number = await records.nextNumbers(tx, x.reg.id, 1);
+        return tx.registerRecord.create({ data: { registerId: x.reg.id, number, values: values as Prisma.InputJsonValue } });
+      };
       await mk('OK', today, 'low'); // + 180
       await mk('OVER', addDays(today, -200), 'low');
       await mk('CLOSED', addDays(today, -200), 'low', { [x.vf.status.id]: x.opt('status', 'fixed') });

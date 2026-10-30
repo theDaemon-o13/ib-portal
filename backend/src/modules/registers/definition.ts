@@ -46,7 +46,15 @@ export interface FieldMeta extends FieldDef {
   /** Фиксация при статусах, ограничения даты (lib/field-settings.ts). */
   settings: FieldSettings;
   options: (FieldDef['options'][number] & { sortOrder: number; version: number; systemKey: string | null })[];
+  /** Служебное поле системного реестра: значение ставит только портал (форма, импорт Excel — нельзя). */
+  managed?: boolean;
 }
+
+/**
+ * Служебные поля системных реестров по ключам (релиз 1.5.0, ADR-0030): у реестра уязвимостей дата передачи ИКТ,
+ * срок из прежнего реестра и сумма продлений — их ставят передача ИКТ, перенос и продления, а не человек.
+ */
+export const MANAGED_FIELDS: Readonly<Record<string, readonly string[]>> = { vulns: ['notified', 'legacyDue', 'extDays'] };
 
 export interface RegisterDef {
   id: string;
@@ -105,6 +113,7 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
       catalogCode: f.catalogCode,
       linkRegisterId: f.linkRegisterId,
       settings: readSettings(f.settings),
+      managed: !!r.systemKey && !!f.systemKey && (MANAGED_FIELDS[r.systemKey]?.includes(f.systemKey) ?? false),
       // У поля «Значение справочника» варианты — значения справочника (правятся в настройках).
       options: f.catalog
         ? f.catalog.items.map((i) => ({

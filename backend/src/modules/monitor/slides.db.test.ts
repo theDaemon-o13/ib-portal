@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { actorFor, expectCode, inTx, makeUser, must } from '../../test/db.js';
-import { vulnRegister } from '../../test/vulns-fixture.js';
-import * as records from '../registers/records.service.js';
+import { handedOverRecord, vulnRegister } from '../../test/vulns-fixture.js';
 import * as tasks from '../tasks/service.js';
 import * as slides from './slides.service.js';
 
@@ -68,8 +67,8 @@ describe('слайды мониторинга', () => {
 
       const x = await vulnRegister(tx);
       const crit = x.opt('crit', 'critical');
-      await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.vf.cve.id]: 'CVE-2026-0001', [x.vf.crit.id]: crit, [x.vf.notified.id]: '2020-01-01' } });
-      await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.vf.cve.id]: 'CVE-2026-0002', [x.vf.crit.id]: x.opt('crit', 'low'), [x.vf.notified.id]: '2020-01-01' } });
+      await handedOverRecord(tx, x, { [x.vf.cve.id]: 'CVE-2026-0001', [x.vf.crit.id]: crit, [x.vf.notified.id]: '2020-01-01' });
+      await handedOverRecord(tx, x, { [x.vf.cve.id]: 'CVE-2026-0002', [x.vf.crit.id]: x.opt('crit', 'low'), [x.vf.notified.id]: '2020-01-01' });
       const v = await slides.previewSlide(tx, input({ kind: 'vulns', title: 'Критические', filter: { period: 'overdue', crit: [crit] } }));
       const block = (v.data as { vulns: { items: { title: string }[] } | null }).vulns;
       expect(block?.items.map((i) => i.title)).toEqual(['CVE-2026-0001']);

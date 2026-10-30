@@ -61,6 +61,13 @@ export interface DueDateRule {
   overrideWhenFilledFieldId?: string | null;
   /** Расчётный срок на нерабочий день переносится на ближайший рабочий (календарь РТ). */
   shiftToWorkday?: boolean;
+  /**
+   * Дата, которая заменяет «от + дни» (релиз 1.5.0, ADR-0030: «Срок из прежнего реестра»). В отличие от override
+   * к ней прибавляются addDaysFieldId и перенос на рабочий день.
+   */
+  baseFieldId?: string | null;
+  /** Число дней, которое прибавляется к сроку (релиз 1.5.0: «Продлено, дн.» — сумма действующих продлений). */
+  addDaysFieldId?: string | null;
 }
 
 /** Оценка уязвимости: CVSS × Кэ × Ки (п. 7.1). Только у системного поля реестра уязвимостей. */
@@ -91,7 +98,8 @@ export const LINKS_MAX = 200;
 export function calcRuleFieldIds(rule: CalcRule): string[] {
   if (isScoreRule(rule)) return [rule.cvssFieldId, rule.exploitFieldId, rule.fixFieldId];
   if (isBasisRule(rule)) return [rule.channelFieldId];
-  return [rule.fromFieldId, rule.byFieldId, rule.overrideFieldId, rule.overrideWhenFilledFieldId ?? null].filter((x): x is string => !!x);
+  return [rule.fromFieldId, rule.byFieldId, rule.overrideFieldId, rule.overrideWhenFilledFieldId ?? null, rule.baseFieldId ?? null, rule.addDaysFieldId ?? null]
+    .filter((x): x is string => !!x);
 }
 
 export interface FieldDef {
@@ -298,14 +306,24 @@ export function calcValue(rule: CalcRule, values: Values, ctx: CalcContext = {})
   const overrideAllowed = !rule.overrideWhenFilledFieldId || filled(values[rule.overrideWhenFilledFieldId]);
   // Явная дата (решение ИБ по п. 7.3) не переносится: её выбрал человек.
   if (overrideAllowed && typeof override === 'string' && isIsoDate(override)) return override;
+  let due = dueBase(rule, values);
+  if (due === null) return null;
+  const extra = rule.addDaysFieldId ? values[rule.addDaysFieldId] : undefined;
+  if (typeof extra === 'number' && Number.isInteger(extra) && extra > 0) due = addDays(due, extra);
+  if (rule.shiftToWorkday && ctx.calendar) return isoDate(onOrNextWorkingDay(parseIsoDate(due), ctx.calendar));
+  return due;
+}
+
+/** База срока без переноса и прибавки: дата baseFieldId или «от + дни по значению списка». */
+function dueBase(rule: DueDateRule, values: Values): string | null {
+  const base = rule.baseFieldId ? values[rule.baseFieldId] : undefined;
+  if (typeof base === 'string' && isIsoDate(base)) return base;
   const from = values[rule.fromFieldId];
   const by = values[rule.byFieldId];
   if (typeof from !== 'string' || !isIsoDate(from) || typeof by !== 'string') return null;
   const days = rule.days[by];
   if (typeof days !== 'number') return null;
-  const due = addDays(from, days);
-  if (rule.shiftToWorkday && ctx.calendar) return isoDate(onOrNextWorkingDay(parseIsoDate(due), ctx.calendar));
-  return due;
+  return addDays(from, days);
 }
 
 // ---------- смена типа поля ----------

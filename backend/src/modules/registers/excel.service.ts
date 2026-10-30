@@ -142,7 +142,7 @@ export async function exportRegister(db: Db, registerId: string, opts: ExportOpt
 
   const cols: { header: string; kind: ColKind; field?: FieldMeta }[] = [{ header: 'ID', kind: 'id' }];
   for (const f of fields) {
-    if (f.type === 'calc' || f.type === 'file') cols.push({ header: f.label, kind: 'readonly', field: f });
+    if (f.type === 'calc' || f.type === 'file' || f.managed) cols.push({ header: f.label, kind: 'readonly', field: f });
     else if (f.type === 'decision') {
       cols.push({ header: f.label, kind: 'readonly', field: f });
       cols.push({ header: `${f.label}: документ`, kind: 'doc', field: f });
@@ -331,7 +331,7 @@ export function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: Reg
         warnings.push(`Колонка «${headers[col] ?? col}»: поле «${field.label}» в архиве — колонка пропущена`);
         return;
       }
-      cols.set(col, { kind: isWritable(field.type) && kind === 'value' ? 'value' : kind === 'doc' ? 'doc' : 'readonly', field });
+      cols.set(col, { kind: isWritable(field.type) && !field.managed && kind === 'value' ? 'value' : kind === 'doc' ? 'doc' : 'readonly', field });
     });
   } else {
     // Файл без служебного листа: колонки по точному названию поля.
@@ -347,7 +347,7 @@ export function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: Reg
       if (docField) cols.set(col, { kind: 'doc', field: docField });
       else if (!field) warnings.push(`Колонка «${h}» не совпадает ни с одним полем реестра — пропущена`);
       else if (field.archived) warnings.push(`Колонка «${h}»: поле в архиве — пропущена`);
-      else cols.set(col, { kind: isWritable(field.type) ? 'value' : 'readonly', field });
+      else cols.set(col, { kind: isWritable(field.type) && !field.managed ? 'value' : 'readonly', field });
     });
   }
   if ([...cols.values()].some((c) => c.kind === 'id')) return { cols, matchBy: 'id' };

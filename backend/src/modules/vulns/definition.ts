@@ -9,7 +9,8 @@ export const VULN_REGISTER_KEY = 'vulns';
 
 export type VulnFieldKey =
   | 'cve' | 'pkg' | 'level' | 'cvss' | 'exploit' | 'vector' | 'fix' | 'fixVersion' | 'desc' | 'hits'
-  | 'report' | 'notified' | 'score' | 'crit' | 'due' | 'status' | 'comment' | 'measures' | 'newDue' | 'owner' | 'system' | 'department';
+  | 'report' | 'notified' | 'score' | 'crit' | 'due' | 'status' | 'comment' | 'measures' | 'newDue' | 'owner' | 'system' | 'department'
+  | 'legacyDue' | 'extDays';
 
 export interface VulnOptionSpec {
   label: string;
@@ -84,6 +85,9 @@ export const VULN_FIELDS: VulnFieldSpec[] = [
   { key: 'system', label: 'Система', type: 'catalog', catalogCode: 'systems', analyticsRole: 'dimension' },
   // Релиз 1.1.0: отдел из листа «Хосты» (A1). Дубли и «Обнаружений» — только в пределах отдела.
   { key: 'department', label: 'Отдел', type: 'select', analyticsRole: 'dimension', options: [] },
+  // Релиз 1.5.0 (ADR-0030): служебные поля срока — ставит портал (перенос прежнего реестра, продления).
+  { key: 'legacyDue', label: 'Срок из прежнего реестра', type: 'date' },
+  { key: 'extDays', label: 'Продлено, дн.', type: 'number' },
 ];
 
 export { DUE_DAYS };

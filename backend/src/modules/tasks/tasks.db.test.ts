@@ -5,7 +5,7 @@ import { argon2Hasher } from '../../lib/passwords.js';
 import type { Values } from '../../lib/register-values.js';
 import { actorFor, expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
-import { vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
+import { handedOverRecord, vulnRegister, type VulnFixture } from '../../test/vulns-fixture.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import * as automations from '../automations/service.js';
@@ -27,9 +27,7 @@ async function setLabel(tx: Tx, x: VulnFixture, value: string, input: { memberId
 
 async function vuln(tx: Tx, x: VulnFixture, cve: string, extra: Values = {}) {
   // Уведомлено 01.10 + 14 дней (критическая) = срок 15.10: к 01.12 просрочено больше 10 рабочих дней.
-  return records.createRecord(tx, x.actor, x.reg.id, {
-    values: { [x.vf.cve.id]: cve, [x.vf.notified.id]: '2026-10-01', [x.vf.crit.id]: x.opt('crit', 'critical'), ...extra },
-  });
+  return handedOverRecord(tx, x, { [x.vf.cve.id]: cve, [x.vf.notified.id]: '2026-10-01', [x.vf.crit.id]: x.opt('crit', 'critical'), ...extra });
 }
 
 async function tasksOf(tx: Tx, recordId: string) {

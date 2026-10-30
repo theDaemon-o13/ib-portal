@@ -158,7 +158,7 @@ export function changedValues(reg: RegisterDetail, original: Draft, draft: Draft
   const out: Record<string, string | number | string[] | null> = {};
   const key = (v: ReturnType<typeof toApiValue>) => (Array.isArray(v) ? [...v].sort().join(',') : v);
   for (const f of reg.fields) {
-    if (!isWritable(f.type) || f.archived) continue;
+    if (!isWritable(f.type) || f.archived || f.managed) continue;
     const before = toApiValue(f.type, original[f.id] ?? '');
     const after = toApiValue(f.type, draft[f.id] ?? '');
     if (key(before) !== key(after)) out[f.id] = after;

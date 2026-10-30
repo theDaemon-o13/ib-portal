@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calcRuleFieldIds,
   calcValue,
   cellPrimitive,
   displayValue,
@@ -136,6 +137,40 @@ describe('срок уязвимости: перенос и решение ИБ (
     expect(calcValue(rule, { ...base, measures: '   ', newDue: '2027-02-01' }, { calendar })).toBe('2026-10-15');
     // Явная дата решения ИБ не переносится, даже если это выходной.
     expect(calcValue(rule, { ...base, measures: 'Есть', newDue: '2026-11-07' }, { calendar })).toBe('2026-11-07');
+  });
+
+  // Релиз 1.5.0 (ADR-0030): итог = п. 7.3 ?? перенос((срок из прежнего реестра ?? передача ИКТ + дни) + продления).
+  const full = { ...rule, baseFieldId: 'legacyDue', addDaysFieldId: 'extDays' };
+  it('до передачи ИКТ срока нет; после — база по Критичности', () => {
+    expect(calcValue(full, { crit: 'critical' }, { calendar })).toBeNull();
+    expect(calcValue(full, { notified: '2026-10-01', crit: 'critical' }, { calendar })).toBe('2026-10-15');
+  });
+
+  it('продления прибавляются к базе, перенос — на итог', () => {
+    // 15.10 + 22 = 06.11 (праздник) → 09.11; ноль и не целое не прибавляются.
+    expect(calcValue(full, { notified: '2026-10-01', crit: 'critical', extDays: 22 }, { calendar })).toBe('2026-11-09');
+    expect(calcValue(full, { notified: '2026-10-01', crit: 'critical', extDays: 0 }, { calendar })).toBe('2026-10-15');
+    expect(calcValue(full, { notified: '2026-10-01', crit: 'critical', extDays: 1.5 }, { calendar })).toBe('2026-10-15');
+    // Ручная Критичность пересчитывает базу, продление остаётся.
+    expect(calcValue(full, { notified: '2026-10-01', crit: 'high', extDays: 14 }, { calendar })).toBe('2026-11-16');
+  });
+
+  it('срок из прежнего реестра — база вместо «передача + дни»: Критичность её не меняет, продления прибавляются', () => {
+    const legacy = { notified: '2026-10-01', crit: 'critical', legacyDue: '2026-12-01' };
+    expect(calcValue(full, legacy, { calendar })).toBe('2026-12-01');
+    expect(calcValue(full, { ...legacy, crit: 'low' }, { calendar })).toBe('2026-12-01');
+    expect(calcValue(full, { ...legacy, extDays: 30 }, { calendar })).toBe('2026-12-31');
+    // Без передачи ИКТ — тоже по сроку из прежнего реестра.
+    expect(calcValue(full, { crit: 'critical', legacyDue: '2026-12-01' }, { calendar })).toBe('2026-12-01');
+  });
+
+  it('п. 7.3 главнее продлений и срока из прежнего реестра', () => {
+    expect(calcValue(full, { notified: '2026-10-01', crit: 'critical', extDays: 60, legacyDue: '2026-12-01', measures: 'Меры', newDue: '2026-11-20' }, { calendar }))
+      .toBe('2026-11-20');
+  });
+
+  it('правило срока ссылается на поля базы и продлений (зависимости поля)', () => {
+    expect(calcRuleFieldIds(full)).toEqual(['notified', 'crit', 'newDue', 'measures', 'legacyDue', 'extDays']);
   });
 
   it('оценка — вычисляемое поле по системным ключам значений', () => {

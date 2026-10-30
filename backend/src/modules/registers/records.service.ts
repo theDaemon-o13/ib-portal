@@ -17,6 +17,7 @@ import { todayIso } from '../../lib/today.js';
 import { auditSettings, ensureVersioned, type Actor } from '../settings/common.js';
 import { applyDerived, autoCritOption } from '../vulns/derive.js';
 import { isVulnRegister, vulnFields } from '../vulns/definition.js';
+import { releaseVulnKeys } from '../vulns/keys.js';
 import {
   assertNotArchived,
   assignableUsers,
@@ -248,6 +249,9 @@ function applyInput(
     changed.push(f);
   }
   if (errors.length) throw badRequest('INVALID_VALUES', errors.join('. '));
+  // Служебные поля ставит только портал (передача ИКТ, перенос, продления — ADR-0030).
+  const managed = changed.filter((f) => f.managed);
+  if (managed.length) throw conflict('VULN_SERVICE_FIELD', `${managed.map((f) => `«${f.label}»`).join(', ')} ставит портал — вручную не меняется`);
   const title = reg.fields.find((f) => f.isTitle && !f.archived);
   if (title && (values[title.id] === undefined || values[title.id] === '')) {
     throw badRequest('TITLE_REQUIRED', `Заполните «${title.label}»`);
@@ -488,6 +492,7 @@ export async function deleteRecord(db: Db, actor: Actor, id: string, version: nu
     if (reason) throw dependencyError(reason);
     const res = await tx.registerRecord.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerRecord.findFirst({ where: { id, deletedAt: null } }), 'Запись');
+    if (isVulnRegister(reg)) await releaseVulnKeys(tx, [id]);
     await auditSettings(tx, actor, {
       action: 'register_record.deleted', entity: 'register_record', entityId: id,
       summary: `«${reg.name}»: удалена запись #${row.number}`,

@@ -324,6 +324,13 @@ async function main() {
   check(vulnPrivs[0]?.granted === false && vulnSeen[0]?.granted === false, 'ibportal_app: нет DELETE и TRUNCATE в разделе «Уязвимости», сканы записи только пополняются');
   const ungrouped = await prisma.vulnNode.count({ where: { systemKey: 'legacy', group: { systemKey: 'ungrouped' } } });
   check(ungrouped === 1, 'есть «Без группы / Из прежнего реестра»', 'выполните seed');
+  const orphans = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM register_records r JOIN registers g ON g.id = r.register_id
+    LEFT JOIN vuln_records v ON v.record_id = r.id WHERE g.system_key = 'vulns' AND v.record_id IS NULL`;
+  check(Number(orphans[0]?.n ?? 0) === 0, 'у каждой записи реестра уязвимостей есть узел', `без узла: ${orphans[0]?.n ?? 0} — выполните seed (migrate): они попадут в «Без группы»`);
+  const keyDup = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM vuln_records v JOIN register_records r ON r.id = v.record_id WHERE v.key_norm IS NOT NULL AND r.deleted_at IS NOT NULL`;
+  check(Number(keyDup[0]?.n ?? 0) === 0, 'удалённые записи не держат ключ в узле', 'vuln_records.key_norm у удалённых записей');
   const badTypes = await prisma.vulnNode.count({ where: { systemTypeId: { not: null }, systemType: { catalogCode: { not: 'system_types' } } } });
   check(badTypes === 0, 'тип узла — значение справочника «Типы систем»', 'проверьте vuln_nodes.system_type_id');
   const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });

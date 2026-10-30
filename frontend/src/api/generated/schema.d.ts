@@ -6881,6 +6881,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -6910,6 +6912,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -7105,6 +7108,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -7134,6 +7139,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -7332,6 +7338,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -7361,6 +7369,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -7716,6 +7725,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -7745,6 +7756,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -7948,6 +7960,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -7977,6 +7991,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -8232,6 +8247,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -8261,6 +8278,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -8518,6 +8536,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -8547,6 +8567,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -8747,6 +8768,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -8776,6 +8799,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -8979,6 +9003,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -9008,6 +9034,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -9211,6 +9238,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -9240,6 +9269,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -9443,6 +9473,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -9472,6 +9504,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -9838,6 +9871,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -9867,6 +9902,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -10070,6 +10106,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -10099,6 +10137,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -10308,6 +10347,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -10337,6 +10378,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -10537,6 +10579,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -10566,6 +10610,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -10769,6 +10814,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -10798,6 +10845,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -11001,6 +11049,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -11030,6 +11080,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -11233,6 +11284,8 @@ export interface paths {
                                     shiftToWorkday?: boolean;
                                     /** @enum {string} */
                                     kind?: "due_date";
+                                    baseFieldId?: string | null;
+                                    addDaysFieldId?: string | null;
                                 }) | null;
                                 archived: boolean;
                                 version: number;
@@ -11262,6 +11315,7 @@ export interface paths {
                                     version: number;
                                     systemKey: string | null;
                                 }[];
+                                managed?: boolean;
                             }[];
                         };
                     };
@@ -17273,6 +17327,146 @@ export interface paths {
                                 } | null;
                                 label: string;
                                 legacy: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/records/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Перенести» и «Перенести выбранные» из «Без группы» в узел: ключ «Пакет + Идентификатор», который в узле уже есть, — отказ по строке */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        recordIds: string[];
+                        /** Format: uuid */
+                        nodeId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            moved: {
+                                id: string;
+                                number: number;
+                            }[];
+                            rejected: {
+                                id: string;
+                                number: number | null;
+                                title: string;
+                                reason: string;
                             }[];
                         };
                     };
