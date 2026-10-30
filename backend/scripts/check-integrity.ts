@@ -152,6 +152,31 @@ async function main() {
     check(rules === 3, 'системные правила п. 7.4 на месте (3)', `найдено ${rules}`);
   }
 
+  // Релиз 1.5.0 (ADR-0030): «Продлено, дн.» = сумма действующих продлений текущего цикла; таблицы только пополняются.
+  const extPrivs = await prisma.$queryRaw<{ ins: boolean; upd: boolean; del: boolean; item_ins: boolean; item_mod: boolean }[]>`
+    SELECT has_table_privilege('ibportal_app', 'public.vuln_extensions', 'INSERT') AS ins,
+           has_table_privilege('ibportal_app', 'public.vuln_extensions', 'UPDATE') AS upd,
+           has_table_privilege('ibportal_app', 'public.vuln_extensions', 'DELETE') AS del,
+           has_table_privilege('ibportal_app', 'public.vuln_extension_items', 'INSERT') AS item_ins,
+           has_table_privilege('ibportal_app', 'public.vuln_extension_items', 'UPDATE') OR has_table_privilege('ibportal_app', 'public.vuln_extension_items', 'DELETE') AS item_mod`;
+  const ep = extPrivs[0];
+  check(ep?.ins === true && ep.upd === true && ep.del === false && ep.item_ins === true && ep.item_mod === false, 'ibportal_app: продления только пополняются, отмена — UPDATE одной строки');
+  if (vulns) {
+    const extDays = await prisma.registerField.findFirst({ where: { registerId: vulns.id, systemKey: 'extDays' }, select: { id: true } });
+    if (extDays) {
+      const diverged = await prisma.$queryRaw<{ number: number; stored: number; expected: number }[]>`
+        SELECT r.number, coalesce((r."values" ->> ${extDays.id})::int, 0) AS stored, coalesce(s.days, 0)::int AS expected
+        FROM vuln_records v JOIN register_records r ON r.id = v.record_id
+        LEFT JOIN (
+          SELECT i.record_id, i.cycle, sum(i.days) AS days FROM vuln_extension_items i
+          JOIN vuln_extensions e ON e.id = i.extension_id WHERE e.cancelled_at IS NULL GROUP BY 1, 2
+        ) s ON s.record_id = v.record_id AND s.cycle = v.cycle
+        WHERE r.deleted_at IS NULL AND coalesce((r."values" ->> ${extDays.id})::int, 0) <> coalesce(s.days, 0)
+        ORDER BY r.number LIMIT 20`;
+      check(diverged.length === 0, '«Продлено, дн.» совпадает с суммой действующих продлений', diverged.map((d) => `#${d.number}: ${d.stored} вместо ${d.expected}`).join(', '));
+    }
+  }
+
   // Этап 7: файлы и доказательства. Строки не удаляются (права и триггеры), содержимое файла не меняется.
   for (const table of ['files', 'evidence', 'evidence_files']) {
     const rights = await prisma.$queryRaw<{ p: string; granted: boolean }[]>`

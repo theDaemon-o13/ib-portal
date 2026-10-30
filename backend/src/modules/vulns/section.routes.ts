@@ -1,5 +1,6 @@
 // Раздел «Уязвимости» (релиз 1.5.0, ADR-0029, ADR-0030): группы, узлы, сканы, сроки.
 // Просмотр — ib.work; структура (группы, типы) — registers.manage; записи, импорт, передача ИКТ — records.edit.
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
@@ -10,6 +11,7 @@ import { requirePerm } from '../../plugins/rbac.js';
 import { runAutomations } from '../automations/service.js';
 import { IMPORT_BODY_LIMIT, RegisterRecord } from '../registers/routes.js';
 import { actorOf } from '../settings/common.js';
+import * as extensions from './extensions.service.js';
 import * as groups from './groups.service.js';
 import * as scanImport from './scan-import.service.js';
 import * as scans from './scans.service.js';
@@ -109,6 +111,20 @@ const NodeStats = z.object({
   lastScan: z.object({ id: z.string(), scanDate: z.string(), handedOver: z.boolean() }).nullable(),
   scans: z.array(z.object({ id: z.string(), scanDate: z.string(), fileName: z.string(), handedOver: z.boolean() })),
 });
+const ExtensionPlan = z.object({
+  nodeId: z.string().uuid().nullable().optional(),
+  groupId: z.string().uuid().nullable().optional(),
+  daysByLevel: z.record(z.string().max(40), z.number().int().min(0).max(365)),
+  onlyOverdue: z.boolean().optional(),
+  dueUntil: IsoDate.nullable().optional(),
+});
+const Extension = z.object({
+  id: z.string(), scope: z.string(), nodeId: z.string().nullable(), groupId: z.string().nullable(),
+  days: z.array(z.object({ level: z.string(), days: z.number().int() })),
+  onlyOverdue: z.boolean(), dueUntil: z.string().nullable(), basisNumber: z.string(), basisDate: z.string(),
+  basisFile: z.object({ id: z.string(), name: z.string() }), comment: z.string(), recordsCount: z.number().int(),
+  createdBy: z.string(), createdAt: z.string(), cancelledAt: z.string().nullable(), cancelledBy: z.string().nullable(),
+});
 const STATES = ['overdue', 'not_handed', 'in_work', 'fixed', 'accepted'] as const;
 const NodeRecords = z.object({
   items: z.array(RegisterRecord.extend({ vuln: z.object({ state: z.enum(STATES), reopened: z.boolean(), cycle: z.number().int() }) })),
@@ -120,8 +136,18 @@ const NodeRecords = z.object({
 const view = requirePerm('ib.work');
 const structure = requirePerm('registers.manage');
 const edit = requirePerm('records.edit');
+const deadlines = requirePerm('vulns.deadlines');
 
 export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
+  /** Срок изменился: просрочка и напоминания видны сразу, не ждать часового прогона. Сбой правил не отменяет действие. */
+  const afterDeadlineChange = async (registerId: string, request: FastifyRequest) => {
+    try {
+      await runAutomations(db, { registerId, trigger: 'import', actorId: request.user?.id ?? null });
+    } catch (err) {
+      request.log.error({ err }, 'автоматизации после изменения срока не выполнены');
+    }
+  };
+
   app.get('/vulns/groups', {
     preHandler: view,
     schema: { tags: ['vulns'], summary: 'Группы и узлы раздела «Уязвимости»: обычные по названию, «Без группы» — последней', response: { 200: z.object({ items: z.array(VulnGroup) }), ...errors } },
@@ -280,12 +306,73 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
     },
   }, async (request) => {
     const { registerId, ...result } = await scans.handOverScan(db, actorOf(request), request.params.id, request.body);
-    // Дата передачи может быть давней: просрочка видна сразу, не ждать часового прогона.
-    try {
-      await runAutomations(db, { registerId, trigger: 'import', actorId: request.user?.id ?? null });
-    } catch (err) {
-      request.log.error({ err }, 'автоматизации после передачи ИКТ не выполнены');
-    }
+    await afterDeadlineChange(registerId, request);
+    return result;
+  });
+
+  app.get('/vulns/extensions', {
+    preHandler: view,
+    schema: {
+      tags: ['vulns'], summary: 'Продления сроков узла (его и всей группы) или группы (её и её узлов)',
+      querystring: z.object({ nodeId: z.string().uuid().optional(), groupId: z.string().uuid().optional() }),
+      response: { 200: z.object({ items: z.array(Extension) }), ...errors },
+    },
+  }, async (request) => ({ items: await extensions.listExtensions(db, request.query) }));
+
+  app.get('/vulns/extensions/:id', {
+    preHandler: view,
+    schema: {
+      tags: ['vulns'], summary: 'Продление: кому, сколько, было → стало', params: IdParams,
+      response: {
+        200: Extension.extend({
+          items: z.array(z.object({ recordId: z.string(), number: z.number().int(), pkg: z.string(), cve: z.string(), days: z.number().int(), dueBefore: z.string(), dueAfter: z.string() })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => extensions.getExtension(db, request.params.id));
+
+  app.post('/vulns/extensions/preview', {
+    preHandler: deadlines,
+    schema: {
+      tags: ['vulns'], summary: '«Обновить сроки», предпросмотр: кандидаты области, не участвующие, уровни, «было → станет». Ничего не меняет',
+      body: ExtensionPlan,
+      response: {
+        200: z.object({
+          scopeLabel: z.string(),
+          levels: z.array(z.object({ id: z.string(), label: z.string(), count: z.number().int() })),
+          items: z.array(z.object({ recordId: z.string(), number: z.number().int(), pkg: z.string(), cve: z.string(), level: z.string(), crit: z.string(), days: z.number().int(), dueBefore: z.string(), dueAfter: z.string() })),
+          withDecision: z.number().int(), notHandedOver: z.number().int(), filteredOut: z.number().int(), noChange: z.number().int(),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => extensions.previewExtension(db, request.body));
+
+  app.post('/vulns/extensions', {
+    preHandler: deadlines,
+    schema: {
+      tags: ['vulns'], summary: '«Обновить сроки», применить: обоснование ОИКТ обязательно, expected — число записей предпросмотра (иначе 409 BULK_CHANGED)',
+      body: ExtensionPlan.extend({
+        basisNumber: z.string().max(400), basisDate: IsoDate, basisFileId: z.string().uuid(), comment: z.string().max(4000).nullable().optional(), expected: z.number().int(),
+      }),
+      response: { 201: z.object({ id: z.string(), records: z.number().int() }), ...errors },
+    },
+  }, async (request, reply) => {
+    const { registerId, ...result } = await extensions.applyExtension(db, actorOf(request), request.body);
+    await afterDeadlineChange(registerId, request);
+    return reply.status(201).send(result);
+  });
+
+  app.post('/vulns/extensions/:id/cancel', {
+    preHandler: deadlines,
+    schema: {
+      tags: ['vulns'], summary: 'Отменить продление целиком: сроки возвращаются у записей в том же цикле, событие остаётся с отметкой',
+      params: IdParams, response: { 200: z.object({ returned: z.number().int(), total: z.number().int() }), ...errors },
+    },
+  }, async (request) => {
+    const { registerId, ...result } = await extensions.cancelExtension(db, actorOf(request), request.params.id);
+    await afterDeadlineChange(registerId, request);
     return result;
   });
 };

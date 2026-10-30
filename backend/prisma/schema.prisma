@@ -101,6 +101,8 @@ model User {
   vulnNodes            VulnNode[]           @relation("VulnNodeCreator")
   vulnScans            VulnScan[]           @relation("VulnScanCreator")
   vulnHandovers        VulnScan[]           @relation("VulnScanHandover")
+  vulnExtensions       VulnExtension[]      @relation("VulnExtensionCreator")
+  vulnExtensionCancels VulnExtension[]      @relation("VulnExtensionCanceller")
 
   @@index([managerId])
   @@map("users")
@@ -476,6 +478,7 @@ model RegisterRecord {
   files     RegisterRecordFile[]
   vuln      VulnRecord?
   vulnScans VulnRecordScan[]
+  vulnExtensionItems VulnExtensionItem[]
 
   @@unique([registerId, number])
   @@index([searchTsv], type: Gin)
@@ -613,6 +616,7 @@ model VulnGroup {
 
   creator User?      @relation("VulnGroupCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   nodes   VulnNode[]
+  extensions VulnExtension[]
 
   @@map("vuln_groups")
 }
@@ -632,6 +636,7 @@ model VulnNode {
   creator    User?        @relation("VulnNodeCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   scans      VulnScan[]
   records    VulnRecord[]
+  extensions VulnExtension[]
 
   @@index([groupId])
   @@map("vuln_nodes")
@@ -730,6 +735,54 @@ model VulnRecordScan {
   @@id([recordId, scanId])
   @@index([scanId])
   @@map("vuln_record_scans")
+}
+
+/// Продление сроков по обоснованию ОИКТ (ADR-0030): событие на узел или группу. Только пополняется, отмена — один раз (триггер).
+model VulnExtension {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nodeId       String?   @map("node_id") @db.Uuid
+  groupId      String?   @map("group_id") @db.Uuid
+  /// { id значения «Уровень» | "none": дни }
+  daysByLevel  Json      @map("days_by_level")
+  /// { onlyOverdue, dueUntil }
+  filters      Json      @default("{}")
+  basisNumber  String    @map("basis_number")
+  basisDate    DateTime  @map("basis_date") @db.Date
+  basisFileId  String    @map("basis_file_id") @db.Uuid
+  comment      String    @default("")
+  recordsCount Int       @map("records_count")
+  createdBy    String    @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  cancelledAt  DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy  String?   @map("cancelled_by") @db.Uuid
+
+  node      VulnNode?           @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  group     VulnGroup?          @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  basisFile File                @relation(fields: [basisFileId], references: [id], onDelete: Restrict)
+  creator   User                @relation("VulnExtensionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  canceller User?               @relation("VulnExtensionCanceller", fields: [cancelledBy], references: [id], onDelete: Restrict)
+  items     VulnExtensionItem[]
+
+  @@index([nodeId])
+  @@index([groupId])
+  @@map("vuln_extensions")
+}
+
+/// Запись продления: цикл, дни, срок было → стало. Только пополняется.
+model VulnExtensionItem {
+  extensionId String   @map("extension_id") @db.Uuid
+  recordId    String   @map("record_id") @db.Uuid
+  cycle       Int
+  days        Int
+  dueBefore   DateTime @map("due_before") @db.Date
+  dueAfter    DateTime @map("due_after") @db.Date
+
+  extension VulnExtension  @relation(fields: [extensionId], references: [id], onDelete: Restrict)
+  record    RegisterRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+
+  @@id([extensionId, recordId])
+  @@index([recordId])
+  @@map("vuln_extension_items")
 }
 
 // ---------------------------------------------------------------------------
@@ -1355,6 +1408,7 @@ model File {
   text          FileText?
   vulnScans     VulnScan[] @relation("VulnScanFile")
   vulnHandovers VulnScan[] @relation("VulnScanHandoverFile")
+  vulnExtensions VulnExtension[]
 
   @@index([uploadedBy, uploadedAt])
   @@map("files")

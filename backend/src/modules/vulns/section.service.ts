@@ -7,6 +7,7 @@ import { calcValue, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { calendarFor, dateOf, isClosed, loadRegister, toRecordDtos, type RegisterDef } from '../registers/definition.js';
 import { VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
+import { recordExtensions } from './extensions.service.js';
 import { loadNode, nodeLabel } from './groups.service.js';
 
 export type RecordState = 'overdue' | 'not_handed' | 'in_work' | 'fixed' | 'accepted';
@@ -141,6 +142,10 @@ export const RecordInfo = z.object({
     extendedDays: z.number().int(),
     final: z.string().nullable(),
   }),
+  extensions: z.array(z.object({
+    id: z.string(), days: z.number().int(), dueBefore: z.string(), dueAfter: z.string(), basisNumber: z.string(), basisDate: z.string(), basisFileId: z.string(),
+    cancelledAt: z.string().nullable(), active: z.boolean(),
+  })),
   scans: z.array(z.object({
     id: z.string(), scanDate: z.string(), fileName: z.string(), outcome: z.string(), cycle: z.number().int(),
     handedOver: z.boolean(), changes: z.array(z.object({ label: z.string(), from: z.string(), to: z.string() })),
@@ -191,6 +196,7 @@ export async function recordInfo(db: Db, id: string) {
       extendedDays: typeof extra === 'number' ? extra : 0,
       final,
     },
+    extensions: await recordExtensions(db, id, v.cycle),
     scans: seen.map((s) => ({
       id: s.scanId, scanDate: iso(s.scan.scanDate), fileName: s.scan.fileName, outcome: s.outcome, cycle: s.cycle, handedOver: s.scan.handedOverOn !== null,
       changes: ((s.changes ?? []) as { label: string; from: string; to: string }[]).map((c) => ({ label: c.label, from: c.from, to: c.to })),
