@@ -131,18 +131,24 @@ describe('дашборд: переход по фильтру', () => {
     const req = await ui.request(mark, 'POST', '/api/v1/dashboard/tiles');
     assert.equal(req.status, 201);
     tileId = (await ui.response(req)).id;
-    await ui.waitFor(`document.querySelector('.toast.on')?.textContent.includes('добавлена на дашборд')`, 'уведомление о плитке');
+    // Ждём не всплывающее сообщение (оно живёт 3 с) и не число на экране, а ответы API: данные плитки — запрос
+    // widgets/tile:<id> после создания, список записей — запрос records после перехода.
+    const data = await ui.request(mark, 'GET', `/api/v1/dashboard/widgets/${encodeURIComponent(`tile:${tileId}`)}`, 'данные плитки');
+    assert.equal(data.status, 200, data.body);
+    const value = (await ui.response(data)).total;
+    assert.ok(value >= VULNS / 2, `на плитке не меньше критических записей прогона: ${value}`);
     await ui.click(`[...${drawer}.querySelectorAll('button')].find((b) => b.textContent === 'Закрыть')`, 'закрыть панель');
 
     const tile = `document.querySelector('[data-widget="tile:${tileId}"]')`;
-    await ui.waitFor(`/^\\d+$/.test(${tile}?.querySelector('.v')?.textContent ?? '')`, 'число плитки');
-    const value = Number(await ui.text(`${tile}.querySelector('.v')`));
-    assert.ok(value >= VULNS / 2, `на плитке не меньше критических записей прогона: ${value}`);
+    await ui.waitFor(`${tile}?.querySelector('.v')?.textContent === ${JSON.stringify(String(value))}`, 'число плитки = ответу API');
+    const open = ui.mark();
     await ui.click(`${tile}.querySelector('a.v')`, 'число плитки');
     await ui.waitFor(`location.pathname === '/registers' && location.search.includes('f=')`, 'реестр с фильтром плитки');
+    const list = await ui.request(open, 'GET', `/api/v1/registers/${vulns.id}/records`, 'список записей с фильтром плитки');
+    assert.equal((await ui.response(list)).total, value, 'total списка = числу плитки');
     await ui.waitFor(`document.querySelector('[data-testid=record-filter]')?.textContent.includes('Критичность: Критическая')`, 'плашка «Критичность: Критическая»');
     assert.match(await ui.text(`document.querySelector('[data-testid=record-filter]')`), /Открытые/);
-    await ui.waitFor(`${recordsTotal} === ${value}`, `total списка = числу плитки (${value})`);
+    await ui.waitFor(`${recordsTotal} === ${value}`, `total на экране = числу плитки (${value})`);
   });
 
   it('строка виджета «Критичность» ведёт в реестр с фильтром по значению', async () => {
