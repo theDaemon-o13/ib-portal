@@ -5,11 +5,15 @@
 // Пользователь только с ролью «Самооценка» (без ib.work): пункт меню, новая оценка, ответы с итогом «предварительно»,
 // «Зафиксировать» недоступно до 24 из 24, фиксация, только просмотр, возврат в черновик, журнал, архив.
 // Задача по разрыву из «Плана улучшений» — на общей доске; в карточке у исполнителя нет следа самооценки.
+// Импорт эталона Excel через окно (предпросмотр → применить): 34 балла; выгрузка .xlsx.
 // Сотрудник ИБ без роли: пункта нет, прямой адрес уводит из раздела, API — 403.
 // Удаления оценок нет: оценки прогона уходят в архив, задача — в архив, тестовые пользователи отключаются.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { $, launchBrowser } from './browser.mjs';
+
+const FIXTURE = fileURLToPath(new URL('../../backend/test/fixtures/cyber-checklist-2025.xlsx', import.meta.url));
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -230,6 +234,35 @@ describe('Самооценка', () => {
     const dto = JSON.stringify(await ok('GET', `/api/v1/tasks/${task.id}`));
     assert.ok(!dto.includes('assessment') && !dto.includes(created.id), 'в API задачи нет ссылки на самооценку');
     assert.match(dto, /"source":"manual"/);
+  });
+
+  it('импорт эталона Excel: предпросмотр, применение, итог 34 из 96; выгрузка .xlsx', async () => {
+    users.owner.password = await loginAs(users.owner.login, users.owner.password);
+    const a = await mine(TITLE2);
+    await ui.goto(`/assessment/overview?id=${a.id}`);
+    await ui.click($.button('Импорт Excel'), '«Импорт Excel»');
+    let m = ui.mark();
+    await ui.setFiles('[role=dialog] input[type=file]', [FIXTURE]);
+    const dry = await ui.request(m, 'POST', `/assessments/${a.id}/import?dryRun=true`);
+    assert.equal(dry.status, 200);
+    await ui.waitFor(`document.querySelector('[data-testid=sa-import-preview]')?.textContent.includes('Найдено разделов: 24 из 24')`, 'предпросмотр импорта');
+    const text = await ui.evaluate(`document.querySelector('[data-testid=sa-import-preview]').textContent`);
+    assert.match(text, /итог — 34 из 96, «Цифровая гигиена»/);
+    assert.match(text, /Скрытые строки пропущены/);
+    assert.equal((await mine(TITLE2)).total, 1, 'предпросмотр ничего не записал');
+    m = ui.mark();
+    await ui.click($.button('Применить', `document.querySelector('[role=dialog]')`));
+    const applied = await ui.request(m, 'POST', `/assessments/${a.id}/import?version=`);
+    assert.equal(applied.status, 200);
+    await ui.waitFor(`!document.querySelector('[role=dialog]') && document.querySelector('[data-testid=sa-total]')?.textContent === '34'`, 'итог 34 после импорта');
+    assert.match(await toastText(), /Импорт применён: разделов изменено \d+\. Итог 34 из 96/);
+    assert.equal((await ok('GET', `/api/v1/assessments/${a.id}`)).profile.organization, 'ЗАО МДО "Хумо"');
+
+    m = ui.mark();
+    await ui.click($.button('Выгрузить .xlsx'), '«Выгрузить .xlsx»');
+    const exp = await ui.request(m, 'GET', '/api/v1/assessments/export.xlsx');
+    assert.equal(exp.status, 200);
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent.startsWith('Выгружено: Самооценка_КБ_')`, 'уведомление о выгрузке');
   });
 
   it('без роли «Самооценка»: пункта нет, прямой адрес уводит из раздела, API — 403', async () => {

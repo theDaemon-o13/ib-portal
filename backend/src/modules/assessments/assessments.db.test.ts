@@ -62,7 +62,8 @@ describe('самооценка: права (ADR-0026)', () => {
         ['GET', '/api/v1/assessments'], ['GET', '/api/v1/assessments/methodology'], ['GET', `/api/v1/assessments/${id}`],
         ['GET', `/api/v1/assessments/${id}/log`], ['GET', `/api/v1/assessments/${id}/answers/1.1/history`],
         ['GET', `/api/v1/assessments/compare?a=${id}&b=${id}`], ['GET', '/api/v1/assessments/assignees'],
-        ['POST', `/api/v1/assessments/${id}/answers/1.1/tasks`],
+        ['POST', `/api/v1/assessments/${id}/answers/1.1/tasks`], ['GET', '/api/v1/assessments/export.xlsx'],
+        ['POST', `/api/v1/assessments/${id}/import?dryRun=true`],
         ['POST', '/api/v1/assessments'], ['PATCH', `/api/v1/assessments/${id}`], ['PUT', `/api/v1/assessments/${id}/answers/1.1`],
         ['POST', `/api/v1/assessments/${id}/finalize`], ['POST', `/api/v1/assessments/${id}/reopen`], ['POST', `/api/v1/assessments/${id}/archive`],
       ];

@@ -121,6 +121,11 @@ details.sa-target p{white-space:pre-line;margin:8px 0 2px}
 .sa-plan td .btn.ghost{white-space:normal;text-align:left;justify-content:flex-start}
 .sa-add{margin-top:6px}
 
+/* импорт */
+.sa-imp{display:grid;gap:10px}
+.sa-imp-tbl{max-height:320px;overflow:auto}
+.sa-errs{margin:6px 0 0;padding-left:18px}
+
 /* история */
 .sa-cmp{max-height:520px;overflow:auto}
 .sa-list td,.sa-cmp td{vertical-align:middle}

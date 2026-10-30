@@ -1,6 +1,7 @@
 // Запросы раздела «Самооценка» (этап Д, docs/self-assessment.md). Типы — из сгенерированной схемы OpenAPI.
 // Личный раздел: все маршруты — по праву assessment.manage, решает backend.
-import { request, type JsonOf } from './client';
+import { fileNameFrom } from './audit';
+import { ApiError, request, type JsonOf } from './client';
 import type { paths } from './generated/schema';
 
 type Res<P extends keyof paths, M extends keyof paths[P], S extends number = 200> = paths[P][M] extends { responses: infer R }
@@ -23,6 +24,14 @@ export type AnswerPatch = Body<'/api/v1/assessments/{id}/answers/{code}', 'put'>
 export type LinkedTask = Assessment['tasks'][number];
 export type NewGapTask = Body<'/api/v1/assessments/{id}/answers/{code}/tasks', 'post'>;
 export type Assignee = Res<'/api/v1/assessments/assignees', 'get'>['items'][number];
+export type ImportResult = Res<'/api/v1/assessments/{id}/import', 'post'>;
+
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+async function errorOf(res: Response, fallback: string): Promise<ApiError> {
+  const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+  return new ApiError(res.status, data?.error?.code ?? 'UNKNOWN', data?.error?.message ?? fallback);
+}
 
 export const akeys = {
   all: ['assessments'] as const,
@@ -52,4 +61,28 @@ export const assessmentsApi = {
   // Задачи по разрывам (Д3): ставит раздел, исполнители — сотрудники с ib.work.
   assignees: () => request<{ items: Assignee[] }>('GET', `${base}/assignees`),
   createTask: (id: string, code: string, body: NewGapTask) => request<LinkedTask>('POST', `${base}/${id}/answers/${code}/tasks`, body),
+  /**
+   * Импорт Excel (Д4): файл телом запроса как есть. dryRun — предпросмотр, ничего не пишет; применение — тот же файл
+   * и version из предпросмотра (оценку успели изменить — 409). Файл в портале не сохраняется.
+   */
+  async importFile(id: string, file: File, q: { dryRun: boolean; version?: number; sourceId?: string | null }): Promise<ImportResult> {
+    const p = new URLSearchParams();
+    if (q.dryRun) p.set('dryRun', 'true');
+    if (q.version !== undefined) p.set('version', String(q.version));
+    if (q.sourceId) p.set('sourceId', q.sourceId);
+    let res: Response;
+    try {
+      res = await fetch(`${base}/${id}/import?${p.toString()}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': XLSX_TYPE }, body: file });
+    } catch {
+      throw new ApiError(0, 'NETWORK', 'Нет связи с сервером. Проверьте сеть и попробуйте ещё раз');
+    }
+    if (!res.ok) throw await errorOf(res, 'Не удалось прочитать файл');
+    return (await res.json()) as ImportResult;
+  },
+  /** Выгрузка таблиц для анализа; без ids — все оценки, кроме архивных. */
+  async exportFile(ids?: readonly string[]): Promise<{ blob: Blob; fileName: string }> {
+    const res = await fetch(`${base}/export.xlsx${ids?.length ? `?ids=${ids.join(',')}` : ''}`, { credentials: 'same-origin' });
+    if (!res.ok) throw await errorOf(res, 'Не удалось выгрузить оценки');
+    return { blob: await res.blob(), fileName: fileNameFrom(res.headers.get('Content-Disposition'), 'Самооценка_КБ.xlsx') };
+  },
 };

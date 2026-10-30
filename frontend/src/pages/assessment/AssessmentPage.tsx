@@ -8,10 +8,12 @@ import { dateRu } from '../dashboard/logic';
 import { Checklist } from './Checklist';
 import { ArchiveDialog, NewAssessmentDialog, ProfileDialog, ReopenDialog } from './Dialogs';
 import { History } from './History';
+import { ImportDialog } from './ImportDialog';
 import { defaultAssessmentId, STATUS_TONE } from './logic';
 import { Overview } from './Overview';
 import { Plan } from './Plan';
 import { useAssessmentAction } from './useAssessmentAction';
+import { useToast } from '../../components/Toast';
 
 const TABS = [
   { key: 'overview', title: 'Обзор' },
@@ -21,7 +23,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
 
-type Dialog = 'new' | 'reopen' | 'profile' | { archive: { id: string; title: string; version: number } } | null;
+type Dialog = 'new' | 'reopen' | 'profile' | 'import' | { archive: { id: string; title: string; version: number } } | null;
 
 export function AssessmentPage() {
   const { tab = 'overview' } = useParams();
@@ -39,6 +41,28 @@ export function AssessmentPage() {
     (x) => `Оценка зафиксирована: ${x.total} из ${x.max}, «${x.level.name}»`,
   );
   const hasDraft = items.some((x) => x.status === 'draft');
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+  // Выгрузка — все оценки, кроме архивных: плоские таблицы для сводных и Power BI.
+  const exportXlsx = async () => {
+    setExporting(true);
+    try {
+      const { blob, fileName } = await assessmentsApi.exportFile();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast(`Выгружено: ${fileName}`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Не удалось выгрузить', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!TABS.some((t) => t.key === tab)) return <Navigate to="/assessment/overview" replace />;
 
@@ -71,6 +95,7 @@ export function AssessmentPage() {
                 <span className="grow" />
                 {a?.status === 'draft' && (
                   <>
+                    <button className="btn" type="button" onClick={() => setDialog('import')}>Импорт Excel</button>
                     <button className="btn" type="button" onClick={() => setDialog('profile')}>Профиль</button>
                     <button className="btn primary" type="button" disabled={a.preliminary || finalize.isPending}
                       title={a.preliminary ? `Заполнено ${a.answered} из ${a.sections}: зафиксировать можно, когда отвечены все разделы` : undefined}
@@ -79,6 +104,9 @@ export function AssessmentPage() {
                 )}
                 {a?.status === 'final' && <button className="btn ghost" type="button" onClick={() => setDialog('reopen')}>Вернуть в черновик</button>}
                 {!hasDraft && <button className="btn primary" type="button" onClick={() => setDialog('new')}>Новая оценка</button>}
+                <button className="btn ghost" type="button" disabled={exporting} title="Все оценки, кроме архивных, — таблицы для анализа" onClick={() => void exportXlsx()}>
+                  Выгрузить .xlsx
+                </button>
               </div>
 
               <div className="tabs page-tabs" role="tablist">
@@ -99,6 +127,7 @@ export function AssessmentPage() {
       {dialog === 'new' && <NewAssessmentDialog items={items} onClose={() => setDialog(null)} onCreated={(x) => open(x.id)} />}
       {dialog === 'reopen' && a && <ReopenDialog a={a} onClose={() => setDialog(null)} />}
       {dialog === 'profile' && a && <ProfileDialog a={a} onClose={() => setDialog(null)} />}
+      {dialog === 'import' && a && <ImportDialog a={a} onClose={() => setDialog(null)} />}
       {dialog && typeof dialog === 'object' && <ArchiveDialog target={dialog.archive} onClose={() => setDialog(null)} />}
     </>
   );

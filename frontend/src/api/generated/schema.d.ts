@@ -33511,6 +33511,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assessments/export.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Выгрузка таблиц для анализа: «Оценки», «Ответы», «Домены», «Задачи», «Методика». Без ids — все, кроме архивных */
+        get: {
+            parameters: {
+                query?: {
+                    ids?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assessments/compare": {
         parameters: {
             query?: never;
@@ -34501,6 +34537,175 @@ export interface paths {
                             done: boolean;
                             archived: boolean;
                             deleted: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Импорт Excel в черновик. Тело — файл .xlsx. dryRun=true — предпросмотр «раздел, было, станет»; применение — тот же файл и version из предпросмотра */
+        post: {
+            parameters: {
+                query?: {
+                    dryRun?: "true" | "false";
+                    version?: number;
+                    sourceId?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            format: "checklist" | "answers";
+                            version: number;
+                            found: number;
+                            answered: number;
+                            changes: {
+                                code: string;
+                                name: string;
+                                from: number | null;
+                                to: number | null;
+                                comment: boolean;
+                            }[];
+                            profile: {
+                                label: string;
+                                from: string;
+                                to: string;
+                            }[];
+                            errors: {
+                                row: number | null;
+                                code: string | null;
+                                message: string;
+                            }[];
+                            notes: string[];
+                            sources: {
+                                id: string;
+                                title: string;
+                                date: string | null;
+                            }[];
+                            sourceId: string | null;
+                            total: number;
+                            max: number;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            preliminary: boolean;
+                            applied: boolean;
                         };
                     };
                 };

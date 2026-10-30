@@ -1,10 +1,13 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
+import { badRequest } from '../../lib/errors.js';
 import { ASSESSMENT_PERMISSION } from '../../lib/permissions.js';
+import { IMPORT_BODY_LIMIT, XLSX_TYPE } from '../registers/routes.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
+import * as excel from './excel.js';
 import * as svc from './service.js';
 
 const tags = ['assessments'];
@@ -98,6 +101,22 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
     },
   }, async () => svc.taskAssignees(db));
 
+  app.get('/assessments/export.xlsx', {
+    preHandler: owner,
+    schema: {
+      tags, summary: 'Выгрузка таблиц для анализа: «Оценки», «Ответы», «Домены», «Задачи», «Методика». Без ids — все, кроме архивных',
+      querystring: z.object({ ids: z.string().max(4000).optional() }),
+    },
+  }, async (request, reply) => {
+    const ids = request.query.ids?.split(',').map((x) => x.trim()).filter(Boolean);
+    if (ids?.some((x) => !z.string().uuid().safeParse(x).success)) throw badRequest('BAD_ID', 'Неверный список оценок');
+    const { fileName, buffer } = await excel.exportAssessments(db, actorOf(request), ids);
+    return reply
+      .header('Content-Type', XLSX_TYPE)
+      .header('Content-Disposition', `attachment; filename="assessment.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+      .send(buffer);
+  });
+
   app.get('/assessments/compare', {
     preHandler: owner,
     schema: {
@@ -162,6 +181,36 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
       response: { 201: LinkedTask, ...errors },
     },
   }, async (request, reply) => reply.status(201).send(await svc.createGapTask(db, actorOf(request), request.params.id, request.params.code, request.body)));
+
+  const ImportResult = z.object({
+    format: z.enum(['checklist', 'answers']), version: z.number().int(), found: z.number().int(), answered: z.number().int(),
+    changes: z.array(z.object({ code: z.string(), name: z.string(), from: z.number().int().nullable(), to: z.number().int().nullable(), comment: z.boolean() })),
+    profile: z.array(z.object({ label: z.string(), from: z.string(), to: z.string() })),
+    errors: z.array(z.object({ row: z.number().int().nullable(), code: z.string().nullable(), message: z.string() })),
+    notes: z.array(z.string()),
+    sources: z.array(z.object({ id: z.string(), title: z.string(), date: z.string().nullable() })),
+    sourceId: z.string().nullable(),
+    total: z.number().int(), max: z.number().int(), level: LevelRef, preliminary: z.boolean(), applied: z.boolean(),
+  });
+  app.post('/assessments/:id/import', {
+    preHandler: owner,
+    bodyLimit: IMPORT_BODY_LIMIT,
+    schema: {
+      tags,
+      summary: 'Импорт Excel в черновик. Тело — файл .xlsx. dryRun=true — предпросмотр «раздел, было, станет»; применение — тот же файл и version из предпросмотра',
+      params: IdParams,
+      querystring: z.object({
+        dryRun: z.enum(['true', 'false']).optional(), version: z.coerce.number().int().positive().optional(), sourceId: z.string().max(64).optional(),
+      }),
+      body: z.any(),
+      response: { 200: ImportResult, ...errors },
+    },
+  }, async (request) => {
+    if (!Buffer.isBuffer(request.body)) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
+    return excel.importAssessment(db, actorOf(request), request.params.id, request.body, {
+      dryRun: request.query.dryRun === 'true', version: request.query.version, sourceId: request.query.sourceId ?? null,
+    });
+  });
 
   app.get('/assessments/:id/answers/:code/history', {
     preHandler: owner,
