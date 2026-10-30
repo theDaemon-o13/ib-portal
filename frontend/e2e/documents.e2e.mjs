@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, portalToday } from './browser.mjs';
-import { pickFiles, tempFile, tinyPdf, uploadViaApi } from './files.mjs';
+import { pagesPdf, pickFiles, tempFile, tinyDocx, tinyPdf, tinyPng, uploadViaApi } from './files.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -509,5 +509,127 @@ describe('Документы: новая версия, отмена пересм
     await ui.waitFor(`!${row(`${RUN} Лишний драфт`)}`, 'документ пропал из реестра');
     const r = await ui.evaluate(`fetch('/api/v1/documents/${doc.id}').then((x) => x.status)`);
     assert.equal(r, 404);
+  });
+});
+
+describe('Документы: просмотр файлов на весь экран (1.4.0, шаг 8)', () => {
+  const viewer = `document.querySelector('[data-testid=file-viewer]')`;
+  const viewBtn = (name) => `${panel}.querySelector('[data-view-file=${JSON.stringify(name)}]')`;
+  const page = () => ui.evaluate(`${viewer}?.querySelector('[data-testid=viewer-page]')?.textContent ?? ''`);
+  const canvasCss = () => ui.evaluate(`Math.round(${viewer}.querySelector('canvas').getBoundingClientRect().width)`);
+  const upload = async (name, data) => (await uploadViaApi(ui, name, data)).id;
+
+  it('PDF на весь экран: ← → по страницам, «+» увеличивает, Esc закрывает только просмотрщик и возвращает фокус; .docx — сообщение и кнопки', async () => {
+    const doc = await makeDoc('Просмотр файлов');
+    let d = await apiAs(admin, 'GET', `/api/v1/documents/${doc.id}`);
+    const pdfName = `${RUN} Три страницы.pdf`;
+    const docxName = `${RUN} Политика.docx`;
+    const ids = [await upload(pdfName, pagesPdf(['Page one', 'Page two', 'Page three'])), await upload(docxName, tinyDocx())];
+    d = (await api('POST', `/api/v1/documents/${doc.id}/files`, { version: d.version, stage: d.working.stage, fileIds: ids })).document;
+    await loginAs(admin);
+    await openDocs(doc.id);
+    await ui.waitFor(`!!${viewBtn(pdfName)}`, 'файл автора в карточке');
+
+    // Обработчик Esc «окна под просмотрщиком»: до него нажатие доходить не должно.
+    await ui.evaluate(`window.__escBelow = 0; document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.__escBelow++; })`);
+    await ui.click(viewBtn(pdfName), 'файл PDF');
+    await ui.waitFor(`!!${viewer}`, 'просмотрщик открыт');
+    assert.deepEqual(await ui.evaluate(`(() => { const r = ${viewer}.getBoundingClientRect(); return [r.left, r.top, r.width === innerWidth, r.height === innerHeight]; })()`), [0, 0, true, true], 'на весь экран');
+    await ui.waitFor(`${viewer}.querySelector('canvas')?.width > 0 && !${viewer}.querySelector('canvas.is-rendering')`, 'страница нарисована');
+    assert.equal(await page(), '1 / 3');
+    // Рендер в пикселях устройства: ширина canvas = CSS-ширина × devicePixelRatio.
+    assert.ok(await ui.evaluate(`(() => { const c = ${viewer}.querySelector('canvas'); return Math.abs(c.width - c.getBoundingClientRect().width * devicePixelRatio) <= 2; })()`), 'canvas в разрешении экрана');
+    await ui.press('ArrowRight');
+    await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-page]')?.textContent === '2 / 3'`, 'страница 2');
+    await ui.press('ArrowRight');
+    await ui.press('ArrowRight'); // дальше последней — нет
+    await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-page]')?.textContent === '3 / 3'`, 'страница 3');
+    await ui.press('ArrowLeft');
+    await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-page]')?.textContent === '2 / 3'`, 'снова страница 2');
+    await ui.waitFor(`!${viewer}.querySelector('canvas.is-rendering')`, 'страница 2 нарисована');
+    const before = await canvasCss();
+    await ui.press('Plus');
+    await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-zoom]')?.textContent === '125 %' && !${viewer}.querySelector('canvas.is-rendering')`, 'увеличение 125 %');
+    assert.ok((await canvasCss()) > before, 'страница стала шире');
+
+    await ui.press('Escape');
+    await ui.waitFor(`!${viewer}`, 'просмотрщик закрыт');
+    assert.equal(await ui.evaluate(`window.__escBelow`), 0, 'Esc не дошёл до окон под просмотрщиком');
+    assert.equal(await ui.evaluate(`document.querySelectorAll('canvas').length`), 0, 'canvas освобождён');
+    assert.equal(await ui.evaluate(`!!${panel}.querySelector('.vsteps')`), true, 'карточка документа на месте');
+    await ui.waitFor(`document.activeElement === ${viewBtn(pdfName)}`, 'фокус вернулся на кнопку файла');
+
+    // .docx файла версии: сообщение и обе кнопки.
+    await ui.click(viewBtn(docxName), 'файл .docx');
+    await ui.waitFor(`!!${viewer}?.querySelector('[data-testid=viewer-docx]')`, 'сообщение для .docx');
+    assert.match(await ui.text(`${viewer}.querySelector('[data-testid=viewer-docx]')`), /Для просмотра в портале приложите PDF; \.docx открывается в OnlyOffice/);
+    assert.deepEqual(await ui.evaluate(`[...${viewer}.querySelectorAll('[data-testid=viewer-docx] .btn')].map((b) => b.textContent)`), ['Скачать', 'Открыть в OnlyOffice']);
+    assert.equal(await ui.evaluate(`${viewer}.querySelector('[data-testid=viewer-docx] a').getAttribute('href')`), d.current.onlyofficeUrl);
+    await ui.click($.button('Закрыть', viewer));
+    await ui.waitFor(`!${viewer}`, 'закрыт кнопкой');
+  });
+
+  it('ответ лица (PNG) — тем же окном; перевод .docx — только «Скачать»; записка к возврату; без доступа — окна нет', async () => {
+    const doc = await makeDoc('Просмотр ответов');
+    // Язык перевода заранее, документ — до этапа 14.
+    let d = await apiAs(admin, 'GET', `/api/v1/documents/${doc.id}`);
+    await api('POST', `/api/v1/documents/${doc.id}/translations`, { version: d.version, stage: d.working.stage, language: 'Таджикский', dueDate: portalToday() });
+    await moveViaApi(doc.id, 14);
+    d = await apiAs(users.head, 'GET', `/api/v1/documents/${doc.id}`);
+    const pngName = `${RUN} Ответ.png`;
+    d = (await api('POST', `/api/v1/documents/${doc.id}/parties`, { version: d.version, stage: d.working.stage, fullName: 'Иванова И. И.', department: 'Юристы', dueDate: portalToday() })).document;
+    const party = d.parties.find((p) => !p.approvedAt);
+    d = (await api('POST', `/api/v1/documents/${doc.id}/parties/${party.id}/approve`, { version: d.version, stage: d.working.stage, fileIds: [await upload(pngName, tinyPng())] })).document;
+    await routeStep(users.head, doc.id, 'ack_final');
+    // Этап 15: файл перевода (.docx) прикладывает автор.
+    d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
+    const trName = `${RUN} Перевод.docx`;
+    const tr = d.translations[0];
+    await api('POST', `/api/v1/documents/${doc.id}/translations/${tr.id}/files`, { version: d.version, stage: d.working.stage, fileIds: [await upload(trName, tinyDocx())] });
+
+    await loginAs(admin);
+    await openDocs(doc.id);
+    const fileBtn = (name) => `[...${panel}.querySelectorAll('button')].find((b) => b.textContent === ${JSON.stringify(name)})`;
+    await ui.click(fileBtn(pngName), 'ответ лица');
+    await ui.waitFor(`${viewer}?.querySelector('img')?.naturalWidth > 0`, 'изображение в просмотрщике');
+    await ui.press('Escape');
+    await ui.waitFor(`!${viewer}`, 'закрыт');
+    await ui.click(fileBtn(trName), 'перевод .docx');
+    await ui.waitFor(`!!${viewer}?.querySelector('[data-testid=viewer-docx]')`, 'сообщение для .docx перевода');
+    assert.deepEqual(await ui.evaluate(`[...${viewer}.querySelectorAll('[data-testid=viewer-docx] .btn')].map((b) => b.textContent)`), ['Скачать'], 'у перевода нет ссылки OnlyOffice');
+    await ui.press('Escape');
+    await ui.waitFor(`!${viewer}`, 'закрыт');
+
+    // Записка к возврату (PDF): возврат с этапа 15 с файлом.
+    d = await apiAs(users.head, 'GET', `/api/v1/documents/${doc.id}`);
+    const noteName = `${RUN} Замечания.pdf`;
+    await api('POST', `/api/v1/documents/${doc.id}/actions/return`, { version: d.version, stage: d.working.stage, comment: 'Уточнить перевод', fileId: await upload(noteName, tinyPdf('Return note')) });
+    await loginAs(admin);
+    await openDocs(doc.id);
+    await ui.click(`${panel}.querySelector('[data-testid=return-note]')`, 'записка к возврату');
+    await ui.waitFor(`${viewer}?.querySelector('canvas')?.width > 0`, 'записка в просмотрщике');
+    await ui.press('Escape');
+    await ui.waitFor(`!${viewer}`, 'закрыт');
+
+    // Без доступа: файл сняли, пока карточка открыта (файл без ссылок удаляется) — 404, окна нет, сообщение.
+    d = await apiAs(admin, 'GET', `/api/v1/documents/${doc.id}`);
+    const tmpName = `${RUN} Временный.pdf`;
+    d = (await api('POST', `/api/v1/documents/${doc.id}/files`, { version: d.version, stage: d.working.stage, fileIds: [await upload(tmpName, tinyPdf('Temp'))] })).document;
+    const tmp = d.files.find((f) => f.file.name === tmpName);
+    await loginAs(admin);
+    await openDocs(doc.id);
+    await ui.waitFor(`!!${viewBtn(tmpName)}`, 'файл в карточке');
+    const fresh = await api('GET', `/api/v1/documents/${doc.id}`);
+    await api('POST', `/api/v1/documents/${doc.id}/files/${tmp.id}/remove`, { version: fresh.version, stage: fresh.working.stage });
+    const m = ui.mark();
+    await ui.click(viewBtn(tmpName), 'снятый файл');
+    const req = await ui.request(m, 'GET', `/api/v1/files/${tmp.file.id}/content`);
+    assert.ok([403, 404].includes(req.status), `ответ ${req.status}`);
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Файл недоступен'`, 'сообщение «Файл недоступен»');
+    assert.equal(await ui.evaluate(`!!${viewer} || !!document.querySelector('[data-testid=viewer-loading]')`), false, 'окна нет');
+    // Читатель документов к файлам версии на маршруте доступа не имеет.
+    await apiAs(users.legal, 'GET', '/api/v1/auth/me');
+    const denied = await ui.evaluate(`fetch('/api/v1/files/${d.files[0].file.id}/content').then((r) => r.status)`);
+    assert.ok([403, 404].includes(denied), `читатель: ${denied}`);
   });
 });

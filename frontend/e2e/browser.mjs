@@ -292,6 +292,8 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
         Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
         Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
         Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
+        Plus: { key: '+', code: 'Equal', windowsVirtualKeyCode: 187, text: '+' },
+        Minus: { key: '-', code: 'Minus', windowsVirtualKeyCode: 189, text: '-' },
       };
       const k = keys[key];
       if (!k) throw new Error(`нет клавиши ${key}`);

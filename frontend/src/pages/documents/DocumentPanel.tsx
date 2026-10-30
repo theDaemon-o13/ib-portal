@@ -4,7 +4,7 @@ import { ApiError } from '../../api/client';
 import { docsApi, dkeys, type DocAction, type DocDetail, type DocResult } from '../../api/documents';
 import type { FileInfo } from '../../api/files';
 import { settingsApi } from '../../api/settings';
-import { FilePreview } from '../../components/files/FilePreview';
+import { useFileViewer } from '../../components/files/FileViewer';
 import { FileUpload } from '../../components/files/FileUpload';
 import { LockIcon } from '../../components/LockIcon';
 import { useToast } from '../../components/Toast';
@@ -59,7 +59,8 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
   /** 13 → 14: выбранный файл автора (id файла); при открытии формы — последний загруженный. */
   const [approveFile, setApproveFile] = useState('');
   const [signedOn, setSignedOn] = useState(todayIso());
-  const [shown, setShown] = useState<{ id: string; name: string; mime: string; size: number } | null>(null);
+  // Просмотр файлов на весь экран (1.4.0, шаг 8): содержимое — через backend с проверкой прав.
+  const viewer = useFileViewer();
   const d = doc.data;
 
   const types = useQuery({ queryKey: dkeys.types, queryFn: () => settingsApi.items('document_types', false), enabled: mode === 'settings' });
@@ -156,7 +157,10 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
     if (mode === 'revise') revise.mutate(content);
     else save.mutate(content);
   };
-  const toggle = (f: { id: string; name: string; mime: string; size: number }) => setShown(shown?.id === f.id ? null : f);
+  /** Файл версии документа: для .docx — ещё «Открыть в OnlyOffice» (ссылка есть только у версии). */
+  const viewVersionFile = (f: { id: string; name: string; mime: string }, onlyofficeUrl = d.current.onlyofficeUrl) => void viewer.open(f, { onlyofficeUrl });
+  /** Ответы лиц, переводы, записка к возврату — только просмотр и «Скачать». */
+  const viewFile = (f: { id: string; name: string; mime: string }) => void viewer.open(f);
   const nextNo = Math.max(0, ...d.versions.map((v) => v.no)) + 1;
   const action = d.can.actions.find((a) => a === mode);
   const cancelBtn = <button className="btn" type="button" onClick={() => setMode('view')}>Отмена</button>;
@@ -220,7 +224,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
               <div key={f.id} className="row" data-file-kind={f.kind}>
                 {/* Файл автора, согласованный начальником ИБ, — одна строка с обеими отметками (1.4.0). */}
                 <span className="hint" data-testid="file-marks">{f.marks.join(' · ')}{f.kind !== 'draft' && d.current.round > 1 ? `, круг ${f.round}` : ''}:</span>
-                <button type="button" className="btn ghost sm" aria-pressed={shown?.id === f.file.id} onClick={() => toggle(f.file)}>{f.file.name}</button>
+                <button type="button" className="btn ghost sm" data-view-file={f.file.name} onClick={() => viewVersionFile(f.file)}>{f.file.name}</button>
                 <span className="hint mono" title={f.file.sha256}>sha256 {shaShort(f.file.sha256)}</span>
                 {f.removable && mode === 'view' && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => removeFile.mutate(f.id)}>Снять</button>}
               </div>
@@ -257,7 +261,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
             {d.returned.file && (
               <div className="row mt6">
                 <span className="hint">Записка:</span>
-                <button type="button" className="btn ghost sm" data-testid="return-note" onClick={() => d.returned?.file && toggle(d.returned.file)}>{d.returned.file.name}</button>
+                <button type="button" className="btn ghost sm" data-testid="return-note" onClick={() => d.returned?.file && viewFile(d.returned.file)}>{d.returned.file.name}</button>
               </div>
             )}
           </div>
@@ -306,8 +310,8 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
         )}
 
         {mode === 'view' && <DocumentBlockers d={d} at={at} onDone={done} onError={onError} />}
-        {mode === 'view' && <DocumentParties d={d} at={at} onDone={done} onError={onError} onPreview={toggle} />}
-        {mode === 'view' && <DocumentTranslations d={d} at={at} onDone={done} onError={onError} onPreview={toggle} />}
+        {mode === 'view' && <DocumentParties d={d} at={at} onDone={done} onError={onError} onPreview={viewFile} />}
+        {mode === 'view' && <DocumentTranslations d={d} at={at} onDone={done} onError={onError} onPreview={viewFile} />}
 
         {(d.comments.length > 0 || d.can.comment) && (
           <div aria-label="Комментарии сотрудников">
@@ -380,7 +384,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           </form>
         )}
 
-        {shown && <FilePreview key={shown.id} file={shown} />}
+        {viewer.element}
         {d.versions.length > 0 && (
           <div>
             <div className="eyebrow">Версии</div>
@@ -393,7 +397,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
                       : v.signedOn ? `подписана ${formatDate(v.signedOn)}`
                         : v.approvedAt ? `утверждена ${formatDate(v.approvedAt.slice(0, 10))}` : 'в работе'}
                     {v.pdf && (
-                      <>{' · '}<button type="button" className="btn ghost sm" aria-pressed={shown?.id === v.pdf.id} onClick={() => v.pdf && toggle({ id: v.pdf.id, name: v.pdf.name, mime: 'application/pdf', size: v.pdf.size })}>{v.signedOn ? 'Подписанный PDF' : 'PDF'}</button>
+                      <>{' · '}<button type="button" className="btn ghost sm" data-view-file={v.pdf.name} onClick={() => v.pdf && viewVersionFile({ id: v.pdf.id, name: v.pdf.name, mime: 'application/pdf' }, v.onlyofficeUrl)}>{v.signedOn ? 'Подписанный PDF' : 'PDF'}</button>
                         <span className="hint mono" title={v.pdf.sha256}> {shaShort(v.pdf.sha256)}</span></>
                     )}
                     {v.approvedAt && !v.textFrozen && <> <span className="chip high" title="Утверждена до появления итогового PDF: ссылка на OnlyOffice не фиксирует содержимое">текст не зафиксирован</span></>}
