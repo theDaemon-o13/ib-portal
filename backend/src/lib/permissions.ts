@@ -23,6 +23,10 @@ export const PERMISSIONS = [
   { code: 'history.view', name: 'История в карточках', description: 'История изменений задач, записей реестров, документов и доказательств' },
   { code: 'audit.view', name: 'Журнал действий', description: 'Раздел «Журнал»: все действия пользователей, выгрузка в Excel' },
   {
+    code: 'assessment.manage', name: 'Самооценка',
+    description: 'Личный раздел «Самооценка». Только в системной роли «Самооценка»: другим ролям не выдаётся, раздел — без ib.work',
+  },
+  {
     code: 'monitor.kiosk', name: 'Настенный монитор',
     description: 'Только экран мониторинга, вход с адресов MONITOR_ALLOWED_IPS. Не сочетается с другими правами и ролями',
   },
@@ -42,6 +46,13 @@ export const ADMIN_PERMISSIONS: readonly PermissionCode[] = ['settings.manage', 
  * роль с ним не содержит других прав, а пользователь с такой ролью не получает других ролей.
  */
 export const KIOSK_PERMISSION = 'monitor.kiosk' as const satisfies PermissionCode;
+
+/**
+ * Самооценка (этап Д, ADR-0026): право только у системной роли «Самооценка» — другой роли не выдаётся (в том числе
+ * «Супер-администратору»), с этой роли не снимается.
+ */
+export const ASSESSMENT_PERMISSION = 'assessment.manage' as const satisfies PermissionCode;
+export const ASSESSMENT_ROLE = 'assessment' as const;
 
 /** Права согласования документов: не входят в роль супер-администратора (разделение полномочий). */
 export const APPROVAL_PERMISSIONS: readonly PermissionCode[] = ['docs.approve.head'];
@@ -89,6 +100,12 @@ export const SYSTEM_ROLES = [
     name: 'Читатель документов',
     description: 'Видит подписанные документы и их файлы; других прав нет (релиз 1.2.0)',
     permissions: [],
+  },
+  {
+    code: 'assessment',
+    name: 'Самооценка',
+    description: 'Личный раздел «Самооценка». Обычно назначается одному сотруднику',
+    permissions: ['assessment.manage'],
   },
   {
     code: 'kiosk',

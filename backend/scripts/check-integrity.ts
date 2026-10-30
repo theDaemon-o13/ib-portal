@@ -282,6 +282,15 @@ async function main() {
   const superPerms = new Set(superAdmin?.permissions.map((p) => p.permissionCode) ?? []);
   check(SUPER_ADMIN_LOCKED.every((p) => superPerms.has(p)), 'у супер-администратора есть settings.manage и users.manage');
   check(![...APPROVAL_PERMISSIONS, ...LEGACY_PERMISSION_CODES].some((p) => superPerms.has(p)), 'у супер-администратора нет прав согласования этапов');
+  // Самооценка (ADR-0026): право только у системной роли «Самооценка», методика загружена, удаления нет.
+  const assessmentRoles = await prisma.rolePermission.findMany({ where: { permissionCode: 'assessment.manage' }, select: { role: { select: { code: true } } } });
+  check(assessmentRoles.length === 1 && assessmentRoles[0]?.role.code === 'assessment', 'право «Самооценка» есть только у системной роли «Самооценка»', 'выполните seed');
+  const activeMethodologies = await prisma.assessmentMethodology.count({ where: { isActive: true } });
+  check(activeMethodologies >= 1, 'методика самооценки загружена', 'выполните seed');
+  const assessmentPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public.' || t, p)) AS granted
+    FROM unnest(ARRAY['assessments', 'assessment_answers', 'assessment_links']) AS t, unnest(ARRAY['DELETE', 'TRUNCATE']) AS p`;
+  check(assessmentPrivs[0]?.granted === false, 'ibportal_app: нет DELETE и TRUNCATE на оценках самооценки');
   const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });
   check(retiredUsers === 0, 'в ролях «Юрист» и «Правление» нет пользователей (перенесены в «Читатель документов»)', 'выполните seed');
 

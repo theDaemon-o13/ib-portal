@@ -99,7 +99,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -246,7 +246,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -319,7 +319,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -5392,9 +5392,9 @@ export interface paths {
                                 description: string;
                                 isSystem: boolean;
                                 version: number;
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 activeUserCount: number;
                                 userCount: number;
                             }[];
@@ -5520,9 +5520,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -5667,9 +5667,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -5906,7 +5906,7 @@ export interface paths {
                 header?: never;
                 path: {
                     id: string;
-                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk";
+                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
                 };
                 cookie?: never;
             };
@@ -5931,9 +5931,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -32721,6 +32721,2566 @@ export interface paths {
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Оценки: название, дата, статус, итог, уровень */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                /** @enum {string} */
+                                status: "draft" | "final" | "archived";
+                                statusName: string;
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                finalizedAt: string | null;
+                                version: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Новая оценка: пустая или копия зафиксированной (баллы и цели без комментариев). Черновик один — иначе 409 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        assessedOn: string;
+                        /** Format: uuid */
+                        copyFromId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/methodology": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Активная методика */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            name: string;
+                            version: number;
+                            scale: {
+                                level: number;
+                                name: string;
+                            }[];
+                            maturity: {
+                                code: string;
+                                name: string;
+                                min: number;
+                                max: number;
+                                description: string;
+                            }[];
+                            rules: {
+                                effectiveRequiresMaxIn: string[];
+                                fallbackLevel: string;
+                                criterionThresholdPct: number;
+                            };
+                            domains: {
+                                no: number;
+                                name: string;
+                                sections: {
+                                    code: string;
+                                    name: string;
+                                    target: string;
+                                    criteria: {
+                                        [key: string]: string;
+                                    };
+                                    key?: boolean;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сравнение двух оценок по разделам и доменам */
+        get: {
+            parameters: {
+                query: {
+                    a: string;
+                    b: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            a: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                /** @enum {string} */
+                                status: "draft" | "final" | "archived";
+                                statusName: string;
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                finalizedAt: string | null;
+                                version: number;
+                            };
+                            b: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                /** @enum {string} */
+                                status: "draft" | "final" | "archived";
+                                statusName: string;
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                finalizedAt: string | null;
+                                version: number;
+                            };
+                            domains: {
+                                no: number;
+                                name: string;
+                                a: number | null;
+                                b: number;
+                                aAvg: number | null;
+                                bAvg: number | null;
+                            }[];
+                            sections: {
+                                code: string;
+                                name: string;
+                                a: number | null;
+                                b: number | null;
+                            }[];
+                            delta: {
+                                total: number;
+                                domains: {
+                                    no: number;
+                                    sum: number | null;
+                                    avg: number | null;
+                                }[];
+                                sections: {
+                                    code: string;
+                                    from: number | null;
+                                    to: number | null;
+                                    delta: number | null;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Оценка: снимок методики, профиль, ответы, итог, сравнение с предыдущей */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Шапка и профиль (только черновик) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        title?: string;
+                        assessedOn?: string;
+                        profile?: {
+                            organization?: string;
+                            respondent?: string;
+                            position?: string;
+                            industries?: string[];
+                            employees?: number | null;
+                            kbExperience?: string;
+                            kbStaff?: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/answers/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ответ раздела (только черновик); в ответе — пересчитанный итог */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    code: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        level?: number | null;
+                        targetLevel?: number | null;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            answer: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            } | null;
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            version: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/answers/{code}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История раздела из журнала (без права «История в карточках») */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    code: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                action: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Журнал действий по оценке */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                at: string;
+                                actor: string;
+                                action: string;
+                                summary: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Зафиксировать: только при 24 из 24, итог замораживается */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** В архив (удаления нет) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вернуть в черновик (комментарий необязателен) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
                             } | null;
                         };
                     };

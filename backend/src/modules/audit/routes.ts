@@ -1,4 +1,6 @@
 // Раздел «Журнал» (ADR-0021): только чтение audit_log по праву audit.view; без права — 403.
+import type { FastifyRequest } from 'fastify';
+import { ASSESSMENT_PERMISSION } from '../../lib/permissions.js';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
@@ -44,6 +46,9 @@ export const AuditEntry = z.object({
 
 const Option = z.object({ code: z.string(), label: z.string() });
 
+/** Записи самооценки — только держателям assessment.manage (ADR-0026): фильтр в запросе, а не в интерфейсе. */
+const hideAssessment = (request: FastifyRequest) => !request.user?.permissions.has(ASSESSMENT_PERMISSION);
+
 export const auditRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get('/audit', {
     preHandler: view,
@@ -52,7 +57,7 @@ export const auditRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
       querystring: PageQuery.merge(Filter),
       response: { 200: pageSchema(AuditEntry), ...errors },
     },
-  }, async (request) => svc.listAudit(db, request.query));
+  }, async (request) => svc.listAudit(db, { ...request.query, hideAssessment: hideAssessment(request) }));
 
   app.get('/audit/facets', {
     preHandler: view,
@@ -67,13 +72,13 @@ export const auditRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
         ...errors,
       },
     },
-  }, async () => svc.auditFacets(db));
+  }, async (request) => svc.auditFacets(db, { hideAssessment: hideAssessment(request) }));
 
   app.get('/audit/export', {
     preHandler: view,
     schema: { tags, summary: `Выгрузка журнала в Excel по фильтру (до ${svc.EXPORT_LIMIT} строк)`, querystring: Filter },
   }, async (request, reply) => {
-    const { fileName, buffer } = await svc.exportAudit(db, actorOf(request), request.query);
+    const { fileName, buffer } = await svc.exportAudit(db, actorOf(request), { ...request.query, hideAssessment: hideAssessment(request) });
     return reply
       .header('Content-Type', XLSX_TYPE)
       .header('Content-Disposition', `attachment; filename="audit.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}`)

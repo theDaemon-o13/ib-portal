@@ -27,6 +27,8 @@ export const ENTITY_LABELS: Record<string, string> = {
   monitor_slide: 'Экран мониторинга',
   audit: 'Журнал',
   notification: 'Уведомления',
+  assessment: 'Самооценка',
+  assessment_methodology: 'Самооценка',
 };
 
 /** Разделы настроек: прежняя вкладка «Настройки → Журнал изменений» — пункт фильтра «Настройки — всё». */
@@ -34,6 +36,13 @@ export const SETTINGS_ENTITIES = ['user', 'role', 'catalog_item', 'calendar_day'
 
 /** Действия, у которых подпись не выводится из кода по общему правилу. */
 const ACTION_LABELS: Record<string, string> = {
+  'assessment.created': 'Самооценка создана',
+  'assessment.updated': 'Самооценка: шапка и профиль',
+  'assessment.answer_updated': 'Самооценка: ответ раздела',
+  'assessment.finalized': 'Самооценка зафиксирована',
+  'assessment.reopened': 'Самооценка возвращена в черновик',
+  'assessment.archived': 'Самооценка в архиве',
+  'assessment.methodology_loaded': 'Самооценка: загружена методика',
   'auth.login': 'Вход',
   'auth.logout': 'Выход',
   'auth.login_failed': 'Неудачный вход',

@@ -70,6 +70,10 @@ model User {
   addedDocTranslations DocumentTranslation[] @relation("DocumentTranslationAdder")
   removedDocTranslations DocumentTranslation[] @relation("DocumentTranslationRemover")
   openedDocBlockers    DocumentBlocker[]    @relation("DocumentBlockerOpener")
+  createdAssessments   Assessment[]         @relation("AssessmentCreator")
+  finalizedAssessments Assessment[]         @relation("AssessmentFinalizer")
+  assessmentAnswers    AssessmentAnswer[]
+  assessmentLinks      AssessmentLink[]
   resolvedDocBlockers  DocumentBlocker[]    @relation("DocumentBlockerResolver")
   deletedFiles         File[]               @relation("FileDeleter")
   ownedEvidence        Evidence[]           @relation("EvidenceOwner")
@@ -1353,4 +1357,91 @@ model Notification {
   @@index([userId, createdAt(sort: Desc)])
   @@index([createdAt])
   @@map("notifications")
+}
+
+/// Методика самооценки (этап Д, ADR-0025): домены, разделы, критерии, шкала, уровни, правила. Одна активная на код.
+model AssessmentMethodology {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String
+  name       String
+  version    Int
+  content    Json
+  isActive   Boolean   @default(false) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  assessments Assessment[]
+
+  @@unique([code, version])
+  @@map("assessment_methodologies")
+}
+
+/// Оценка (этап Д): снимок методики, профиль, статус draft → final → archived. Итог черновика считается при чтении
+/// (lib/assessment-score.ts), при фиксации замораживается в result. Удаления нет — только архив (ADR-0026).
+model Assessment {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  methodologyId       String    @map("methodology_id") @db.Uuid
+  methodologySnapshot Json      @map("methodology_snapshot")
+  title               String
+  assessedOn          DateTime  @map("assessed_on") @db.Date
+  /// draft | final | archived
+  status              String    @default("draft")
+  profile             Json      @default("{}")
+  previousId          String?   @map("previous_id") @db.Uuid
+  result              Json?
+  finalizedBy         String?   @map("finalized_by") @db.Uuid
+  finalizedAt         DateTime? @map("finalized_at") @db.Timestamptz(3)
+  reopenComment       String    @default("") @map("reopen_comment")
+  createdBy           String    @map("created_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version             Int       @default(1)
+  archivedAt          DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  methodology AssessmentMethodology @relation(fields: [methodologyId], references: [id], onDelete: Restrict)
+  previous    Assessment?           @relation("AssessmentPrevious", fields: [previousId], references: [id], onDelete: Restrict)
+  next        Assessment[]          @relation("AssessmentPrevious")
+  creator     User                  @relation("AssessmentCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  finalizer   User?                 @relation("AssessmentFinalizer", fields: [finalizedBy], references: [id], onDelete: Restrict)
+  answers     AssessmentAnswer[]
+
+  @@map("assessments")
+}
+
+/// Ответ раздела: 24 строки на оценку, создаются сразу; «не отвечено» — level IS NULL. Меняется только в черновике (триггер).
+model AssessmentAnswer {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId String   @map("assessment_id") @db.Uuid
+  sectionCode  String   @map("section_code")
+  level        Int?     @db.SmallInt
+  targetLevel  Int?     @map("target_level") @db.SmallInt
+  comment      String   @default("")
+  updatedBy    String?  @map("updated_by") @db.Uuid
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  version      Int      @default(1)
+
+  assessment Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  updater    User?            @relation(fields: [updatedBy], references: [id], onDelete: Restrict)
+  links      AssessmentLink[]
+
+  @@unique([assessmentId, sectionCode])
+  @@map("assessment_answers")
+}
+
+/// Связь раздела с сущностью портала (задача; доказательство и документ — этап 2). Видна только внутри раздела.
+model AssessmentLink {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  answerId   String   @map("answer_id") @db.Uuid
+  /// task | evidence | document
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  answer  AssessmentAnswer @relation(fields: [answerId], references: [id], onDelete: Restrict)
+  creator User             @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@unique([answerId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@map("assessment_links")
 }

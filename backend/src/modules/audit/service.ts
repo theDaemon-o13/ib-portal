@@ -21,7 +21,16 @@ export interface AuditFilter {
   /** Адрес или его начало: «10.0.5.» */
   ip?: string;
   q?: string;
+  /**
+   * Скрыть записи самооценки (сущности assessment*): их видят только держатели assessment.manage (ADR-0026).
+   * Ставит маршрут по правам того, кто смотрит, — не пользователь.
+   */
+  hideAssessment?: boolean;
 }
+
+/** Сущности самооценки в журнале: assessment, assessment_methodology… */
+export const ASSESSMENT_ENTITY_PREFIX = 'assessment';
+const assessmentHidden = Prisma.sql`(a.entity IS NULL OR a.entity NOT LIKE ${`${ASSESSMENT_ENTITY_PREFIX}%`})`;
 
 /** Больше — выгрузка не делается: пользователь сужает период (решение владельца, без молчаливой обрезки). */
 export const EXPORT_LIMIT = 100_000;
@@ -32,6 +41,7 @@ const like = (s: string) => `%${s.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 function whereSql(f: AuditFilter): Prisma.Sql {
   const parts: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  if (f.hideAssessment) parts.push(assessmentHidden);
   if (f.from) parts.push(Prisma.sql`a.at >= ${new Date(f.from)}`);
   if (f.to) parts.push(Prisma.sql`a.at < ${new Date(f.to)}`);
   if (f.userId === 'system') parts.push(Prisma.sql`a.user_id IS NULL`);
@@ -187,14 +197,15 @@ export async function listAudit(db: Db, f: AuditFilter & { limit: number; cursor
 }
 
 /** Для фильтров: виды действий, которые есть в журнале, и разделы — с русскими названиями. */
-export async function auditFacets(db: Db) {
+export async function auditFacets(db: Db, opts: { hideAssessment?: boolean } = {}) {
+  const hide = opts.hideAssessment ? Prisma.sql`AND ${assessmentHidden}` : Prisma.empty;
   const [actions, entities, users] = await Promise.all([
-    db.$queryRaw<{ action: string }[]>`SELECT DISTINCT action FROM audit_log`,
-    db.$queryRaw<{ entity: string }[]>`SELECT DISTINCT entity FROM audit_log WHERE entity IS NOT NULL`,
+    db.$queryRaw<{ action: string }[]>`SELECT DISTINCT action FROM audit_log a WHERE TRUE ${hide}`,
+    db.$queryRaw<{ entity: string }[]>`SELECT DISTINCT entity FROM audit_log a WHERE entity IS NOT NULL ${hide}`,
     // Пользователи, у которых есть записи (в том числе отключённые): список не зависит от права ib.work.
     db.$queryRaw<{ id: string; login: string; full_name: string; is_active: boolean }[]>`
       SELECT u.id::text, u.login, u.full_name, u.is_active FROM users u
-      WHERE EXISTS (SELECT 1 FROM audit_log a WHERE a.user_id = u.id) ORDER BY u.full_name, u.login`,
+      WHERE EXISTS (SELECT 1 FROM audit_log a WHERE a.user_id = u.id ${hide}) ORDER BY u.full_name, u.login`,
   ]);
   // Разделы с одинаковым названием (например, календарь: дни и рабочая неделя) — один пункт фильтра.
   const sections = new Map<string, string[]>();

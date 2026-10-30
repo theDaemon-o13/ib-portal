@@ -2,7 +2,7 @@
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import {
-  APPROVAL_PERMISSIONS, KIOSK_PERMISSION, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
+  APPROVAL_PERMISSIONS, ASSESSMENT_PERMISSION, ASSESSMENT_ROLE, KIOSK_PERMISSION, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
 } from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { assertKioskExclusive, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
@@ -30,9 +30,12 @@ function toDto(r: {
     version: r.version,
     permissions: r.permissions.map((p) => p.permissionCode).filter(isPermissionCode),
     /** Права, которые у этой роли снять нельзя. */
-    lockedPermissions: r.code === 'super_admin' ? [...SUPER_ADMIN_LOCKED] : [],
-    /** Права, которые этой роли выдать нельзя (разделение полномочий). */
-    forbiddenPermissions: r.code === 'super_admin' ? [...APPROVAL_PERMISSIONS] : [],
+    lockedPermissions: r.code === 'super_admin' ? [...SUPER_ADMIN_LOCKED] : r.code === ASSESSMENT_ROLE ? [ASSESSMENT_PERMISSION] : [],
+    /** Права, которые этой роли выдать нельзя: согласование — супер-администратору; самооценка — никому, кроме своей роли. */
+    forbiddenPermissions: [
+      ...(r.code === 'super_admin' ? APPROVAL_PERMISSIONS : []),
+      ...(r.code === ASSESSMENT_ROLE ? [] : [ASSESSMENT_PERMISSION]),
+    ],
     activeUserCount: r.users.filter((u) => u.user.isActive).length,
     userCount: r.users.length,
   };
@@ -138,6 +141,13 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     if (has === granted) return toDto(r);
     if (r.code === 'super_admin' && !granted && SUPER_ADMIN_LOCKED.includes(perm)) {
       throw conflict('LOCKED_PERMISSION', 'У роли «Супер-администратор» это право не снимается');
+    }
+    // Самооценка — личный раздел (ADR-0026): право только у системной роли «Самооценка» и с неё не снимается.
+    if (perm === ASSESSMENT_PERMISSION && granted && r.code !== ASSESSMENT_ROLE) {
+      throw conflict('ASSESSMENT_EXCLUSIVE', 'Право «Самооценка» есть только у системной роли «Самооценка»: назначьте эту роль пользователю');
+    }
+    if (perm === ASSESSMENT_PERMISSION && !granted && r.code === ASSESSMENT_ROLE) {
+      throw conflict('LOCKED_PERMISSION', 'У роли «Самооценка» это право не снимается');
     }
     if (r.code === 'super_admin' && granted && APPROVAL_PERMISSIONS.includes(perm)) {
       throw conflict(
