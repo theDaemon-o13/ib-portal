@@ -22472,6 +22472,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -22577,7 +22578,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Новый документ: версия 1, черновик на этапе «Автор» */
+        /** Новый документ: версия 1 на этапе «Драфт» */
         post: {
             parameters: {
                 query?: never;
@@ -22624,6 +22625,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -22646,6 +22648,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -22666,6 +22670,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -22686,6 +22692,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -22704,13 +22712,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -22720,6 +22732,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -22727,6 +22762,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -22741,12 +22778,15 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -23010,6 +23050,7 @@ export interface paths {
                             };
                             approvedVersionNo: number | null;
                             approvedAt: string | null;
+                            signedOn: string | null;
                             reviewMonths: number;
                             reviewDue: string | null;
                             /** @enum {string} */
@@ -23032,6 +23073,8 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                signedOn: string | null;
+                                cancelledAt: string | null;
                                 pdf: {
                                     id: string;
                                     name: string;
@@ -23052,6 +23095,8 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                signedOn: string | null;
+                                cancelledAt: string | null;
                                 pdf: {
                                     id: string;
                                     name: string;
@@ -23072,6 +23117,8 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                signedOn: string | null;
+                                cancelledAt: string | null;
                                 pdf: {
                                     id: string;
                                     name: string;
@@ -23090,13 +23137,17 @@ export interface paths {
                                 actedBy: string | null;
                                 actedAt: string | null;
                                 skipped: string | null;
+                                selfApproved: boolean;
                             }[];
                             can: {
                                 edit: boolean;
-                                submit: boolean;
-                                approve: boolean;
+                                actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                sign: boolean;
+                                draftFiles: boolean;
+                                comment: boolean;
                                 revise: boolean;
-                                attachPdf: boolean;
+                                cancelRevision: boolean;
+                                delete: boolean;
                                 manage: boolean;
                             };
                             blockedReason: string | null;
@@ -23106,6 +23157,29 @@ export interface paths {
                                 stageName: string;
                                 comment: string;
                             } | null;
+                            files: {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "draft" | "head_approved" | "final";
+                                kindName: string;
+                                round: number;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                    mime: string;
+                                };
+                                addedBy: string;
+                                addedAt: string;
+                                removable: boolean;
+                            }[];
+                            comments: {
+                                id: string;
+                                author: string;
+                                body: string;
+                                at: string;
+                            }[];
                             versions: {
                                 no: number;
                                 edition: string;
@@ -23113,6 +23187,8 @@ export interface paths {
                                 onlyofficeUrl: string;
                                 approvedAt: string | null;
                                 changeNote: string;
+                                signedOn: string | null;
+                                cancelledAt: string | null;
                                 pdf: {
                                     id: string;
                                     name: string;
@@ -23127,12 +23203,15 @@ export interface paths {
                                 actor: string;
                                 stage: number;
                                 stageName: string;
+                                toStage: number | null;
+                                toStageName: string | null;
                                 /** @enum {string} */
-                                decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                 comment: string;
                                 versionNo: number;
                                 round: number;
                                 pdfSha256: string | null;
+                                selfApproved: boolean;
                             }[];
                         };
                     };
@@ -23279,6 +23358,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -23301,6 +23381,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23321,6 +23403,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23341,6 +23425,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23359,13 +23445,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -23375,6 +23465,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -23382,6 +23495,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23396,12 +23511,15 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -23496,7 +23614,7 @@ export interface paths {
         };
         trace?: never;
     };
-    "/api/v1/documents/{id}/submit": {
+    "/api/v1/documents/{id}/actions/{action}": {
         parameters: {
             query?: never;
             header?: never;
@@ -23505,13 +23623,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап «Автор»: отправить на согласование (владелец или docs.manage). Без итогового PDF — 400 PDF_REQUIRED */
+        /** Действие маршрута (ADR-0024): to_review 11→12, to_head 12→13, approve 13→14 (файл), ack_final 14→15 (файл), to_signing 15→16, return 13/14/15→11 (комментарий). 403 — не ваша роль; 409 — документ уже на другом этапе */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
                     id: string;
+                    action: "to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return";
                 };
                 cookie?: never;
             };
@@ -23522,7 +23641,7 @@ export interface paths {
                         stage: number;
                         comment?: string;
                         /** Format: uuid */
-                        pdfFileId?: string;
+                        fileId?: string;
                     };
                 };
             };
@@ -23550,6 +23669,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -23572,6 +23692,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23592,6 +23714,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23612,6 +23736,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23630,13 +23756,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -23646,6 +23776,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -23653,6 +23806,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -23667,12 +23822,15 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -23771,7 +23929,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/documents/{id}/approve": {
+    "/api/v1/documents/{id}/sign": {
         parameters: {
             query?: never;
             header?: never;
@@ -23780,557 +23938,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Согласовать текущий этап (право этапа; не супер-администратор; не второй этап той же версии) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        version: number;
-                        stage: number;
-                        comment?: string;
-                        /** Format: uuid */
-                        pdfFileId?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            document: {
-                                id: string;
-                                number: number;
-                                title: string;
-                                edition: string;
-                                versionNo: number;
-                                type: {
-                                    id: string;
-                                    value: string;
-                                };
-                                owner: {
-                                    id: string;
-                                    fullName: string;
-                                };
-                                approvedVersionNo: number | null;
-                                approvedAt: string | null;
-                                reviewMonths: number;
-                                reviewDue: string | null;
-                                /** @enum {string} */
-                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
-                                statusName: string;
-                                stage: number | null;
-                                stageName: string | null;
-                                waitingForMe: boolean;
-                                archived: boolean;
-                                version: number;
-                                current: {
-                                    id: string;
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    changeNote: string;
-                                    stage: number;
-                                    stageName: string;
-                                    round: number;
-                                    approvedAt: string | null;
-                                    createdAt: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                };
-                                working: {
-                                    id: string;
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    changeNote: string;
-                                    stage: number;
-                                    stageName: string;
-                                    round: number;
-                                    approvedAt: string | null;
-                                    createdAt: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                } | null;
-                                approved: {
-                                    id: string;
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    changeNote: string;
-                                    stage: number;
-                                    stageName: string;
-                                    round: number;
-                                    approvedAt: string | null;
-                                    createdAt: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                } | null;
-                                route: {
-                                    stage: number;
-                                    name: string;
-                                    /** @enum {string} */
-                                    state: "done" | "current" | "todo";
-                                    approvers: string[];
-                                    hint: string;
-                                    actedBy: string | null;
-                                    actedAt: string | null;
-                                    skipped: string | null;
-                                }[];
-                                can: {
-                                    edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
-                                    revise: boolean;
-                                    attachPdf: boolean;
-                                    manage: boolean;
-                                };
-                                blockedReason: string | null;
-                                returned: {
-                                    at: string;
-                                    actor: string;
-                                    stageName: string;
-                                    comment: string;
-                                } | null;
-                                versions: {
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    approvedAt: string | null;
-                                    changeNote: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                }[];
-                                history: {
-                                    id: string;
-                                    at: string;
-                                    actor: string;
-                                    stage: number;
-                                    stageName: string;
-                                    /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
-                                    comment: string;
-                                    versionNo: number;
-                                    round: number;
-                                    pdfSha256: string | null;
-                                }[];
-                            } | null;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/documents/{id}/return": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Вернуть на доработку с комментарием: маршрут заново, владельцу — задача */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        version: number;
-                        stage: number;
-                        comment?: string;
-                        /** Format: uuid */
-                        pdfFileId?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            document: {
-                                id: string;
-                                number: number;
-                                title: string;
-                                edition: string;
-                                versionNo: number;
-                                type: {
-                                    id: string;
-                                    value: string;
-                                };
-                                owner: {
-                                    id: string;
-                                    fullName: string;
-                                };
-                                approvedVersionNo: number | null;
-                                approvedAt: string | null;
-                                reviewMonths: number;
-                                reviewDue: string | null;
-                                /** @enum {string} */
-                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
-                                statusName: string;
-                                stage: number | null;
-                                stageName: string | null;
-                                waitingForMe: boolean;
-                                archived: boolean;
-                                version: number;
-                                current: {
-                                    id: string;
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    changeNote: string;
-                                    stage: number;
-                                    stageName: string;
-                                    round: number;
-                                    approvedAt: string | null;
-                                    createdAt: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                };
-                                working: {
-                                    id: string;
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    changeNote: string;
-                                    stage: number;
-                                    stageName: string;
-                                    round: number;
-                                    approvedAt: string | null;
-                                    createdAt: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                } | null;
-                                approved: {
-                                    id: string;
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    changeNote: string;
-                                    stage: number;
-                                    stageName: string;
-                                    round: number;
-                                    approvedAt: string | null;
-                                    createdAt: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                } | null;
-                                route: {
-                                    stage: number;
-                                    name: string;
-                                    /** @enum {string} */
-                                    state: "done" | "current" | "todo";
-                                    approvers: string[];
-                                    hint: string;
-                                    actedBy: string | null;
-                                    actedAt: string | null;
-                                    skipped: string | null;
-                                }[];
-                                can: {
-                                    edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
-                                    revise: boolean;
-                                    attachPdf: boolean;
-                                    manage: boolean;
-                                };
-                                blockedReason: string | null;
-                                returned: {
-                                    at: string;
-                                    actor: string;
-                                    stageName: string;
-                                    comment: string;
-                                } | null;
-                                versions: {
-                                    no: number;
-                                    edition: string;
-                                    title: string;
-                                    onlyofficeUrl: string;
-                                    approvedAt: string | null;
-                                    changeNote: string;
-                                    pdf: {
-                                        id: string;
-                                        name: string;
-                                        sha256: string;
-                                        size: number;
-                                    } | null;
-                                    textFrozen: boolean;
-                                }[];
-                                history: {
-                                    id: string;
-                                    at: string;
-                                    actor: string;
-                                    stage: number;
-                                    stageName: string;
-                                    /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
-                                    comment: string;
-                                    versionNo: number;
-                                    round: number;
-                                    pdfSha256: string | null;
-                                }[];
-                            } | null;
-                        };
-                    };
-                };
-                /** @description Default Response */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-                /** @description Default Response */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            error: {
-                                code: string;
-                                message: string;
-                                details?: {
-                                    [key: string]: unknown;
-                                };
-                            };
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/documents/{id}/pdf": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Приложить или заменить итоговый PDF рабочей версии (владелец или docs.manage). Замена на этапах 1–3 возвращает маршрут к началу */
+        /** Этап 16: подписанный PDF и дата подписания (автор или docs.approve.head). Пересмотр — от даты подписания */
         post: {
             parameters: {
                 query?: never;
@@ -24347,6 +23955,7 @@ export interface paths {
                         stage: number;
                         /** Format: uuid */
                         fileId: string;
+                        signedOn: string;
                     };
                 };
             };
@@ -24374,6 +23983,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -24396,6 +24006,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24416,6 +24028,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24436,6 +24050,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24454,13 +24070,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -24470,6 +24090,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -24477,6 +24120,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24491,12 +24136,1571 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/cancel-revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отменить пересмотр (автор или docs.approve.head, с комментарием): версия — в историю, действующей остаётся подписанная */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        comment: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Файлы драфта (pdf, docx): автор на этапе 11 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        fileIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/files/{linkId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Снять файл драфта (автор на этапе 11); файл без других ссылок помечается удалённым */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    linkId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Комментарий сотрудника ИБ на этапе 12 «Проверка сотрудниками» */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Мягкое удаление документа без подписанной версии (docs.delete); подписанный — только в архив (409) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    approvers: string[];
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -24604,7 +25808,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Новая версия утверждённого документа (правка или пересмотр без изменений): владелец или docs.manage */
+        /** Новая версия подписанного документа (правка или пересмотр без изменений): владелец или docs.manage */
         post: {
             parameters: {
                 query?: never;
@@ -24649,6 +25853,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -24671,6 +25876,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24691,6 +25898,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24711,6 +25920,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24729,13 +25940,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -24745,6 +25960,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -24752,6 +25990,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24766,12 +26006,15 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -24920,6 +26163,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -24942,6 +26186,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24962,6 +26208,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -24982,6 +26230,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -25000,13 +26250,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -25016,6 +26270,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -25023,6 +26300,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -25037,12 +26316,15 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -25191,6 +26473,7 @@ export interface paths {
                                 };
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
+                                signedOn: string | null;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -25213,6 +26496,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -25233,6 +26518,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -25253,6 +26540,8 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -25271,13 +26560,17 @@ export interface paths {
                                     actedBy: string | null;
                                     actedAt: string | null;
                                     skipped: string | null;
+                                    selfApproved: boolean;
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    submit: boolean;
-                                    approve: boolean;
+                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    sign: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
                                     revise: boolean;
-                                    attachPdf: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
                                     manage: boolean;
                                 };
                                 blockedReason: string | null;
@@ -25287,6 +26580,29 @@ export interface paths {
                                     stageName: string;
                                     comment: string;
                                 } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
                                 versions: {
                                     no: number;
                                     edition: string;
@@ -25294,6 +26610,8 @@ export interface paths {
                                     onlyofficeUrl: string;
                                     approvedAt: string | null;
                                     changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
                                     pdf: {
                                         id: string;
                                         name: string;
@@ -25308,12 +26626,15 @@ export interface paths {
                                     actor: string;
                                     stage: number;
                                     stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
                                     /** @enum {string} */
-                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped";
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
                                     comment: string;
                                     versionNo: number;
                                     round: number;
                                     pdfSha256: string | null;
+                                    selfApproved: boolean;
                                 }[];
                             } | null;
                         };
@@ -25603,7 +26924,7 @@ export interface paths {
                             deleted: boolean;
                             refs: {
                                 /** @enum {string} */
-                                kind: "evidence" | "decision" | "document_pdf" | "record" | "compare";
+                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare";
                                 id: string;
                                 label: string;
                             }[];

@@ -7,6 +7,7 @@ import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/per
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
+import { seedDocumentRoute } from './documents.js';
 import { seedMonitorSlides } from './monitor.js';
 import { seedPermissionGrants } from './rbac.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
@@ -63,6 +64,7 @@ async function main() {
 
     await seedSystemItems(tx);
     await seedTaskProcess(tx);
+    await seedDocumentRoute(tx);
 
     // Рабочая неделя по умолчанию — пятидневка.
     await tx.appSetting.upsert({

@@ -16,16 +16,19 @@ const STATUS_FILTERS: { key: DocStatus; title: string }[] = [
   { key: 'review_overdue', title: 'Пересмотр просрочен' },
 ];
 
+/** Этапы маршрута 1.2.0 (ADR-0024): 11 «Драфт» … 16 «Подписание». */
+const ROUTE_STAGES = [11, 12, 13, 14, 15, 16];
+
 /** Точки маршрута в строке реестра: пройденные этапы — зелёные, текущий — синий. */
 function RouteDots({ d }: { d: DocItem }) {
   if (d.stage === null) return null;
   const stage = d.stage;
   return (
-    <span className="route" aria-label={`Этап ${stage + 1} из 4`}>
-      {[0, 1, 2, 3].map((i) => (
-        <span key={i} className="route-i">
-          {i > 0 && <span className={`link${i <= stage ? ' done' : ''}`} />}
-          <span className={`step${i < stage ? ' done' : i === stage ? ' cur' : ''}`} />
+    <span className="route" aria-label={`Этап ${ROUTE_STAGES.indexOf(stage) + 1} из ${ROUTE_STAGES.length}: ${d.stageName ?? ''}`}>
+      {ROUTE_STAGES.map((s, i) => (
+        <span key={s} className="route-i">
+          {i > 0 && <span className={`link${s <= stage ? ' done' : ''}`} />}
+          <span className={`step${s < stage ? ' done' : s === stage ? ' cur' : ''}`} />
         </span>
       ))}
     </span>
@@ -70,8 +73,8 @@ export function DocumentsPage() {
           <h1>Внутренние документы ИБ</h1>
           <p>
             {ibWork
-              ? 'Реестр нормативных документов отдела. Файлы остаются в OnlyOffice, здесь ведутся маршрут согласования и контроль сроков пересмотра. Каждый этап согласует пользователь с правом этого этапа.'
-              : 'Документы, которые ждут вашего согласования, и утверждённые документы отдела ИБ. Файлы открываются в OnlyOffice.'}
+              ? 'Реестр нормативных документов отдела. Файлы остаются в OnlyOffice, здесь ведутся маршрут и контроль сроков пересмотра: драфт → проверка сотрудниками → начальник ИБ → ответственные лица → перевод → подписание.'
+              : 'Подписанные документы отдела ИБ и документы, которые ждут вашего действия. Файлы открываются в OnlyOffice.'}
           </p>
         </div>
         {canManage && (

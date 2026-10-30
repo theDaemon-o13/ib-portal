@@ -5,7 +5,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requireAuth, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
-import { DOC_STATUSES } from './status.js';
+import { DOC_ACTIONS, DOC_STATUSES } from './status.js';
 
 const tags = ['documents'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
@@ -26,6 +26,8 @@ const DocItem = z.object({
   owner: Person,
   approvedVersionNo: z.number().int().nullable(),
   approvedAt: z.string().nullable(),
+  /** Дата подписания действующей версии (маршрут 1.2.0); null — утверждена до 1.2.0 или не подписана. */
+  signedOn: z.string().nullable(),
   reviewMonths: z.number().int(),
   reviewDue: z.string().nullable(),
   status: Status,
@@ -41,6 +43,9 @@ const Pdf = z.object({ id: z.string(), name: z.string(), sha256: z.string(), siz
 const Version_ = z.object({
   id: z.string(), no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), changeNote: z.string(),
   stage: z.number().int(), stageName: z.string(), round: z.number().int(), approvedAt: z.string().nullable(), createdAt: z.string(),
+  signedOn: z.string().nullable(),
+  /** Пересмотр отменён: версия в истории, действующей осталась подписанная. */
+  cancelledAt: z.string().nullable(),
   pdf: Pdf.nullable(),
   /** false у утверждённой версии без PDF (утверждена до этапа 7): «текст не зафиксирован». */
   textFrozen: z.boolean(),
@@ -52,22 +57,45 @@ const DocDetail = DocItem.extend({
   route: z.array(z.object({
     stage: z.number().int(), name: z.string(), state: z.enum(['done', 'current', 'todo']),
     approvers: z.array(z.string()), hint: z.string(), actedBy: z.string().nullable(), actedAt: z.string().nullable(),
-    /** Этап не требуется (согласовать мог только владелец): причина. */
+    /** Этап не требуется (старый маршрут: согласовать мог только владелец): причина. */
     skipped: z.string().nullable(),
+    /** Этап 13 согласовал сам автор — начальник ИБ, без независимого согласования. */
+    selfApproved: z.boolean(),
   })),
-  can: z.object({ edit: z.boolean(), submit: z.boolean(), approve: z.boolean(), revise: z.boolean(), attachPdf: z.boolean(), manage: z.boolean() }),
+  can: z.object({
+    edit: z.boolean(),
+    actions: z.array(z.enum(DOC_ACTIONS)),
+    sign: z.boolean(),
+    draftFiles: z.boolean(),
+    comment: z.boolean(),
+    revise: z.boolean(),
+    cancelRevision: z.boolean(),
+    delete: z.boolean(),
+    manage: z.boolean(),
+  }),
   blockedReason: z.string().nullable(),
   /** Показанную версию вернули на доработку, и с тех пор её не отправляли: кто, когда, с какого этапа, замечание. Видят все, кто видит документ. */
   returned: z.object({ at: z.string(), actor: z.string(), stageName: z.string(), comment: z.string() }).nullable(),
+  /** Файлы показанной версии: драфт, одобренная начальником ИБ, финальная. */
+  files: z.array(z.object({
+    id: z.string(), kind: z.enum(['draft', 'head_approved', 'final']), kindName: z.string(), round: z.number().int(),
+    file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }),
+    addedBy: z.string(), addedAt: z.string(), removable: z.boolean(),
+  })),
+  /** Комментарии сотрудников ИБ к показанной версии (этап 12). */
+  comments: z.array(z.object({ id: z.string(), author: z.string(), body: z.string(), at: z.string() })),
   versions: z.array(z.object({
     no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), approvedAt: z.string().nullable(), changeNote: z.string(),
+    signedOn: z.string().nullable(), cancelledAt: z.string().nullable(),
     pdf: Pdf.nullable(), textFrozen: z.boolean(),
   })),
   history: z.array(z.object({
     id: z.string(), at: z.string(), actor: z.string(), stage: z.number().int(), stageName: z.string(),
-    decision: z.enum(['submitted', 'approved', 'returned', 'revision_started', 'skipped']), comment: z.string(), versionNo: z.number().int(), round: z.number().int(),
-    /** sha256 PDF, который был у версии в момент решения; null — решение до этапа 7. */
+    toStage: z.number().int().nullable(), toStageName: z.string().nullable(),
+    decision: z.enum(svc.HISTORY_DECISIONS), comment: z.string(), versionNo: z.number().int(), round: z.number().int(),
+    /** sha256 файла решения: PDF (до 1.2.0), файл версии (13 → 14, 14 → 15), подписанный PDF (16). */
     pdfSha256: z.string().nullable(),
+    selfApproved: z.boolean(),
   })),
 });
 type DetailOut = z.infer<typeof DocDetail>;
@@ -75,7 +103,7 @@ type DetailOut = z.infer<typeof DocDetail>;
 const Result = z.object({ document: DocDetail.nullable() });
 
 // Раздел «Документы» открыт всем вошедшим (и без ib.work). Кто что видит и может — решает сервис:
-// этапы маршрута — по правам docs.approve.*, автор — владелец или docs.manage (CLAUDE.md, правило 8).
+// автор — владелец или docs.manage, старший над автором, начальник ИБ — docs.approve.head (CLAUDE.md, правило 8).
 const anyUser = requireAuth();
 
 export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: string }> = async (app, { db, docUrlPrefix = '' }) => {
@@ -124,7 +152,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents', {
     preHandler: requirePerm('docs.manage'),
     schema: {
-      tags, summary: 'Новый документ: версия 1, черновик на этапе «Автор»',
+      tags, summary: 'Новый документ: версия 1 на этапе «Драфт»',
       body: z.object({
         title: z.string().max(svc.TITLE_MAX),
         typeId: z.string().uuid(),
@@ -168,44 +196,109 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     return result(request, request.params.id);
   });
 
-  const RouteBody = Version.extend({
-    stage: z.number().int().min(0).max(3),
-    comment: z.string().max(svc.COMMENT_MAX).optional(),
-    /** submit: итоговый PDF (файл из POST /files), если он ещё не приложен. */
-    pdfFileId: z.string().uuid().optional(),
-  });
-  for (const [path, fn, summary] of [
-    ['submit', svc.submitDocument, 'Этап «Автор»: отправить на согласование (владелец или docs.manage). Без итогового PDF — 400 PDF_REQUIRED'],
-    ['approve', svc.approveDocument, 'Согласовать текущий этап (право этапа; не супер-администратор; не второй этап той же версии)'],
-    ['return', svc.returnDocument, 'Вернуть на доработку с комментарием: маршрут заново, владельцу — задача'],
-  ] as const) {
-    app.post(`/documents/:id/${path}`, {
-      preHandler: anyUser,
-      schema: { tags, summary, params: IdParams, body: RouteBody, response: { 200: Result, ...errors } },
-    }, async (request) => {
-      await fn(db, actorOf(request), request.params.id, request.body);
-      return result(request, request.params.id);
-    });
-  }
-
-  app.post('/documents/:id/pdf', {
+  const Stage = z.number().int().min(0).max(16);
+  app.post('/documents/:id/actions/:action', {
     preHandler: anyUser,
     schema: {
       tags,
-      summary: 'Приложить или заменить итоговый PDF рабочей версии (владелец или docs.manage). Замена на этапах 1–3 возвращает маршрут к началу',
-      params: IdParams,
-      body: Version.extend({ stage: z.number().int().min(0).max(3), fileId: z.string().uuid() }),
+      summary: 'Действие маршрута (ADR-0024): to_review 11→12, to_head 12→13, approve 13→14 (файл), ack_final 14→15 (файл), '
+        + 'to_signing 15→16, return 13/14/15→11 (комментарий). 403 — не ваша роль; 409 — документ уже на другом этапе',
+      params: IdParams.extend({ action: z.enum(DOC_ACTIONS) }),
+      body: Version.extend({
+        stage: Stage,
+        comment: z.string().max(svc.COMMENT_MAX).optional(),
+        /** approve и ack_final: файл версии (pdf или docx) из POST /files. */
+        fileId: z.string().uuid().optional(),
+      }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
-    await svc.attachPdf(db, actorOf(request), request.params.id, request.body);
+    await svc.moveDocument(db, actorOf(request), request.params.id, request.params.action, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/sign', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Этап 16: подписанный PDF и дата подписания (автор или docs.approve.head). Пересмотр — от даты подписания',
+      params: IdParams,
+      body: Version.extend({ stage: Stage, fileId: z.string().uuid(), signedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.signDocument(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/cancel-revision', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Отменить пересмотр (автор или docs.approve.head, с комментарием): версия — в историю, действующей остаётся подписанная',
+      params: IdParams,
+      body: Version.extend({ comment: z.string().max(svc.COMMENT_MAX) }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.cancelRevision(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/files', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Файлы драфта (pdf, docx): автор на этапе 11',
+      params: IdParams,
+      body: Version.extend({ stage: Stage, fileIds: z.array(z.string().uuid()).min(1).max(20) }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.addDraftFiles(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/files/:linkId/remove', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Снять файл драфта (автор на этапе 11); файл без других ссылок помечается удалённым',
+      params: IdParams.extend({ linkId: z.string().uuid() }),
+      body: Version.extend({ stage: Stage }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.removeDraftFile(db, actorOf(request), request.params.id, request.params.linkId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/comments', {
+    preHandler: requirePerm('ib.work'),
+    schema: {
+      tags, summary: 'Комментарий сотрудника ИБ на этапе 12 «Проверка сотрудниками»',
+      params: IdParams,
+      body: z.object({ body: z.string().max(svc.COMMENT_MAX) }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.addDocumentComment(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/delete', {
+    preHandler: requirePerm('docs.delete'),
+    schema: {
+      tags, summary: 'Мягкое удаление документа без подписанной версии (docs.delete); подписанный — только в архив (409)',
+      params: IdParams,
+      body: Version.extend({ comment: z.string().max(svc.COMMENT_MAX).optional() }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.deleteDocument(db, actorOf(request), request.params.id, request.body);
     return result(request, request.params.id);
   });
 
   app.post('/documents/:id/revise', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Новая версия утверждённого документа (правка или пересмотр без изменений): владелец или docs.manage',
+      tags, summary: 'Новая версия подписанного документа (правка или пересмотр без изменений): владелец или docs.manage',
       params: IdParams,
       body: Version.extend({
         title: z.string().max(svc.TITLE_MAX).optional(),

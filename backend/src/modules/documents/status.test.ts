@@ -1,22 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { addMonthsIso, checkDocUrlPrefix, docStatus, isDocUrl } from './status.js';
+import { addMonthsIso, allowedActions, checkDocUrlPrefix, docStatus, isDocUrl, ROUTE_FROM_LEGACY, stageName, type DocRole } from './status.js';
 
 describe('статус документа', () => {
   const today = '2026-10-27';
-  it('без утверждённой версии: черновик на этапе автора, дальше — на согласовании', () => {
-    expect(docStatus({ hasApproved: false, workingStage: 0, reviewDue: null }, today)).toBe('draft');
-    expect(docStatus({ hasApproved: false, workingStage: 1, reviewDue: null }, today)).toBe('in_approval');
-    expect(docStatus({ hasApproved: false, workingStage: 3, reviewDue: null }, today)).toBe('in_approval');
+  it('без утверждённой версии: черновик на этапе «Драфт», дальше — на согласовании', () => {
+    expect(docStatus({ hasApproved: false, workingStage: 11, reviewDue: null }, today)).toBe('draft');
+    expect(docStatus({ hasApproved: false, workingStage: 12, reviewDue: null }, today)).toBe('in_approval');
+    expect(docStatus({ hasApproved: false, workingStage: 16, reviewDue: null }, today)).toBe('in_approval');
   });
   it('утверждён; новая версия в работе — на пересмотре', () => {
     expect(docStatus({ hasApproved: true, workingStage: null, reviewDue: '2027-10-27' }, today)).toBe('approved');
-    expect(docStatus({ hasApproved: true, workingStage: 0, reviewDue: '2027-10-27' }, today)).toBe('in_review');
-    expect(docStatus({ hasApproved: true, workingStage: 2, reviewDue: '2027-10-27' }, today)).toBe('in_review');
+    expect(docStatus({ hasApproved: true, workingStage: 11, reviewDue: '2027-10-27' }, today)).toBe('in_review');
+    expect(docStatus({ hasApproved: true, workingStage: 14, reviewDue: '2027-10-27' }, today)).toBe('in_review');
   });
   it('просрочка пересмотра важнее «на пересмотре»; в день пересмотра ещё не просрочен', () => {
     expect(docStatus({ hasApproved: true, workingStage: null, reviewDue: '2026-10-26' }, today)).toBe('review_overdue');
-    expect(docStatus({ hasApproved: true, workingStage: 1, reviewDue: '2026-10-26' }, today)).toBe('review_overdue');
+    expect(docStatus({ hasApproved: true, workingStage: 13, reviewDue: '2026-10-26' }, today)).toBe('review_overdue');
     expect(docStatus({ hasApproved: true, workingStage: null, reviewDue: today }, today)).toBe('approved');
+  });
+});
+
+describe('маршрут 1.2.0 (ADR-0024)', () => {
+  const as = (...r: DocRole[]) => new Set(r);
+  it('кто что может на каждом этапе', () => {
+    expect(allowedActions(11, as('author'))).toEqual(['to_review']);
+    expect(allowedActions(11, as('senior', 'head'))).toEqual([]);
+    expect(allowedActions(12, as('author'))).toEqual(['to_head']);
+    expect(allowedActions(12, as('senior'))).toEqual(['to_head']);
+    expect(allowedActions(12, as('head'))).toEqual([]);
+    expect(allowedActions(13, as('author', 'senior'))).toEqual([]);
+    expect(allowedActions(13, as('head'))).toEqual(['approve', 'return']);
+    expect(allowedActions(14, as('head'))).toEqual(['ack_final', 'return']);
+    expect(allowedActions(15, as('senior'))).toEqual(['to_signing']);
+    expect(allowedActions(15, as('head'))).toEqual(['to_signing', 'return']);
+    expect(allowedActions(16, as('author', 'senior', 'head'))).toEqual([]);
+  });
+  it('перенос при обновлении: 0 → 11, 1 → 13, 2 и 3 → 14; старая история — со старыми подписями', () => {
+    expect(ROUTE_FROM_LEGACY).toEqual({ 0: 11, 1: 13, 2: 14, 3: 14 });
+    expect([0, 1, 2, 3].map(stageName)).toEqual(['Автор', 'Начальник ИБ', 'Юридический отдел', 'Утверждение правлением']);
+    expect([11, 13, 16].map(stageName)).toEqual(['Драфт', 'Согласование начальника ИБ', 'Подписание']);
   });
 });
 

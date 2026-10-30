@@ -116,7 +116,7 @@ describe('файлы по HTTP', () => {
       expect(await tx.auditLog.count({ where: { action: 'file.downloaded', entityId: id } })).toBeGreaterThan(0);
     }));
 
-  it('PDF документа: юрист видит PDF утверждённой версии, но не черновика', () =>
+  it('файлы документа: юрист видит файлы подписанной версии, но не драфта', () =>
     inTx(async (tx) => {
       const s = await setup(tx);
       const S = await s.login(s.staff.login);
@@ -124,14 +124,18 @@ describe('файлы по HTTP', () => {
       const admin = await makeUser(tx, ['super_admin']);
       const type = await tx.catalogItem.create({ data: { catalogCode: 'document_types', value: `Политика ${Date.now().toString(36)}` } });
       const docId = await docs.createDocument(tx, await actorFor(tx, admin.id), { title: 'Политика ИБ', typeId: type.id, ownerId: s.staff.id, onlyofficeUrl: 'https://office.local/1' });
-      const pdf = (await s.upload(S, 'Политика.pdf', tinyPdf())).json().id as string;
+      const draft = (await s.upload(S, 'Политика.pdf', tinyPdf())).json().id as string;
       const d = await tx.document.findUniqueOrThrow({ where: { id: docId } });
-      await docs.attachPdf(tx, await actorFor(tx, s.staff.id), docId, { version: d.version, stage: 0, fileId: pdf });
-      expect((await s.get(L, pdf)).statusCode).toBe(404);
+      await docs.addDraftFiles(tx, await actorFor(tx, s.staff.id), docId, { version: d.version, stage: 11, fileIds: [draft] });
+      expect((await s.get(L, draft)).statusCode).toBe(404);
+      const meta = await s.app.inject({ url: `/api/v1/files/${draft}`, headers: { cookie: S } });
+      expect(meta.json().refs[0]).toMatchObject({ kind: 'document_file', id: docId });
+      const signed = (await s.upload(S, 'Подписан.pdf', tinyPdf())).json().id as string;
       const vid = must(d.workingVersionId);
-      await tx.documentVersion.update({ where: { id: vid }, data: { stage: 3, approvedAt: new Date() } });
+      await tx.documentVersion.update({ where: { id: vid }, data: { stage: 16, pdfFileId: signed, approvedAt: new Date(), signedOn: new Date('2026-10-27T00:00:00Z') } });
       await tx.document.update({ where: { id: docId }, data: { approvedVersionId: vid, workingVersionId: null, reviewDue: new Date('2027-10-27T00:00:00Z') } });
-      expect((await s.get(L, pdf)).statusCode).toBe(200);
+      expect((await s.get(L, signed)).statusCode).toBe(200);
+      expect((await s.get(L, draft)).statusCode).toBe(200);
     }));
 
   it('файл с несколькими ссылками не удаляется; без ссылок — только мягко; DELETE запрещён', () =>

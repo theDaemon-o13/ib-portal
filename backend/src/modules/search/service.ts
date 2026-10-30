@@ -130,7 +130,9 @@ async function searchFiles(db: Db, q: string, limit: number, offset: number, doc
     LEFT JOIN evidence ev ON ev.id = ef.evidence_id
     LEFT JOIN LATERAL (SELECT x.record_id FROM register_decisions x WHERE x.file_id = f.id LIMIT 1) dc ON true
     LEFT JOIN register_records dr ON dr.id = dc.record_id
-    LEFT JOIN LATERAL (SELECT x.id, x.document_id, x.title FROM document_versions x WHERE x.pdf_file_id = f.id ORDER BY x.no DESC LIMIT 1) dv ON true
+    LEFT JOIN LATERAL (
+      SELECT x.id, x.document_id, x.title FROM document_versions x JOIN documents dd ON dd.id = x.document_id AND dd.deleted_at IS NULL
+      WHERE x.pdf_file_id = f.id ORDER BY x.no DESC LIMIT 1) dv ON true
     WHERE f.deleted_at IS NULL
       AND (rf.record_id IS NOT NULL OR ef.evidence_id IS NOT NULL OR dc.record_id IS NOT NULL OR dv.id IS NOT NULL)
       ${docVersions ? Prisma.sql`AND dv.id IS NOT NULL` : Prisma.empty}

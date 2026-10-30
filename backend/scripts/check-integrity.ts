@@ -145,6 +145,26 @@ async function main() {
     check(g('SELECT') && g('INSERT') && g('UPDATE'), `ibportal_app: SELECT, INSERT, UPDATE на ${table}`);
     check(!g('DELETE') && !g('TRUNCATE'), `ibportal_app: нет DELETE, TRUNCATE на ${table}`);
   }
+  // Релиз 1.2.0 (ADR-0024): маршрут 11–16, комментарии и файлы версии, удаление.
+  const docPrivs = await prisma.$queryRaw<{ t: string; granted: boolean }[]>`
+    SELECT t, bool_or(has_table_privilege('ibportal_app', 'public.' || t, p)) AS granted
+    FROM unnest(ARRAY['document_comments', 'document_files']) AS t,
+         unnest(ARRAY['DELETE', 'TRUNCATE']) AS p GROUP BY t`;
+  check(docPrivs.length === 2 && docPrivs.every((r) => !r.granted), 'ibportal_app: нет DELETE, TRUNCATE на document_comments и document_files');
+  const docFileTriggers = (await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.document_files'::regclass AND NOT tgisinternal`).map((t) => t.tgname);
+  check(
+    ['document_files_guard', 'document_files_no_truncate', 'document_files_file_alive'].every((n) => docFileTriggers.includes(n)),
+    'триггеры неизменности файлов документов на месте',
+  );
+  // После обновления на 1.2.0 рабочих версий на старом маршруте нет (seed docs.route.v1_2 переносит их каждый запуск).
+  const legacyWorking = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM documents d JOIN document_versions v ON v.id = d.working_version_id WHERE v.stage BETWEEN 0 AND 3`;
+  check(Number(legacyWorking[0]?.n ?? 0) === 0, 'рабочие версии документов — на маршруте 1.2.0 (этапы 11–16)');
+  const deletedSigned = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM documents WHERE deleted_at IS NOT NULL AND (approved_version_id IS NOT NULL OR archived_at IS NULL)`;
+  check(Number(deletedSigned[0]?.n ?? 0) === 0, 'удалённые документы — без подписанной версии и в архиве');
+
   const evSeq = await prisma.$queryRaw<{ ok: boolean }[]>`
     SELECT has_sequence_privilege('ibportal_app', pg_get_serial_sequence('public.evidence', 'number'), 'USAGE') AS ok`;
   check(evSeq[0]?.ok === true, 'ibportal_app: USAGE на последовательность номеров доказательств');

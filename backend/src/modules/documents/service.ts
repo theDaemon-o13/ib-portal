@@ -1,16 +1,17 @@
-// Документы (этап 6, ADR-0010): реестр внутренних документов ИБ, версии, маршрут согласования, пересмотр.
-// Права: маршруты пускают любого вошедшего (requireAuth), а кто что может — решает этот сервис:
-// этап «Автор» — владелец или docs.manage; этапы 1–3 — право этапа (docs.approve.*), но не владелец документа,
-// не супер-администратор (ни через какую роль) и не тот, кто уже согласовал другой этап этой версии
-// (разделение полномочий). Этап, который некому согласовать, кроме владельца, пропускается с записью в истории.
-// Без ib.work видны только утверждённые документы, «ждёт вас» и согласованные вами в текущем круге.
-// Итоговый PDF (этап 7): автор прикладывает его при отправке на согласование, все этапы согласуют этот файл
-// (sha256 — в истории каждого решения); замена PDF в маршруте возвращает его к началу.
+// Документы (этап 6, ADR-0010; маршрут 1.2.0 — ADR-0024): реестр внутренних документов ИБ, версии, маршрут, пересмотр.
+// Права: маршруты пускают любого вошедшего (requireAuth), а кто что может — решает этот сервис (status.ts, MOVES):
+// автор — владелец или docs.manage; старший — над владельцем (ADR-0020); начальник ИБ — docs.approve.head, но не
+// супер-администратор (ни через какую роль). Свой документ на этапе 13 начальник ИБ согласует сам, только если
+// другого начальника ИБ нет, — с отметкой «без независимого согласования».
+// Без ib.work видны только подписанные документы, «ждёт вас» и те, где вы действовали в текущем круге.
+// Текст фиксируется файлами: 13 → 14 — версия, одобренная начальником ИБ, 14 → 15 — финальная, 16 — подписанный PDF.
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { DOCUMENT_TYPES_CATALOG } from '../../lib/catalogs.js';
 import { withTx, isUniqueViolation, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { MIME_BY_EXT } from '../../lib/file-type.js';
+import { subordinateIdsOf } from '../../lib/hierarchy.js';
 import { PERMISSIONS } from '../../lib/permissions.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
@@ -18,8 +19,8 @@ import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
 import {
-  addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, isDocUrl, LAST_STAGE, needsReview, STAGES, stageName, DOC_STATUS_NAMES,
-  type DocStatus,
+  addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
+  ROUTE, SIGN_STAGE, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
 } from './status.js';
 
 export const TITLE_MAX = 300;
@@ -70,7 +71,7 @@ const permName = (code: string) => PERMISSIONS.find((p) => p.code === code)?.nam
 
 const versionSelect = {
   id: true, no: true, edition: true, title: true, onlyofficeUrl: true, changeNote: true, stage: true, round: true,
-  approvedAt: true, createdAt: true, pdfFileId: true,
+  approvedAt: true, signedOn: true, cancelledAt: true, createdAt: true, pdfFileId: true,
   pdf: { select: { id: true, originalName: true, sha256: true, size: true } },
 } as const;
 const docInclude = {
@@ -82,68 +83,89 @@ const docInclude = {
 type DocRow = Prisma.DocumentGetPayload<{ include: typeof docInclude }>;
 type VersionRow = NonNullable<DocRow['workingVersion']>;
 
-/** Мои решения по рабочим версиям: «согласовано мной в текущем круге» и разделение полномочий. */
-type MyDecisions = Map<string, { stage: number; round: number }[]>;
-
-async function myDecisions(db: Db, userId: string, versionIds: string[]): Promise<MyDecisions> {
-  const map: MyDecisions = new Map();
-  if (!versionIds.length) return map;
-  const rows = await db.documentApproval.findMany({
-    where: { actorId: userId, versionId: { in: versionIds }, decision: { in: ['submitted', 'approved'] } },
-    select: { versionId: true, stage: true, round: true },
-  });
-  for (const r of rows) map.set(r.versionId, [...(map.get(r.versionId) ?? []), { stage: r.stage, round: r.round }]);
-  return map;
+/** Пользователь, для которого считаются действия: права, его подчинённые, есть ли другой начальник ИБ. */
+interface Who {
+  a: DocAccess;
+  subordinates: ReadonlySet<string>;
+  /** Есть другой активный пользователь с docs.approve.head (не супер-администратор): свой документ согласует он. */
+  otherHead: boolean;
+  /** Версии, по которым пользователь принимал решения, и в каких кругах. */
+  acted: ReadonlyMap<string, readonly number[]>;
 }
 
-type Verdict = { ok: true } | { ok: false; code: string; reason: string };
+const isHead = (a: DocAccess) => a.perms.has('docs.approve.head') && !a.superAdmin;
 
-/** Может ли пользователь действовать на текущем этапе рабочей версии (отправить, согласовать, вернуть). */
-function verdict(a: DocAccess, d: DocRow, mine: MyDecisions): Verdict {
-  const w = d.workingVersion;
-  if (!w) return { ok: false, code: 'NOT_IN_ROUTE', reason: 'Документ не на согласовании' };
-  if (d.archivedAt) return { ok: false, code: 'DOC_ARCHIVED', reason: 'Документ в архиве' };
-  const st = STAGES[w.stage];
-  if (!st) return { ok: false, code: 'NOT_IN_ROUTE', reason: 'Неизвестный этап' };
-  if (st.perm === null) {
-    if (d.ownerId !== a.userId && !a.manage) {
-      return { ok: false, code: 'FORBIDDEN', reason: `Этап «Автор» — владелец документа (${d.owner.fullName}) или пользователь с правом «${permName('docs.manage')}»` };
-    }
-  } else {
-    if (!a.perms.has(st.perm)) {
-      return { ok: false, code: 'FORBIDDEN', reason: `Этап «${st.name}» согласует пользователь с правом «${permName(st.perm)}»` };
-    }
-    if (d.ownerId === a.userId) {
-      return { ok: false, code: 'SEPARATION_OF_DUTIES', reason: 'Владелец не согласует этапы своего документа, кроме «Автор»: так сохраняется разделение полномочий' };
-    }
-    if (a.superAdmin) {
-      return { ok: false, code: 'SEPARATION_OF_DUTIES', reason: 'Супер-администратор не согласует документы: так сохраняется разделение полномочий' };
-    }
-  }
-  const other = (mine.get(w.id) ?? []).find((x) => x.stage !== w.stage);
-  if (other) {
-    return { ok: false, code: 'SEPARATION_OF_DUTIES', reason: `Вы уже согласовали этап «${stageName(other.stage)}» этой версии: один человек не согласует два этапа` };
-  }
-  return { ok: true };
+const HEADS_WHERE: Prisma.UserWhereInput = {
+  isActive: true,
+  AND: [
+    { roles: { some: { role: { permissions: { some: { permissionCode: 'docs.approve.head' } } } } } },
+    { roles: { none: { role: { code: 'super_admin' } } } },
+  ],
+};
+
+async function whoOf(db: Db, a: DocAccess, versionIds: readonly string[]): Promise<Who> {
+  const [subs, others, rows] = await Promise.all([
+    subordinateIdsOf(db, a.userId),
+    isHead(a) ? db.user.count({ where: { ...HEADS_WHERE, id: { not: a.userId } } }) : 0,
+    versionIds.length
+      ? db.documentApproval.findMany({ where: { actorId: a.userId, versionId: { in: [...versionIds] }, decision: { not: 'migrated' } }, select: { versionId: true, round: true } })
+      : [],
+  ]);
+  const acted = new Map<string, number[]>();
+  for (const r of rows) acted.set(r.versionId, [...(acted.get(r.versionId) ?? []), r.round]);
+  return { a, subordinates: new Set(subs), otherHead: others > 0, acted };
 }
 
-/** «Ждёт вас»: этап автора — только владельцу; этапы 1–3 — тем, кто может их согласовать. */
-function waitsFor(a: DocAccess, d: DocRow, mine: MyDecisions): boolean {
-  const w = d.workingVersion;
-  if (!w || d.archivedAt) return false;
-  if (w.stage === 0 && d.ownerId !== a.userId) return false;
-  return verdict(a, d, mine).ok;
+function rolesOf(w: Who, d: DocRow): Set<DocRole> {
+  const roles = new Set<DocRole>();
+  if (d.ownerId === w.a.userId || w.a.manage) roles.add('author');
+  if (w.subordinates.has(d.ownerId)) roles.add('senior');
+  if (isHead(w.a)) roles.add('head');
+  return roles;
+}
+
+/** Рабочая версия, с которой можно действовать: есть, не отменена, документ не в архиве. */
+const activeWorking = (d: DocRow): VersionRow | null => (d.archivedAt || !d.workingVersion || d.workingVersion.cancelledAt ? null : d.workingVersion);
+
+/** Свой документ на этапе 13: при другом начальнике ИБ согласует он (решение владельца 6). */
+const ownApprovalBlocked = (w: Who, d: DocRow) => d.ownerId === w.a.userId && w.otherHead;
+
+/** Действия маршрута, доступные пользователю сейчас. */
+function actionsOf(w: Who, d: DocRow): DocAction[] {
+  const v = activeWorking(d);
+  if (!v) return [];
+  return allowedActions(v.stage, rolesOf(w, d)).filter((x) => !(x === 'approve' && ownApprovalBlocked(w, d)));
+}
+
+/** Этап 16: подписанный PDF и дату загружают автор и начальник ИБ (решение владельца 1). */
+function canSign(w: Who, d: DocRow): boolean {
+  const v = activeWorking(d);
+  if (!v || v.stage !== SIGN_STAGE) return false;
+  const roles = rolesOf(w, d);
+  return roles.has('author') || roles.has('head');
+}
+
+/**
+ * «Ждёт вас»: этапы автора (11, 12, 16) — только владельцу; остальные — тем, кто может действовать.
+ * docs.manage и начальник ИБ могут действовать за автора, но документ их не ждёт.
+ */
+function waitsFor(w: Who, d: DocRow): boolean {
+  const v = activeWorking(d);
+  if (!v) return false;
+  if (v.stage === 11 || v.stage === 12 || v.stage === SIGN_STAGE) return d.ownerId === w.a.userId;
+  // Только возврат (свой документ при другом начальнике ИБ) — не ждёт: ждут тех, кто может перевести дальше.
+  return actionsOf(w, d).some((x) => x !== 'return');
 }
 
 /**
  * Какую версию пользователь видит. С ib.work — всё (рабочую, если есть). Без ib.work: рабочую — если она ждёт его
- * или он согласовал её в текущем круге; иначе утверждённую; архив и черновики без утверждённой версии — нет.
+ * или он действовал по ней в текущем круге; иначе подписанную; архив и документы без подписанной версии — нет.
  */
-function shownVersion(a: DocAccess, d: DocRow, mine: MyDecisions): VersionRow | null {
-  if (a.ibWork) return d.workingVersion ?? d.approvedVersion;
+function shownVersion(w: Who, d: DocRow): VersionRow | null {
+  if (w.a.ibWork) return activeWorking(d) ?? d.workingVersion ?? d.approvedVersion;
   if (d.archivedAt) return null;
-  const w = d.workingVersion;
-  if (w && (waitsFor(a, d, mine) || (mine.get(w.id) ?? []).some((x) => x.round === w.round))) return w;
+  const v = activeWorking(d);
+  if (v && (waitsFor(w, d) || (w.acted.get(v.id) ?? []).includes(v.round))) return v;
   return d.approvedVersion;
 }
 
@@ -156,15 +178,17 @@ function versionDto(v: VersionRow) {
   return {
     id: v.id, no: v.no, edition: v.edition, title: v.title, onlyofficeUrl: v.onlyofficeUrl, changeNote: v.changeNote,
     stage: v.stage, stageName: stageName(v.stage), round: v.round, approvedAt: iso(v.approvedAt), createdAt: v.createdAt.toISOString(),
-    /** Итоговый PDF версии; у утверждённой без него — «текст не зафиксирован». */
+    signedOn: isoDay(v.signedOn),
+    cancelledAt: iso(v.cancelledAt),
+    /** Итоговый PDF версии; на маршруте 1.2.0 — подписанный. У утверждённой без него — «текст не зафиксирован». */
     pdf: pdfDto(v),
     textFrozen: v.pdf !== null,
   };
 }
 
-function toItem(a: DocAccess, d: DocRow, mine: MyDecisions, shown: VersionRow, today: string) {
+function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
   const reviewDue = isoDay(d.reviewDue);
-  const working = a.ibWork || shown === d.workingVersion ? d.workingVersion : null;
+  const working = w.a.ibWork || shown === d.workingVersion ? activeWorking(d) : null;
   const status: DocStatus = docStatus({ hasApproved: d.approvedVersion !== null, workingStage: working?.stage ?? null, reviewDue }, today);
   return {
     id: d.id,
@@ -176,14 +200,15 @@ function toItem(a: DocAccess, d: DocRow, mine: MyDecisions, shown: VersionRow, t
     owner: d.owner,
     approvedVersionNo: d.approvedVersion?.no ?? null,
     approvedAt: iso(d.approvedVersion?.approvedAt ?? null),
+    signedOn: isoDay(d.approvedVersion?.signedOn ?? null),
     reviewMonths: d.reviewMonths,
     reviewDue,
     status,
     statusName: DOC_STATUS_NAMES[status],
-    /** Этап рабочей версии (если она видна): 0 — автор … 3 — правление. */
+    /** Этап рабочей версии (если она видна): 11 «Драфт» … 16 «Подписание». */
     stage: working?.stage ?? null,
     stageName: working ? stageName(working.stage) : null,
-    waitingForMe: waitsFor(a, d, mine),
+    waitingForMe: waitsFor(w, d),
     archived: d.archivedAt !== null,
     version: d.version,
   };
@@ -205,24 +230,24 @@ export interface DocListQuery {
 }
 
 async function loadVisible(db: Db, a: DocAccess, where: Prisma.DocumentWhereInput) {
-  const rows = await db.document.findMany({ where, include: docInclude, orderBy: { number: 'asc' } });
-  const mine = await myDecisions(db, a.userId, rows.flatMap((d) => (d.workingVersionId ? [d.workingVersionId] : [])));
+  const rows = await db.document.findMany({ where: { ...where, deletedAt: null }, include: docInclude, orderBy: { number: 'asc' } });
+  const who = await whoOf(db, a, a.ibWork ? [] : rows.flatMap((d) => (d.workingVersionId ? [d.workingVersionId] : [])));
   const out: { d: DocRow; shown: VersionRow }[] = [];
   for (const d of rows) {
-    const shown = shownVersion(a, d, mine);
+    const shown = shownVersion(who, d);
     if (shown) out.push({ d, shown });
   }
-  return { rows: out, mine };
+  return { rows: out, who };
 }
 
 export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
   const today = todayIso();
   // Без ib.work архив не виден.
   if (q.archived && !a.ibWork) return { items: [], nextCursor: null, total: 0, archivedTotal: 0 };
-  const { rows, mine } = await loadVisible(db, a, { archivedAt: q.archived ? { not: null } : null, ...(q.typeId ? { typeId: q.typeId } : {}) });
+  const { rows, who } = await loadVisible(db, a, { archivedAt: q.archived ? { not: null } : null, ...(q.typeId ? { typeId: q.typeId } : {}) });
   const needle = q.q?.trim().toLowerCase();
   const items = rows
-    .map(({ d, shown }) => toItem(a, d, mine, shown, today))
+    .map(({ d, shown }) => toItem(who, d, shown, today))
     .filter((x) => (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle))
       && (!q.review || needsReview(x, today)))
     // Сначала то, что ждёт вас, затем просроченный пересмотр, дальше по названию.
@@ -230,7 +255,7 @@ export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
       || Number(y.status === 'review_overdue') - Number(x.status === 'review_overdue')
       || x.title.localeCompare(y.title, 'ru'));
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
-  const archivedTotal = a.ibWork ? await db.document.count({ where: { archivedAt: { not: null } } }) : 0;
+  const archivedTotal = a.ibWork ? await db.document.count({ where: { archivedAt: { not: null }, deletedAt: null } }) : 0;
   return {
     items: items.slice(offset, offset + q.limit),
     nextCursor: items.length > offset + q.limit ? String(offset + q.limit) : null,
@@ -242,51 +267,50 @@ export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
 /** Счётчик у пункта «Документы»: ждут вас (всем); просроченный пересмотр — только сотрудникам ИБ. */
 export async function documentSummary(db: Db, a: DocAccess) {
   const today = todayIso();
-  const { rows, mine } = await loadVisible(db, a, { archivedAt: null });
-  const waitingForMe = rows.filter(({ d }) => waitsFor(a, d, mine)).length;
+  const { rows, who } = await loadVisible(db, a, { archivedAt: null });
+  const waitingForMe = rows.filter(({ d }) => waitsFor(who, d)).length;
   const reviewOverdue = a.ibWork ? rows.filter(({ d }) => (isoDay(d.reviewDue) ?? today) < today).length : 0;
   return { waitingForMe, reviewOverdue };
 }
 
 // ---------------------------------------------------------------- карточка
 
+/** Документ без удалённых: удалённый для всех — «не найден». */
 async function getRow(db: Db, id: string) {
-  const d = await db.document.findUnique({ where: { id }, include: docInclude });
+  const d = await db.document.findFirst({ where: { id, deletedAt: null }, include: docInclude });
   if (!d) throw notFound('Документ');
   return d;
 }
 
-/** Кто может согласовать этап: имена активных пользователей с правом (без супер-администраторов и владельца). */
-async function approversByStage(db: Db, d: DocRow) {
-  const users = await db.user.findMany({
-    where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: { in: STAGES.flatMap((s) => (s.perm ? [s.perm] : [])) } } } } } } },
-    select: {
-      id: true,
-      fullName: true,
-      roles: { select: { role: { select: { code: true, permissions: { select: { permissionCode: true } } } } } },
-    },
-    orderBy: { fullName: 'asc' },
-  });
-  return STAGES.map((s) => {
-    if (s.perm === null) return { names: [d.owner.fullName], hint: `владелец или право «${permName('docs.manage')}»` };
-    const perm = s.perm;
-    const names = users
-      .filter((u) => u.id !== d.ownerId && !u.roles.some((r) => r.role.code === 'super_admin') && u.roles.some((r) => r.role.permissions.some((p) => p.permissionCode === perm)))
-      .map((u) => u.fullName);
-    return { names, hint: `право «${permName(perm)}»` };
-  });
-}
+const HINTS: Record<number, string> = {
+  11: `автор: владелец или право «${permName('docs.manage')}»`,
+  12: 'автор или старший над автором; комментируют сотрудники ИБ',
+  13: `право «${permName('docs.approve.head')}»`,
+  14: `право «${permName('docs.approve.head')}»`,
+  15: `право «${permName('docs.approve.head')}» или старший над автором`,
+  16: `автор или право «${permName('docs.approve.head')}»`,
+};
+
+/** Решения, которыми этап пройден: кто перевёл документ дальше. */
+const PASSED = ['submitted', 'approved', 'skipped', 'moved', 'signed'];
+
+const FILE_KIND_NAMES: Record<string, string> = {
+  draft: 'Файл драфта',
+  head_approved: FIXED_FILE.approve?.name ?? '',
+  final: FIXED_FILE.ack_final?.name ?? '',
+};
 
 export async function getDocument(db: Db, a: DocAccess, id: string) {
   const today = todayIso();
   const d = await getRow(db, id);
-  const mine = await myDecisions(db, a.userId, d.workingVersionId ? [d.workingVersionId] : []);
-  const shown = shownVersion(a, d, mine);
+  const who = await whoOf(db, a, d.workingVersionId ? [d.workingVersionId] : []);
+  const shown = shownVersion(who, d);
   if (!shown) throw notFound('Документ');
-  const workingShown = shown === d.workingVersion;
+  const working = activeWorking(d);
+  const workingShown = working !== null && shown === working;
 
   const allVersions = await db.documentVersion.findMany({ where: { documentId: id }, select: versionSelect, orderBy: { no: 'desc' } });
-  const visibleVersions = allVersions.filter((v) => v.approvedAt !== null || a.ibWork || (workingShown && v.id === shown.id));
+  const visibleVersions = allVersions.filter((v) => v.approvedAt !== null || a.ibWork || v.id === shown.id);
   const visibleIds = new Set(visibleVersions.map((v) => v.id));
   const history = await db.documentApproval.findMany({
     where: { documentId: id, versionId: { in: [...visibleIds] } },
@@ -294,18 +318,23 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     orderBy: [{ at: 'desc' }, { id: 'desc' }],
   });
 
-  // Маршрут показанной версии: кто согласовал этапы в текущем круге.
-  const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && ['submitted', 'approved', 'skipped'].includes(h.decision));
-  const approvers = await approversByStage(db, d);
-  const route = STAGES.map((s, i) => {
-    const act = roundActs.find((h) => h.stage === s.stage);
-    const state = shown.approvedAt !== null || s.stage < shown.stage ? 'done' : s.stage === shown.stage ? 'current' : 'todo';
+  // Маршрут показанной версии: кто прошёл этапы в текущем круге. Версия старого маршрута — со старыми этапами.
+  const legacy = shown.stage <= 3;
+  const stages = legacy ? Object.keys(LEGACY_STAGE_NAMES).map(Number) : ROUTE.map((s) => s.stage);
+  const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && PASSED.includes(h.decision));
+  const heads = legacy ? [] : (await db.user.findMany({ where: HEADS_WHERE, select: { fullName: true }, orderBy: { fullName: 'asc' } })).map((u) => u.fullName);
+  const route = stages.map((stage) => {
+    const act = roundActs.find((h) => h.stage === stage);
+    const state = shown.approvedAt !== null || stage < shown.stage ? 'done' : stage === shown.stage ? 'current' : 'todo';
+    const approvers = legacy ? [] : stage === 13 || stage === 14 || stage === 15 ? heads : [d.owner.fullName];
     return {
-      stage: s.stage, name: s.name, state: state as 'done' | 'current' | 'todo',
-      approvers: approvers[i]?.names ?? [], hint: approvers[i]?.hint ?? '',
+      stage, name: stageName(stage), state: state as 'done' | 'current' | 'todo',
+      approvers, hint: legacy ? '' : HINTS[stage] ?? '',
       actedBy: act && act.decision !== 'skipped' ? act.actor.fullName : null, actedAt: act ? act.at.toISOString() : null,
-      /** Этап пропущен: согласовать мог только владелец документа. */
+      /** Этап пропущен (старый маршрут: согласовать мог только владелец). */
       skipped: act?.decision === 'skipped' ? act.comment : null,
+      /** Этап 13 согласовал сам автор — начальник ИБ: другого согласующего не было. */
+      selfApproved: act?.selfApproved ?? false,
     };
   });
 
@@ -315,51 +344,90 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     ? { at: lastAct.at.toISOString(), actor: lastAct.actor.fullName, stageName: stageName(lastAct.stage), comment: lastAct.comment }
     : null;
 
-  const v = verdict(a, d, mine);
-  const isOwner = d.ownerId === a.userId;
+  const [fileRows, commentRows] = await Promise.all([
+    db.documentFile.findMany({
+      where: { versionId: shown.id, removedAt: null },
+      include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } }, adder: { select: { fullName: true } } },
+      orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
+    }),
+    a.ibWork
+      ? db.documentComment.findMany({ where: { versionId: shown.id }, include: { author: { select: { fullName: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+      : [],
+  ]);
+
+  const actions = workingShown ? actionsOf(who, d) : [];
+  const roles = rolesOf(who, d);
+  const author = roles.has('author');
   const active = d.archivedAt === null;
-  const w = d.workingVersion;
+  const draft = workingShown && working.stage === FIRST_STAGE && author;
+  const sign = workingShown && canSign(who, d);
   const can = {
-    edit: active && workingShown && w !== null && w.stage === 0 && (isOwner || a.manage),
-    submit: active && workingShown && w !== null && w.stage === 0 && v.ok,
-    approve: active && workingShown && w !== null && w.stage > 0 && v.ok,
-    revise: active && d.approvedVersion !== null && w === null && (isOwner || a.manage),
-    /** Приложить или заменить итоговый PDF рабочей версии (на этапах 1–3 — маршрут заново). */
-    attachPdf: active && workingShown && w !== null && (isOwner || a.manage),
+    edit: draft,
+    /** Действия маршрута (MOVES): кнопки карточки. */
+    actions,
+    sign,
+    /** Файлы драфта (.docx, .pdf): добавить и снять — автор на этапе 11. */
+    draftFiles: draft,
+    /** Комментарии сотрудников — на этапе 12. */
+    comment: workingShown && working.stage === 12 && a.ibWork,
+    revise: active && d.approvedVersion !== null && working === null && author,
+    /** Отменить пересмотр: рабочая версия уходит в историю, действующей остаётся подписанная (решение владельца 8). */
+    cancelRevision: workingShown && d.approvedVersion !== null && (author || roles.has('head')),
+    /** Мягкое удаление: только документ без подписанной версии (docs.delete). */
+    delete: a.perms.has('docs.delete') && d.approvedVersion === null,
     manage: a.manage,
   };
+  const stuck = workingShown && actions.length === 0 && !sign;
   return {
-    ...toItem(a, d, mine, shown, today),
+    ...toItem(who, d, shown, today),
     current: versionDto(shown),
-    working: workingShown && w ? versionDto(w) : null,
+    working: workingShown ? versionDto(working) : null,
     approved: d.approvedVersion ? versionDto(d.approvedVersion) : null,
     route,
     can,
     /** Почему вы не можете действовать на текущем этапе (для подсказки в карточке). */
-    blockedReason: active && workingShown && w !== null && !v.ok ? v.reason : null,
+    blockedReason: !stuck ? null
+      : working.stage === 13 && ownApprovalBlocked(who, d) && isHead(a)
+        ? 'Свой документ согласует другой начальник ИБ: так сохраняется разделение полномочий'
+        : `Этап «${stageName(working.stage)}» — ${HINTS[working.stage] ?? ''}`,
     returned,
+    files: fileRows.map((f) => ({
+      id: f.id, kind: f.kind as 'draft' | 'head_approved' | 'final', kindName: FILE_KIND_NAMES[f.kind] ?? f.kind, round: f.round,
+      file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
+      addedBy: f.adder.fullName, addedAt: f.addedAt.toISOString(),
+      removable: draft && f.kind === 'draft',
+    })),
+    comments: commentRows.map((c) => ({ id: c.id, author: c.author.fullName, body: c.body, at: c.createdAt.toISOString() })),
     versions: visibleVersions.map((x) => ({
       no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote,
+      signedOn: isoDay(x.signedOn), cancelledAt: iso(x.cancelledAt),
       pdf: pdfDto(x), textFrozen: x.pdf !== null,
     })),
     // Подробная история — по праву «История в карточках» (ADR-0021); блок маршрута (route) — всем, кто видит документ.
     history: !a.perms.has('history.view') ? [] : history.map((h) => ({
-      id: h.id, at: h.at.toISOString(), actor: h.actor.fullName, stage: h.stage, stageName: stageName(h.stage),
-      decision: h.decision as 'submitted' | 'approved' | 'returned' | 'revision_started' | 'skipped', comment: h.comment, versionNo: h.versionNo, round: h.round,
-      pdfSha256: h.pdfSha256,
+      id: h.id, at: h.at.toISOString(),
+      // Перенос при обновлении сделала система, а не владелец документа (actor_id обязателен).
+      actor: h.decision === 'migrated' ? 'Система' : h.actor.fullName,
+      stage: h.stage, stageName: stageName(h.stage),
+      toStage: h.toStage, toStageName: h.toStage !== null ? stageName(h.toStage) : null,
+      decision: h.decision as HistoryDecision, comment: h.comment, versionNo: h.versionNo, round: h.round,
+      pdfSha256: h.pdfSha256, selfApproved: h.selfApproved,
     })),
   };
 }
 
-/** Видит ли пользователь версию (для выдачи её PDF): те же правила, что у списка версий карточки. */
+export const HISTORY_DECISIONS = ['submitted', 'approved', 'returned', 'revision_started', 'skipped', 'moved', 'signed', 'migrated', 'cancelled'] as const;
+type HistoryDecision = (typeof HISTORY_DECISIONS)[number];
+
+/** Видит ли пользователь версию (для выдачи её файлов): те же правила, что у списка версий карточки. */
 export async function versionVisible(db: Db, a: DocAccess, versionId: string): Promise<boolean> {
   const v = await db.documentVersion.findUnique({ where: { id: versionId }, select: { documentId: true, approvedAt: true } });
   if (!v) return false;
-  const d = await getRow(db, v.documentId);
-  const mine = await myDecisions(db, a.userId, d.workingVersionId ? [d.workingVersionId] : []);
-  const shown = shownVersion(a, d, mine);
+  const d = await db.document.findFirst({ where: { id: v.documentId, deletedAt: null }, include: docInclude });
+  if (!d) return false;
+  const shown = shownVersion(await whoOf(db, a, d.workingVersionId ? [d.workingVersionId] : []), d);
   if (!shown) return false;
-  return a.ibWork || v.approvedAt !== null || (shown === d.workingVersion && shown.id === versionId);
+  return a.ibWork || v.approvedAt !== null || shown.id === versionId;
 }
 
 // ---------------------------------------------------------------- проверки ввода
@@ -428,7 +496,7 @@ export interface NewDocumentInput {
   reviewMonths?: number;
 }
 
-/** Создать документ (право docs.manage проверяет маршрут): версия 1, черновик на этапе «Автор». */
+/** Создать документ (право docs.manage проверяет маршрут): версия 1 на этапе «Драфт». */
 export async function createDocument(db: Db, actor: Actor, input: NewDocumentInput, policy: DocPolicy = {}): Promise<string> {
   return withTx(db, async (tx) => {
     const title = cleanTitle(input.title);
@@ -444,7 +512,7 @@ export async function createDocument(db: Db, actor: Actor, input: NewDocumentInp
     const doc = await tx.document.create({
       data: { id, typeId: input.typeId, ownerId: input.ownerId, reviewMonths, workingVersionId: versionId, createdBy: actor.id },
     });
-    await tx.documentVersion.create({ data: { id: versionId, documentId: id, no: 1, edition, title, onlyofficeUrl, changeNote, createdBy: actor.id } });
+    await tx.documentVersion.create({ data: { id: versionId, documentId: id, no: 1, edition, title, onlyofficeUrl, changeNote, stage: FIRST_STAGE, createdBy: actor.id } });
     // Проверить ссылку сейчас, а не при COMMIT; затем вернуть отложенный режим для следующих документов в транзакции.
     await tx.$executeRaw`SET CONSTRAINTS "documents_working_version_id_fkey" IMMEDIATE`;
     await tx.$executeRaw`SET CONSTRAINTS "documents_working_version_id_fkey" DEFERRED`;
@@ -471,7 +539,7 @@ export interface DocumentPatch {
 interface Change { label: string; from: string; to: string }
 
 /**
- * Правка: содержимое (название, редакция, ссылка, что изменено) — только у черновика на этапе «Автор»,
+ * Правка: содержимое (название, редакция, ссылка, что изменено) — только на этапе «Драфт»,
  * владельцем или docs.manage; тип, владелец и цикл пересмотра — docs.manage.
  * Утверждённую версию не правят: для этого создаётся новая версия (revise).
  */
@@ -484,9 +552,9 @@ export async function updateDocument(db: Db, actor: Actor, id: string, input: Do
     const changes: Change[] = [];
     const contentKeys = ['title', 'edition', 'onlyofficeUrl', 'changeNote'] as const;
     if (contentKeys.some((k) => input[k] !== undefined)) {
-      const w = d.workingVersion;
-      if (!w) throw conflict('DOC_APPROVED', 'Утверждённая версия не меняется. Создайте новую версию — она пройдёт маршрут заново');
-      if (w.stage > 0) throw conflict('DOC_IN_ROUTE', `Документ на этапе «${stageName(w.stage)}». Изменить его можно после возврата на доработку`);
+      const w = activeWorking(d);
+      if (!w) throw conflict('DOC_APPROVED', 'Подписанная версия не меняется. Создайте новую версию — она пройдёт маршрут заново');
+      if (w.stage !== FIRST_STAGE) throw conflict('DOC_IN_ROUTE', `Документ на этапе «${stageName(w.stage)}». Изменить его можно после возврата на доработку`);
       if (d.ownerId !== a.userId && !a.manage) throw forbiddenWith('FORBIDDEN', 'Черновик правит владелец документа или пользователь с правом «Документы: управление»');
       const data: Prisma.DocumentVersionUpdateInput = {};
       if (input.title !== undefined) {
@@ -525,9 +593,9 @@ export async function updateDocument(db: Db, actor: Actor, id: string, input: Do
         const m = cleanMonths(input.reviewMonths);
         docData.reviewMonths = m;
         changes.push({ label: 'Цикл пересмотра', from: `${d.reviewMonths} мес.`, to: `${m} мес.` });
-        // Дата пересмотра — от даты утверждения действующей версии.
+        // Дата пересмотра — от даты подписания (до 1.2.0 — утверждения) действующей версии.
         if (d.approvedVersion?.approvedAt) {
-          const due = addMonthsIso(todayIso(d.approvedVersion.approvedAt), m);
+          const due = addMonthsIso(isoDay(d.approvedVersion.signedOn) ?? todayIso(d.approvedVersion.approvedAt), m);
           docData.reviewDue = new Date(`${due}T00:00:00Z`);
           changes.push({ label: 'Пересмотр до', from: d.reviewDue ? formatDateRu(isoDay(d.reviewDue) as string) : '—', to: formatDateRu(due) });
         }
@@ -547,47 +615,32 @@ export async function updateDocument(db: Db, actor: Actor, id: string, input: Do
 
 // ---------------------------------------------------------------- маршрут
 
-export interface RouteInput {
+export interface MoveInput {
   version: number;
   /** Этап, который пользователь видел на экране: если документ уже на другом этапе — 409. */
   stage: number;
   comment?: string;
-  /** Отправка на согласование: итоговый PDF (если ещё не приложен или заменяется). */
-  pdfFileId?: string;
+  /** 13 → 14 и 14 → 15: файл версии (pdf или docx), загруженный через POST /files. */
+  fileId?: string;
 }
 
-const PDF_MIME = ['application/pdf'];
+const PDF_MIME = [MIME_BY_EXT.pdf];
+const VERSION_FILE_MIME = [MIME_BY_EXT.pdf, MIME_BY_EXT.docx];
 
-/** Приложить PDF к рабочей версии; прежний PDF без других ссылок помечается удалённым. Возвращает sha256. */
-async function setPdf(tx: Db, actor: Actor, w: VersionRow, fileId: string): Promise<{ sha256: string; name: string; changed: boolean }> {
-  const [f] = await claimFiles(tx, actor.id, [fileId], { mimes: PDF_MIME, what: 'Итоговый PDF' });
-  if (!f) throw badRequest('PDF_REQUIRED', 'Приложите итоговый PDF документа');
-  if (w.pdfFileId === f.id) return { sha256: f.sha256, name: f.originalName, changed: false };
-  await tx.documentVersion.update({ where: { id: w.id }, data: { pdfFileId: f.id } });
-  if (w.pdfFileId) await deleteIfUnreferenced(tx, actor, w.pdfFileId, `заменён итоговый PDF версии ${w.no}`);
-  return { sha256: f.sha256, name: f.originalName, changed: true };
-}
-
-const pdfRequired = () => conflict('PDF_REQUIRED', 'У версии нет итогового PDF. Автор прикладывает его и отправляет документ на согласование заново');
-
-/** Общее для действий маршрута: свежие права, версия документа, текущий этап и проверка «кто может». */
-async function routeContext(tx: Db, actor: Actor, id: string, input: RouteInput) {
+/** Общее для действий: свежие права, версия документа, текущий этап. Захватывает документ (version + 1). */
+async function routeContext(tx: Db, actor: Actor, id: string, input: { version: number; stage: number }) {
   const a = await accessOf(tx, actor.id);
   const d = await getRow(tx, id);
-  const w = d.workingVersion;
+  if (d.archivedAt) throw conflict('DOC_ARCHIVED', 'Документ в архиве. Верните его из архива, чтобы продолжить');
+  const w = activeWorking(d);
   if (!w) throw conflict('NOT_IN_ROUTE', 'Документ не на согласовании. Обновите страницу');
   if (d.version !== input.version) throw versionConflict();
   if (w.stage !== input.stage) throw conflict('STAGE_CHANGED', `Документ уже на этапе «${stageName(w.stage)}». Обновите страницу`);
-  const mine = await myDecisions(tx, a.userId, [w.id]);
-  const v = verdict(a, d, mine);
-  if (!v.ok) {
-    if (v.code === 'DOC_ARCHIVED') throw conflict(v.code, v.reason);
-    throw forbiddenWith(v.code, v.reason);
-  }
+  const who = await whoOf(tx, a, [w.id]);
   // Захватить документ: параллельное действие с той же версией получит 409.
   const res = await tx.document.updateMany({ where: { id, version: input.version }, data: { version: { increment: 1 } } });
   if (res.count === 0) throw versionConflict();
-  return { d, w };
+  return { a, d, w, who };
 }
 
 async function addDecision(tx: Db, data: Prisma.DocumentApprovalUncheckedCreateInput) {
@@ -599,174 +652,228 @@ async function addDecision(tx: Db, data: Prisma.DocumentApprovalUncheckedCreateI
   }
 }
 
-/** Этап «Автор»: отправить на согласование. Открытая задача доработки закрывается. */
-export async function submitDocument(db: Db, actor: Actor, id: string, input: RouteInput) {
-  return withTx(db, async (tx) => {
-    if (input.stage !== 0) throw conflict('STAGE_CHANGED', 'Отправить на согласование можно только с этапа «Автор». Обновите страницу');
-    const { d, w } = await routeContext(tx, actor, id, input);
-    let sha256 = w.pdf?.sha256 ?? null;
-    if (input.pdfFileId) {
-      const pdf = await setPdf(tx, actor, w, input.pdfFileId);
-      sha256 = pdf.sha256;
-      w.pdfFileId = input.pdfFileId;
-    }
-    if (!sha256) throw badRequest('PDF_REQUIRED', 'Приложите итоговый PDF документа: все этапы согласуют именно этот файл');
-    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: 0, decision: 'submitted', comment: '', actorId: actor.id, pdfSha256: sha256 });
-    await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на согласование (версия ${w.no})`);
-    await auditSettings(tx, actor, {
-      action: 'document.submitted', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) отправлен на согласование, PDF sha256 ${sha256.slice(0, 12)}…`,
-      after: { versionNo: w.no, round: w.round, pdfSha256: sha256 },
-    });
-    await moveTo(tx, actor, d, w, 1, sha256);
-  });
+function cleanComment(v: string | undefined, required: string | null): string {
+  const c = (v ?? '').trim();
+  if (!c && required) throw badRequest('EMPTY_COMMENT', required);
+  if (c.length > COMMENT_MAX) throw badRequest('TOO_LONG', `Комментарий — не длиннее ${COMMENT_MAX} символов`);
+  return c;
 }
 
-/** Согласовать текущий этап (1–3). После этапа «Утверждение правлением» версия утверждена. */
-export async function approveDocument(db: Db, actor: Actor, id: string, input: RouteInput) {
+/** Почему действие недоступно (403): по ролям этапа. */
+function moveDenied(action: DocAction, who: Who, d: DocRow): AppError {
+  if (action === 'approve' && ownApprovalBlocked(who, d) && isHead(who.a)) {
+    return forbiddenWith('SEPARATION_OF_DUTIES', `Свой документ согласует другой пользователь с правом «${permName('docs.approve.head')}»: так сохраняется разделение полномочий`);
+  }
+  if (MOVES[action].who.includes('head') && who.a.superAdmin && who.a.perms.has('docs.approve.head')) {
+    return forbiddenWith('SEPARATION_OF_DUTIES', 'Супер-администратор не согласует документы: так сохраняется разделение полномочий');
+  }
+  return forbiddenWith('FORBIDDEN', `«${MOVES[action].label}» — ${HINTS[MOVES[action].from[0] as number] ?? ''}`);
+}
+
+/**
+ * Действие маршрута (status.ts, MOVES). Возврат — на «Драфт» с комментарием: новый круг, владельцу — задача.
+ * 13 → 14 и 14 → 15 фиксируют файл версии; 11 → 12 закрывает задачу доработки.
+ */
+export async function moveDocument(db: Db, actor: Actor, id: string, action: DocAction, input: MoveInput) {
   return withTx(db, async (tx) => {
-    if (input.stage < 1 || input.stage > LAST_STAGE) throw conflict('STAGE_CHANGED', 'Этот этап не согласуют. Обновите страницу');
-    const { d, w } = await routeContext(tx, actor, id, input);
-    // Версия ушла на согласование до этапа 7 без PDF: утверждать нечего зафиксированного (проверка в сервисе;
-    // триггер в БД — релизом-«сужением» перед первой выкладкой).
-    const sha256 = w.pdf?.sha256;
-    if (!sha256) throw pdfRequired();
-    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'approved', comment: (input.comment ?? '').trim().slice(0, COMMENT_MAX), actorId: actor.id, pdfSha256: sha256 });
-    if (w.stage < LAST_STAGE) {
-      await auditSettings(tx, actor, {
-        action: 'document.approved_stage', entity: 'document', entityId: id,
-        summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): этап «${stageName(w.stage)}» согласован`,
-        after: { versionNo: w.no, round: w.round, stage: w.stage },
+    const rule = MOVES[action];
+    const comment = cleanComment(input.comment, action === 'return' ? 'Напишите, что нужно исправить' : null);
+    const { d, w, who } = await routeContext(tx, actor, id, input);
+    if (!rule.from.includes(w.stage)) throw conflict('WRONG_STAGE', `«${rule.label}» — не на этапе «${stageName(w.stage)}». Обновите страницу`);
+    if (!actionsOf(who, d).includes(action)) throw moveDenied(action, who, d);
+
+    const fixed = FIXED_FILE[action];
+    let sha256: string | null = null;
+    if (fixed) {
+      if (!input.fileId) throw badRequest('FILE_REQUIRED', `Приложите файл: ${fixed.name.toLowerCase()} (pdf или docx)`);
+      const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: VERSION_FILE_MIME, what: fixed.name });
+      if (!f) throw badRequest('FILE_REQUIRED', `Приложите файл: ${fixed.name.toLowerCase()}`);
+      try {
+        await withTx(tx, (t) => t.documentFile.create({ data: { documentId: id, versionId: w.id, round: w.round, kind: fixed.kind, fileId: f.id, addedBy: actor.id } }));
+      } catch (err) {
+        if (isUniqueViolation(err)) throw versionConflict();
+        throw err;
+      }
+      sha256 = f.sha256;
+    }
+
+    const selfApproved = action === 'approve' && d.ownerId === actor.id;
+    const decision = action === 'return' ? 'returned' : fixed ? 'approved' : 'moved';
+    await addDecision(tx, {
+      documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, toStage: rule.to,
+      decision, comment, actorId: actor.id, pdfSha256: sha256, selfApproved,
+    });
+    const back = action === 'return';
+    await tx.documentVersion.update({ where: { id: w.id }, data: { stage: rule.to, ...(back ? { round: w.round + 1 } : {}) } });
+
+    if (back) {
+      const who = (await tx.user.findUniqueOrThrow({ where: { id: actor.id }, select: { fullName: true } })).fullName;
+      await documentTask(tx, {
+        documentId: id,
+        reason: 'returned',
+        title: `Доработать документ «${w.title}»`,
+        description: `Документ #${d.number}, версия ${w.no}. ${who} вернул(а) его на доработку с этапа «${stageName(w.stage)}»:\n${comment}\n\nПосле правки отправьте документ на проверку сотрудникам заново.`,
+        repeatComment: `Повторный возврат с этапа «${stageName(w.stage)}» (${who}): ${comment}`,
+        workdays: 3,
       });
     }
-    await moveTo(tx, actor, d, w, w.stage + 1, sha256);
-  });
-}
+    if (action === 'to_review') await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на проверку сотрудникам (версия ${w.no})`);
 
-/**
- * Этап, который некому согласовать, кроме владельца: у владельца есть право этапа, а других активных
- * пользователей с этим правом (не супер-администраторов) нет. Тогда этап не требуется — иначе документ встанет.
- */
-async function skipReason(tx: Db, d: DocRow, stage: number): Promise<string | null> {
-  const perm = STAGES[stage]?.perm;
-  if (!perm) return null;
-  const owner = await accessOf(tx, d.ownerId);
-  if (!owner.perms.has(perm)) return null;
-  const others = await tx.user.count({
-    where: {
-      id: { not: d.ownerId },
-      isActive: true,
-      AND: [
-        { roles: { some: { role: { permissions: { some: { permissionCode: perm } } } } } },
-        { roles: { none: { role: { code: 'super_admin' } } } },
-      ],
-    },
-  });
-  if (others > 0) return null;
-  return `Не требуется: автор — ${stageName(stage)}. Владелец документа ${d.owner.fullName} имеет право «${permName(perm)}», других согласующих нет`;
-}
-
-/**
- * Перевести рабочую версию на этап next. Этапы, где согласовать может только владелец, пропускаются
- * с записью «skipped» в истории (кто владелец, почему пропущен); после последнего этапа — утверждение.
- */
-async function moveTo(tx: Db, actor: Actor, d: DocRow, w: VersionRow, next: number, pdfSha256: string) {
-  let stage = next;
-  for (; stage <= LAST_STAGE; stage++) {
-    const reason = await skipReason(tx, d, stage);
-    if (!reason) break;
-    await addDecision(tx, { documentId: d.id, versionId: w.id, versionNo: w.no, round: w.round, stage, decision: 'skipped', comment: reason, actorId: d.ownerId, pdfSha256 });
+    const self = selfApproved ? ' — согласовано автором (начальник ИБ), без независимого согласования' : '';
     await auditSettings(tx, actor, {
-      action: 'document.stage_skipped', entity: 'document', entityId: d.id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): этап «${stageName(stage)}» не требуется — автор ${d.owner.fullName}`,
-      after: { versionNo: w.no, round: w.round, stage, ownerId: d.ownerId, reason },
-    });
-  }
-  if (stage <= LAST_STAGE) {
-    await tx.documentVersion.update({ where: { id: w.id }, data: { stage } });
-    return;
-  }
-  // Утверждение: версия становится действующей и больше не меняется (триггер), цикл пересмотра — от сегодня.
-  const now = new Date();
-  const due = addMonthsIso(todayIso(now), d.reviewMonths);
-  await tx.documentVersion.update({ where: { id: w.id }, data: { stage: LAST_STAGE, approvedAt: now } });
-  await tx.document.update({
-    where: { id: d.id },
-    data: { approvedVersionId: w.id, workingVersionId: null, reviewDue: new Date(`${due}T00:00:00Z`) },
-  });
-  await closeDocumentTasks(tx, d.id, 'review', `Версия ${w.no} утверждена, следующий пересмотр — до ${formatDateRu(due)}`);
-  await auditSettings(tx, actor, {
-    action: 'document.approved', entity: 'document', entityId: d.id,
-    summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) утверждён, пересмотр до ${formatDateRu(due)}`,
-    after: { versionNo: w.no, round: w.round, reviewDue: due, pdfSha256 },
-  });
-}
-
-/** Вернуть на доработку (этапы 1–3): только с комментарием; маршрут заново, владельцу — задача. */
-export async function returnDocument(db: Db, actor: Actor, id: string, input: RouteInput) {
-  return withTx(db, async (tx) => {
-    const comment = (input.comment ?? '').trim();
-    if (!comment) throw badRequest('EMPTY_COMMENT', 'Напишите, что нужно исправить');
-    if (comment.length > COMMENT_MAX) throw badRequest('TOO_LONG', `Комментарий — не длиннее ${COMMENT_MAX} символов`);
-    if (input.stage < 1 || input.stage > LAST_STAGE) throw conflict('STAGE_CHANGED', 'Вернуть на доработку можно с этапов согласования. Обновите страницу');
-    const { d, w } = await routeContext(tx, actor, id, input);
-    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'returned', comment, actorId: actor.id });
-    await tx.documentVersion.update({ where: { id: w.id }, data: { stage: 0, round: w.round + 1 } });
-    const who = (await tx.user.findUniqueOrThrow({ where: { id: actor.id }, select: { fullName: true } })).fullName;
-    await documentTask(tx, {
-      documentId: id,
-      reason: 'returned',
-      title: `Доработать документ «${w.title}»`,
-      description: `Документ #${d.number}, версия ${w.no}. ${who} вернул(а) его на доработку с этапа «${stageName(w.stage)}»:\n${comment}\n\nПосле правки отправьте документ на согласование заново.`,
-      repeatComment: `Повторный возврат с этапа «${stageName(w.stage)}» (${who}): ${comment}`,
-      workdays: 3,
-    });
-    await auditSettings(tx, actor, {
-      action: 'document.returned', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) возвращён на доработку с этапа «${stageName(w.stage)}»`,
-      after: { versionNo: w.no, round: w.round, stage: w.stage, comment },
+      action: back ? 'document.returned' : 'document.moved', entity: 'document', entityId: id,
+      summary: back
+        ? `Документ #${d.number} «${w.title}» (версия ${w.no}) возвращён на доработку с этапа «${stageName(w.stage)}»`
+        : `Документ #${d.number} «${w.title}» (версия ${w.no}): «${rule.label}» («${stageName(w.stage)}» → «${stageName(rule.to)}»)${self}`,
+      after: { action, versionNo: w.no, round: w.round, from: w.stage, to: rule.to, comment, fileSha256: sha256, selfApproved },
     });
   });
 }
 
-export interface PdfInput {
+export interface SignInput {
   version: number;
-  /** Этап, который пользователь видел на экране. */
   stage: number;
+  /** Подписанный PDF (POST /files). */
   fileId: string;
+  /** Дата подписания YYYY-MM-DD: не позже сегодня. От неё — дата пересмотра. */
+  signedOn: string;
 }
 
-/**
- * Приложить или заменить итоговый PDF рабочей версии (владелец или docs.manage). На этапе «Автор» — просто
- * прикладывается; на этапах 1–3 замена возвращает маршрут к началу: новый круг, этап «Автор», согласования
- * текущего круга больше не действуют (все этапы согласуют один файл).
- */
-export async function attachPdf(db: Db, actor: Actor, id: string, input: PdfInput) {
+/** Этап 16: подписанный PDF и дата подписания — версия становится действующей; пересмотр — от даты подписания. */
+export async function signDocument(db: Db, actor: Actor, id: string, input: SignInput) {
   return withTx(db, async (tx) => {
+    const today = todayIso();
+    const parsed = new Date(`${input.signedOn}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.signedOn) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== input.signedOn) {
+      throw badRequest('BAD_DATE', 'Укажите дату подписания');
+    }
+    if (input.signedOn > today) throw badRequest('BAD_DATE', 'Дата подписания — не позже сегодняшнего дня');
+    const { d, w, who } = await routeContext(tx, actor, id, input);
+    if (w.stage !== SIGN_STAGE) throw conflict('WRONG_STAGE', `Подписать можно на этапе «${stageName(SIGN_STAGE)}». Обновите страницу`);
+    if (!canSign(who, d)) throw forbiddenWith('FORBIDDEN', `Подписанный PDF загружает ${HINTS[SIGN_STAGE]}`);
+    const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: PDF_MIME, what: 'Подписанный PDF' });
+    if (!f) throw badRequest('PDF_REQUIRED', 'Приложите подписанный PDF');
+    const now = new Date();
+    const due = addMonthsIso(input.signedOn, d.reviewMonths);
+    await tx.documentVersion.update({ where: { id: w.id }, data: { pdfFileId: f.id, approvedAt: now, signedOn: new Date(`${input.signedOn}T00:00:00Z`) } });
+    if (w.pdfFileId && w.pdfFileId !== f.id) await deleteIfUnreferenced(tx, actor, w.pdfFileId, `версия ${w.no} подписана, прежний итоговый PDF заменён подписанным`);
+    await tx.document.update({ where: { id }, data: { approvedVersionId: w.id, workingVersionId: null, reviewDue: new Date(`${due}T00:00:00Z`) } });
+    await addDecision(tx, {
+      documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: SIGN_STAGE, decision: 'signed',
+      comment: `Подписан ${formatDateRu(input.signedOn)}`, actorId: actor.id, pdfSha256: f.sha256,
+    });
+    await closeDocumentTasks(tx, id, 'review', `Версия ${w.no} подписана, следующий пересмотр — до ${formatDateRu(due)}`);
+    await auditSettings(tx, actor, {
+      action: 'document.signed', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) подписан ${formatDateRu(input.signedOn)}, пересмотр до ${formatDateRu(due)}`,
+      after: { versionNo: w.no, round: w.round, signedOn: input.signedOn, reviewDue: due, pdfSha256: f.sha256 },
+    });
+  });
+}
+
+/** Отменить пересмотр (автор или начальник ИБ, с комментарием): версия остаётся в истории как отменённая. */
+export async function cancelRevision(db: Db, actor: Actor, id: string, input: { version: number; comment: string }) {
+  return withTx(db, async (tx) => {
+    const comment = cleanComment(input.comment, 'Напишите, почему пересмотр отменяется');
     const a = await accessOf(tx, actor.id);
     const d = await getRow(tx, id);
-    const w = d.workingVersion;
-    if (!w) throw conflict('DOC_APPROVED', 'Утверждённая версия не меняется: PDF прикладывается к новой версии');
     if (d.version !== input.version) throw versionConflict();
-    if (w.stage !== input.stage) throw conflict('STAGE_CHANGED', `Документ уже на этапе «${stageName(w.stage)}». Обновите страницу`);
-    if (d.archivedAt) throw conflict('DOC_ARCHIVED', 'Документ в архиве. Верните его из архива, чтобы изменить');
-    if (d.ownerId !== a.userId && !a.manage) throw forbiddenWith('FORBIDDEN', 'Итоговый PDF прикладывает владелец документа или пользователь с правом «Документы: управление»');
-    const res = await tx.document.updateMany({ where: { id, version: input.version }, data: { version: { increment: 1 } } });
-    if (res.count === 0) throw versionConflict();
-    const pdf = await setPdf(tx, actor, w, input.fileId);
-    if (!pdf.changed) return;
-    const restart = w.stage > 0;
-    if (restart) {
-      await addDecision(tx, {
-        documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'returned',
-        comment: `Заменён итоговый PDF («${pdf.name}») — маршрут начат заново`, actorId: actor.id, pdfSha256: pdf.sha256,
-      });
-      await tx.documentVersion.update({ where: { id: w.id }, data: { stage: 0, round: w.round + 1 } });
+    if (d.archivedAt) throw conflict('DOC_ARCHIVED', 'Документ в архиве. Верните его из архива, чтобы продолжить');
+    const w = activeWorking(d);
+    if (!w || !d.approvedVersion) throw conflict('NO_REVISION', 'Пересмотр не идёт: отменять нечего. Обновите страницу');
+    const roles = rolesOf(await whoOf(tx, a, []), d);
+    if (!roles.has('author') && !roles.has('head')) {
+      throw forbiddenWith('FORBIDDEN', `Пересмотр отменяет автор (владелец или право «${permName('docs.manage')}») или пользователь с правом «${permName('docs.approve.head')}»`);
     }
+    const res = await tx.document.updateMany({ where: { id, version: input.version }, data: { workingVersionId: null, version: { increment: 1 } } });
+    if (res.count === 0) throw versionConflict();
+    await tx.documentVersion.update({ where: { id: w.id }, data: { cancelledAt: new Date() } });
+    await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'cancelled', comment, actorId: actor.id });
+    await closeDocumentTasks(tx, id, 'returned', `Пересмотр отменён (версия ${w.no})`);
     await auditSettings(tx, actor, {
-      action: 'document.pdf_attached', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): ${w.pdfFileId ? 'заменён' : 'приложен'} итоговый PDF «${pdf.name}»${restart ? ` на этапе «${stageName(w.stage)}» — маршрут начат заново` : ''}`,
-      after: { versionNo: w.no, round: w.round, pdfSha256: pdf.sha256, restarted: restart },
+      action: 'document.revision_cancelled', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}»: пересмотр отменён, версия ${w.no} — в истории; действующая — ${d.approvedVersion.no}`,
+      after: { versionNo: w.no, stage: w.stage, comment, approvedVersionNo: d.approvedVersion.no },
+    });
+  });
+}
+
+/** Файлы драфта (pdf, docx): добавляет и снимает автор на этапе 11. */
+export async function addDraftFiles(db: Db, actor: Actor, id: string, input: { version: number; stage: number; fileIds: string[] }) {
+  return withTx(db, async (tx) => {
+    const { d, w, who } = await routeContext(tx, actor, id, input);
+    if (w.stage !== FIRST_STAGE || !rolesOf(who, d).has('author')) {
+      throw forbiddenWith('FORBIDDEN', `Файлы драфта прикладывает ${HINTS[FIRST_STAGE]} на этапе «${stageName(FIRST_STAGE)}»`);
+    }
+    const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: VERSION_FILE_MIME, what: 'Файл драфта' });
+    if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл');
+    await tx.documentFile.createMany({ data: files.map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'draft', fileId: f.id, addedBy: actor.id })) });
+    await auditSettings(tx, actor, {
+      action: 'document.files_added', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): файлы драфта — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
+      after: { versionNo: w.no, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
+    });
+  });
+}
+
+export async function removeDraftFile(db: Db, actor: Actor, id: string, linkId: string, input: { version: number; stage: number }) {
+  return withTx(db, async (tx) => {
+    const { d, w, who } = await routeContext(tx, actor, id, input);
+    if (w.stage !== FIRST_STAGE || !rolesOf(who, d).has('author')) {
+      throw forbiddenWith('FORBIDDEN', `Файлы драфта снимает ${HINTS[FIRST_STAGE]} на этапе «${stageName(FIRST_STAGE)}»`);
+    }
+    const link = await tx.documentFile.findFirst({ where: { id: linkId, versionId: w.id, kind: 'draft', removedAt: null }, include: { file: { select: { originalName: true } } } });
+    if (!link) throw notFound('Файл драфта');
+    await tx.documentFile.update({ where: { id: link.id }, data: { removedAt: new Date(), removedBy: actor.id } });
+    await deleteIfUnreferenced(tx, actor, link.fileId, `снят с драфта документа #${d.number}`);
+    await auditSettings(tx, actor, {
+      action: 'document.file_removed', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): снят файл драфта «${link.file.originalName}»`,
+      after: { versionNo: w.no, fileId: link.fileId },
+    });
+  });
+}
+
+/** Комментарий сотрудника ИБ на этапе 12 «Проверка сотрудниками». Документ не меняется (версия та же). */
+export async function addDocumentComment(db: Db, actor: Actor, id: string, input: { body: string }) {
+  return withTx(db, async (tx) => {
+    const body = cleanComment(input.body, 'Напишите комментарий');
+    const a = await accessOf(tx, actor.id);
+    if (!a.ibWork) throw forbiddenWith('FORBIDDEN', 'Комментируют сотрудники ИБ');
+    const d = await getRow(tx, id);
+    const w = activeWorking(d);
+    if (!w || w.stage !== 12) throw conflict('WRONG_STAGE', `Комментарии — на этапе «${stageName(12)}». Обновите страницу`);
+    const c = await tx.documentComment.create({ data: { documentId: id, versionId: w.id, authorId: actor.id, body } });
+    await auditSettings(tx, actor, {
+      action: 'document.commented', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): комментарий`,
+      after: { commentId: c.id, versionNo: w.no },
+    });
+  });
+}
+
+/**
+ * Мягкое удаление (docs.delete проверяет маршрут): только документ без подписанной версии. Удалённый пропадает
+ * отовсюду, файлы не удаляются; он ещё и в архиве — так его не покажет и backend 1.1.0 после отката.
+ */
+export async function deleteDocument(db: Db, actor: Actor, id: string, input: { version: number; comment?: string }) {
+  return withTx(db, async (tx) => {
+    const comment = cleanComment(input.comment, null);
+    const d = await getRow(tx, id);
+    if (d.version !== input.version) throw versionConflict();
+    if (d.approvedVersion) throw conflict('DOC_SIGNED', 'У документа есть подписанная версия — его можно только отправить в архив');
+    const now = new Date();
+    const res = await tx.document.updateMany({
+      where: { id, version: input.version, deletedAt: null },
+      data: { deletedAt: now, deletedBy: actor.id, archivedAt: d.archivedAt ?? now, version: { increment: 1 } },
+    });
+    if (res.count === 0) throw versionConflict();
+    const title = (d.workingVersion ?? d.approvedVersion)?.title ?? '';
+    await closeDocumentTasks(tx, id, 'returned', 'Документ удалён');
+    await auditSettings(tx, actor, {
+      action: 'document.deleted', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${title}» удалён${comment ? `: ${comment}` : ''}`,
+      after: { comment },
     });
   });
 }
@@ -780,8 +887,8 @@ export interface ReviseInput {
 }
 
 /**
- * Новая версия утверждённого документа (правка или пересмотр без изменений): копия действующей версии
- * на этапе «Автор». Утверждённые версии остаются в истории без изменений.
+ * Новая версия подписанного документа (правка или пересмотр без изменений): копия действующей версии
+ * на этапе «Драфт». Подписанные версии остаются в истории без изменений.
  */
 export async function reviseDocument(db: Db, actor: Actor, id: string, input: ReviseInput, policy: DocPolicy = {}) {
   return withTx(db, async (tx) => {
@@ -802,12 +909,13 @@ export async function reviseDocument(db: Db, actor: Actor, id: string, input: Re
         edition: input.edition !== undefined ? cleanEdition(input.edition) : base.edition,
         onlyofficeUrl: input.onlyofficeUrl !== undefined ? cleanUrl(input.onlyofficeUrl, policy) : base.onlyofficeUrl,
         changeNote: cleanNote(input.changeNote ?? ''),
+        stage: FIRST_STAGE,
         createdBy: actor.id,
       },
     });
     const res = await tx.document.updateMany({ where: { id, version: input.version }, data: { workingVersionId: v.id, version: { increment: 1 } } });
     if (res.count === 0) throw versionConflict();
-    await addDecision(tx, { documentId: id, versionId: v.id, versionNo: no, round: 1, stage: 0, decision: 'revision_started', comment: v.changeNote, actorId: actor.id });
+    await addDecision(tx, { documentId: id, versionId: v.id, versionNo: no, round: 1, stage: FIRST_STAGE, decision: 'revision_started', toStage: FIRST_STAGE, comment: v.changeNote, actorId: actor.id });
     await auditSettings(tx, actor, {
       action: 'document.revision_started', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${v.title}»: создана версия ${no} (действующая — ${base.no})`,

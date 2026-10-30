@@ -57,6 +57,10 @@ model User {
   documentVersions     DocumentVersion[]
   documentApprovals    DocumentApproval[]
   uploadedFiles        File[]               @relation("FileUploader")
+  deletedDocuments     Document[]           @relation("DocumentDeleter")
+  documentComments     DocumentComment[]
+  addedDocumentFiles   DocumentFile[]       @relation("DocumentFileAdder")
+  removedDocumentFiles DocumentFile[]       @relation("DocumentFileRemover")
   deletedFiles         File[]               @relation("FileDeleter")
   ownedEvidence        Evidence[]           @relation("EvidenceOwner")
   uploadedEvidence     Evidence[]           @relation("EvidenceUploader")
@@ -882,6 +886,9 @@ model Document {
   workingVersionId  String?   @unique @map("working_version_id") @db.Uuid
   version           Int       @default(1)
   archivedAt        DateTime? @map("archived_at") @db.Timestamptz(3)
+  /// Мягкое удаление (релиз 1.2.0, docs.delete): только документ без подписанной версии; удалённый — ещё и в архиве.
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedBy         String?   @map("deleted_by") @db.Uuid
   createdBy         String    @map("created_by") @db.Uuid
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -889,10 +896,13 @@ model Document {
   type            CatalogItem        @relation(fields: [typeId], references: [id], onDelete: Restrict)
   owner           User               @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   creator         User               @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  deleter         User?              @relation("DocumentDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
   approvedVersion DocumentVersion?   @relation("DocumentApprovedVersion", fields: [approvedVersionId], references: [id], onDelete: Restrict)
   workingVersion  DocumentVersion?   @relation("DocumentWorkingVersion", fields: [workingVersionId], references: [id], onDelete: Restrict)
   versions        DocumentVersion[]  @relation("DocumentVersions")
   approvals       DocumentApproval[]
+  comments        DocumentComment[]
+  files           DocumentFile[]
   events          AutomationEvent[]
   tasks           Task[]
   evidence        Evidence[]
@@ -913,12 +923,17 @@ model DocumentVersion {
   title         String
   onlyofficeUrl String    @map("onlyoffice_url")
   changeNote    String    @default("") @map("change_note")
-  /// 0 — автор, 1 — начальник ИБ, 2 — юридический отдел, 3 — правление.
+  /// Маршрут 1.2.0 (ADR-0024): 11 драфт … 16 подписание. Старый маршрут (до 1.2.0): 0 — автор, 1 — начальник ИБ,
+  /// 2 — юридический отдел, 3 — правление; на нём остаются только версии, утверждённые до 1.2.0.
   stage         Int       @default(0) @db.SmallInt
   /// Круг маршрута: +1 при каждом возврате на доработку.
   round         Int       @default(1)
   approvedAt    DateTime? @map("approved_at") @db.Timestamptz(3)
-  /// Итоговый PDF (этап 7): прикладывает автор при отправке на согласование, все этапы согласуют этот файл.
+  /// Дата подписания (этап 16): от неё считается дата пересмотра.
+  signedOn      DateTime? @map("signed_on") @db.Date
+  /// Пересмотр отменён: версия остаётся в истории, действующей остаётся подписанная.
+  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  /// Итоговый PDF (этап 7); на маршруте 1.2.0 — подписанный PDF (этап 16): прикладывает автор при отправке на согласование, все этапы согласуют этот файл.
   /// Утверждённая версия без PDF (утверждена до этапа 7) — «текст не зафиксирован».
   pdfFileId     String?   @map("pdf_file_id") @db.Uuid
   createdBy     String    @map("created_by") @db.Uuid
@@ -931,6 +946,8 @@ model DocumentVersion {
   approvedOf Document?          @relation("DocumentApprovedVersion")
   workingOf  Document?          @relation("DocumentWorkingVersion")
   approvals  DocumentApproval[]
+  comments   DocumentComment[]
+  files      DocumentFile[]
 
   @@unique([documentId, no])
   @@map("document_versions")
@@ -944,8 +961,12 @@ model DocumentApproval {
   versionNo  Int      @map("version_no")
   round      Int
   stage      Int      @db.SmallInt
-  /// submitted | approved | returned | revision_started
+  /// Куда перешёл документ (маршрут 1.2.0); NULL — решение старого маршрута или без перехода.
+  toStage    Int?     @map("to_stage") @db.SmallInt
+  /// submitted | approved | returned | revision_started | skipped | moved | signed | migrated | cancelled
   decision   String
+  /// Этап 13 согласовал сам автор — начальник ИБ, другого согласующего нет: без независимого согласования.
+  selfApproved Boolean @default(false) @map("self_approved")
   comment    String   @default("")
   /// sha256 PDF версии на момент решения (этап 7): какой именно текст согласован.
   pdfSha256  String?  @map("pdf_sha256") @db.Char(64)
@@ -959,6 +980,49 @@ model DocumentApproval {
   @@index([documentId, at])
   @@index([versionId, round])
   @@map("document_approvals")
+}
+
+/// Комментарии сотрудников ИБ к документу (этап 12 «Проверка сотрудниками»). Не правятся и не удаляются.
+model DocumentComment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  versionId  String   @map("version_id") @db.Uuid
+  authorId   String   @map("author_id") @db.Uuid
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  author   User            @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([documentId, createdAt])
+  @@map("document_comments")
+}
+
+/// Файлы версии документа (релиз 1.2.0): draft — файлы драфта (снимаются на этапе 11), head_approved — версия,
+/// одобренная начальником ИБ (13 → 14), final — финальная версия (14 → 15). Зафиксированные файлы не снимаются.
+model DocumentFile {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String    @map("document_id") @db.Uuid
+  versionId  String    @map("version_id") @db.Uuid
+  /// Круг маршрута версии, в котором приложен файл.
+  round      Int
+  kind       String
+  fileId     String    @map("file_id") @db.Uuid
+  addedBy    String    @map("added_by") @db.Uuid
+  addedAt    DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt  DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy  String?   @map("removed_by") @db.Uuid
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  file     File            @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  adder    User            @relation("DocumentFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
+  remover  User?           @relation("DocumentFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
+
+  @@index([versionId, round])
+  @@index([fileId])
+  @@map("document_files")
 }
 
 /// Файлы (этап 7, CLAUDE.md 3.7): содержимое — /data/files/<yyyy>/<mm>/<uuid>, здесь — метаданные.
@@ -981,6 +1045,7 @@ model File {
   deleter       User?                @relation("FileDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
   decisions     RegisterDecision[]
   versions      DocumentVersion[]
+  documentLinks DocumentFile[]
   evidenceLinks EvidenceFile[]
   recordLinks   RegisterRecordFile[]
   imports       RegisterImport[]

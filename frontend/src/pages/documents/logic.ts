@@ -1,5 +1,5 @@
 // Раздел «Документы»: подписи и тона без React — проверяются юнит-тестами.
-import type { DocDetail, DocItem, DocStatus } from '../../api/documents';
+import type { DocAction, DocDetail, DocItem, DocStatus } from '../../api/documents';
 import { formatDate } from '../registers/logic';
 
 /** Тон плашки статуса: как в прототипе — согласование синим, просрочка красным, пересмотр оранжевым. */
@@ -16,19 +16,58 @@ export function versionLabel(v: { no: number; edition: string }): string {
   return v.edition ? `${v.no} · ред. ${v.edition}` : String(v.no);
 }
 
+/** Кнопки маршрута (ADR-0024); тексты — как в backend (status.ts, MOVES). */
+export const ACTION_LABEL: Record<DocAction, string> = {
+  to_review: 'Отправить на проверку сотрудникам',
+  to_head: 'На согласование начальнику ИБ',
+  approve: 'Согласовать',
+  ack_final: 'Ознакомлен с финальной версией',
+  to_signing: 'На подписание',
+  return: 'Вернуть на доработку',
+};
+
+/** Переход фиксирует файл версии (pdf или docx). */
+export const FIXED_FILE_LABEL: Partial<Record<DocAction, string>> = {
+  approve: 'Версия, одобренная начальником ИБ (pdf или docx)',
+  ack_final: 'Финальная версия (pdf или docx)',
+};
+
+/** Уведомление после действия. */
+export const ACTION_DONE: Record<DocAction, string> = {
+  to_review: 'Документ отправлен на проверку сотрудникам',
+  to_head: 'Документ отправлен на согласование начальнику ИБ',
+  approve: 'Документ согласован',
+  ack_final: 'Финальная версия принята, документ — на переводе',
+  to_signing: 'Документ отправлен на подписание',
+  return: 'Документ возвращён автору на доработку',
+};
+
+export const SELF_APPROVED = 'Согласовано автором (начальник ИБ) — без независимого согласования';
+
 /** Строка истории согласования. */
 export function historyText(h: DocDetail['history'][number]): string {
   switch (h.decision) {
     case 'submitted':
       return `отправил(а) версию ${h.versionNo} на согласование`;
     case 'approved':
-      return h.stage === 3 ? `утвердил(а) версию ${h.versionNo}` : `согласовал(а) этап «${h.stageName}», версия ${h.versionNo}`;
+      if (h.stage === 3) return `утвердил(а) версию ${h.versionNo}`;
+      if (h.stage === 13) return `согласовал(а) версию ${h.versionNo}${h.selfApproved ? ' сам(а) как автор и начальник ИБ — без независимого согласования' : ''}`;
+      if (h.stage === 14) return `ознакомлен(а) с финальной версией ${h.versionNo}`;
+      return `согласовал(а) этап «${h.stageName}», версия ${h.versionNo}`;
+    case 'moved':
+      return `перевёл(а) версию ${h.versionNo}: «${h.stageName}» → «${h.toStageName ?? ''}»${h.comment ? `. ${h.comment}` : ''}`;
     case 'returned':
       return `вернул(а) версию ${h.versionNo} на доработку с этапа «${h.stageName}»: ${h.comment}`;
     case 'skipped':
       return `этап «${h.stageName}» не требуется (версия ${h.versionNo}). ${h.comment}`;
     case 'revision_started':
       return `создал(а) версию ${h.versionNo} для пересмотра${h.comment ? `: ${h.comment}` : ''}`;
+    case 'signed':
+      return `загрузил(а) подписанную версию ${h.versionNo}. ${h.comment}`;
+    case 'migrated':
+      return `версия ${h.versionNo}: ${h.comment}`;
+    case 'cancelled':
+      return `отменил(а) пересмотр, версия ${h.versionNo} — в истории: ${h.comment}`;
   }
 }
 
