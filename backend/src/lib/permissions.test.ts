@@ -25,6 +25,10 @@ describe('коды прав и системные роли', () => {
     }
   });
 
+  it('релиз 1.4.0: «SOC» — ровно права «Сотрудника ИБ»', () => {
+    expect([...role('soc')].sort()).toEqual([...role('ib_staff')].sort());
+  });
+
   it('супер-администратор не получает права этапов согласования; киоск — только своё право', () => {
     for (const code of APPROVAL_PERMISSIONS) expect(role('super_admin')).not.toContain(code);
     expect(role('kiosk')).toEqual([KIOSK_PERMISSION]);

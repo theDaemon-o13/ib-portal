@@ -10,7 +10,7 @@ import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
 import { seedDocumentRoute } from './documents.js';
 import { seedMonitorSlides } from './monitor.js';
-import { seedDocReaders, seedPermissionGrants } from './rbac.js';
+import { seedDocReaders, seedPermissionGrants, seedSystemRoles } from './rbac.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
@@ -30,23 +30,7 @@ async function main() {
       });
     }
 
-    for (const role of SYSTEM_ROLES) {
-      const existing = await tx.role.findUnique({ where: { code: role.code } });
-      if (!existing) {
-        await tx.role.create({
-          data: {
-            code: role.code,
-            name: role.name,
-            description: role.description,
-            isSystem: true,
-            permissions: { create: role.permissions.map((permissionCode) => ({ permissionCode })) },
-          },
-        });
-        console.log(`Создана роль «${role.name}»`);
-      } else if (!existing.isSystem) {
-        await tx.role.update({ where: { id: existing.id }, data: { isSystem: true } });
-      }
-    }
+    await seedSystemRoles(tx);
 
     // У супер-администратора settings.manage и users.manage не снимаются.
     const superAdmin = await tx.role.findUniqueOrThrow({ where: { code: 'super_admin' } });

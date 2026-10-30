@@ -1,10 +1,36 @@
 // Права, добавленные в обновлении: выдаются системным ролям один раз (seed_markers).
 // Снятое администратором право при следующем обновлении не возвращается. Каждая выдача — в журнал аудита.
 import type { Prisma } from '../../src/generated/prisma/client.js';
-import { PERMISSION_GRANTS, RETIRED_ROLE_CODES } from '../../src/lib/permissions.js';
+import { PERMISSION_GRANTS, RETIRED_ROLE_CODES, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { once } from './registers.js';
 
 type Tx = Prisma.TransactionClient;
+
+/**
+ * Системные роли: создаются, если роли с таким кодом нет; состав существующей не перезаписывается (его настраивают
+ * в интерфейсе). Своя роль с тем же названием — понятная остановка вместо ошибки уникальности: seed — одна транзакция.
+ */
+export async function seedSystemRoles(tx: Tx): Promise<void> {
+  for (const role of SYSTEM_ROLES) {
+    const existing = await tx.role.findUnique({ where: { code: role.code } });
+    if (!existing) {
+      const clash = await tx.role.findFirst({ where: { name: { equals: role.name, mode: 'insensitive' } }, select: { name: true } });
+      if (clash) throw new Error(`уже есть роль «${clash.name}»: переименуйте её в «Настройки → Пользователи и роли» и повторите migrate — системная роль «${role.name}» создаётся с этим названием`);
+      await tx.role.create({
+        data: {
+          code: role.code,
+          name: role.name,
+          description: role.description,
+          isSystem: true,
+          permissions: { create: role.permissions.map((permissionCode) => ({ permissionCode })) },
+        },
+      });
+      console.log(`Создана роль «${role.name}»`);
+    } else if (!existing.isSystem) {
+      await tx.role.update({ where: { id: existing.id }, data: { isSystem: true } });
+    }
+  }
+}
 
 export async function seedPermissionGrants(tx: Tx): Promise<void> {
   for (const step of PERMISSION_GRANTS) {

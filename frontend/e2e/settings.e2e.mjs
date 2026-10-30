@@ -340,6 +340,14 @@ describe('Роли и права', () => {
     const locked = await ui.evaluate(`document.querySelector('input.perm[aria-label="Супер-администратор: Настройки: пользователи, роли и права"]').disabled`);
     assert.equal(locked, true);
   });
+
+  it('системные роли «Начальник ИБ» и «SOC» в матрице; у «SOC» — права «Сотрудника ИБ»', async () => {
+    const heads = await ui.evaluate(`[...document.querySelectorAll('thead th .rn')].map((n) => n.textContent.trim())`);
+    assert.ok(heads.includes('Начальник ИБ'), `столбцы: ${heads.join(', ')}`);
+    assert.ok(heads.includes('SOC'), `столбцы: ${heads.join(', ')}`);
+    const on = (role) => `[...document.querySelectorAll('input.perm')].filter((i) => i.getAttribute('aria-label').startsWith(${JSON.stringify(`${role}: `)}) && i.checked).map((i) => i.getAttribute('aria-label').slice(${role.length + 2})).sort()`;
+    assert.deepEqual(await ui.evaluate(on('SOC')), await ui.evaluate(on('Сотрудник ИБ')));
+  });
 });
 
 describe('Пользователи', () => {

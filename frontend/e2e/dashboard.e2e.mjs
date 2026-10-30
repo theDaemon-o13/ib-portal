@@ -121,6 +121,8 @@ describe('дашборд: переход по фильтру', () => {
     const drawer = `document.querySelector('aside.drawer[aria-label="Плитки дашборда"]')`;
     await ui.waitFor(`!!${drawer}`, 'панель плиток');
     const sel = (text) => `[...${drawer}.querySelectorAll('label')].find((l) => l.firstChild?.textContent?.trim() === ${JSON.stringify(text)})?.querySelector('select, input')`;
+    // Список реестров приходит отдельным запросом: выбрать можно только когда вариант уже есть, иначе value не встанет.
+    await ui.waitFor(`[...(${sel('Реестр')})?.options ?? []].some((o) => o.value === '${vulns.id}')`, 'реестр в списке');
     await ui.select(sel('Реестр'), vulns.id);
     await ui.waitFor(`[...${sel('Поле')}.options].some((o) => o.value === '${field('crit').id}')`, 'поля реестра');
     await ui.select(sel('Поле'), field('crit').id);

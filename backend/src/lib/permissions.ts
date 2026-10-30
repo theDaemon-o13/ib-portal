@@ -87,6 +87,12 @@ export const SYSTEM_ROLES = [
     permissions: ['ib.work', 'records.edit', 'evidence.review'],
   },
   {
+    code: 'soc',
+    name: 'SOC',
+    description: 'Сотрудник SOC: права как у «Сотрудника ИБ» (релиз 1.4.0)',
+    permissions: ['ib.work', 'records.edit', 'evidence.review'],
+  },
+  {
     code: 'ib_head',
     name: 'Начальник ИБ',
     description: 'Согласует документы, проверяет задачи, видит журнал',
