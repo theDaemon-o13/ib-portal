@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { seedDocReaders } from '../../../prisma/seed/rbac.js';
 import { argon2Hasher } from '../../lib/passwords.js';
-import { actorFor, expectCode, inTx, lastAudit, makeUser, permissionsOf, roleId } from '../../test/db.js';
+import { actorFor, expectCode, inTx, lastAudit, makeUser, permissionsOf, roleId, type Tx } from '../../test/db.js';
 import * as users from '../users/service.js';
 import { usersManageHolders } from './invariant.js';
 import * as roles from './service.js';
@@ -103,7 +104,7 @@ describe('супер-администратор и разделение полн
     inTx(async (tx) => {
       const me = await makeUser(tx, ['super_admin']);
       const superId = await roleId(tx, 'super_admin');
-      for (const p of ['docs.approve.head', 'docs.approve.legal', 'docs.approve.board'] as const) {
+      for (const p of ['docs.approve.head'] as const) {
         await expectCode(roles.setRolePermission(tx, await actorFor(tx, me.id), superId, p, true), 'SEPARATION_OF_DUTIES');
       }
     }));
@@ -112,20 +113,20 @@ describe('супер-администратор и разделение полн
     inTx(async (tx) => {
       const me = await makeUser(tx, ['super_admin']);
       const actor = await actorFor(tx, me.id);
-      const legal = await roleId(tx, 'legal');
-      const someone = await makeUser(tx, ['legal', 'ib_staff']);
-      await roles.setRolePermission(tx, actor, legal, 'docs.manage', true);
+      const reader = await roleId(tx, 'doc_reader');
+      const someone = await makeUser(tx, ['doc_reader', 'ib_staff']);
+      await roles.setRolePermission(tx, actor, reader, 'docs.manage', true);
       const perms = await permissionsOf(tx, someone.id);
-      expect(perms).toEqual(expect.arrayContaining(['docs.approve.legal', 'docs.manage', 'ib.work', 'records.edit']));
-      const r = await roles.setRolePermission(tx, actor, legal, 'docs.manage', false);
-      expect(r.permissions).toEqual(['docs.approve.legal']);
+      expect(perms).toEqual(expect.arrayContaining(['docs.manage', 'ib.work', 'records.edit']));
+      const r = await roles.setRolePermission(tx, actor, reader, 'docs.manage', false);
+      expect(r.permissions).toEqual([]);
     }));
 
   it('роль: уникальное имя без учёта регистра, защита от одновременной правки', () =>
     inTx(async (tx) => {
       const me = await makeUser(tx, ['super_admin']);
       const actor = await actorFor(tx, me.id);
-      await expectCode(roles.createRole(tx, actor, { name: 'юрист', description: '' }), 'DUPLICATE');
+      await expectCode(roles.createRole(tx, actor, { name: 'читатель документов', description: '' }), 'DUPLICATE');
       const r = await roles.createRole(tx, actor, { name: 'Аудитор', description: '' });
       const renamed = await roles.updateRole(tx, actor, r.id, { version: r.version, name: 'Внутренний аудит' });
       expect(renamed.version).toBe(r.version + 1);
@@ -142,5 +143,58 @@ describe('создание пользователя под ролью прило
         roleIds: [await roleId(tx, 'ib_staff')],
       });
       expect(res.user).toMatchObject({ login: 'new.user', mustChangePassword: true, roles: [{ name: 'Сотрудник ИБ' }] });
+    }));
+});
+
+/** Роль до 1.2.0 (на новой установке её нет): создаётся в транзакции теста, если её нет в тестовой базе. */
+async function retiredRole(tx: Tx, code: 'legal' | 'board', name: string) {
+  const r = await tx.role.findUnique({ where: { code } });
+  if (r) return r;
+  const role = await tx.role.create({ data: { code, name, isSystem: true } });
+  await tx.permission.upsert({ where: { code: `docs.approve.${code}` }, create: { code: `docs.approve.${code}`, name: `Этап ${name}` }, update: {} });
+  await tx.rolePermission.create({ data: { roleId: role.id, permissionCode: `docs.approve.${code}` } });
+  return role;
+}
+
+describe('«Юрист» и «Правление» → «Читатель документов» (релиз 1.2.0, ADR-0024)', () => {
+  it('пользователи переходят в «Читатель документов», прежняя роль снимается, всё — в журнале; повтор ничего не меняет', () =>
+    inTx(async (tx) => {
+      const legal = await retiredRole(tx, 'legal', 'Юрист');
+      const board = await retiredRole(tx, 'board', 'Правление');
+      const lawyer = await makeUser(tx, ['doc_reader'], { fullName: 'Юрист Банка' });
+      await tx.userRole.deleteMany({ where: { userId: lawyer.id } });
+      await tx.userRole.create({ data: { userId: lawyer.id, roleId: legal.id } });
+      const member = await makeUser(tx, ['ib_staff'], { fullName: 'Член Правления' });
+      await tx.userRole.create({ data: { userId: member.id, roleId: board.id } });
+
+      await seedDocReaders(tx);
+      const rolesOf = async (id: string) => (await tx.userRole.findMany({ where: { userId: id }, include: { role: true } })).map((r) => r.role.code).sort();
+      expect(await rolesOf(lawyer.id)).toEqual(['doc_reader']);
+      expect(await rolesOf(member.id)).toEqual(['doc_reader', 'ib_staff']);
+      expect(await tx.userRole.count({ where: { roleId: { in: [legal.id, board.id] } } })).toBe(0);
+      expect((await tx.user.findUniqueOrThrow({ where: { id: lawyer.id } })).isActive).toBe(true);
+      const audit = await tx.auditLog.findFirstOrThrow({ where: { action: 'user.updated', entityId: lawyer.id }, orderBy: { at: 'desc' } });
+      expect(audit.userId).toBeNull();
+      expect((audit.diff as { summary: string }).summary).toMatch(/«Юрист» → «Читатель документов»/);
+
+      // Снятое администратором позже не возвращается: шаг смотрит только на тех, кто сейчас в выведенных ролях.
+      await tx.userRole.deleteMany({ where: { userId: member.id, role: { code: 'doc_reader' } } });
+      const n = await tx.auditLog.count({ where: { action: 'user.updated', entityId: { in: [lawyer.id, member.id] } } });
+      await seedDocReaders(tx);
+      expect(await rolesOf(member.id)).toEqual(['ib_staff']);
+      expect(await tx.auditLog.count({ where: { action: 'user.updated', entityId: { in: [lawyer.id, member.id] } } })).toBe(n);
+    }));
+
+  it('выведенных ролей нет в списке, назначить их нельзя; кодов прав юриста и правления нет в матрице', () =>
+    inTx(async (tx) => {
+      const legal = await retiredRole(tx, 'legal', 'Юрист');
+      const me = await makeUser(tx, ['super_admin']);
+      const actor = await actorFor(tx, me.id);
+      const list = await roles.listRoles(tx);
+      expect(list.some((r) => r.code === 'legal' || r.code === 'board')).toBe(false);
+      expect(list.find((r) => r.code === 'doc_reader')).toMatchObject({ name: 'Читатель документов', isSystem: true, permissions: [] });
+      expect((await roles.listPermissions(tx)).some((p) => p.code.startsWith('docs.approve.') && p.code !== 'docs.approve.head')).toBe(false);
+      await expectCode(users.createUser(tx, actor, argon2Hasher, { login: 'x.legal', fullName: 'Икс', position: '', department: '', roleIds: [legal.id] }), 'RETIRED_ROLE');
+      await expectCode(roles.setRolePermission(tx, actor, legal.id, 'docs.manage', true), 'NOT_FOUND');
     }));
 });

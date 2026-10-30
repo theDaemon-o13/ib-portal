@@ -1,12 +1,15 @@
 // Роли и матрица «право × роль» (CLAUDE.md, раздел 5).
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
-import { APPROVAL_PERMISSIONS, KIOSK_PERMISSION, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode } from '../../lib/permissions.js';
+import {
+  APPROVAL_PERMISSIONS, KIOSK_PERMISSION, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
+} from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { assertKioskExclusive, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
 
+/** Коды прав из кода; строки прав до 1.2.0 (юрист, правление) остаются в БД до 1.3.0, в матрице их нет. */
 export async function listPermissions(db: Db) {
-  return db.permission.findMany({ orderBy: { sortOrder: 'asc' }, select: { code: true, name: true, description: true } });
+  return db.permission.findMany({ where: { code: { in: [...PERMISSION_CODES] } }, orderBy: { sortOrder: 'asc' }, select: { code: true, name: true, description: true } });
 }
 
 const roleInclude = {
@@ -38,13 +41,17 @@ function toDto(r: {
 export type RoleDto = ReturnType<typeof toDto>;
 
 export async function listRoles(db: Db): Promise<RoleDto[]> {
-  const rows = await db.role.findMany({ include: roleInclude, orderBy: [{ isSystem: 'desc' }, { createdAt: 'asc' }] });
+  // Роли «Юрист» и «Правление» выведены из обращения в 1.2.0 (ADR-0024): в интерфейсе их нет.
+  const rows = await db.role.findMany({
+    where: { OR: [{ code: null }, { code: { notIn: [...RETIRED_ROLE_CODES] } }] },
+    include: roleInclude, orderBy: [{ isSystem: 'desc' }, { createdAt: 'asc' }],
+  });
   return rows.map(toDto);
 }
 
 async function getRole(db: Db, id: string) {
   const r = await db.role.findUnique({ where: { id }, include: roleInclude });
-  if (!r) throw notFound('Роль');
+  if (!r || (r.code !== null && (RETIRED_ROLE_CODES as readonly string[]).includes(r.code))) throw notFound('Роль');
   return r;
 }
 

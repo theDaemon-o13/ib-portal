@@ -51,7 +51,7 @@ describe('события автоматизаций → задачи', () => {
       const dikt1 = await makeUser(tx, ['ib_staff'], { fullName: 'ДИКТ Первый' });
       const dikt2 = await makeUser(tx, ['ib_staff'], { fullName: 'ДИКТ Второй' });
       const owner = await makeUser(tx, ['ib_staff'], { fullName: 'Владелец АБС' });
-      const outsider = await makeUser(tx, ['legal'], { fullName: 'Без доступа к ИБ' });
+      const outsider = await makeUser(tx, ['doc_reader'], { fullName: 'Без доступа к ИБ' });
 
       // Участники — только с ib.work; остальных — e-mail.
       await expectCode(setLabel(tx, x, 'Руководитель ДИКТ', { memberIds: [dikt1.id, outsider.id] }), 'NOT_IB_USER');
@@ -180,7 +180,7 @@ describe('события автоматизаций → задачи', () => {
       await expectCode(automations.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'before', fieldId: x.vf.due.id, days: 1 }, action: { eventType: 'remind', recipients: [{ kind: 'label', itemId: '00000000-0000-4000-8000-000000000000' }] },
       }), 'BAD_RULE');
-      const outsider = await makeUser(tx, ['legal']);
+      const outsider = await makeUser(tx, ['doc_reader']);
       await expectCode(automations.createRule(tx, x.actor, x.reg.id, {
         condition: { kind: 'before', fieldId: x.vf.due.id, days: 1 }, action: { eventType: 'remind', recipients: [{ kind: 'user', userId: outsider.id }] },
       }), 'BAD_RULE');
@@ -234,7 +234,7 @@ describe('задачи', () => {
   it('доска: создать, правка с версией, «Выполнено», архив; ответственный — только сотрудник ИБ; комментарии и история', () =>
     inTx(async (tx) => {
       const staff = await makeUser(tx, ['ib_staff'], { fullName: 'Сотрудник ИБ' });
-      const outsider = await makeUser(tx, ['legal']);
+      const outsider = await makeUser(tx, ['doc_reader']);
       const actor = await actorFor(tx, staff.id);
       // Статус в обход кнопок меняет только tasks.status.override (релиз 1.2.0) — здесь начальник ИБ.
       const head = await actorFor(tx, (await makeUser(tx, ['ib_head'])).id);
@@ -301,7 +301,7 @@ describe('задачи', () => {
       const hash = await argon2Hasher.hash(PASSWORD);
       const admin = await makeUser(tx, ['super_admin'], { passwordHash: hash });
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
-      const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
+      const lawyer = await makeUser(tx, ['doc_reader'], { passwordHash: hash });
       const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL });
       const login = async (l: string) => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });

@@ -126,7 +126,7 @@ describe('правила значений', () => {
   it('правила почты: ключевые слова нормализуются, ответственный — активный сотрудник ИБ', () =>
     inTx(async (tx) => {
       const { admin, actor } = await setup(tx);
-      const docsOnly = await makeUser(tx, ['legal']);
+      const docsOnly = await makeUser(tx, ['doc_reader']);
       await expectCode(svc.createItem(tx, actor, 'mail_rules', { value: 'Сеть', keywords: [] }), 'NO_KEYWORDS');
       await expectCode(
         svc.createItem(tx, actor, 'mail_rules', { value: 'Сеть', keywords: ['vpn'], ownerUserId: docsOnly.id }),

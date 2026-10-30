@@ -4,7 +4,7 @@
 //   npm run test:e2e   (логин и пароль администратора — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
 // Маршрут 1.2.0 (ADR-0024): драфт → проверка сотрудниками → начальник ИБ → ответственные лица → перевод → подписание.
-// Маршрут проходят разные пользователи: тест заводит владельца документа, его руководителя, сотрудника ИБ, начальника ИБ и юриста,
+// Маршрут проходят разные пользователи: тест заводит владельца документа, его руководителя, сотрудника ИБ, начальника ИБ и читателя документов,
 // каждый входит через форму входа (при первом входе — смена временного пароля). Документы готовятся через API.
 // В конце документы и задачи прогона уходят в архив, тестовые пользователи отключаются.
 import assert from 'node:assert/strict';
@@ -151,7 +151,7 @@ before(async () => {
     ['owner', 'Автор Документов', ['ib_staff']],
     ['staff', 'Сотрудник Отдела', ['ib_staff']],
     ['head', 'Начальник Отдела ИБ', ['ib_staff', 'ib_head']],
-    ['legal', 'Юрист Банка', ['legal']],
+    ['legal', 'Читатель Документов', ['doc_reader']],
   ]) {
     const r = await api('POST', '/api/v1/users', {
       login: `${RUN.toLowerCase()}.${key}`, fullName: `${fullName} ${RUN}`, roleIds: codes.map(role),
@@ -287,8 +287,19 @@ describe('Документы: маршрут 1.2.0', () => {
     assert.equal(await ui.evaluate(`!!${row(`${RUN} Черновик`)}`), false, 'черновик юристу не виден');
     assert.equal(await ui.evaluate(`!!${row(`${RUN} У начальника`)}`), false, 'документ на маршруте юристу не виден');
     assert.equal(await ui.evaluate(`[...document.querySelectorAll('.filters button')].some((b) => b.textContent.startsWith('Архив'))`), false, 'архива у юриста нет');
+    // Подписанный PDF читатель открывает прямо в карточке (без прав, ADR-0024).
+    await ui.click(row(`${RUN} Подписанный`));
+    const m = ui.mark();
+    await ui.click($.button('Подписанный PDF', panel));
+    const pdf = await ui.request(m, 'GET', '/content');
+    assert.equal(pdf.status, 200, 'подписанный PDF читателю выдаётся');
     await ui.goto(`/documents?doc=${draft.id}`);
     await ui.waitFor(`${panel}?.textContent.includes('Документ не найден или вам не виден')`, 'черновик по ссылке не открывается');
+
+    // «Юрист» и «Правление» выведены из обращения: в ролях их нет, есть «Читатель документов».
+    await loginAs(admin);
+    const roles = (await api('GET', '/api/v1/roles')).items.map((r) => r.code);
+    assert.ok(roles.includes('doc_reader') && !roles.includes('legal') && !roles.includes('board'), roles.join(', '));
   });
 });
 

@@ -14,9 +14,10 @@ export const PERMISSIONS = [
   { code: 'evidence.review', name: 'Доказательства: проверка', description: 'Принять или отклонить доказательство' },
   { code: 'docs.manage', name: 'Документы: управление', description: 'Создание, запуск пересмотра, отправка на согласование за автора' },
   { code: 'docs.delete', name: 'Документы: удаление', description: 'Только неподписанные документы; подписанные — в архив' },
-  { code: 'docs.approve.head', name: 'Документы: этап «Начальник ИБ»', description: 'Согласование этапа' },
-  { code: 'docs.approve.legal', name: 'Документы: этап «Юридический отдел»', description: 'Согласование этапа' },
-  { code: 'docs.approve.board', name: 'Документы: этап «Утверждение правлением»', description: 'Утверждение документа' },
+  {
+    code: 'docs.approve.head', name: 'Документы: начальник ИБ',
+    description: 'Согласование документа, «Ознакомлен с финальной версией», возврат на доработку, перевод на подписание, подписание',
+  },
   { code: 'settings.manage', name: 'Настройки: справочники и шаблоны форм', description: '' },
   { code: 'users.manage', name: 'Настройки: пользователи, роли и права', description: '' },
   { code: 'history.view', name: 'История в карточках', description: 'История изменений задач, записей реестров, документов и доказательств' },
@@ -42,12 +43,21 @@ export const ADMIN_PERMISSIONS: readonly PermissionCode[] = ['settings.manage', 
  */
 export const KIOSK_PERMISSION = 'monitor.kiosk' as const satisfies PermissionCode;
 
-/** Права этапов согласования: не входят в роль супер-администратора (разделение полномочий). */
-export const APPROVAL_PERMISSIONS: readonly PermissionCode[] = [
-  'docs.approve.head',
-  'docs.approve.legal',
-  'docs.approve.board',
-];
+/** Права согласования документов: не входят в роль супер-администратора (разделение полномочий). */
+export const APPROVAL_PERMISSIONS: readonly PermissionCode[] = ['docs.approve.head'];
+
+/**
+ * Коды прав маршрута до 1.2.0 (этапы юриста и правления, ADR-0024). Из кода и матрицы ушли; строки в permissions и
+ * role_permissions остаются в БД до 1.3.0, чтобы работал откат на 1.1.0. В сумме прав пользователя не учитываются.
+ */
+export const LEGACY_PERMISSION_CODES = ['docs.approve.legal', 'docs.approve.board'] as const;
+
+/**
+ * Роли до 1.2.0, выведенные из обращения: их пользователи переходят в «Читатель документов» (seed). Сами роли (пустые)
+ * остаются в БД до 1.3.0 ради отката; в интерфейсе их нет и назначить их нельзя.
+ */
+export const RETIRED_ROLE_CODES = ['legal', 'board'] as const;
+export const isRetiredRole = (code: string | null) => code !== null && (RETIRED_ROLE_CODES as readonly string[]).includes(code);
 
 export const SYSTEM_ROLES = [
   {
@@ -68,23 +78,17 @@ export const SYSTEM_ROLES = [
   {
     code: 'ib_head',
     name: 'Начальник ИБ',
-    description: 'Согласует документы на этапе «Начальник ИБ», проверяет задачи, видит журнал',
+    description: 'Согласует документы, проверяет задачи, видит журнал',
     permissions: [
       'docs.approve.head', 'tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete',
       'history.view', 'audit.view',
     ],
   },
   {
-    code: 'legal',
-    name: 'Юрист',
-    description: 'Согласует документы на этапе «Юридический отдел»',
-    permissions: ['docs.approve.legal'],
-  },
-  {
-    code: 'board',
-    name: 'Правление',
-    description: 'Утверждает документы',
-    permissions: ['docs.approve.board'],
+    code: 'doc_reader',
+    name: 'Читатель документов',
+    description: 'Видит подписанные документы и их файлы; других прав нет (релиз 1.2.0)',
+    permissions: [],
   },
   {
     code: 'kiosk',

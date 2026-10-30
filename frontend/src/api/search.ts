@@ -6,9 +6,6 @@ export type SearchResult = JsonOf<paths['/api/v1/search']['get']['responses'][20
 export type SearchKind = 'records' | 'files' | 'evidence';
 export type SearchHit = SearchResult['records']['items'][number];
 
-/** Права, с которыми доступен поиск (как у файлов): ib.work или права документов. */
-export const SEARCH_PERMS = ['ib.work', 'docs.manage', 'docs.approve.head', 'docs.approve.legal', 'docs.approve.board'];
-
 export const searchApi = {
   search: (q: string, kind?: SearchKind, cursor?: string) => {
     const p = new URLSearchParams({ q, limit: kind ? '30' : '10' });

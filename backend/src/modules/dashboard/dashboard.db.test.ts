@@ -211,7 +211,7 @@ describe('по HTTP: права и кэш', () => {
     const admin = await makeUser(tx, ['super_admin'], { passwordHash: hash });
     const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
     const wall = await makeUser(tx, ['kiosk'], { passwordHash: hash });
-    const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
+    const lawyer = await makeUser(tx, ['doc_reader'], { passwordHash: hash });
     const app = await buildApp({
       db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL,
       kioskAllowedIps: parseIpList(WALL),

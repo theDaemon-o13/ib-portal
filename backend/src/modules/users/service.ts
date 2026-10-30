@@ -7,6 +7,7 @@ import { badRequest, conflict, notFound, versionConflict } from '../../lib/error
 import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { toPage } from '../../lib/pagination.js';
 import { passwordExpiresAt } from '../../lib/password-policy.js';
+import { isRetiredRole } from '../../lib/permissions.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
@@ -85,8 +86,10 @@ export async function userOptions(db: Db, scope: 'ib' | 'all' = 'ib') {
 
 async function resolveRoles(db: Db, roleIds: readonly string[]) {
   const ids = [...new Set(roleIds)];
-  const roles = await db.role.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+  const roles = await db.role.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, code: true } });
   if (roles.length !== ids.length) throw badRequest('UNKNOWN_ROLE', 'Одна из ролей не найдена. Обновите страницу');
+  const retired = roles.find((r) => isRetiredRole(r.code));
+  if (retired) throw badRequest('RETIRED_ROLE', `Роль «${retired.name}» больше не назначается: выберите «Читатель документов»`);
   return roles;
 }
 

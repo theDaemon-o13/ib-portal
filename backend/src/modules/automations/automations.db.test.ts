@@ -193,7 +193,7 @@ describe('автоматизации и отчёт сканера по HTTP', ()
       const x = await vulnRegister(tx);
       const admin = await makeUser(tx, ['super_admin'], { passwordHash: hash });
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
-      const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
+      const lawyer = await makeUser(tx, ['doc_reader'], { passwordHash: hash });
       const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL });
       const login = async (l: string) => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });

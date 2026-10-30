@@ -318,7 +318,7 @@ describe('текст PDF и глобальный поиск', () => {
       expect((await search(tx, s.staff.id, { q: 'скан', limit: 10 })).files.items.map((f) => f.title)).toContain('скан.pdf');
 
       // Юрист (без ib.work) не видит записей, доказательств и файлов записей.
-      const lawyer = await makeUser(tx, ['legal']);
+      const lawyer = await makeUser(tx, ['doc_reader']);
       const l = await search(tx, lawyer.id, { q: 'мессенджер', limit: 10 });
       expect([l.records.total, l.files.total, l.evidence.total, l.noTextFiles]).toEqual([0, 0, 0, 0]);
     }));

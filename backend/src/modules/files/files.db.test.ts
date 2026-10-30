@@ -32,7 +32,7 @@ async function setup(tx: Tx) {
   const hash = await argon2Hasher.hash(PASSWORD);
   const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash, fullName: 'Сотрудник ИБ' });
   const other = await makeUser(tx, ['ib_staff'], { passwordHash: hash, fullName: 'Другой сотрудник' });
-  const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash, fullName: 'Юрист' });
+  const lawyer = await makeUser(tx, ['doc_reader'], { passwordHash: hash, fullName: 'Юрист' });
   const nobody = await makeUser(tx, [], { passwordHash: hash, fullName: 'Без ролей' });
   const login = async (login: string) => {
     const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login, password: PASSWORD } });
@@ -78,11 +78,12 @@ describe('файлы по HTTP', () => {
       expect(diskCount(s.root)).toBe(1);
     }));
 
-  it('загружать может ib.work или право документов; без прав — 403', () =>
+  it('загружать может ib.work или право документов; «Читатель документов» и без прав — 403', () =>
     inTx(async (tx) => {
       const s = await setup(tx);
       expect((await s.upload(await s.login(s.nobody.login), 'a.png', tinyPng())).statusCode).toBe(403);
-      expect((await s.upload(await s.login(s.lawyer.login), 'a.png', tinyPng())).statusCode).toBe(201);
+      expect((await s.upload(await s.login(s.lawyer.login), 'a.png', tinyPng())).statusCode).toBe(403);
+      expect((await s.upload(await s.login(s.staff.login), 'a.png', tinyPng())).statusCode).toBe(201);
     }));
 
   it('выдача: без права на объект — 404; заголовки attachment, nosniff, sandbox', () =>

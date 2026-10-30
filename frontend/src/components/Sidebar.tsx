@@ -4,7 +4,6 @@ import { authApi, type Me } from '../api/client';
 import { docsApi, dkeys } from '../api/documents';
 import { evidenceApi, ekeys } from '../api/evidence';
 import { tasksApi, tkeys } from '../api/tasks';
-import { SEARCH_PERMS } from '../api/search';
 import { isKiosk, visibleNav } from '../nav';
 import { PortalCredit } from './AboutPortal';
 import { Brand } from './Brand';
@@ -49,7 +48,8 @@ export function Sidebar({ me }: { me: Me }) {
         <Brand />
         {!isKiosk(me.permissions) && <NotificationBell />}
       </div>
-      {!isKiosk(me.permissions) && me.permissions.some((p) => SEARCH_PERMS.includes(p)) && (
+      {/* Поиск — всем, кроме монитора (1.2.0): что видно, решает backend. */}
+      {!isKiosk(me.permissions) && (
         <form className="rail-search" role="search" onSubmit={(e) => {
           e.preventDefault();
           const q = new FormData(e.currentTarget).get('q')?.toString().trim() ?? '';

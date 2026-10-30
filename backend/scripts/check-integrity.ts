@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { createPrisma } from '../src/lib/db.js';
 import { diskFileStore } from '../src/lib/file-store.js';
 import { SYSTEM_ITEMS } from '../src/lib/catalogs.js';
-import { APPROVAL_PERMISSIONS, PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../src/lib/permissions.js';
+import { APPROVAL_PERMISSIONS, LEGACY_PERMISSION_CODES, PERMISSIONS, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../src/lib/permissions.js';
 import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.js';
 import { RISK_FIELDS, RISK_REGISTER_KEY } from '../src/modules/risks/definition.js';
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../src/modules/dashboard/incidents.js';
@@ -250,7 +250,9 @@ async function main() {
   const perms = await prisma.permission.findMany({ select: { code: true } });
   const permCodes = new Set(perms.map((p) => p.code));
   check(PERMISSIONS.every((p) => permCodes.has(p.code)), `все ${PERMISSIONS.length} кодов прав на месте`, 'выполните seed');
-  check(perms.length === PERMISSIONS.length, 'в БД нет лишних кодов прав');
+  // Коды прав до 1.2.0 (юрист, правление) остаются в БД до 1.3.0 ради отката (ADR-0024).
+  const known = new Set<string>([...PERMISSIONS.map((p) => p.code), ...LEGACY_PERMISSION_CODES]);
+  check(perms.every((p) => known.has(p.code)), 'в БД нет лишних кодов прав');
 
   for (const role of SYSTEM_ROLES) {
     const r = await prisma.role.findUnique({ where: { code: role.code } });
@@ -263,7 +265,9 @@ async function main() {
   });
   const superPerms = new Set(superAdmin?.permissions.map((p) => p.permissionCode) ?? []);
   check(SUPER_ADMIN_LOCKED.every((p) => superPerms.has(p)), 'у супер-администратора есть settings.manage и users.manage');
-  check(!APPROVAL_PERMISSIONS.some((p) => superPerms.has(p)), 'у супер-администратора нет прав согласования этапов');
+  check(![...APPROVAL_PERMISSIONS, ...LEGACY_PERMISSION_CODES].some((p) => superPerms.has(p)), 'у супер-администратора нет прав согласования этапов');
+  const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });
+  check(retiredUsers === 0, 'в ролях «Юрист» и «Правление» нет пользователей (перенесены в «Читатель документов»)', 'выполните seed');
 
   const admins = await prisma.user.count({
     where: {

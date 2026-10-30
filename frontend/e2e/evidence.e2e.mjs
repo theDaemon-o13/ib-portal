@@ -70,7 +70,7 @@ before(async () => {
   for (const [key, fullName, codes] of [
     ['staff', 'Сотрудник Загрузил', ['ib_staff']],
     ['reviewer', 'Сотрудник Проверил', ['ib_staff']],
-    ['legal', 'Юрист Банка', ['legal']],
+    ['legal', 'Читатель Документов', ['doc_reader']],
   ]) {
     const r = await api('POST', '/api/v1/users', { login: `${RUN.toLowerCase()}.${key}`, fullName: `${fullName} ${RUN}`, roleIds: codes.map(role) });
     users[key] = { key, id: r.user.id, login: r.user.login, fullName: r.user.fullName, password: r.temporaryPassword };

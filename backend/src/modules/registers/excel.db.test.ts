@@ -249,7 +249,7 @@ describe('реестры по HTTP: права на маршрутах, загр
       });
       expect(imp.statusCode).toBe(201);
       expect(imp.json().summary.fileName).toBe('файл ДИКТ.xlsx');
-      const lawyer = await makeUser(tx, ['legal'], { passwordHash: hash });
+      const lawyer = await makeUser(tx, ['doc_reader'], { passwordHash: hash });
       const L = await login(lawyer.login);
       expect((await app.inject({ url: `${base}/records`, headers: { cookie: L } })).statusCode).toBe(403);
     }));

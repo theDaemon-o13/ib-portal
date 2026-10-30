@@ -11,7 +11,7 @@ async function fixture(tx: Tx) {
   const admin = await makeUser(tx, ['super_admin'], { fullName: 'Администратор' });
   const staff = await makeUser(tx, ['ib_staff'], { fullName: 'Сотрудник ИБ' });
   const reviewer = await makeUser(tx, ['ib_staff'], { fullName: 'Проверяющий ИБ' });
-  const lawyer = await makeUser(tx, ['legal'], { fullName: 'Юрист' });
+  const lawyer = await makeUser(tx, ['doc_reader'], { fullName: 'Юрист' });
   const system = await tx.catalogItem.create({ data: { catalogCode: 'systems', value: `АБС ${Math.random().toString(36).slice(2, 7)}` } });
   const tplId = await forms.createTemplate(tx, await actorFor(tx, admin.id), { name: `Парольная защита ${Math.random().toString(36).slice(2, 7)}`, basis: 'Инструкция по парольной защите', validMonths: 12 })
     .then((t) => (t as { id: string }).id);

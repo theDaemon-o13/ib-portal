@@ -5,7 +5,7 @@ import { badRequest } from '../../lib/errors.js';
 import { MAX_FILE_BYTES } from '../../lib/file-type.js';
 import type { FileStore } from '../../lib/file-store.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requireAnyPerm } from '../../plugins/rbac.js';
+import { requireAnyPerm, requireAuth } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -24,10 +24,10 @@ export const FileOut = z.object({
   deleted: z.boolean(),
 });
 
-// Загружают сотрудники ИБ (доказательства, решения) и участники документооборота (итоговый PDF).
-// Читать файл может любой вошедший с одним из этих прав, а дальше решают ссылки на файл (сервис).
-const FILE_USERS = ['ib.work', 'docs.manage', 'docs.approve.head', 'docs.approve.legal', 'docs.approve.board'] as const;
-const fileUsers = requireAnyPerm(FILE_USERS);
+// Загружают сотрудники ИБ (доказательства, решения) и участники документооборота (файлы версии, подписанный PDF).
+// Читать файл может любой вошедший (и «Читатель документов» без прав, 1.2.0) — дальше решают ссылки на файл (сервис).
+const uploaders = requireAnyPerm(['ib.work', 'docs.manage', 'docs.approve.head']);
+const readers = requireAuth();
 
 /** Имя для Content-Disposition: ASCII-запасное и полное в UTF-8 (RFC 6266 / 5987). */
 function disposition(name: string): string {
@@ -38,7 +38,7 @@ function disposition(name: string): string {
 
 export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
   app.post('/files', {
-    preHandler: fileUsers,
+    preHandler: uploaders,
     bodyLimit: MAX_FILE_BYTES,
     schema: {
       tags,
@@ -60,7 +60,7 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
   });
 
   app.get('/files/:id', {
-    preHandler: fileUsers,
+    preHandler: readers,
     schema: {
       tags, summary: 'Метаданные файла и к чему он привязан (только если файл вам виден)', params: IdParams,
       response: {
@@ -75,7 +75,7 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
   }, async (request) => svc.getFileMeta(db, actorOf(request), request.params.id));
 
   app.get('/files/:id/content', {
-    preHandler: fileUsers,
+    preHandler: readers,
     schema: { tags, summary: 'Содержимое файла: всегда attachment, nosniff, sandbox. Предпросмотр frontend строит из blob', params: IdParams },
   }, async (request, reply) => {
     const { file, stream } = await svc.openFile(db, store, actorOf(request), request.params.id);

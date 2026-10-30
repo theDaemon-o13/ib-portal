@@ -8,7 +8,7 @@ import '../types.js';
 
 const users: Record<string, AuthUser> = {
   staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['ib.work']) },
-  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['docs.approve.legal']) },
+  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>() },
   kiosk: { id: '4', login: 'wall', fullName: 'Монитор', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: true, permissions: new Set<PermissionCode>(['monitor.kiosk']) },
   fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['ib.work']) },
 };

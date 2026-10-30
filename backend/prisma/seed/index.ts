@@ -9,7 +9,7 @@ import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
 import { seedDocumentRoute } from './documents.js';
 import { seedMonitorSlides } from './monitor.js';
-import { seedPermissionGrants } from './rbac.js';
+import { seedDocReaders, seedPermissionGrants } from './rbac.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
@@ -55,6 +55,7 @@ async function main() {
     });
 
     await seedPermissionGrants(tx);
+    await seedDocReaders(tx);
 
     // Справочники: набор фиксирован, названия и описания обновляются.
     for (const [index, c] of CATALOGS.entries()) {

@@ -21,7 +21,7 @@ async function fixture(tx: Tx) {
   const owner = await makeUser(tx, ['ib_staff'], { fullName: 'Автор Документа', manager: { connect: { id: chief.id } } });
   const staff = await makeUser(tx, ['ib_staff'], { fullName: 'Сотрудник ИБ' });
   const head = await makeUser(tx, ['ib_staff', 'ib_head'], { fullName: 'Начальник ИБ' });
-  const legal = await makeUser(tx, ['legal'], { fullName: 'Юрист' });
+  const legal = await makeUser(tx, ['doc_reader'], { fullName: 'Юрист' });
   const as = async (u: User): Promise<Actor> => actorFor(tx, u.id);
   const create = async (title = 'Политика информационной безопасности', ownerId = owner.id) =>
     svc.createDocument(tx, await as(admin), { title, typeId: type.id, ownerId, onlyofficeUrl: URL1, edition: '1.0' });

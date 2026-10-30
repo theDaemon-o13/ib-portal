@@ -222,7 +222,7 @@ describe('сравнение по HTTP', () => {
       const hash = await argon2Hasher.hash(PASSWORD);
       const x = await vulnRegister(tx);
       const staff = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
-      const board = await makeUser(tx, ['board'], { passwordHash: hash });
+      const board = await makeUser(tx, ['doc_reader'], { passwordHash: hash });
       const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, files: store });
       const login = async (l: string) => {
         const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: l, password: PASSWORD } });

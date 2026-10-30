@@ -10,7 +10,6 @@ describe('меню по правам', () => {
   });
 
   it('без ib.work виден только раздел «Документы»', () => {
-    expect(visibleNav(['docs.approve.legal']).map((i) => i.title)).toEqual(['Документы']);
     expect(visibleNav([]).map((i) => i.title)).toEqual(['Документы']);
     expect(homePath([])).toBe('/documents');
   });

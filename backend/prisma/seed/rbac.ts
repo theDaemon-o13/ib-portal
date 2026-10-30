@@ -1,7 +1,7 @@
 // Права, добавленные в обновлении: выдаются системным ролям один раз (seed_markers).
 // Снятое администратором право при следующем обновлении не возвращается. Каждая выдача — в журнал аудита.
 import type { Prisma } from '../../src/generated/prisma/client.js';
-import { PERMISSION_GRANTS } from '../../src/lib/permissions.js';
+import { PERMISSION_GRANTS, RETIRED_ROLE_CODES } from '../../src/lib/permissions.js';
 import { once } from './registers.js';
 
 type Tx = Prisma.TransactionClient;
@@ -34,4 +34,48 @@ export async function seedPermissionGrants(tx: Tx): Promise<void> {
       return `Права обновления ${step.release}: ${done.length ? done.join(', ') : 'уже выданы'}`;
     });
   }
+}
+
+/**
+ * Роли «Юрист» и «Правление» выведены из обращения (релиз 1.2.0, ADR-0024): их пользователи получают роль
+ * «Читатель документов», прежняя роль снимается. Учётные записи не отключаются. Каждый запуск: после отката на 1.1.0
+ * и повторной выкладки переносятся и назначенные там. Снятое администратором позже не возвращается — шаг смотрит
+ * только на тех, кто сейчас в выведенных ролях. Каждая смена — в журнал (автор — «Система»).
+ */
+export async function seedDocReaders(tx: Tx): Promise<void> {
+  const reader = await tx.role.findUniqueOrThrow({ where: { code: 'doc_reader' } });
+  const links = await tx.userRole.findMany({
+    where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } },
+    select: { userId: true, roleId: true, role: { select: { name: true } }, user: { select: { fullName: true, login: true } } },
+    orderBy: [{ user: { login: 'asc' } }],
+  });
+  if (!links.length) return;
+  const byUser = new Map<string, typeof links>();
+  for (const l of links) byUser.set(l.userId, [...(byUser.get(l.userId) ?? []), l]);
+  for (const [userId, own] of byUser) {
+    await tx.userRole.deleteMany({ where: { userId, roleId: { in: own.map((l) => l.roleId) } } });
+    await tx.userRole.createMany({ data: [{ userId, roleId: reader.id }], skipDuplicates: true });
+    await tx.user.update({ where: { id: userId }, data: { version: { increment: 1 } } });
+    const from = own.map((l) => `«${l.role.name}»`).join(', ');
+    const u = must(own[0]).user;
+    await tx.auditLog.create({
+      data: {
+        userId: null, action: 'user.updated', entity: 'user', entityId: userId,
+        diff: {
+          summary: `Обновление 1.2.0: ${u.fullName} (${u.login}) — роли ${from} → «${reader.name}»`,
+          after: { changes: [{ label: 'Роли', from, to: `«${reader.name}»` }] },
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
+  const summary = `Читатель документов: перенесено пользователей — ${byUser.size} (из ролей «Юрист» и «Правление»)`;
+  await tx.auditLog.create({
+    data: { userId: null, action: 'role.users_migrated', entity: 'role', entityId: reader.id, diff: { summary, users: byUser.size } as Prisma.InputJsonValue },
+  });
+  console.log(summary);
+}
+
+function must<T>(v: T | undefined): T {
+  if (v === undefined) throw new Error('пустая группа ролей');
+  return v;
 }
