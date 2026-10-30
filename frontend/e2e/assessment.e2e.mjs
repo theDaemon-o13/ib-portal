@@ -187,10 +187,16 @@ describe('Самооценка', () => {
     m = ui.mark();
     await ui.click($.button('Вернуть в черновик', `document.querySelector('form.modal')`));
     assert.equal((await ui.request(m, 'POST', '/reopen')).status, 200);
-    await ui.waitFor(`document.querySelector('.sa-bar .chip')?.dataset.status === 'draft'`, 'снова черновик');
+    // Окно закрыто и статус сменился — только тогда страница принимает щелчки.
+    await ui.waitFor(`!document.querySelector('form.modal') && document.querySelector('.sa-bar .chip')?.dataset.status === 'draft'`, 'снова черновик, окно закрыто');
 
-    // История: журнал оценки без текста комментария к ответу; архив.
+    // История: журнал оценки без текста комментария к ответу; архив. Журнал пишется в той же транзакции,
+    // что и действие, — ответ GET …/log уже содержит запись о возврате.
+    m = ui.mark();
     await ui.click(tab('История'), 'вкладка «История»');
+    const logReq = await ui.request(m, 'GET', `/assessments/${(await mine()).id}/log`);
+    assert.equal(logReq.status, 200);
+    assert.ok((await ui.response(logReq)).items.some((e) => e.action === 'assessment.reopened'), 'в ответе журнала есть возврат в черновик');
     await ui.waitFor(`document.querySelector('[data-testid=sa-journal]')?.textContent.includes('Возвращена в черновик с комментарием')`, 'журнал оценки');
     const journal = await ui.evaluate(`document.querySelector('[data-testid=sa-journal]').textContent`);
     assert.match(journal, /Зафиксирована: 48 из 96/);
@@ -200,7 +206,7 @@ describe('Самооценка', () => {
     m = ui.mark();
     await ui.click($.button('В архив', `document.querySelector('form.modal')`));
     assert.equal((await ui.request(m, 'POST', '/archive')).status, 200);
-    await ui.waitFor(`document.querySelector('.sa-bar .chip')?.dataset.status === 'archived'`, 'оценка в архиве');
+    await ui.waitFor(`!document.querySelector('form.modal') && document.querySelector('.sa-bar .chip')?.dataset.status === 'archived'`, 'оценка в архиве, окно закрыто');
     assert.ok(!(await ui.evaluate(`!!${finalizeBtn}`)), 'у архивной оценки нет «Зафиксировать»');
   });
 

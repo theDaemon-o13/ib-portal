@@ -10,10 +10,12 @@ export function useAssessmentAction<A>(fn: (args: A) => Promise<Assessment>, suc
   return useMutation({
     mutationFn: fn,
     onSuccess: async (a) => {
+      // Окно закрывается вместе с новым статусом на экране, а не после перечитывания списка: иначе статус уже
+      // сменился, а фон окна ещё перекрывает страницу и глотает щелчки (так падал e2e «журнал оценки»).
       qc.setQueryData(akeys.one(a.id), a);
-      await qc.invalidateQueries({ queryKey: akeys.all });
-      if (success) toast(success(a));
       onDone?.(a);
+      if (success) toast(success(a));
+      await qc.invalidateQueries({ queryKey: akeys.all });
     },
     onError: async (err) => {
       if (err instanceof ApiError && err.code === 'VERSION_CONFLICT') {
