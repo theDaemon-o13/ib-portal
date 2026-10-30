@@ -4,7 +4,7 @@
 #   ./scripts/restore.sh                 — список копий
 #   ./scripts/restore.sh <имя копии>     — восстановить
 #
-# Порядок: проверка контрольных сумм → подтверждение вводом имени копии →
+# Порядок: проверка контрольных сумм и версии (VERSION в .env = версия копии) → подтверждение вводом имени копии →
 # копия текущего состояния (backup.sh) → остановка backend и frontend →
 # замена базы и файлов. Сервисы после восстановления поднимает администратор.
 set -euo pipefail
@@ -26,6 +26,8 @@ helper "test -d '$DIR'" || die "копии $NAME нет"
 info "проверка контрольных сумм"
 helper "cd '$DIR' && sha256sum -c SHA256SUMS" || die "контрольные суммы не совпали, восстановление остановлено"
 BACKUP_VERSION="$(helper "grep '^version=' '$DIR/manifest.txt' | cut -d= -f2")"
+# Проверка целостности в конце идёт кодом текущей версии: новая версия на старой схеме её не пройдёт. До любых изменений.
+[ "$BACKUP_VERSION" = "$VERSION" ] || die "копия версии $BACKUP_VERSION, в .env VERSION=$VERSION. Сначала: sed -i 's/^VERSION=.*/VERSION=$BACKUP_VERSION/' .env и повторите. Ничего не изменено"
 
 cat <<MSG
 
@@ -51,10 +53,32 @@ info "восстановление базы"
 # иначе новые таблицы получат полный набор прав и запрет UPDATE/DELETE на audit_log
 # потеряется: в дампе есть только GRANT, а не REVOKE. Точные права таблиц и сами
 # DEFAULT PRIVILEGES возвращаются из дампа (записи ACL и DEFAULT ACL).
+# Копия может быть старше схемы (откат релиза): pg_restore --clean удаляет только то, что есть в дампе, а внешние ключи
+# новых таблиц не дают удалить старые. Поэтому сначала удаляется всё в схеме public — в той же транзакции: при ошибке
+# база остаётся как была, копия текущего состояния уже сделана.
 helper "cat '$DIR/db.dump'" | compose exec -T db sh -c '
   {
     echo "ALTER DEFAULT PRIVILEGES FOR ROLE \"$POSTGRES_USER\" IN SCHEMA public REVOKE ALL ON TABLES FROM ibportal_app;"
     echo "ALTER DEFAULT PRIVILEGES FOR ROLE \"$POSTGRES_USER\" IN SCHEMA public REVOKE ALL ON SEQUENCES FROM ibportal_app;"
+    cat <<"SQL"
+DO $do$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT c.oid::regclass AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = $q$public$q$ AND c.relkind::text IN ($q$r$q$, $q$p$q$) LOOP
+    EXECUTE format($q$DROP TABLE IF EXISTS %s CASCADE$q$, r.name);
+  END LOOP;
+  FOR r IN SELECT p.oid::regprocedure AS name FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = $q$public$q$ AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = $q$e$q$) LOOP
+    EXECUTE format($q$DROP ROUTINE IF EXISTS %s CASCADE$q$, r.name);
+  END LOOP;
+  FOR r IN SELECT c.oid::regclass AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = $q$public$q$ AND c.relkind::text = $q$S$q$ LOOP
+    EXECUTE format($q$DROP SEQUENCE IF EXISTS %s CASCADE$q$, r.name);
+  END LOOP;
+END
+$do$;
+SQL
     pg_restore --clean --if-exists -f -
   } | psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --single-transaction -v ON_ERROR_STOP=1 -q -o /dev/null'
 
@@ -70,9 +94,7 @@ cat <<MSG
 
 Восстановлено из $NAME.
 Дальше:
-  1. Если версия копии ($BACKUP_VERSION) отличается от текущей ($VERSION), верните её в .env:
-       sed -i 's/^VERSION=.*/VERSION=$BACKUP_VERSION/' .env
-  2. docker compose up -d backend frontend
-  3. ./scripts/smoke.sh
-  4. Сообщите разработчику для журнала выкладок: дата, копия, причина, результат
+  1. docker compose up -d backend frontend
+  2. ./scripts/smoke.sh
+  3. Сообщите разработчику для журнала выкладок: дата, копия, причина, результат
 MSG
