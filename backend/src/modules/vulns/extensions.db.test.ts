@@ -31,13 +31,13 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 const unique = (s: string) => `${s} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const CVE = 'CVE-2024-21413'; // Критическая, Уровень «Важная»
 
-async function setup(tx: Tx, opts: { handover?: string | null; types?: string[] } = {}) {
+async function setup(tx: Tx, opts: { handover?: string | null; types?: string[]; scanDate?: string } = {}) {
   const x = await vulnRegister(tx);
-  const types = await tx.catalogItem.findMany({ where: { catalogCode: groups.SYSTEM_TYPES_CATALOG, value: { in: opts.types ?? ['Рабочие станции'] } } });
+  const types = await tx.catalogItem.findMany({ where: { catalogCode: groups.SYSTEM_TYPES_CATALOG, value: { in: opts.types ?? ['Windows'] } } });
   const g = await groups.createGroup(tx, x.actor, { name: unique('Отдел карт'), kind: 'department', systemTypeIds: types.map((t) => t.id) });
   const node = must(g.nodes[0]);
   const p = await scan.previewNodeScan(tx, store, x.actor, node.id, SAMPLE, SAMPLE_NAME);
-  const applied = await scan.applyNodeScan(tx, x.actor, p.id, {});
+  const applied = await scan.applyNodeScan(tx, x.actor, p.id, { profileConfirmed: true, scanDate: opts.scanDate });
   await x.reload();
   if (opts.handover !== null) await scans.handOverScan(tx, x.actor, applied.scanId, { date: opts.handover ?? '2026-10-15' });
   const file = await uploadFile(tx, store, x.actor, 'обращение ОИКТ.txt', Buffer.from('обоснование'));
@@ -49,6 +49,12 @@ async function rec(tx: Tx, x: VulnFixture, nodeId: string, cve: string) {
   const rows = await tx.vulnRecord.findMany({ where: { nodeId, keyNorm: { not: null } }, include: { record: true } });
   return records.getRecord(tx, must(rows.find((v) => (v.record.values as Values)[x.vf.cve.id] === cve), cve).recordId);
 }
+
+/**
+ * Передача с запасом: Критическая (14 дн.) просрочена, Высокая (30 дн.) ещё нет — в любой день недели.
+ * Окончание на выходном переносится вперёд: с «сегодня − 15» срок в понедельник и в воскресенье попадал на сегодня, просрочки не было.
+ */
+const HANDED_OVER = () => addDays(todayIso(), -20);
 
 const basis = (fileId: string) => ({ basisNumber: '№ 42/ОИКТ', basisDate: '2026-10-28', basisFileId: fileId });
 
@@ -92,7 +98,7 @@ describe('продления сроков', () => {
       expect((await getFileMeta(tx, x.actor, file.id)).refs.map((r) => r.kind)).toEqual(['vuln_extension']);
 
       const list = await ext.listExtensions(tx, { nodeId: node.id });
-      expect(list[0]).toMatchObject({ id: done.id, scope: expect.stringContaining('Рабочие станции'), days: [{ level: 'Важная', days: 30 }], recordsCount: done.records, comment: 'Ждём обновление', cancelledAt: null });
+      expect(list[0]).toMatchObject({ id: done.id, scope: expect.stringContaining('Windows'), days: [{ level: 'Важная', days: 30 }], recordsCount: done.records, comment: 'Ждём обновление', cancelledAt: null });
       expect((await ext.getExtension(tx, done.id)).items.find((i) => i.cve === CVE)).toMatchObject({ dueBefore: '2026-10-29', dueAfter: '2026-11-30' });
 
       // Карточка: база, продление, итог.
@@ -103,10 +109,10 @@ describe('продления сроков', () => {
 
   it('не участвуют: решение п. 7.3 и не переданные ИКТ, показывается сколько; фильтры; без уровня; дни 0–365', () =>
     inTx(async (tx) => {
-      const { x, node, levelId } = await setup(tx, { handover: null });
+      const { x, node, levelId } = await setup(tx, { handover: null, scanDate: addDays(todayIso(), -40) });
       expect(await ext.previewExtension(tx, { nodeId: node.id, daysByLevel: {} })).toMatchObject({ notHandedOver: 90, items: [], levels: [] });
       const scanId = must((await scans.listScans(tx, node.id))[0]).id;
-      await scans.handOverScan(tx, x.actor, scanId, { date: addDays(todayIso(), -15) });
+      await scans.handOverScan(tx, x.actor, scanId, { date: HANDED_OVER() });
 
       const decided = await rec(tx, x, node.id, CVE);
       await records.updateRecord(tx, x.actor, decided.id, { version: decided.version, values: { [x.vf.measures.id]: 'Сегментация', [x.vf.newDue.id]: '2027-02-01' } });
@@ -139,10 +145,10 @@ describe('продления сроков', () => {
 
   it('область «группа»: все узлы группы; список у группы и у узла; записи изменились — BULK_CHANGED', () =>
     inTx(async (tx) => {
-      const { x, node, group, file, levelId } = await setup(tx, { types: ['Рабочие станции', 'Серверы'] });
+      const { x, node, group, file, levelId } = await setup(tx, { types: ['Windows', 'Серверы'] });
       const second = must(group.nodes.find((n) => n.id !== node.id));
       const p2 = await scan.previewNodeScan(tx, store, x.actor, second.id, SAMPLE, SAMPLE_NAME);
-      const a2 = await scan.applyNodeScan(tx, x.actor, p2.id, {});
+      const a2 = await scan.applyNodeScan(tx, x.actor, p2.id, { profileConfirmed: true });
       await scans.handOverScan(tx, x.actor, a2.scanId, { date: '2026-10-15' });
       await x.reload();
       const plan = { groupId: group.id, daysByLevel: { [levelId('Важная')]: 7 } };
@@ -212,8 +218,8 @@ describe('продления сроков', () => {
 
   it('продление снимает просрочку в KPI, мониторе и фильтре, отмена возвращает; срок решения п. 7.3 продление не трогает', () =>
     inTx(async (tx) => {
-      const { x, node, scanId, file, levelId } = await setup(tx, { handover: null });
-      await scans.handOverScan(tx, x.actor, scanId, { date: addDays(todayIso(), -15) });
+      const { x, node, scanId, file, levelId } = await setup(tx, { handover: null, scanDate: addDays(todayIso(), -40) });
+      await scans.handOverScan(tx, x.actor, scanId, { date: HANDED_OVER() });
       const important = levelId('Важная');
       const overdueCount = async () => (await section.nodeRecords(tx, node.id, { state: 'overdue', limit: 200 })).total;
       const filtered = async () => (await records.listRecords(tx, x.reg.id, { limit: 200, filter: { deadline: ['overdue'] } })).total;

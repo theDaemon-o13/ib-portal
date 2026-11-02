@@ -4,7 +4,7 @@
 // PDF: на экране одна страница, рендерится только она (соседняя запрашивается заранее), в пикселях устройства
 // (devicePixelRatio) и не больше предела canvas; при смене страницы незавершённый рендер отменяется, при закрытии —
 // страница и документ освобождаются, canvas обнуляется. Esc закрывает только просмотрщик; фокус — на кнопку-открывателя.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { ApiError } from '../../api/client';
 import { filesApi } from '../../api/files';
@@ -128,6 +128,15 @@ function FileViewer({ file, opts, loaded, onClose }: { file: ViewerFile; opts: V
   }, [onClose, pages]);
 
   useEffect(() => { dialog.current?.focus(); }, []);
+  // Страница под просмотрщиком не прокручивается, место под её полосу (scrollbar-gutter в base.css) не резервируется:
+  // иначе на компьютере с постоянными полосами прокрутки справа остаётся пустая полоса и просмотрщик не на весь экран.
+  useLayoutEffect(() => {
+    const { style } = document.documentElement;
+    const was = [style.overflow, style.scrollbarGutter] as const;
+    style.overflow = 'hidden';
+    style.scrollbarGutter = 'auto';
+    return () => { [style.overflow, style.scrollbarGutter] = was; };
+  }, []);
 
   // Ширина области просмотра — для «по ширине».
   useEffect(() => {

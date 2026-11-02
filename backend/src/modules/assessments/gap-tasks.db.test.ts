@@ -52,7 +52,9 @@ describe('самооценка: задачи по разрывам (ADR-0026)', 
       expect(log.map((r) => r.action)).toEqual(['task.created']);
       const history = JSON.stringify(await tasks.taskHistory(tx, linked.id));
       for (const text of [dto, JSON.stringify(log.map((r) => ({ action: r.action, entity: r.entity, summary: (r.diff as { summary: string }).summary, after: (r.diff as { after: unknown }).after }))), history]) {
-        for (const trace of ['5.3', id, 'Тайная оценка', 'Подробность раздела', 'assessment', 'Самооценк']) expect(text).not.toContain(trace);
+        for (const trace of [id, 'Тайная оценка', 'Подробность раздела', 'assessment', 'Самооценк']) expect(text).not.toContain(trace);
+        // Код раздела, а не часть времени: «12:45.312Z» содержит те же символы, и тест падал случайно.
+        expect(text).not.toMatch(/(?<!\d)5\.3(?!\d)/);
       }
       expect((log[0]?.diff as { summary: string }).summary).toBe(`Задача #${linked.number} «Контроль устранения уязвимостей: усилить» создана`);
     }));
