@@ -6,6 +6,7 @@ import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedAssessmentMethodology } from './assessment.js';
+import { seedAssets } from './assets.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
 import { seedDocumentRoute } from './documents.js';
@@ -70,6 +71,7 @@ async function main() {
     await seedVulnLegacy(tx);
     await seedRisks(tx);
     await seedDlp(tx);
+    await seedAssets(tx);
     await seedCompareKeys(tx);
     await seedDashboardLayouts(tx);
     await seedMonitorSlides(tx);

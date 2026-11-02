@@ -1,7 +1,7 @@
 // Разделы сайдбара как в прототипе. Скрытие по правам — только удобство:
 // доступ всегда проверяет backend.
 
-export type IconName = 'dash' | 'monitor' | 'builder' | 'bug' | 'tasks' | 'docs' | 'evidence' | 'journal' | 'assess' | 'settings';
+export type IconName = 'dash' | 'monitor' | 'builder' | 'bug' | 'assets' | 'tasks' | 'docs' | 'evidence' | 'journal' | 'assess' | 'settings';
 
 export interface NavItem {
   path: string;
@@ -22,6 +22,7 @@ export const NAV: NavItem[] = [
   { path: '/monitor', title: 'Мониторинг', icon: 'monitor', perm: 'ib.work', kiosk: true },
   { path: '/registers', title: 'Конструктор реестров', icon: 'builder', perm: 'ib.work' },
   { path: '/vulns', title: 'Уязвимости', icon: 'bug', perm: 'ib.work' },
+  { path: '/assets', title: 'Активы', icon: 'assets', perm: 'ib.work' },
   { path: '/tasks', title: 'Задачи', icon: 'tasks', perm: 'ib.work' },
   { path: '/documents', title: 'Документы', icon: 'docs' },
   { path: '/evidence', title: 'Доказательства', icon: 'evidence', perm: 'ib.work' },

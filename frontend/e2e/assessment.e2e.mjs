@@ -208,6 +208,10 @@ describe('Самооценка', () => {
     assert.equal((await ui.request(m, 'POST', '/archive')).status, 200);
     await ui.waitFor(`!document.querySelector('form.modal') && document.querySelector('.sa-bar .chip')?.dataset.status === 'archived'`, 'оценка в архиве, окно закрыто');
     assert.ok(!(await ui.evaluate(`!!${finalizeBtn}`)), 'у архивной оценки нет «Зафиксировать»');
+
+    // Ссылка из раздела «Активы» без id оценки: нужный домен и раздел в оценке по умолчанию.
+    await ui.goto('/assessment/checklist?dom=2&sec=2.2');
+    await ui.waitFor(`document.getElementById('sec-2.2')?.classList.contains('flash')`, 'раздел 2.2 в чек-листе');
   });
 
   it('задача по разрыву из «Плана»: на доске у исполнителя, без следа самооценки в карточке', async () => {

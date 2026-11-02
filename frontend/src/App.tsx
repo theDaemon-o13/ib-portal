@@ -3,6 +3,7 @@ import { SearchPage } from './pages/search/SearchPage';
 import { HomeRedirect, MonitorRoute, ProtectedShell, RequireUser, Section } from './components/guards';
 import { NAV } from './nav';
 import { AssessmentPage } from './pages/assessment/AssessmentPage';
+import { AssetsPage } from './pages/assets/AssetsPage';
 import { AuditPage } from './pages/audit/AuditPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
@@ -39,6 +40,8 @@ export function App() {
             <Route key={item.path} path="/audit" element={<Section item={item}><AuditPage /></Section>} />
           ) : item.path === '/assessment' ? (
             <Route key={item.path} path="/assessment/:tab?" element={<Section item={item}><AssessmentPage /></Section>} />
+          ) : item.path === '/assets' ? (
+            <Route key={item.path} path="/assets" element={<Section item={item}><AssetsPage /></Section>} />
           ) : item.path === '/vulns' ? (
             <Route key={item.path} path="/vulns/*" element={<Section item={item}><VulnsPage /></Section>} />
           ) : item.path === '/registers' ? (
