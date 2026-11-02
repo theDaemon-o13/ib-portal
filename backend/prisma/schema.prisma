@@ -103,6 +103,8 @@ model User {
   vulnHandovers        VulnScan[]           @relation("VulnScanHandover")
   vulnExtensions       VulnExtension[]      @relation("VulnExtensionCreator")
   vulnExtensionCancels VulnExtension[]      @relation("VulnExtensionCanceller")
+  deletionsMade           Deletion[]               @relation("DeletionDeletedBy")
+  deletionsRestored       Deletion[]               @relation("DeletionRestoredBy")
 
   @@index([managerId])
   @@map("users")
@@ -364,10 +366,14 @@ model Register {
   compareScopeFieldIds String[]  @default([]) @map("compare_scope_field_ids") @db.Uuid
   version              Int       @default(1)
   archivedAt           DateTime? @map("archived_at") @db.Timestamptz(3)
+  /// Мягкое удаление (1.6.1, ADR-0033): событие в deletions; системный реестр не удаляется (CHECK).
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletionId           String?   @map("deletion_id") @db.Uuid
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   owner          User?                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  deletion       Deletion?            @relation(fields: [deletionId], references: [id], onDelete: Restrict)
   fields         RegisterField[]      @relation("RegisterFields")
   /// Поля «Связь с записью» других реестров, которые ссылаются на этот (этап 8б).
   linkedBy       RegisterField[]      @relation("FieldLinkRegister")
@@ -379,6 +385,7 @@ model Register {
   tiles          DashboardTile[]
   automationRuns AutomationRun[]
 
+  @@index([deletionId])
   @@map("registers")
 }
 
@@ -467,10 +474,13 @@ model RegisterRecord {
   version        Int                      @default(1)
   archivedAt     DateTime?                @map("archived_at") @db.Timestamptz(3)
   deletedAt      DateTime?                @map("deleted_at") @db.Timestamptz(3)
+  /// Событие удаления (1.6.1): восстанавливается вместе с ним. NULL у удалённых до 1.6.1 — в корзину не попадают.
+  deletionId     String?                  @map("deletion_id") @db.Uuid
   createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   register  Register             @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  deletion           Deletion?            @relation(fields: [deletionId], references: [id], onDelete: Restrict)
   decisions RegisterDecision[]
   events    AutomationEvent[]
   tasks     Task[]
@@ -484,6 +494,7 @@ model RegisterRecord {
   @@index([searchTsv], type: Gin)
   /// Обратные связи поля «Связь с записью»: "values" @> {"<поле>": ["<id записи>"]}.
   @@index([values(ops: JsonbPathOps)], type: Gin)
+  @@index([deletionId])
   @@map("register_records")
 }
 
@@ -613,11 +624,16 @@ model VulnGroup {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   version   Int      @default(1)
+  /// Мягкое удаление (1.6.1): название удалённой группы не занято (частичный индекс); «Без группы» не удаляется (CHECK).
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletionId String?   @map("deletion_id") @db.Uuid
 
   creator User?      @relation("VulnGroupCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  deletion   Deletion?       @relation(fields: [deletionId], references: [id], onDelete: Restrict)
   nodes   VulnNode[]
   extensions VulnExtension[]
 
+  @@index([deletionId])
   @@map("vuln_groups")
 }
 
@@ -630,8 +646,12 @@ model VulnNode {
   systemKey    String?  @unique @map("system_key")
   createdBy    String?  @map("created_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Мягкое удаление (1.6.1): сканы узла скрываются вместе с ним; тип можно добавить в группу снова.
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletionId   String?   @map("deletion_id") @db.Uuid
 
   group      VulnGroup    @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  deletion   Deletion?       @relation(fields: [deletionId], references: [id], onDelete: Restrict)
   systemType CatalogItem? @relation(fields: [systemTypeId], references: [id], onDelete: Restrict)
   creator    User?        @relation("VulnNodeCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   scans      VulnScan[]
@@ -639,6 +659,7 @@ model VulnNode {
   extensions VulnExtension[]
 
   @@index([groupId])
+  @@index([deletionId])
   @@map("vuln_nodes")
 }
 
@@ -785,6 +806,41 @@ model VulnExtensionItem {
   @@map("vuln_extension_items")
 }
 
+/// Событие мягкого удаления (1.6.1, ADR-0033): реестр, группа уязвимостей, узел или записи реестра.
+/// Всё, что скрыто этим удалением, ссылается на него через deletion_id и восстанавливается вместе с ним.
+/// Строка не удаляется; меняется один раз — при восстановлении (триггер deletions_guard).
+model Deletion {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// register | vuln_group | vuln_node | register_records (CHECK в SQL миграции)
+  entity     String
+  /// Реестр, группа или узел; для записей — их реестр.
+  entityId   String    @map("entity_id") @db.Uuid
+  /// Снимок названия для корзины и журнала.
+  title      String
+  /// Для записей: wrong_import | false_positive | duplicate | other; у остальных — NULL, причина текстом.
+  reasonCode String?   @map("reason_code")
+  reason     String    @default("")
+  /// { nodes, records, scans, automations }
+  counts     Json      @default("{}")
+  /// Записи уязвимостей на момент удаления: [{ recordId, number, nodeId, status, open, due }].
+  snapshot   Json      @default("[]")
+  deletedBy  String    @map("deleted_by") @db.Uuid
+  deletedAt  DateTime  @default(now()) @map("deleted_at") @db.Timestamptz(3)
+  restoredBy String?   @map("restored_by") @db.Uuid
+  restoredAt DateTime? @map("restored_at") @db.Timestamptz(3)
+
+  deleter     User                 @relation("DeletionDeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
+  restorer    User?                @relation("DeletionRestoredBy", fields: [restoredBy], references: [id], onDelete: Restrict)
+  registers   Register[]
+  records     RegisterRecord[]
+  groups      VulnGroup[]
+  nodes       VulnNode[]
+  automations RegisterAutomation[]
+
+  @@index([deletedAt(sort: Desc)])
+  @@map("deletions")
+}
+
 // ---------------------------------------------------------------------------
 // Автоматизации «условие → действие» (этап 4). До появления задач (этап 5) действие —
 // событие в automation_events; на этапе 5 события превращаются в задачи.
@@ -803,16 +859,20 @@ model RegisterAutomation {
   version    Int       @default(1)
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  /// Скрыта удалением реестра (1.6.1): восстанавливается вместе с ним.
+  deletionId String?   @map("deletion_id") @db.Uuid
   createdBy  String?   @map("created_by") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   register Register          @relation(fields: [registerId], references: [id], onDelete: Restrict)
   author   User?             @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  deletion Deletion?         @relation(fields: [deletionId], references: [id], onDelete: Restrict)
   events   AutomationEvent[]
   tasks    Task[]
 
   @@index([registerId])
+  @@index([deletionId])
   @@map("register_automations")
 }
 
