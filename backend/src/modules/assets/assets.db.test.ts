@@ -226,9 +226,31 @@ describe('проверки', () => {
       const m = await s.facts();
       const os = must(m.get('assets.unsupported_os'));
       expect(os).toMatchObject({ numerator: 1, denominator: 3 });
-      expect(os.records.map((r) => r.title).sort()).toEqual(['TEST-SRV01', 'api']);
+      // Заголовок компонента — экземпляр (1.6.1).
+      expect(os.records.map((r) => r.title).sort()).toEqual(['TEST-SRV01', 'api · Prod']);
       expect(must(m.get('products.test_share'))).toMatchObject({ numerator: 2, denominator: 3 });
       expect(must(m.get('hosts.test_prod_mixed')).records.map((r) => r.title)).toEqual(['TEST-SRV01']);
+      // Адреса с портом нет — проверке нечего сравнивать.
+      expect(must(m.get('components.env_address_clash'))).toMatchObject({ status: 'no_data' });
+    }));
+
+  it('два компонента разных сред на одном IP:порт (9.3); без порта и в одной среде — не нарушение', () =>
+    inTx(async (tx) => {
+      const s = await setup(tx);
+      const env = (e: string) => ({ [s.F(s.cmp, 'Среда').id]: s.O(s.cmp, 'Среда', e) });
+      const at = (ip: string, port = '') => ({ [s.F(s.cmp, 'IP-адрес').id]: ip, ...(port ? { [s.F(s.cmp, 'Порт').id]: port } : {}) });
+      await s.component('b2b-api', { ...env('Prod'), ...at('10.0.0.5', '8070') });
+      await s.component('crm-api', { ...env('Test'), ...at('10.0.0.5', '8070') });
+      await s.component('nginx', { ...env('Prod'), ...at('10.0.0.6', '80') });
+      await s.component('nginx', { ...env('Prod'), ...at('10.0.0.6', '80') });
+      await s.component('db', { ...env('Prod'), ...at('10.0.0.7') });
+      await s.component('db-test', { ...env('Test'), ...at('10.0.0.7') });
+      const fact = must((await s.facts()).get('components.env_address_clash'));
+      expect(fact).toMatchObject({ section: '9.3', status: 'violations', numerator: 2, denominator: 4 });
+      expect(fact.records.map((r) => [r.title, r.detail]).sort()).toEqual([
+        ['b2b-api · Prod · 10.0.0.5:8070', '10.0.0.5:8070: компоненты Prod и Test'],
+        ['crm-api · Test · 10.0.0.5:8070', '10.0.0.5:8070: компоненты Prod и Test'],
+      ]);
     }));
 
   it('сканы: нужен каждый хост значимого сервиса за 90 дней; домен в имени не мешает', () =>

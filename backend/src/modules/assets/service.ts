@@ -40,6 +40,7 @@ const DEFS = {
   notMonitored: { code: 'products.not_monitored', section: '3.2', title: 'Значимый продукт подключён к мониторингу' },
   testShare: { code: 'products.test_share', section: '9.3', title: 'Компоненты значимых продуктов работают в среде Prod' },
   testProdMixed: { code: 'hosts.test_prod_mixed', section: '9.3', title: 'На хосте не смешаны компоненты Test и Prod' },
+  envAddressClash: { code: 'components.env_address_clash', section: '9.3', title: 'На одном IP:порт нет компонентов разных сред' },
   serversCoverage: { code: 'ksc.servers_coverage', section: '9.2', title: 'На сервере есть агент и защита Kaspersky' },
   workstationsCoverage: { code: 'ksc.workstations_coverage', section: '9.2', title: 'На рабочей станции есть агент и защита Kaspersky' },
   basesOutdated: { code: 'ksc.bases_outdated', section: '9.2', title: 'Антивирусные базы обновлены за 7 дней' },
@@ -402,6 +403,23 @@ export async function assetFacts(db: Db, now: Date = new Date()): Promise<AssetF
     }
     const violators = [...envs.entries()].filter(([, s]) => s.has('test') && s.has('prod')).map(([id]) => hostRef(hostById.get(id) as Row, 'Компоненты Test и Prod'));
     push(DEFS.testProdMixed, { checked: envs.size, violators, emptyMessage: 'Нет данных: у компонентов не указаны хост и среда' });
+  }
+  // Один IP:порт у компонентов Prod и Test — в реестре сервисов так записаны компоненты двух продуктов: похоже на ошибку заполнения.
+  // Только адреса с портом: на одном IP без порта разные среды — обычное дело (общий хост).
+  if (!cmp) empty(DEFS.envAddressClash, NO_COMPONENTS);
+  else {
+    const byAddress = new Map<string, { env: string; row: Row }[]>();
+    for (const c of cmp.active) {
+      const env = optionKey(C('env'), c.values);
+      const ip = textOf(c.values, C('ip'));
+      const port = textOf(c.values, C('port'));
+      if (!env || !ip || !port) continue;
+      const address = `${ip.toLowerCase()}:${port}`;
+      byAddress.set(address, [...(byAddress.get(address) ?? []), { env, row: c }]);
+    }
+    const violators = [...byAddress].filter(([, list]) => new Set(list.map((x) => x.env)).size > 1)
+      .flatMap(([address, list]) => list.map((x) => cmpRef(x.row, `${address}: компоненты Prod и Test`)));
+    push(DEFS.envAddressClash, { checked: [...byAddress.values()].reduce((n, list) => n + list.length, 0), violators, emptyMessage: 'Нет данных: у компонентов не указаны среда, IP и порт' });
   }
 
   // ---- Kaspersky (9.2)

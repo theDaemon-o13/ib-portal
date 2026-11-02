@@ -1,9 +1,10 @@
-// Производные значения записи реестра уязвимостей: «Критичность» по Оценке (CLAUDE.md, раздел 7, правило 2).
+// Производные значения записи: «Экземпляр» компонента (assets/derive.ts); в реестре уязвимостей — «Критичность» по Оценке (CLAUDE.md, раздел 7, правило 2).
 // Критичность хранится в values (её можно поправить вручную), Оценка вычисляется при чтении.
 // Ручная правка запоминается в manual_field_ids: пересчёт её не перетирает, пока сотрудник
 // не очистит поле или не нажмёт «Считать автоматически».
 import { calcValue, type Values } from '../../lib/register-values.js';
 import { critKeyOf } from '../../lib/vuln-score.js';
+import { deriveComponentInstance } from '../assets/derive.js';
 import type { RegisterDef } from '../registers/definition.js';
 import { isVulnRegister, optionByKey, vulnFields } from './definition.js';
 
@@ -34,7 +35,10 @@ export function autoCritOption(reg: RegisterDef, values: Values): string {
 
 export function applyDerived(reg: RegisterDef, input: DeriveInput): DeriveResult {
   const manual = new Set(input.manual);
-  if (!isVulnRegister(reg)) return { values: input.after, manualFieldIds: [...manual], derived: [] };
+  if (!isVulnRegister(reg)) {
+    const values: Values = { ...input.after };
+    return { values, manualFieldIds: [...manual], derived: deriveComponentInstance(reg, values, input.edited, input.isNew) };
+  }
   const vf = vulnFields(reg);
   const values: Values = { ...input.after };
   const critId = vf.crit.id;

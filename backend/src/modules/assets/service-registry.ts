@@ -53,9 +53,25 @@ export function normalizeOs(raw: string, table: Record<string, string>): string 
   return hit ? hit[1] : s;
 }
 
-/** Ключ компонента: «Компонент / Продукт» без регистра и пробелов по краям. */
-export function componentKey(component: string, product: string): string {
-  return `${component.trim().toLowerCase()} / ${product.trim().toLowerCase()}`;
+/** «IP:порт»; без порта — только IP; без IP — пусто. */
+export function componentAddress(ip: string, port: string): string {
+  const i = ip.trim();
+  const p = port.trim();
+  return i ? (p ? `${i}:${p}` : i) : '';
+}
+
+/**
+ * Ключ компонента (1.6.1): строка файла — экземпляр (развёртывание), поэтому «Компонент / Продукт / Среда / IP:порт»,
+ * части без регистра и пробелов по краям. Пустые среда и адрес в ключ не входят; продукт входит всегда, как в 1.6.0.
+ */
+export function componentKey(component: string, product: string, env = '', ip = '', port = ''): string {
+  const parts = [component.trim(), product.trim(), env.trim(), componentAddress(ip, port)];
+  return parts.filter((p, i) => i < 2 || p).map((p) => p.toLowerCase()).join(' / ');
+}
+
+/** Заголовок экземпляра: «b2b-api · Prod · 10.0.0.1:8070» — чтобы экземпляры одного компонента различались в списках. */
+export function componentInstance(component: string, env = '', ip = '', port = ''): string {
+  return [component.trim(), env.trim(), componentAddress(ip, port)].filter(Boolean).join(' · ');
 }
 
 /** Продукт по команде: таблица «команды → продукты»; команды нет в таблице — продукт с тем же именем. */
@@ -84,6 +100,7 @@ export interface ComponentRow {
   env: string;
   status: string;
   key: string;
+  instance: string;
 }
 
 export interface ServiceRegistryParsed {
@@ -145,7 +162,8 @@ export function parseServiceRegistry(sheets: SheetData[], tables: { teams: Recor
       owner: at('owner'),
       env: cls?.env ?? '',
       status: cls?.status ?? '',
-      key: componentKey(component, product),
+      key: componentKey(component, product, cls?.env ?? '', addr.ip, addr.port),
+      instance: componentInstance(component, cls?.env ?? '', addr.ip, addr.port),
     });
   }
   if (unknownScale.size) warnings.push(`Неизвестные значения «Важность/Критичность» — категория не заполнена: ${[...unknownScale].join(', ')}`);

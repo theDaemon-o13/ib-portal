@@ -204,13 +204,13 @@ async function servicesAdapter(db: Db, components: RegisterDef, sheets: Awaited<
   };
 
   const cols: FieldMeta[] = [
-    C('title'), C('product'), C('key'), C('assetType'), C('level'), C('env'), C('status'), C('description'),
+    C('instance'), C('title'), C('product'), C('key'), C('assetType'), C('level'), C('env'), C('status'), C('description'),
     C('os'), C('osSource'), C('ip'), C('port'), C('host'), C('location'), C('owner'), C('team'),
   ];
   const rows = parsed.rows.map((r) => {
     options.add(C('location'), r.location);
     return [
-      r.component, productCell(r.product), r.key, r.assetType || null, r.category || null, r.env || null, r.status || null, r.description || null,
+      r.instance, r.component, productCell(r.product), r.key, r.assetType || null, r.category || null, r.env || null, r.status || null, r.description || null,
       r.os || null, r.osSource || null, r.ip || null, r.port || null, hostCell(r.ip, r.ipComplete), r.location || null, r.owner || null, r.team || null,
     ];
   });
@@ -230,7 +230,7 @@ async function servicesAdapter(db: Db, components: RegisterDef, sheets: Awaited<
   }
   return {
     ...sheetOf(cols, rows),
-    managedWritable: [C('key').id, C('osSource').id],
+    managedWritable: [C('instance').id, C('key').id, C('osSource').id],
     createOnly: [C('status').id],
     missing: true,
     newOptions: options.list,

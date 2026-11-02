@@ -15,6 +15,7 @@ import * as records from '../registers/records.service.js';
 import { updatePortalParam } from '../settings/portal-params.js';
 import { ASSET_COMPONENTS_KEY, ASSET_HOSTS_KEY, ASSET_SERVICES_KEY } from './definition.js';
 import { assetImportAdapter, type AssetAdapterKind } from './import.js';
+import { seedComponentInstances } from '../../../prisma/seed/assets.js';
 
 const PASSWORD = 'Http-Test-Pass-2026';
 
@@ -157,13 +158,13 @@ describe('реестр сервисов', () => {
       const C = (k: string) => s.F(s.components, k).id;
       const comps = await s.rows(s.components);
       expect(comps).toHaveLength(3);
-      const api = must(comps.find((c) => c.values[C('key')] === 'api / продукт а'));
+      const api = must(comps.find((c) => c.values[C('key')] === 'api / продукт а / prod / 10.0.0.5:8080'));
       expect(api.values).toMatchObject({ [C('product')]: [products[0]?.id], [C('host')]: [hosts[0]?.id], [C('ip')]: '10.0.0.5', [C('port')]: '8080', [C('os')]: 'CentOS 7', [C('osSource')]: 'Linux Centos 7' });
       const components = await loadRegister(tx, s.components.id);
       expect(s.label(components, 'location', api.values[C('location')])).toBe('ЦОД 1');
       expect(s.label(components, 'level', api.values[C('level')])).toBe('Mission Critical');
       expect(s.label(components, 'env', api.values[C('env')])).toBe('Prod');
-      const db = must(comps.find((c) => c.values[C('key')] === 'db / команда б'));
+      const db = must(comps.find((c) => c.values[C('key')] === 'db / команда б / test / 10.0.0.6:5432'));
       expect(s.label(components, 'level', db.values[C('level')])).toBe('Operational');
       expect(s.label(components, 'env', db.values[C('env')])).toBe('Test');
 
@@ -194,6 +195,79 @@ describe('реестр сервисов', () => {
       const p = await s.preview('services', await FILE());
       await records.createRecord(tx, s.actor, s.services.id, { values: { [s.F(s.services, 'title').id]: 'Команда Б' } });
       await expect(excel.applyImport(tx, s.actor, p.id)).rejects.toMatchObject({ code: 'IMPORT_STALE' });
+    }));
+
+  it('экземпляры (1.6.1): компонент в Prod и Test и два экземпляра в Prod — три записи; повторный импорт ничего не меняет', () =>
+    inTx(async (tx) => {
+      const s = await setup(tx);
+      const buf = await serviceRegistry([
+        { name: 'b2b-api', address: '10.0.0.5:8070', classification: 'В эксплуатации', team: 'Команда А' },
+        { name: 'b2b-api', address: '10.0.1.5:8070', classification: 'Тест', team: 'Команда А' },
+        { name: 'b2b-api', address: '10.0.0.6:8070', classification: 'В эксплуатации', team: 'Команда А' },
+      ]);
+      const p = await s.preview('services', buf);
+      expect(p.summary).toMatchObject({ added: 3, errorRows: 0 });
+      await excel.applyImport(tx, s.actor, p.id);
+      const C = (k: string) => s.F(s.components, k).id;
+      const comps = await s.rows(s.components);
+      expect(comps.map((c) => c.values[C('instance')]).sort()).toEqual([
+        'b2b-api · Prod · 10.0.0.5:8070', 'b2b-api · Prod · 10.0.0.6:8070', 'b2b-api · Test · 10.0.1.5:8070',
+      ]);
+      expect(new Set(comps.map((c) => c.values[C('key')])).size).toBe(3);
+      const again = await s.preview('services', buf);
+      expect(again.summary).toMatchObject({ added: 0, updated: 0, unchanged: 3, errorRows: 0 });
+    }));
+
+  it('«Экземпляр» компонента, заведённого вручную, считается из полей и пересчитывается при правке', () =>
+    inTx(async (tx) => {
+      const s = await setup(tx);
+      const F = (k: string) => s.F(s.components, k);
+      const prod = must(F('env').options.find((o) => o.systemKey === 'prod')).id;
+      const rec = await records.createRecord(tx, s.actor, s.components.id, { values: { [F('title').id]: 'nginx', [F('env').id]: prod, [F('ip').id]: '10.0.0.7' } });
+      const row = must(await tx.registerRecord.findUnique({ where: { id: rec.id } }));
+      expect((row.values as Record<string, unknown>)[F('instance').id]).toBe('nginx · Prod · 10.0.0.7');
+      await records.updateRecord(tx, s.actor, rec.id, { version: row.version, values: { [F('port').id]: '443' } });
+      const after = must(await tx.registerRecord.findUnique({ where: { id: rec.id } }));
+      expect((after.values as Record<string, unknown>)[F('instance').id]).toBe('nginx · Prod · 10.0.0.7:443');
+      await expect(records.updateRecord(tx, s.actor, rec.id, { version: after.version, values: { [F('instance').id]: 'x' } })).rejects.toMatchObject({ code: 'VULN_SERVICE_FIELD' });
+    }));
+
+  it('seed 1.6.1: ключ и заголовок существующих записей пересчитываются один раз; совпадение ключей — остановка без изменений', () =>
+    inTx(async (tx) => {
+      const s = await setup(tx);
+      await s.run('services', await serviceRegistry([
+        { name: 'api', address: '10.0.0.5:80', classification: 'В эксплуатации', team: 'Команда А' },
+        { name: 'api', address: '10.0.0.6:80', classification: 'В эксплуатации', team: 'Команда Б' },
+      ]));
+      const C = (k: string) => s.F(s.components, k).id;
+      // Записи 1.6.0: ключ «Компонент / Продукт», заголовка нет.
+      for (const c of await s.rows(s.components)) {
+        const { [C('instance')]: _i, ...rest } = c.values;
+        void _i;
+        const prod = String(c.values[C('key')]).split(' / ')[1];
+        await tx.registerRecord.update({ where: { id: c.id }, data: { values: { ...rest, [C('key')]: `api / ${prod}` } as object } });
+      }
+      const marker = 'system.register.assets.components_instance.v1';
+      await tx.seedMarker.delete({ where: { key: marker } });
+      await seedComponentInstances(tx);
+      const comps = await s.rows(s.components);
+      expect(comps.map((c) => [c.values[C('key')], c.values[C('instance')]])).toEqual([
+        ['api / команда а / prod / 10.0.0.5:80', 'api · Prod · 10.0.0.5:80'],
+        ['api / команда б / prod / 10.0.0.6:80', 'api · Prod · 10.0.0.6:80'],
+      ]);
+      const audit = await tx.auditLog.count({ where: { entity: 'register_record', entityId: { in: comps.map((c) => c.id) }, userId: null } });
+      expect(audit).toBe(2);
+      // Повтор — отметка стоит, ничего не делает; без отметки — те же значения, записей не меняет.
+      await seedComponentInstances(tx);
+      await tx.seedMarker.delete({ where: { key: marker } });
+      await seedComponentInstances(tx);
+      expect(await tx.auditLog.count({ where: { entity: 'register_record', entityId: { in: comps.map((c) => c.id) }, userId: null } })).toBe(2);
+
+      // Два экземпляра с одинаковым новым ключом — не склеиваются, seed останавливается со списком.
+      const [a, b] = comps;
+      await tx.registerRecord.update({ where: { id: must(b).id }, data: { values: { ...must(b).values, [C('ip')]: '10.0.0.5', [C('product')]: must(a).values[C('product')], [C('key')]: 'старый' } as object } });
+      await tx.seedMarker.delete({ where: { key: marker } });
+      await expect(seedComponentInstances(tx)).rejects.toThrow(/совпали ключи.*«api \/ команда а \/ prod \/ 10\.0\.0\.5:80» — #\d+, #\d+/);
     }));
 
   it('«Ключ компонента» вручную не меняется', () =>

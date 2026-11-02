@@ -15,6 +15,7 @@ import {
 } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { auditSettings, ensureVersioned, type Actor } from '../settings/common.js';
+import { requiredTitleField } from '../assets/derive.js';
 import { applyDerived, autoCritOption } from '../vulns/derive.js';
 import { isVulnRegister, vulnFields } from '../vulns/definition.js';
 import { releaseVulnKeys } from '../vulns/keys.js';
@@ -252,7 +253,7 @@ function applyInput(
   // Служебные поля ставит только портал (передача ИКТ, перенос, продления — ADR-0030).
   const managed = changed.filter((f) => f.managed);
   if (managed.length) throw conflict('VULN_SERVICE_FIELD', `${managed.map((f) => `«${f.label}»`).join(', ')} ставит портал — вручную не меняется`);
-  const title = reg.fields.find((f) => f.isTitle && !f.archived);
+  const title = requiredTitleField(reg);
   if (title && (values[title.id] === undefined || values[title.id] === '')) {
     throw badRequest('TITLE_REQUIRED', `Заполните «${title.label}»`);
   }

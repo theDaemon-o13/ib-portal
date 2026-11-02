@@ -8,12 +8,16 @@ import {
   ASSET_COMPONENTS_KEY, ASSET_HOSTS_KEY, ASSET_SERVICES_KEY, ASSET_SETTINGS_KEY, COMPONENT_FIELDS, HOST_FIELDS, REVIEW_DAYS, SERVICE_FIELDS,
   type AssetFieldSpec,
 } from '../../src/modules/assets/definition.js';
+import { componentInstance, componentKey } from '../../src/modules/assets/service-registry.js';
 import { INCIDENT_REGISTER_KEY } from '../../src/modules/dashboard/incidents.js';
+import { loadRegister, searchTextOf } from '../../src/modules/registers/definition.js';
+import type { Values } from '../../src/lib/register-values.js';
 import { once } from './registers.js';
 
 type Tx = Prisma.TransactionClient;
 
 const LABEL = 'Активы';
+const COMPONENTS_DESCRIPTION = 'Экземпляры компонентов продуктов: микросервисы, базы данных, прокси в каждой среде и на каждом адресе. Данные — реестр сервисов в Excel; ключ — «Компонент / Продукт / Среда / IP:порт»';
 
 /** Значения первой редакции, которые переименовываются, а не заводятся заново: записи сохраняют выбор. */
 const OPTION_RENAMES: Record<string, string> = { 'Operational Critical': 'Operational', 'Non-critical': 'Non-Critical' };
@@ -117,7 +121,7 @@ export async function seedAssets(tx: Tx): Promise<void> {
       HOST_FIELDS, ids);
     ids[ASSET_HOSTS_KEY] = hosts.id;
     const components = await ensureRegister(tx, ASSET_COMPONENTS_KEY, 'Компоненты',
-      'Сервисы-компоненты продуктов: микросервисы, базы данных, прокси. Данные — реестр сервисов в Excel; ключ — «Компонент + Продукт»',
+      COMPONENTS_DESCRIPTION,
       COMPONENT_FIELDS, ids);
 
     // Ключи сравнения с реестром.
@@ -163,5 +167,82 @@ export async function seedAssets(tx: Tx): Promise<void> {
     }
     const upgraded = !services.created;
     return `Системные реестры «${services.name}», «${components.name}», «${hosts.name}»${upgraded ? ' (первая редакция доведена до v2)' : ''}, метка «${LABEL}»${incidentField ? ', поле «Сервис» у инцидентов' : ''}`;
+  });
+}
+
+/**
+ * 1.6.1, однократно: запись «Компонентов» — экземпляр. Поле «Экземпляр» становится заголовком, ключ и заголовок
+ * существующих записей пересчитываются по новому правилу. Совпали новые ключи у неудалённых записей — записи не
+ * склеиваются: seed останавливается со списком (транзакция откатывается, ничего не меняется).
+ */
+export async function seedComponentInstances(tx: Tx): Promise<void> {
+  await once(tx, 'system.register.assets.components_instance.v1', async () => {
+    const reg = await tx.register.findUnique({ where: { systemKey: ASSET_COMPONENTS_KEY }, select: { id: true, name: true } });
+    if (!reg) return 'Реестра «Компоненты» нет — пересчёт не нужен';
+    await tx.register.update({ where: { id: reg.id }, data: { description: COMPONENTS_DESCRIPTION } });
+    const fields = await tx.registerField.findMany({ where: { registerId: reg.id, deletedAt: null } });
+    const byKey = (k: string) => fields.find((f) => f.systemKey === k);
+    let instance = byKey('instance');
+    if (!instance) {
+      await tx.registerField.updateMany({ where: { registerId: reg.id, isTitle: true }, data: { isTitle: false, version: { increment: 1 } } });
+      instance = await tx.registerField.create({ data: { registerId: reg.id, label: 'Экземпляр', type: 'text', systemKey: 'instance', isTitle: true, sortOrder: 0 } });
+    }
+    const [title, product, key, env, ip, port] = ['title', 'product', 'key', 'env', 'ip', 'port'].map(byKey);
+    if (!title || !key) return `«${reg.name}»: нет системных полей «Компонент» или «Ключ компонента» — пересчёт пропущен`;
+
+    const def = await loadRegister(tx, reg.id);
+    const envLabels = new Map((def.fields.find((f) => f.id === env?.id)?.options ?? []).map((o) => [o.id, o.label]));
+    const services = await tx.register.findUnique({ where: { systemKey: ASSET_SERVICES_KEY }, include: { fields: { where: { systemKey: 'title', deletedAt: null } } } });
+    const serviceTitle = services?.fields[0]?.id;
+    const productNames = new Map<string, string>();
+    if (services && serviceTitle) {
+      for (const r of await tx.registerRecord.findMany({ where: { registerId: services.id }, select: { id: true, values: true } })) {
+        const t = (r.values as Values)[serviceTitle];
+        if (typeof t === 'string') productNames.set(r.id, t);
+      }
+    }
+    const str = (v: unknown) => (typeof v === 'string' ? v : '');
+    const rows = await tx.registerRecord.findMany({ where: { registerId: reg.id }, select: { id: true, number: true, values: true, deletedAt: true }, orderBy: { number: 'asc' } });
+    const planned = rows.map((r) => {
+      const v = r.values as Values;
+      const comp = str(v[title.id]);
+      const linked = product ? v[product.id] : undefined;
+      const prod = Array.isArray(linked) ? linked.map((id) => productNames.get(String(id)) ?? '').filter(Boolean).join(', ') : '';
+      const e = env ? envLabels.get(str(v[env.id])) ?? '' : '';
+      const a = ip ? str(v[ip.id]) : '';
+      const p = port ? str(v[port.id]) : '';
+      return { r, comp, key: comp ? componentKey(comp, prod, e, a, p) : '', instance: comp ? componentInstance(comp, e, a, p) : '' };
+    });
+    const groups = new Map<string, number[]>();
+    for (const x of planned) if (x.key && !x.r.deletedAt) groups.set(x.key, [...(groups.get(x.key) ?? []), x.r.number]);
+    const clashes = [...groups].filter(([, nums]) => nums.length > 1);
+    if (clashes.length) {
+      throw new Error(`«${reg.name}»: при пересчёте ключа по правилу «Компонент / Продукт / Среда / IP:порт» совпали ключи у ${clashes.length} групп записей — записи не склеиваются, seed остановлен. `
+        + `Удалите или исправьте повторы и повторите migrate: ${clashes.map(([k, nums]) => `«${k}» — #${nums.join(', #')}`).join('; ')}`);
+    }
+    let changed = 0;
+    for (const x of planned) {
+      const v = x.r.values as Values;
+      if (!x.comp || (v[key.id] === x.key && v[instance.id] === x.instance)) continue;
+      const values: Values = { ...v, [key.id]: x.key, [instance.id]: x.instance };
+      await tx.registerRecord.update({
+        where: { id: x.r.id },
+        data: { values: values as Prisma.InputJsonValue, searchText: searchTextOf(def, x.r.number, values, new Map()), version: { increment: 1 } },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: null, action: 'register_record.updated', entity: 'register_record', entityId: x.r.id,
+          diff: {
+            summary: `«${reg.name}», запись #${x.r.number}: ключ и заголовок пересчитаны при обновлении на 1.6.1`,
+            after: { via: 'seed', changes: [
+              { fieldId: key.id, label: key.label, from: str(v[key.id]), to: x.key },
+              { fieldId: instance.id, label: instance.label, from: str(v[instance.id]), to: x.instance },
+            ] },
+          } as Prisma.InputJsonValue,
+        },
+      });
+      changed++;
+    }
+    return `«${reg.name}»: заголовок «Экземпляр», ключ «Компонент / Продукт / Среда / IP:порт» — пересчитано записей ${changed} из ${rows.length}`;
   });
 }

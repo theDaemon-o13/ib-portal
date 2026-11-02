@@ -66,9 +66,12 @@ export const SERVICE_FIELDS: AssetFieldSpec[] = [
 ];
 
 export const COMPONENT_FIELDS: AssetFieldSpec[] = [
-  { key: 'title', label: 'Компонент', type: 'text', system: true, isTitle: true },
+  // Запись — экземпляр компонента (1.6.1): один компонент бывает в Prod и Test и в нескольких экземплярах на разных IP.
+  // Заголовок «b2b-api · Prod · 10.0.0.1:8070» и ключ ставит адаптер (service-registry.ts).
+  { key: 'instance', label: 'Экземпляр', type: 'text', system: true, isTitle: true },
+  { key: 'title', label: 'Компонент', type: 'text', system: true },
   { key: 'product', label: 'Продукт', type: 'link', system: true, link: ASSET_SERVICES_KEY },
-  // «Компонент + Продукт» без регистра и пробелов по краям: имена вроде notification повторяются в разных продуктах.
+  // «Компонент / Продукт / Среда / IP:порт» без регистра и пробелов по краям.
   { key: 'key', label: 'Ключ компонента', type: 'text', system: true, isImportKey: true },
   { key: 'assetType', label: 'Тип актива', type: 'select', system: true, analyticsRole: 'dimension', options: labels('Сервис', 'База данных', 'NoSQL база данных', 'Прокси-сервер', 'Web-сервис') },
   { key: 'level', label: 'Категория критичности', type: 'select', system: true, analyticsRole: 'dimension', options: categories() },
@@ -130,6 +133,6 @@ export const HOST_FIELDS: AssetFieldSpec[] = [
 
 /** Служебные поля: значение ставит адаптер импорта, вручную (форма, обратный импорт Excel) не меняется. */
 export const ASSET_MANAGED_FIELDS: Readonly<Record<string, readonly string[]>> = {
-  [ASSET_COMPONENTS_KEY]: ['key', 'osSource'],
+  [ASSET_COMPONENTS_KEY]: ['instance', 'key', 'osSource'],
   [ASSET_HOSTS_KEY]: ['coverage'],
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseXlsxSheets } from '../../lib/spreadsheetml.js';
 import { serviceRegistry } from '../../test/asset-files.js';
-import { componentKey, normalizeOs, parseServiceRegistry, productOf, splitAddress, translateCategory } from './service-registry.js';
+import { componentInstance, componentKey, normalizeOs, parseServiceRegistry, productOf, splitAddress, translateCategory } from './service-registry.js';
 
 const OS = { 'Linux Centos 7': 'CentOS 7', 'CentOS Linux 7 (Core)': 'CentOS 7', 'Linux/Debian 11': 'Debian 11' };
 
@@ -21,12 +21,26 @@ describe('реестр сервисов', () => {
     expect(splitAddress('10.0.5:443')).toEqual({ ip: '10.0.5', port: '443', complete: false });
   });
 
-  it('нормализация ОС, продукт по команде, ключ компонента', () => {
+  it('нормализация ОС, продукт по команде', () => {
     expect(normalizeOs('  centos linux 7 (core) ', OS)).toBe('CentOS 7');
     expect(normalizeOs('Windows Server 2019', OS)).toBe('Windows Server 2019');
     expect(productOf('Команда А', { 'команда а': 'Продукт А' })).toBe('Продукт А');
     expect(productOf('Команда Б', {})).toBe('Команда Б');
-    expect(componentKey(' Notification ', 'Продукт А')).toBe('notification / продукт а');
+  });
+
+  it('ключ компонента (1.6.1): «Компонент / Продукт / Среда / IP:порт»', () => {
+    expect(componentKey(' B2B-API ', 'Продукт А', 'Prod', ' 10.0.0.5 ', '8070')).toBe('b2b-api / продукт а / prod / 10.0.0.5:8070');
+    // Без порта — только IP; без IP — без адреса (порт без IP не учитывается).
+    expect(componentKey('nginx', 'Продукт А', 'Prod', '10.0.0.5', '')).toBe('nginx / продукт а / prod / 10.0.0.5');
+    expect(componentKey('nginx', 'Продукт А', 'Prod', '', '443')).toBe('nginx / продукт а / prod');
+    // Пустая среда пропускается, пустой продукт — нет (как в 1.6.0).
+    expect(componentKey('nginx', 'Продукт А', '', '10.0.0.5', '80')).toBe('nginx / продукт а / 10.0.0.5:80');
+    expect(componentKey(' Notification ', '')).toBe('notification / ');
+    // Prod и Test, два экземпляра в Prod — три разных ключа.
+    const keys = [['Prod', '10.0.0.5', '8070'], ['Test', '10.0.1.5', '8070'], ['Prod', '10.0.0.6', '8070']].map(([e, i, p]) => componentKey('b2b-api', 'А', e, i, p));
+    expect(new Set(keys).size).toBe(3);
+    expect(componentInstance('b2b-api', 'Prod', '10.0.0.5', '8070')).toBe('b2b-api · Prod · 10.0.0.5:8070');
+    expect(componentInstance(' db ', '', '', '')).toBe('db');
   });
 
   it('файл формы: заголовки в строке 6, «Класификация» — среда и статус, предупреждения', async () => {
@@ -39,9 +53,10 @@ describe('реестр сервисов', () => {
     expect([p.sheet, p.headerRow]).toEqual(['Список активов', 6]);
     expect(p.rows[0]).toMatchObject({
       row: 7, component: 'notification', product: 'Продукт А', category: 'Operational', ip: '10.0.0.5', port: '8080', os: 'CentOS 7', osSource: 'Linux Centos 7',
-      env: 'Prod', status: 'Работает', owner: 'Иванов И.', key: 'notification / продукт а',
+      env: 'Prod', status: 'Работает', owner: 'Иванов И.', key: 'notification / продукт а / prod / 10.0.0.5:8080',
+      instance: 'notification · Prod · 10.0.0.5:8080',
     });
-    expect(p.rows[1]).toMatchObject({ product: 'Команда Б', env: 'Test', ipComplete: false, key: 'notification / команда б' });
+    expect(p.rows[1]).toMatchObject({ product: 'Команда Б', env: 'Test', ipComplete: false, key: 'notification / команда б / test / 10.0.5' });
     expect(p.warnings.join('\n')).toMatch(/Неизвестные значения «Важность\/Критичность».*Что-то/);
     expect(p.warnings.join('\n')).toMatch(/«Класификация».*Непонятно/);
     expect(p.warnings.join('\n')).toMatch(/Неполный IP-адрес.*строки 8/);

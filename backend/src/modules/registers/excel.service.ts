@@ -20,6 +20,7 @@ import {
 import { todayIso } from '../../lib/today.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { isVulnRegister } from '../vulns/definition.js';
+import { requiredTitleField } from '../assets/derive.js';
 import { applyDerived } from '../vulns/derive.js';
 import {
   assertNotArchived,
@@ -539,6 +540,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     (await toRecordDtos(db, reg, existing.filter((r) => !r.deletedAt))).map((d) => [d.number, d.display]),
   );
   const titleField = reg.fields.find((f) => f.isTitle && !f.archived);
+  const requiredField = requiredTitleField(reg);
 
   // Повторы в колонке сопоставления: по ID — ошибка в повторе; по ключу — во всех строках с этим ключом
   // (непонятно, какая из них верная).
@@ -619,8 +621,8 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
         if (inFile !== (shownNow[c.field.id] ?? '')) readonlyChanged++;
       }
     }
-    if (!rec && rowErrors.length === 0 && titleField && changes[titleField.id] === undefined) {
-      rowErrors.push({ row: rowNumber, id: null, field: titleField.label, message: `Для новой записи заполните «${titleField.label}»` });
+    if (!rec && rowErrors.length === 0 && requiredField && changes[requiredField.id] === undefined) {
+      rowErrors.push({ row: rowNumber, id: null, field: requiredField.label, message: `Для новой записи заполните «${requiredField.label}»` });
     }
     // Фиксация статусом (этап 8б): зафиксированное и «с причиной» импорт не меняет — только карточка записи.
     // Ограничение «не позже 31.12 года поля N» — по значениям после строки (с датами по умолчанию у новой записи).
