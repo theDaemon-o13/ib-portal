@@ -34,7 +34,7 @@ describe('справочники после seed', () => {
       expect(categories[0]?.systemReason).toBe('задачи из писем создаются с этой категорией');
       // Релиз 1.5.0: «Типы систем» — узлы раздела «Уязвимости».
       const systemTypes = await svc.listItems(tx, 'system_types', { includeArchived: false });
-      expect(systemTypes.map((s) => s.value)).toEqual(['БД', 'Серверы', 'Рабочие станции', 'Сетевое оборудование', 'Веб-приложения']);
+      expect(systemTypes.map((s) => s.value)).toEqual(['БД', 'Серверы', 'Рабочие станции', 'Сетевое оборудование', 'Веб-приложения', 'Windows', 'Linux', 'PostgreSQL', 'Website', 'Docker']);
       const statuses = await svc.listItems(tx, 'task_statuses', { includeArchived: false });
       expect(statuses.map((s) => s.value)).toEqual(['Backlog', 'Поставленные', 'В работе', 'На проверке', 'Выполнено']);
       expect(statuses.map((s) => [s.commentForward, s.commentReturn])).toEqual([[false, false], [false, false], [false, true], [true, false], [true, false]]);

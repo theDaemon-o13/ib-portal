@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { registersApi } from '../../api/registers';
 import { settingsApi } from '../../api/settings';
-import { vkeys, vulnsApi, type ScanPreview, type VulnNode } from '../../api/vulns';
+import { vkeys, vulnsApi, type ScanPreview, type VulnGroup, type VulnNode } from '../../api/vulns';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { Modal } from './Dialogs';
@@ -57,6 +57,81 @@ export function ScanImportDialog({ node, nodeLabel, onClose, onDone }: { node: V
   );
 }
 
+/** Импорт со страницы группы: узел предлагается по профилю из имени файла. Дальше — общий предпросмотр. */
+export function GroupScanImportDialog({ group, canStructure, onClose, onDone }: { group: VulnGroup; canStructure: boolean; onClose: () => void; onDone: (scanId: string) => void }) {
+  const toast = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [detected, setDetected] = useState<{ id: string; label: string } | null>(null);
+  const [nodeId, setNodeId] = useState('');
+  const [preview, setPreview] = useState<ScanPreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (what: () => Promise<void>, failure: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await what();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : failure);
+      toast(failure, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    void run(async () => {
+      const t = await vulnsApi.scanTarget(group.id, f.name);
+      setFile(f);
+      setDetected(t.detected);
+      setNodeId(t.nodeId ?? '');
+    }, 'Файл не загружен');
+  };
+  const load = (id: string) => run(async () => {
+    if (file) setPreview(await vulnsApi.previewScan(id, file));
+  }, 'Файл не загружен');
+  const addType = (type: { id: string; label: string }) => run(async () => {
+    if (file) setPreview(await vulnsApi.previewNewNodeScan(group.id, type.id, file));
+  }, 'Файл не загружен');
+
+  if (preview) return <PreviewStep key={preview.id} preview={preview} nodeLabel={preview.summary.node.label} onClose={onClose} onDone={onDone} />;
+  const missing = detected && !group.nodes.some((n) => n.systemType?.id === detected.id) ? detected : null;
+  return (
+    <Modal title="Импорт скана" sub={`Группа «${group.name}». Портал предложит узел по имени файла, выбрать можно любой узел группы.`} wide onClose={onClose}
+      footer={<>
+        <span className="hint v-grow">Ничего не записывается, пока вы не подтвердите предпросмотр.</span>
+        <button className="btn" type="button" onClick={onClose}>Отмена</button>
+        {file && missing && canStructure && <button className="btn" type="button" disabled={busy} onClick={() => void addType(missing)}>Добавить тип {missing.label} в группу и импортировать</button>}
+        {file && <button className="btn primary" type="button" disabled={busy || !nodeId} onClick={() => void load(nodeId)}>{busy ? 'Читаем файл…' : 'Продолжить'}</button>}
+      </>}>
+      {!file && (
+        <div className="v-drop">
+          <b>Отчёт сканера (.xlsx)</b>
+          <span className="hint">Один отчёт — один профиль сканирования. Профиль ищется в имени файла, например Scan_Linux_2026-11-01.xlsx.</span>
+          <button className="btn primary" type="button" disabled={busy} onClick={() => fileRef.current?.click()}>Выбрать файл</button>
+          <input ref={fileRef} type="file" hidden accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Файл скана" onChange={onFile} />
+        </div>
+      )}
+      {file && (
+        <>
+          <p>Файл «{file.name}». {!detected ? 'Профиль по имени файла не определён: выберите узел.' : missing ? `Похоже на профиль ${missing.label}, такого типа в группе нет.` : `Похоже на профиль ${detected.label}.`}</p>
+          {missing && !canStructure && <p className="note v-warn" role="alert">Добавить тип {missing.label} в группу может сотрудник с правом «Конструктор реестров». Либо выберите существующий узел.</p>}
+          <label className="fd-label">Узел
+            <select className="inp" value={nodeId} aria-label="Узел" onChange={(e) => setNodeId(e.target.value)}>
+              <option value="">— выберите</option>
+              {group.nodes.map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
+            </select>
+          </label>
+        </>
+      )}
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </Modal>
+  );
+}
+
 function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPreview; nodeLabel: string; onClose: () => void; onDone: (scanId: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -65,12 +140,14 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
   const [scanDate, setScanDate] = useState(s.scanDate ?? '');
   const [systemId, setSystemId] = useState(s.systemId ?? '');
   const [sel, setSel] = useState<Selection>(() => defaultSelection(s));
+  const [confirmed, setConfirmed] = useState(false);
+  const mismatch = s.profile?.mismatch ? s.profile : null;
   const first = (['new', 'reopened', 'changed', 'gone', 'unchanged'] as const).find((g) => s.counts[g] > 0) ?? 'new';
   const [tab, setTab] = useState<ImportGroup | 'unchanged'>(first);
   const systems = useQuery({ queryKey: ['settings', 'items', 'systems', 'active'], queryFn: () => settingsApi.items('systems', false) });
   const badDate = !scanDate || scanDate > today;
   const apply = useMutation({
-    mutationFn: () => vulnsApi.applyScan(preview.id, { scanDate, systemId: systemId || null, selected: selectionBody(sel) }),
+    mutationFn: () => vulnsApi.applyScan(preview.id, { scanDate, systemId: systemId || null, selected: selectionBody(sel), profileConfirmed: mismatch ? confirmed : undefined }),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: vkeys.all });
       toast(`Скан загружен: новых ${r.created}, повторно ${r.reopened}, изменились ${r.changed}, отмечено устранёнными ${r.gone}`);
@@ -88,8 +165,14 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
     <Modal title={`Предпросмотр · ${nodeLabel}`} sub={`Файл «${s.fileName}»: строк ${s.rows}, листов находок ${s.sheets.length}. Пока ничего не изменено.`} wide onClose={cancel}
       footer={<>
         <button className="btn" type="button" onClick={cancel} disabled={apply.isPending}>Отмена</button>
-        <button className="btn primary" type="button" disabled={badDate || apply.isPending} onClick={() => apply.mutate()}>{applyLabel(sel)}</button>
+        <button className="btn primary" type="button" disabled={badDate || apply.isPending || (!!mismatch && !confirmed)} onClick={() => apply.mutate()}>{applyLabel(sel)}</button>
       </>}>
+      {mismatch && (
+        <div className="note v-warn" role="alert" data-testid="profile-mismatch">
+          <p><b>Файл похож на скан профиля {mismatch.detected?.label}, а узел — {mismatch.nodeType?.label}.</b> Сравнение покажет находки узла как пропавшие.</p>
+          <label className="check"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> Я проверил, файл относится к этому узлу</label>
+        </div>
+      )}
       <div className="row scan-dates">
         <label className="fd-label">Дата скана
           <input className="inp" type="date" value={scanDate} max={today} onChange={(e) => setScanDate(e.target.value)} aria-label="Дата скана" />

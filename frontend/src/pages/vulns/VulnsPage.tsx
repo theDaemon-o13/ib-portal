@@ -8,18 +8,19 @@ import { registersApi, type RegisterDetail } from '../../api/registers';
 import { vkeys, vulnsApi, type NodeRecord, type NodeStats, type ScanBrief, type VulnGroup, type VulnNode, type VulnOverview } from '../../api/vulns';
 import { useFileViewer } from '../../components/files/FileViewer';
 import { formatDate } from '../registers/logic';
+import { formatDateTime } from '../settings/logic';
 import { rkeys } from '../registers/keys';
 import { RecordDrawer } from '../registers/RecordDrawer';
-import { AddTypeDialog, GroupDialog, HandoverDialog, RenameGroupDialog, TransferDialog } from './Dialogs';
+import { AddTypeDialog, ChangeTypeDialog, GroupDialog, HandoverDialog, RenameGroupDialog, TransferDialog } from './Dialogs';
 import { ExtensionDialog, ExtensionList } from './ExtensionDialog';
-import { CRIT_TONE, dueHint, groupStats, lastScanOf, parseView, STATE_FILTERS, STATE_LABELS, sumStats, viewPath, type Totals, type VulnView } from './logic';
-import { ScanImportDialog } from './ScanImportDialog';
+import { CRIT_TONE, dueHint, groupStats, lastScanOf, parseView, STATE_FILTERS, STATE_LABELS, scanAgeText, sumStats, viewPath, type Totals, type VulnView } from './logic';
+import { GroupScanImportDialog, ScanImportDialog } from './ScanImportDialog';
 import { useTodayIso } from './today';
 import { VulnRecordBlock } from './VulnRecordBlock';
 import '../../styles/vulns.css';
 
 type Go = (v: VulnView) => void;
-const NO_STATS: NodeStats = { nodeId: '', open: 0, overdue: 0, critical: 0, notHandedOver: 0, fixed: 0, total: 0, lastScan: null, scans: [] };
+const NO_STATS: NodeStats = { nodeId: '', open: 0, overdue: 0, critical: 0, notHandedOver: 0, fixed: 0, total: 0, lastScan: null, scans: [], scanAgeDays: null, scanStale: false };
 
 function Tree({ groups, stats, view, go, canManage, onNewGroup }: { groups: VulnGroup[]; stats: NodeStats[]; view: VulnView; go: Go; canManage: boolean; onNewGroup: () => void }) {
   const cur = (kind: VulnView['kind'], id?: string) => (view.kind === kind && (kind === 'root' || (view as { id?: string }).id === id) ? 'true' : undefined);
@@ -46,6 +47,7 @@ function Tree({ groups, stats, view, go, canManage, onNewGroup }: { groups: Vuln
                 <button type="button" className="tn n" aria-current={cur('node', n.id)} onClick={() => go({ kind: 'node', id: n.id })}>
                   <span className="t">{n.label}</span>{count(st)}
                 </button>
+                {!n.legacy && <div className={`v-age${st.scanStale ? ' stale' : ''}`}>{scanAgeText(st.scanAgeDays)}</div>}
                 {!n.legacy && st.scans.map((s) => (
                   <button key={s.id} type="button" className="tn s" aria-current={cur('scan', s.id)} onClick={() => go({ kind: 'scan', id: s.id })}>
                     <span className={`ictdot${s.handedOver ? '' : ' no'}`} title={s.handedOver ? 'Передан ИКТ' : 'Не передан ИКТ'} />
@@ -139,12 +141,24 @@ function RootView({ groups, ov, go, canManage, onNewGroup }: { groups: VulnGroup
           </div>
         </section>
       </div>
+      <section className="panel v-mt" data-testid="stale-nodes">
+        <div className="panel-h"><h3>Узлов без скана дольше порога: {ov.staleNodes.length}</h3><span className="hint">Порог {ov.scanMaxAgeDays} дн. «Без группы» не считается</span></div>
+        <div className="panel-b">
+          {ov.staleNodes.length === 0 && <p className="hint">Все узлы сканировались вовремя.</p>}
+          {ov.staleNodes.map((n) => (
+            <button key={n.nodeId} type="button" className="v-await" onClick={() => go({ kind: 'node', id: n.nodeId })}>
+              <span>{n.label}</span><span className="hint v-age stale">{scanAgeText(n.ageDays)}</span>
+            </button>
+          ))}
+        </div>
+      </section>
     </>
   );
 }
 
 function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; go: Go; me: Me }) {
-  const [dialog, setDialog] = useState<'type' | 'rename' | 'extend' | null>(null);
+  const [dialog, setDialog] = useState<'type' | 'rename' | 'extend' | 'import' | null>(null);
+  const canEdit = me.permissions.includes('records.edit');
   const canStructure = me.permissions.includes('registers.manage');
   const canDeadlines = me.permissions.includes('vulns.deadlines');
   const st = groupStats(group, ov.nodes);
@@ -159,6 +173,7 @@ function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; 
           <p>{group.system ? 'Сюда при обновлении попали записи прежнего реестра уязвимостей. Откройте их и перенесите в нужные группы и типы систем.' : 'Типы систем группы. У каждого свой реестр и свои сканы.'}</p>
         </div>
         <div className="row">
+          {!group.system && canEdit && <button className="btn primary" type="button" onClick={() => setDialog('import')}>Импорт скана</button>}
           {!group.system && canStructure && <button className="btn" type="button" onClick={() => setDialog('rename')}>Переименовать</button>}
           {!group.system && canStructure && <button className="btn" type="button" onClick={() => setDialog('type')}>Добавить тип</button>}
           <button className="btn" type="button" disabled={!canDeadlines} title={canDeadlines ? undefined : 'Нужно право «Уязвимости: изменение сроков»'} onClick={() => setDialog('extend')}>Обновить сроки</button>
@@ -177,7 +192,8 @@ function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; 
                 <div className={s.overdue ? 'bad' : ''}><b>{s.overdue}</b><span>просрочено</span></div>
               </div>
               <div className="v-tlast">
-                {s.lastScan ? <>Последний скан {formatDate(s.lastScan.scanDate)} <IctChip handedOver={s.lastScan.handedOver} /></> : n.legacy ? 'Записи прежнего реестра' : 'Сканов пока нет'}
+                {n.legacy ? 'Записи прежнего реестра' : <span className={`v-age${s.scanStale ? ' stale' : ''}`}>{scanAgeText(s.scanAgeDays)}{s.lastScan && ` · ${formatDate(s.lastScan.scanDate)}`}</span>}
+                {s.lastScan && <IctChip handedOver={s.lastScan.handedOver} />}
               </div>
             </button>
           );
@@ -190,6 +206,7 @@ function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; 
       {dialog === 'type' && <AddTypeDialog group={group} onClose={() => setDialog(null)} />}
       {dialog === 'rename' && <RenameGroupDialog group={group} onClose={() => setDialog(null)} />}
       {dialog === 'extend' && <ExtensionDialog scope={{ groupId: group.id }} onClose={() => setDialog(null)} />}
+      {dialog === 'import' && <GroupScanImportDialog group={group} canStructure={canStructure} onClose={() => setDialog(null)} onDone={(id) => { setDialog(null); go({ kind: 'scan', id }); }} />}
     </>
   );
 }
@@ -242,22 +259,25 @@ function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canE
 function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode; group: VulnGroup; reg: RegisterDetail; stats: NodeStats; go: Go; me: Me; groups: VulnGroup[] }) {
   const qc = useQueryClient();
   const today = useTodayIso();
-  const [tab, setTab] = useState<'reg' | 'scans' | 'ext'>('reg');
+  const [tab, setTab] = useState<'reg' | 'scans' | 'ext' | 'history'>('reg');
   const [search, setSearch] = useState('');
   const [crit, setCrit] = useState('');
   const [state, setState] = useState<(typeof STATE_FILTERS)[number][0]>('open');
   const [cursor, setCursor] = useState<string | undefined>();
-  const [dialog, setDialog] = useState<'import' | 'extend' | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'extend' | 'type' | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [moving, setMoving] = useState<string[] | null>(null);
   const canEdit = me.permissions.includes('records.edit');
   const canDelete = me.permissions.includes('records.delete');
+  const canStructure = me.permissions.includes('registers.manage');
+  const canHistory = me.permissions.includes('history.view');
   const canDeadlines = me.permissions.includes('vulns.deadlines');
   const q = { search: search || undefined, crit: crit || undefined, state, cursor };
   const records = useQuery({ queryKey: vkeys.records(node.id, q), queryFn: () => vulnsApi.records(node.id, q) });
   const scans = useQuery({ queryKey: vkeys.scans(node.id), queryFn: () => vulnsApi.scans(node.id), enabled: tab === 'scans' });
   const ext = useQuery({ queryKey: vkeys.extensions({ nodeId: node.id }), queryFn: () => vulnsApi.extensions({ nodeId: node.id }), enabled: tab === 'ext' });
+  const history = useQuery({ queryKey: vkeys.nodeHistory(node.id), queryFn: () => vulnsApi.nodeHistory(node.id), enabled: tab === 'history' });
   const critField = reg.fields.find((x) => x.systemKey === 'crit');
   const page = records.data;
   const resetPage = () => setCursor(undefined);
@@ -274,6 +294,7 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
         </div>
         <div className="row">
           {!legacy && canEdit && <button className="btn primary" type="button" onClick={() => setDialog('import')}>Импорт скана</button>}
+          {!legacy && canStructure && <button className="btn" type="button" onClick={() => setDialog('type')}>Сменить тип</button>}
           <button className="btn" type="button" disabled={!canDeadlines} title={canDeadlines ? undefined : 'Нужно право «Уязвимости: изменение сроков»'} onClick={() => setDialog('extend')}>Обновить сроки</button>
         </div>
       </div>
@@ -281,6 +302,7 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
         <button type="button" role="tab" aria-selected={tab === 'reg'} onClick={() => setTab('reg')}>Реестр · {stats.open}</button>
         <button type="button" role="tab" aria-selected={tab === 'scans'} onClick={() => setTab('scans')}>Итоги сканирования · {stats.scans.length}</button>
         <button type="button" role="tab" aria-selected={tab === 'ext'} onClick={() => setTab('ext')}>Продления сроков</button>
+        {!legacy && canHistory && <button type="button" role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>История</button>}
       </div>
       {tab === 'reg' && (
         <section className="panel">
@@ -327,12 +349,22 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
           <ExtensionList items={ext.data?.items ?? []} canManage={canDeadlines} />
         </section>
       )}
+      {tab === 'history' && (
+        <section className="panel" data-testid="node-history">
+          <div className="panel-h"><h3>История узла</h3></div>
+          <div className="panel-b">
+            {history.data?.items.length === 0 && <p className="hint">Изменений ещё не было.</p>}
+            {history.data?.items.map((h) => <div key={h.id} className="hist-item"><span className="hint">{formatDateTime(h.at)} · {h.actor}</span><div>{h.summary}</div></div>)}
+          </div>
+        </section>
+      )}
       {opened && (
         <RecordDrawer key={opened} reg={reg} recordId={opened} canEdit={canEdit} canDelete={canDelete} onClose={() => { setOpened(null); void qc.invalidateQueries({ queryKey: vkeys.all }); }} onCreated={() => undefined}
           extra={<VulnRecordBlock recordId={opened} go={go} />} />
       )}
       {dialog === 'import' && <ScanImportDialog node={node} nodeLabel={nodeLabel} onClose={() => setDialog(null)} onDone={(id) => { setDialog(null); go({ kind: 'scan', id }); }} />}
       {dialog === 'extend' && <ExtensionDialog scope={{ nodeId: node.id }} onClose={() => setDialog(null)} />}
+      {dialog === 'type' && <ChangeTypeDialog group={group} node={node} onClose={() => setDialog(null)} />}
       {moving && <TransferDialog recordIds={moving} groups={groups} onClose={() => setMoving(null)} onDone={() => { setMoving(null); setPicked([]); }} />}
     </>
   );
@@ -409,6 +441,11 @@ function ScanView({ id, go, me, groups }: { id: string; go: Go; me: Me; groups: 
             {canEdit && <button className="btn sm primary" type="button" onClick={() => setHanding(true)}>Передать ИКТ</button>}
           </div>
         )}
+      {s.comparison?.profileMismatch && (
+        <div className="note v-warn" data-testid="scan-profile-mismatch">
+          Файл похож на скан профиля «{s.comparison.profileMismatch.fileProfile?.label}», а узел — «{s.comparison.profileMismatch.nodeType?.label}». Загрузивший подтвердил, что файл относится к этому узлу ({s.createdBy}, {formatDate(s.comparison.profileMismatch.confirmedAt.slice(0, 10))}).
+        </div>
+      )}
       <div className="tabs page-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'diff'} onClick={() => setTab('diff')}>Сравнение</button>
         <button type="button" role="tab" aria-selected={tab === 'rows'} onClick={() => setTab('rows')}>Находки · {s.findingsCount}</button>

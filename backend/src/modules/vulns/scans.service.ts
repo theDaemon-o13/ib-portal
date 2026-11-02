@@ -30,6 +30,7 @@ interface Comparison {
   errorRows?: number;
   errors?: Record<string, unknown>[];
   notes?: Record<string, unknown>[];
+  profileMismatch?: { fileProfile: { id: string; label: string } | null; nodeType: { id: string; label: string } | null; confirmedBy: string; confirmedAt: string } | null;
 }
 
 function scanBrief(s: ScanRow) {
@@ -84,7 +85,7 @@ export async function getScan(db: Db, id: string) {
     comparison: s.comparison && !s.legacyReportId
       ? {
         groups: cmp.groups ?? {}, archived: cmp.archived ?? [], inFileDuplicates: cmp.inFileDuplicates ?? 0,
-        errorRows: cmp.errorRows ?? 0, errors: cmp.errors ?? [], notes: cmp.notes ?? [],
+        errorRows: cmp.errorRows ?? 0, errors: cmp.errors ?? [], notes: cmp.notes ?? [], profileMismatch: cmp.profileMismatch ?? null,
       }
       : null,
   };

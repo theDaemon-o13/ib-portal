@@ -42,16 +42,33 @@ export const vkeys = {
   overview: ['vulns', 'overview'] as const,
   records: (nodeId: string, q: unknown) => ['vulns', 'records', nodeId, q] as const,
   recordInfo: (id: string) => ['vulns', 'record', id] as const,
+  nodeHistory: (id: string) => ['vulns', 'node-history', id] as const,
   scans: (nodeId: string) => ['vulns', 'scans', nodeId] as const,
   scan: (id: string) => ['vulns', 'scan', id] as const,
   extensions: (scope: { nodeId?: string; groupId?: string }) => ['vulns', 'extensions', scope] as const,
   systemTypes: ['vulns', 'system-types'] as const,
 };
 
+/** Шаг 1 импорта скана: файл уходит телом запроса, как обычный импорт Excel. */
+async function uploadScan(url: string, file: File): Promise<ScanPreview> {
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'X-File-Name': encodeURIComponent(file.name) },
+    body: file,
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+    throw new ApiError(res.status, data?.error?.code ?? 'UNKNOWN', data?.error?.message ?? 'Не удалось прочитать файл');
+  }
+  return (await res.json()) as ScanPreview;
+}
+
 export const vulnsApi = {
   groups: () => request<Res<'/api/v1/vulns/groups', 'get'>>('GET', '/api/v1/vulns/groups'),
   createGroup: (body: Body<'/api/v1/vulns/groups', 'post'>) => request<VulnGroup>('POST', '/api/v1/vulns/groups', body),
   renameGroup: (id: string, body: Body<'/api/v1/vulns/groups/{id}', 'patch'>) => request<VulnGroup>('PATCH', `/api/v1/vulns/groups/${id}`, body),
+  scanTarget: (groupId: string, fileName: string) => request<Res<'/api/v1/vulns/groups/{id}/scan-target', 'get'>>('GET', `/api/v1/vulns/groups/${groupId}/scan-target${qs({ fileName })}`),
   addNodes: (id: string, systemTypeIds: string[]) => request<VulnGroup>('POST', `/api/v1/vulns/groups/${id}/nodes`, { systemTypeIds }),
   overview: () => request<VulnOverview>('GET', '/api/v1/vulns/overview'),
   records: (nodeId: string, q: { search?: string; crit?: string; state?: string; cursor?: string }) =>
@@ -62,20 +79,11 @@ export const vulnsApi = {
   scan: (id: string) => request<ScanDetail>('GET', `/api/v1/vulns/scans/${id}`),
   handover: (id: string, body: Body<'/api/v1/vulns/scans/{id}/handover', 'post'>) =>
     request<Res<'/api/v1/vulns/scans/{id}/handover', 'post'>>('POST', `/api/v1/vulns/scans/${id}/handover`, body),
-  /** Шаг 1 импорта скана: файл уходит телом запроса, как обычный импорт Excel. */
-  async previewScan(nodeId: string, file: File): Promise<ScanPreview> {
-    const res = await fetch(`/api/v1/vulns/nodes/${nodeId}/scan-imports`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'X-File-Name': encodeURIComponent(file.name) },
-      body: file,
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
-      throw new ApiError(res.status, data?.error?.code ?? 'UNKNOWN', data?.error?.message ?? 'Не удалось прочитать файл');
-    }
-    return (await res.json()) as ScanPreview;
-  },
+  previewScan: (nodeId: string, file: File) => uploadScan(`/api/v1/vulns/nodes/${nodeId}/scan-imports`, file),
+  /** Импорт с группы в тип, которого там нет: узел появится только при применении. */
+  previewNewNodeScan: (groupId: string, systemTypeId: string, file: File) => uploadScan(`/api/v1/vulns/groups/${groupId}/scan-imports${qs({ systemTypeId })}`, file),
+  changeNodeType: (nodeId: string, body: Body<'/api/v1/vulns/nodes/{id}/type', 'patch'>) => request<VulnGroup>('PATCH', `/api/v1/vulns/nodes/${nodeId}/type`, body),
+  nodeHistory: (nodeId: string) => request<Res<'/api/v1/vulns/nodes/{id}/history', 'get'>>('GET', `/api/v1/vulns/nodes/${nodeId}/history`),
   applyScan: (id: string, body: ScanApply) => request<Res<'/api/v1/vulns/scan-imports/{id}/apply', 'post'>>('POST', `/api/v1/vulns/scan-imports/${id}/apply`, body),
   extensions: (scope: { nodeId?: string; groupId?: string }) => request<Res<'/api/v1/vulns/extensions', 'get'>>('GET', `/api/v1/vulns/extensions${qs(scope)}`),
   extension: (id: string) => request<ExtensionDetail>('GET', `/api/v1/vulns/extensions/${id}`),

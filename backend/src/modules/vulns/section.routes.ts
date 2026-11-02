@@ -13,6 +13,7 @@ import { IMPORT_BODY_LIMIT, RegisterRecord } from '../registers/routes.js';
 import { actorOf } from '../settings/common.js';
 import * as extensions from './extensions.service.js';
 import * as groups from './groups.service.js';
+import * as profiles from './profiles.js';
 import * as scanImport from './scan-import.service.js';
 import * as scans from './scans.service.js';
 import * as section from './section.service.js';
@@ -55,9 +56,10 @@ const ScanItem = z.object({
   changes: z.array(z.object({ fieldId: z.string(), label: z.string(), from: z.string(), to: z.string() })),
   dueBefore: z.string().nullable(), dueAfter: z.string().nullable(), becomesOverdue: z.boolean(), closedStatus: z.string().nullable(),
 });
+const ProfileType = z.object({ id: z.string(), label: z.string() });
 const ScanIssue = z.object({ sheet: z.string().optional(), row: z.number().int(), field: z.string().nullable(), message: z.string() });
 const ScanSummary = z.object({
-  node: z.object({ id: z.string(), label: z.string() }),
+  node: z.object({ id: z.string().nullable(), label: z.string() }),
   fileName: z.string(),
   sheets: z.array(z.object({ name: z.string(), rows: z.number().int() })),
   scanDate: z.string().nullable(),
@@ -81,6 +83,7 @@ const ScanSummary = z.object({
   }),
   archived: z.array(z.object({ number: z.number().int(), pkg: z.string(), cve: z.string() })),
   systemId: z.string().nullable(),
+  profile: z.object({ detected: ProfileType.nullable(), nodeType: ProfileType.nullable(), mismatch: z.boolean() }).nullable(),
 });
 const NodeScanPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ScanSummary });
 
@@ -103,6 +106,7 @@ const ScanDetail = ScanBrief.extend({
     archived: z.array(z.record(z.string(), z.unknown())),
     inFileDuplicates: z.number().int(), errorRows: z.number().int(),
     errors: z.array(z.record(z.string(), z.unknown())), notes: z.array(z.record(z.string(), z.unknown())),
+    profileMismatch: z.object({ fileProfile: ProfileType.nullable(), nodeType: ProfileType.nullable(), confirmedBy: z.string(), confirmedAt: z.string() }).nullable(),
   }).nullable(),
 });
 const NodeStats = z.object({
@@ -110,6 +114,8 @@ const NodeStats = z.object({
   fixed: z.number().int(), total: z.number().int(),
   lastScan: z.object({ id: z.string(), scanDate: z.string(), handedOver: z.boolean() }).nullable(),
   scans: z.array(z.object({ id: z.string(), scanDate: z.string(), fileName: z.string(), handedOver: z.boolean() })),
+  scanAgeDays: z.number().int().nullable(),
+  scanStale: z.boolean(),
 });
 const ExtensionPlan = z.object({
   nodeId: z.string().uuid().nullable().optional(),
@@ -178,6 +184,45 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
     },
   }, async (request) => groups.addNodes(db, actorOf(request), request.params.id, request.body.systemTypeIds));
 
+  app.patch('/vulns/nodes/:id/type', {
+    preHandler: structure,
+    schema: {
+      tags: ['vulns'], summary: '«Сменить тип узла»: только на тип, которого нет в группе. Реестр, сканы и продления остаются у узла',
+      params: IdParams, body: z.object({ systemTypeId: z.string().uuid(), fromTypeId: z.string().uuid() }), response: { 200: VulnGroup, ...errors },
+    },
+  }, async (request) => groups.changeNodeType(db, actorOf(request), request.params.id, request.body));
+
+  app.get('/vulns/nodes/:id/history', {
+    preHandler: requirePerm('history.view'),
+    schema: {
+      tags: ['vulns'], summary: 'История узла: смена типа', params: IdParams,
+      response: { 200: z.object({ items: z.array(z.object({ id: z.string(), at: z.string(), actor: z.string(), summary: z.string() })) }), ...errors },
+    },
+  }, async (request) => ({ items: await groups.nodeHistory(db, request.params.id) }));
+
+  app.post('/vulns/groups/:id/scan-imports', {
+    preHandler: [edit, structure],
+    bodyLimit: IMPORT_BODY_LIMIT,
+    schema: {
+      tags: ['vulns'],
+      summary: 'Импорт с группы в тип, которого в группе нет, шаг 1: сравнение с пустым реестром. Узел не создаётся, пока импорт не применён',
+      params: IdParams, querystring: z.object({ systemTypeId: z.string().uuid() }), body: z.any(), response: { 201: NodeScanPreview, ...errors },
+    },
+  }, async (request, reply) => {
+    if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw badRequest('BAD_FILE', 'Отправьте файл .xlsx');
+    const fileName = fileNameOf(request.headers['x-file-name'], 'scan.xlsx');
+    return reply.status(201).send(await scanImport.previewNewNodeScan(db, store, actorOf(request), request.params.id, request.query.systemTypeId, request.body, fileName));
+  });
+
+  app.get('/vulns/groups/:id/scan-target', {
+    preHandler: edit,
+    schema: {
+      tags: ['vulns'], summary: 'Импорт скана с группы: профиль по имени файла и его узел в группе. Не нашли или неоднозначно — detected: null',
+      params: IdParams, querystring: z.object({ fileName: z.string().min(1).max(400) }),
+      response: { 200: z.object({ detected: ProfileType.nullable(), nodeId: z.string().nullable() }), ...errors },
+    },
+  }, async (request) => profiles.groupScanTarget(db, request.params.id, request.query.fileName));
+
   app.post('/vulns/records/transfer', {
     preHandler: edit,
     schema: {
@@ -226,6 +271,7 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
           new: z.array(z.string()).max(SCAN_MAX_ROWS).optional(), reopened: z.array(z.string()).max(SCAN_MAX_ROWS).optional(),
           changed: z.array(z.string()).max(SCAN_MAX_ROWS).optional(), gone: z.array(z.string()).max(SCAN_MAX_ROWS).optional(),
         }).optional(),
+        profileConfirmed: z.boolean().optional(),
       }),
       response: {
         200: z.object({
@@ -236,7 +282,7 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
       },
     },
   }, async (request) => {
-    const result = await scanImport.applyNodeScan(db, actorOf(request), request.params.id, request.body);
+    const result = await scanImport.applyNodeScan(db, actorOf(request), request.params.id, { ...request.body, canAddNode: request.user?.permissions.has('registers.manage') ?? false });
     // Изменившаяся Критичность может сразу дать просрочку — не ждать часового прогона.
     const imp = await scanImport.getNodeScanImport(db, request.params.id);
     try {
@@ -255,6 +301,8 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
         200: z.object({
           registerId: z.string(),
           nodes: z.array(NodeStats),
+          scanMaxAgeDays: z.number().int(),
+          staleNodes: z.array(z.object({ nodeId: z.string(), label: z.string(), lastScanDate: z.string().nullable(), ageDays: z.number().int().nullable() })),
           awaiting: z.array(z.object({ id: z.string(), nodeId: z.string(), nodeLabel: z.string(), scanDate: z.string(), fileName: z.string(), createdAt: z.string() })),
         }),
         ...errors,

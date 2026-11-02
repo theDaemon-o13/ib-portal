@@ -18,8 +18,9 @@ import { describeChanges, nextNumbers } from '../registers/records.service.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { CRIT_LABELS, optionByKey, VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { applyDerived } from './derive.js';
-import { loadNode, nodeLabel } from './groups.service.js';
+import { checkNewNode, loadNode, nodeLabel } from './groups.service.js';
 import { keyNorm } from './keys.js';
+import { detectFileProfile, type ProfileType } from './profiles.js';
 import { deptKey, mergeDuplicates, norm, parseScanReport, type ScanHostRow, type ScanIssue, type ScanRow } from './scan-parser.js';
 
 const MAX_LIST = 500;
@@ -77,7 +78,8 @@ export interface ScanGoneItem {
 }
 
 export interface ScanSummary {
-  node: { id: string; label: string };
+  /** id — null: узла ещё нет, создаётся при применении (импорт с группы). */
+  node: { id: string | null; label: string };
   fileName: string;
   sheets: { name: string; rows: number }[];
   /** Дата скана из имени файла; нет — вводится в предпросмотре. */
@@ -105,10 +107,14 @@ export interface ScanSummary {
   archived: { number: number; pkg: string; cve: string }[];
   /** Система из прошлого импорта узла: предзаполняет окно. */
   systemId: string | null;
+  /** Профиль по имени файла. mismatch — профиль найден и это не тип узла: применение только с подтверждением. */
+  profile: { detected: ProfileType | null; nodeType: ProfileType | null; mismatch: boolean } | null;
 }
 
 interface ScanPayload {
-  nodeId: string;
+  nodeId: string | null;
+  /** Импорт с группы, узла ещё нет: создаётся в транзакции применения. */
+  newNode: { groupId: string; systemTypeId: string } | null;
   rows: ScanRow[];
   hosts: ScanHostRow[];
   coverageTitle: string;
@@ -280,17 +286,36 @@ async function previousScanOf(db: Db, nodeId: string) {
 
 // ---------------------------------------------------------------- предпросмотр
 
+interface ScanTarget {
+  nodeId: string | null;
+  label: string;
+  nodeType: ProfileType | null;
+  newNode: ScanPayload['newNode'];
+}
+
 export async function previewNodeScan(db: Db, store: FileStore, actor: Actor, nodeId: string, buffer: Buffer, fileName: string) {
   const node = await loadNode(db, nodeId);
   if (node.systemKey) throw conflict('LEGACY_NODE', 'В «Без группы» сканы не загружаются. Откройте узел группы');
+  const nodeType = node.systemType ? { id: node.systemType.id, label: node.systemType.value } : null;
+  return previewScan(db, store, actor, { nodeId: node.id, label: nodeLabel(node), nodeType, newNode: null }, buffer, fileName);
+}
+
+/** Импорт с группы в тип, которого в группе ещё нет: сравнение с пустым реестром, узла нет до применения. */
+export async function previewNewNodeScan(db: Db, store: FileStore, actor: Actor, groupId: string, systemTypeId: string, buffer: Buffer, fileName: string) {
+  const { group, type } = await checkNewNode(db, groupId, systemTypeId);
+  return previewScan(db, store, actor, { nodeId: null, label: `${group.name} / ${type.value}`, nodeType: { id: type.id, label: type.value }, newNode: { groupId, systemTypeId } }, buffer, fileName);
+}
+
+async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanTarget, buffer: Buffer, fileName: string) {
+  const { nodeId, nodeType } = target;
   const { reg, vf } = await vulnRegisterDef(db);
   const parsed = await parseScanReport(buffer, fileName);
   const { unique, duplicates } = mergeDuplicates(parsed.rows);
-  const known = await nodeRecords(db, nodeId);
+  const known = nodeId ? await nodeRecords(db, nodeId) : [];
   const calendar = await calendarFor(db, reg);
   const c = classify(reg, vf, unique, known, calendar);
 
-  const previous = await previousScanOf(db, nodeId);
+  const previous = nodeId ? await previousScanOf(db, nodeId) : null;
   const hostKeys = (hosts: readonly ScanHostRow[]) => new Set(hosts.map((h) => norm(h.name)));
   const prevHosts = (previous?.hosts ?? []) as unknown as ScanHostRow[];
   const coverage = previous
@@ -315,6 +340,8 @@ export async function previewNodeScan(db: Db, store: FileStore, actor: Actor, no
   for (const i of c.items.new) noteNew('pkg', i.pkg);
   for (const r of unique) for (const k of OPTION_KEYS) noteNew(k, r[k]);
 
+  const detected = await detectFileProfile(db, fileName);
+
   const warnings = [...parsed.warnings];
   if (!parsed.reportDate) warnings.push('В имени файла нет даты скана (ГГГГ_ММ_ДД, ГГГГ-ММ-ДД, ГГГГ.ММ.ДД) — укажите её перед применением');
   const prevDate = previous?.scanDate.toISOString().slice(0, 10);
@@ -325,7 +352,7 @@ export async function previewNodeScan(db: Db, store: FileStore, actor: Actor, no
 
   const prevSystem = (previous?.comparison as { systemId?: string | null } | null)?.systemId ?? null;
   const summary: ScanSummary = {
-    node: { id: node.id, label: nodeLabel(node) },
+    node: { id: nodeId, label: target.label },
     fileName,
     sheets: parsed.sheets,
     scanDate: parsed.reportDate,
@@ -348,12 +375,13 @@ export async function previewNodeScan(db: Db, store: FileStore, actor: Actor, no
     groups: { ...c.items, gone: c.gone },
     archived: c.archived,
     systemId: prevSystem && vf.system.options.some((o) => o.id === prevSystem && !o.archived) ? prevSystem : null,
+    profile: { detected, nodeType, mismatch: detected !== null && detected.id !== nodeType?.id },
   };
 
   // Файл — доказательство: к скану привязывается при применении, брошенный предпросмотр убирает часовая очистка.
   const file = await uploadFile(db, store, actor, fileName, buffer);
   const payload: ScanPayload = {
-    nodeId, rows: unique, hosts: parsed.hosts, coverageTitle: parsed.coverageTitle, fileId: file.id, previousScanId: previous?.id ?? null,
+    nodeId, newNode: target.newNode, rows: unique, hosts: parsed.hosts, coverageTitle: parsed.coverageTitle, fileId: file.id, previousScanId: previous?.id ?? null,
     known: known.map((k) => ({ id: k.id, key: k.key, version: k.version, archived: k.archived })),
     fieldVersions: Object.fromEntries(reg.fields.map((f) => [f.id, f.version])),
   };
@@ -369,18 +397,21 @@ export async function previewNodeScan(db: Db, store: FileStore, actor: Actor, no
     await auditSettings(tx, actor, {
       action: 'vuln.scan.previewed', entity: 'register_import', entityId: created.id,
       summary: `Уязвимости, «${summary.node.label}»: предпросмотр скана «${fileName}» — новых ${summary.counts.new}, повторно ${summary.counts.reopened}, изменились ${summary.counts.changed}, без изменений ${summary.counts.unchanged}, пропали ${summary.counts.gone}`,
-      after: { nodeId, fileName, sha256, fileId: file.id, counts: summary.counts, errorRows: summary.errorRows, hosts: summary.hostsCount },
+      after: { nodeId, newNode: target.newNode, fileName, sha256, fileId: file.id, counts: summary.counts, errorRows: summary.errorRows, hosts: summary.hostsCount },
     });
     return created;
   });
   return { id: imp.id, status: imp.status, expiresAt: imp.expiresAt.toISOString(), summary };
 }
 
+const isNodeScan = (p: ScanPayload) => !!p.nodeId || !!p.newNode;
+
 export async function getNodeScanImport(db: Db, id: string) {
   const imp = await db.registerImport.findUnique({ where: { id } });
-  if (!imp || imp.kind !== 'scan' || !(imp.payload as unknown as ScanPayload).nodeId) throw notFound('Импорт');
+  if (!imp || imp.kind !== 'scan' || !isNodeScan(imp.payload as unknown as ScanPayload)) throw notFound('Импорт');
   const status = imp.status === 'preview' && imp.expiresAt < new Date() ? 'expired' : imp.status;
-  return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary: imp.summary as unknown as ScanSummary };
+  const summary = imp.summary as unknown as ScanSummary;
+  return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary: { ...summary, profile: summary.profile ?? null } };
 }
 
 // ---------------------------------------------------------------- применение
@@ -392,6 +423,10 @@ export interface ApplyScanInput {
   systemId?: string | null;
   /** Выбор по строкам — ключи групп. Не указано: новые, повторные и изменившиеся все, пропавшие никакие. */
   selected?: { new?: string[]; reopened?: string[]; changed?: string[]; gone?: string[] };
+  /** «Я проверил, файл относится к этому узлу»: обязательно, если профиль файла не совпал с типом узла. */
+  profileConfirmed?: boolean;
+  /** Право «Конструктор реестров»: без него узел при применении не создаётся. */
+  canAddNode?: boolean;
 }
 
 function pick(all: readonly { key: string }[], chosen: readonly string[] | undefined, byDefault: boolean, what: string): Set<string> {
@@ -407,7 +442,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     if (!locked.length) throw notFound('Импорт');
     const imp = await tx.registerImport.findUniqueOrThrow({ where: { id: importId } });
     const payload = imp.payload as unknown as ScanPayload;
-    if (imp.kind !== 'scan' || !payload.nodeId) throw notFound('Импорт');
+    if (imp.kind !== 'scan' || !isNodeScan(payload)) throw notFound('Импорт');
     if (imp.createdBy !== actor.id) throw new AppError(403, 'IMPORT_OTHER_USER', 'Применить импорт может только тот, кто загрузил файл');
     if (imp.status !== 'preview') throw conflict('IMPORT_NOT_PENDING', 'Этот импорт уже применён или отменён');
     if (imp.expiresAt < new Date()) {
@@ -415,17 +450,32 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       throw conflict('IMPORT_EXPIRED', 'Предпросмотр устарел (30 минут). Загрузите файл снова');
     }
     const summary = imp.summary as unknown as ScanSummary;
+    const mismatch = summary.profile?.mismatch ? summary.profile : null;
+    if (mismatch && !input.profileConfirmed) throw conflict('PROFILE_NOT_CONFIRMED', 'Файл похож на скан другого профиля. Подтвердите, что он относится к этому узлу');
     const scanDate = input.scanDate ?? summary.scanDate;
     if (!scanDate) throw badRequest('SCAN_DATE_REQUIRED', 'Укажите дату скана: в имени файла её нет');
     if (!isIsoDate(scanDate)) throw badRequest('BAD_DATE', 'Дата скана: неверная дата');
     if (scanDate > todayIso()) throw badRequest('BAD_DATE', 'Дата скана не может быть позже сегодняшней');
 
+    // Импорт с группы: узел появляется здесь же, откат применения уберёт и его.
+    let nodeId = payload.nodeId as string;
+    if (payload.newNode) {
+      if (!input.canAddNode) throw new AppError(403, 'FORBIDDEN', 'Добавить тип в группу может сотрудник с правом «Конструктор реестров»');
+      const { group, type } = await checkNewNode(tx, payload.newNode.groupId, payload.newNode.systemTypeId);
+      nodeId = (await tx.vulnNode.create({ data: { groupId: group.id, systemTypeId: type.id, createdBy: actor.id } })).id;
+      await auditSettings(tx, actor, {
+        action: 'vuln.node.created', entity: 'vuln_group', entityId: group.id,
+        summary: `Уязвимости: в группу «${group.name}» добавлен тип «${type.value}» при импорте скана «${summary.fileName}»`,
+        after: { systemTypeIds: [type.id], nodeId },
+      });
+    }
+
     // Импорты одного узла — по очереди; записи узла не меняются, пока идёт применение.
-    await tx.$queryRaw`SELECT id FROM vuln_nodes WHERE id = ${payload.nodeId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM vuln_nodes WHERE id = ${nodeId}::uuid FOR UPDATE`;
     await tx.$queryRaw`
       SELECT r.id FROM vuln_records v JOIN register_records r ON r.id = v.record_id
-      WHERE v.node_id = ${payload.nodeId}::uuid AND v.key_norm IS NOT NULL FOR UPDATE OF r`;
-    const node = await loadNode(tx, payload.nodeId);
+      WHERE v.node_id = ${nodeId}::uuid AND v.key_norm IS NOT NULL FOR UPDATE OF r`;
+    const node = await loadNode(tx, nodeId);
     const { reg, vf } = await vulnRegisterDef(tx);
     for (const [fieldId, version] of Object.entries(payload.fieldVersions)) {
       const f = reg.fields.find((x) => x.id === fieldId);
@@ -552,6 +602,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       errorRows: summary.errorRows,
       errors: summary.errors,
       notes: summary.notes,
+      profileMismatch: mismatch ? { fileProfile: mismatch.detected, nodeType: mismatch.nodeType, confirmedBy: actor.id, confirmedAt: new Date().toISOString() } : null,
     };
     const scan = await tx.vulnScan.create({
       data: {
@@ -639,8 +690,8 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     };
     await auditSettings(tx, actor, {
       action: 'vuln.scan.applied', entity: 'vuln_scan', entityId: scan.id,
-      summary: `Уязвимости, «${nodeLabel(node)}»: загружен скан «${summary.fileName}» от ${formatDateRu(scanDate)} — новых ${result.created}, повторно ${result.reopened}, изменились ${result.changed}, без изменений ${result.unchanged}, отмечено устранёнными ${result.gone}, хостов ${payload.hosts.length}`,
-      after: { nodeId: node.id, importId, fileId: payload.fileId, sha256: imp.fileSha256, scanDate, system: system?.label ?? null, ...result, hosts: payload.hosts.length, newOptions: createdOptions },
+      summary: `Уязвимости, «${nodeLabel(node)}»: загружен скан «${summary.fileName}» от ${formatDateRu(scanDate)} — новых ${result.created}, повторно ${result.reopened}, изменились ${result.changed}, без изменений ${result.unchanged}, отмечено устранёнными ${result.gone}, хостов ${payload.hosts.length}${mismatch ? `. Файл похож на профиль «${mismatch.detected?.label}», узел — «${mismatch.nodeType?.label}»: подтверждено, что файл относится к узлу` : ''}`,
+      after: { nodeId: node.id, importId, fileId: payload.fileId, sha256: imp.fileSha256, scanDate, system: system?.label ?? null, ...result, hosts: payload.hosts.length, newOptions: createdOptions, profileMismatch: comparison.profileMismatch },
     });
     return result;
   });

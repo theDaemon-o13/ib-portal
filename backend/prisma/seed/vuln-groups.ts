@@ -7,21 +7,26 @@ import { once } from './registers.js';
 type Tx = Prisma.TransactionClient;
 
 const SYSTEM_TYPES = ['БД', 'Серверы', 'Рабочие станции', 'Сетевое оборудование', 'Веб-приложения'];
+// Профили сканирования VM (1.6.0): один отчёт — один профиль.
+export const PROFILE_TYPES = ['Windows', 'Linux', 'PostgreSQL', 'Website', 'Docker'];
 export const UNGROUPED_NAME = 'Без группы';
 
 export async function seedVulnGroups(tx: Tx): Promise<void> {
-  await once(tx, 'starter.system_types.v1', async () => {
+  const addTypes = async (values: readonly string[]) => {
     const max = await tx.catalogItem.aggregate({ where: { catalogCode: SYSTEM_TYPES_CATALOG }, _max: { sortOrder: true } });
     let order = max._max.sortOrder ?? 0;
     let created = 0;
-    for (const value of SYSTEM_TYPES) {
+    for (const value of values) {
       const exists = await tx.catalogItem.findFirst({ where: { catalogCode: SYSTEM_TYPES_CATALOG, deletedAt: null, value: { equals: value, mode: 'insensitive' } } });
       if (exists) continue;
       await tx.catalogItem.create({ data: { catalogCode: SYSTEM_TYPES_CATALOG, value, sortOrder: ++order } });
       created++;
     }
-    return `«Типы систем»: стартовых значений ${created}`;
-  });
+    return created;
+  };
+  await once(tx, 'starter.system_types.v1', async () => `«Типы систем»: стартовых значений ${await addTypes(SYSTEM_TYPES)}`);
+  // Существующие значения и узлы не трогаются: неиспользуемые старые типы владелец архивирует сам.
+  await once(tx, 'starter.system_types.profiles.v1', async () => `«Типы систем»: профилей сканирования добавлено ${await addTypes(PROFILE_TYPES)}`);
 
   await once(tx, 'vulns.groups.v1.ungrouped', async () => {
     if (await tx.vulnGroup.findUnique({ where: { systemKey: UNGROUPED_KEY } })) return '«Без группы» уже есть';

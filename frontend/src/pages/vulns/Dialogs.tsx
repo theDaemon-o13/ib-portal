@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { FileInfo } from '../../api/files';
 import { settingsApi } from '../../api/settings';
-import { vkeys, vulnsApi, type TransferResult, type VulnGroup } from '../../api/vulns';
+import { vkeys, vulnsApi, type TransferResult, type VulnGroup, type VulnNode } from '../../api/vulns';
 import { FileUpload } from '../../components/files/FileUpload';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
@@ -111,6 +111,38 @@ export function AddTypeDialog({ group, onClose }: { group: VulnGroup; onClose: (
       {types.isSuccess && !rest.length && <p className="hint">Все типы из справочника уже есть в этой группе.</p>}
       <TypeChecks items={rest} picked={picked} setPicked={setPicked} />
       {add.error && <p className="form-error" role="alert">{add.error.message}</p>}
+    </Modal>
+  );
+}
+
+export function ChangeTypeDialog({ group, node, onClose }: { group: VulnGroup; node: VulnNode; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const types = useSystemTypes();
+  const [picked, setPicked] = useState('');
+  const rest = (types.data?.items ?? []).filter((t) => !group.nodes.some((n) => n.systemType?.id === t.id));
+  const change = useMutation({
+    mutationFn: () => vulnsApi.changeNodeType(node.id, { systemTypeId: picked, fromTypeId: node.systemType?.id ?? '' }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: vkeys.all });
+      toast('Тип узла изменён');
+      onClose();
+    },
+  });
+  return (
+    <Modal title="Сменить тип узла" sub={`${group.name} / ${node.label}. Реестр, сканы и продления останутся у узла.`} onClose={onClose}
+      footer={<>
+        <button className="btn" type="button" onClick={onClose}>Отмена</button>
+        <button className="btn primary" type="button" disabled={!picked || change.isPending} onClick={() => change.mutate()}>Сменить тип</button>
+      </>}>
+      {types.isSuccess && !rest.length && <p className="hint">Все типы из справочника уже есть в этой группе.</p>}
+      <label className="fd-label">Новый тип
+        <select className="inp" value={picked} aria-label="Новый тип" onChange={(e) => setPicked(e.target.value)}>
+          <option value="">— выберите</option>
+          {rest.map((t) => <option key={t.id} value={t.id}>{t.value}</option>)}
+        </select>
+      </label>
+      {change.error && <p className="form-error" role="alert">{change.error.message}</p>}
     </Modal>
   );
 }

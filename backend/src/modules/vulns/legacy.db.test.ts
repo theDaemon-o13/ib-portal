@@ -185,7 +185,7 @@ describe('уязвимости: страница «Реестры»', () => {
 describe('уязвимости: «Перенести» из «Без группы»', () => {
   async function setup(tx: Tx) {
     const x = await vulnRegister(tx);
-    const t = await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: groups.SYSTEM_TYPES_CATALOG, value: 'Рабочие станции' } });
+    const t = await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: groups.SYSTEM_TYPES_CATALOG, value: 'Windows' } });
     const g = await groups.createGroup(tx, x.actor, { name: unique('Отдел платёжных карт'), kind: 'department', systemTypeIds: [t.id] });
     return { x, node: must(g.nodes[0]) };
   }

@@ -30,6 +30,12 @@ export function lastScanOf(list: readonly NodeStats[]): NodeStats['lastScan'] {
   return list.map((s) => s.lastScan).filter((s): s is NonNullable<NodeStats['lastScan']> => !!s).sort((a, b) => b.scanDate.localeCompare(a.scanDate))[0] ?? null;
 }
 
+/** «Последний скан N дн. назад». Сканов нет — так и пишем: узел считается просроченным по регулярности. */
+export function scanAgeText(ageDays: number | null): string {
+  if (ageDays === null) return 'Сканов нет';
+  return ageDays === 0 ? 'Последний скан сегодня' : `Последний скан ${ageDays} дн. назад`;
+}
+
 export type ImportGroup = 'new' | 'reopened' | 'changed' | 'gone';
 
 export type Selection = Record<ImportGroup, Set<string>>;

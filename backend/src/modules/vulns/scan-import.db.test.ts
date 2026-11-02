@@ -28,7 +28,7 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 const unique = (s: string) => `${s} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-async function makeNode(tx: Tx, x: VulnFixture, type = 'Рабочие станции') {
+async function makeNode(tx: Tx, x: VulnFixture, type = 'Windows') {
   const t = await tx.catalogItem.findFirstOrThrow({ where: { catalogCode: groups.SYSTEM_TYPES_CATALOG, value: type } });
   const g = await groups.createGroup(tx, x.actor, { name: unique('Отдел платёжных карт'), kind: 'department', systemTypeIds: [t.id] });
   return must(g.nodes[0]);
@@ -150,7 +150,7 @@ describe('импорт скана в узел: образец', () => {
       const { x, node } = await setup(tx);
       await load(tx, x, node.id);
       const other = await makeNode(tx, x, 'Серверы');
-      const { preview } = await load(tx, x, other.id);
+      const { preview } = await load(tx, x, other.id, SAMPLE, SAMPLE_NAME, { profileConfirmed: true });
       expect(preview.summary.counts.new).toBe(90);
       expect((await byCve(tx, x, node.id, 'CVE-2025-0411')).rec.id).not.toBe((await byCve(tx, x, other.id, 'CVE-2025-0411')).rec.id);
     }));

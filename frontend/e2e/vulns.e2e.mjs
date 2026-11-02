@@ -7,7 +7,7 @@
 // Группы «E2E-…» и их данные после прогона удаляет код тестов прямо в dev-базе (vulns-cleanup.mjs): в продукте удаления
 // групп нет (ADR-0029). Право vulns.deadlines на время прогона выдаётся своей ролью, после прогона роль снимается и удаляется.
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,24 @@ async function open(path, ready, what) {
 async function dropRoles() {
   const roles = await api('/api/v1/roles');
   for (const r of (roles.items ?? roles).filter((x) => x.name.startsWith('E2E-сроки-'))) await send('POST', `/api/v1/roles/${r.id}/delete`, { version: r.version });
+}
+
+/** Выйти и войти через форму; при первом входе — смена временного пароля. */
+async function relogin(login, password) {
+  await send('POST', '/api/v1/auth/logout');
+  await ui.goto(`/login?run=${Date.now()}`);
+  await ui.type(q('input[name=username]'), login);
+  await ui.type(q('input[name=password]'), password);
+  await ui.click(q('form button[type=submit]'));
+  await ui.waitFor(`location.pathname !== '/login'`, `вход ${login}`);
+  if (await ui.evaluate(`location.pathname === '/change-password'`)) {
+    const next = `Скан-${GROUP.slice(4)}-Zq9!`;
+    await ui.type(q('input[autocomplete=current-password]'), password);
+    await ui.type(`document.querySelectorAll('input[autocomplete=new-password]')[0]`, next);
+    await ui.type(`document.querySelectorAll('input[autocomplete=new-password]')[1]`, next);
+    await ui.click(button('Сменить пароль'));
+    await ui.waitFor(`location.pathname !== '/change-password'`, `смена пароля ${login}`);
+  }
 }
 
 async function findMe() {
@@ -101,11 +119,11 @@ describe('Раздел «Уязвимости»', () => {
     await ui.click(startsWith('+ Группа'));
     await ui.waitFor(`!!${dialog('Создать группу')}`, 'окно группы');
     await ui.type(q('input[aria-label="Название группы"]'), GROUP);
-    await ui.waitFor(`[...document.querySelectorAll('[role=dialog] label.check')].some((l) => l.textContent.includes('Рабочие станции'))`, 'типы систем');
-    await ui.click(`[...document.querySelectorAll('[role=dialog] label.check')].find((l) => l.textContent.includes('Рабочие станции')).querySelector('input')`);
+    await ui.waitFor(`[...document.querySelectorAll('[role=dialog] label.check')].some((l) => l.textContent.includes('Windows'))`, 'типы систем');
+    await ui.click(`[...document.querySelectorAll('[role=dialog] label.check')].find((l) => l.textContent.includes('Windows')).querySelector('input')`);
     await ui.click(button('Создать', dialog('Создать группу')));
     await ui.waitFor(`location.pathname.startsWith('/vulns/group/') && !!${treeBtn(GROUP)}`, 'группа в дереве');
-    await ui.click(`[...document.querySelectorAll('.v-tcard')].find((c) => c.textContent.includes('Рабочие станции'))`);
+    await ui.click(`[...document.querySelectorAll('.v-tcard')].find((c) => c.textContent.includes('Windows'))`);
     await ui.waitFor(`location.pathname.startsWith('/vulns/node/')`, 'экран узла');
     nodeId = await ui.evaluate(`location.pathname.split('/').pop()`);
     await ui.waitFor(`!!${button('Импорт скана')}`, 'кнопка импорта');
@@ -227,6 +245,105 @@ describe('Раздел «Уязвимости»', () => {
     await ui.waitFor(`!${row}`, 'запись ушла из «Без группы»', 15_000);
     const moved = await api(`/api/v1/vulns/records/${candidate.id}`);
     assert.equal(moved.node.id, nodeId);
+  });
+
+  it('импорт с группы: типа нет — «Добавить тип и импортировать», общий предпросмотр; несовпадение профиля — только с галочкой', async () => {
+    const linuxFile = join(tmp, 'Scan_Linux_2026-10-20.xlsx');
+    copyFileSync(SAMPLE, linuxFile);
+    const types = (await api('/api/v1/catalogs/system_types/items')).items;
+    const windows = types.find((t) => t.value === 'Windows');
+    assert.ok(windows && types.some((t) => t.value === 'Linux'), 'профили в справочнике');
+    const group = await send('POST', '/api/v1/vulns/groups', { name: `${GROUP}-профили`, kind: 'service', systemTypeIds: [windows.id] });
+    assert.ok(group.id, JSON.stringify(group));
+
+    await open(`/vulns/group/${group.id}`, `!!${button('Импорт скана')}`, 'страница группы');
+    await ui.waitFor(`[...document.querySelectorAll('.v-tcard')].some((c) => c.textContent.includes('Сканов нет'))`, 'возраст скана на карточке');
+    await ui.click(button('Импорт скана'));
+    await ui.waitFor(`!!${dialog('Импорт скана')}`, 'окно импорта');
+    await ui.setFiles('[role=dialog] input[type=file]', [linuxFile]);
+    await ui.waitFor(`!!${button('Добавить тип Linux в группу и импортировать')}`, 'предложение добавить тип');
+    assert.equal(await ui.evaluate(`document.querySelector('[role=dialog] select[aria-label="Узел"]').value`), '', 'узел не угадывается');
+    await ui.click(button('Добавить тип Linux в группу и импортировать'));
+    await ui.waitFor(`!!document.querySelector('[role=dialog] .v-dcards')`, 'предпросмотр нового узла', 20_000);
+    assert.equal(await ui.evaluate(`document.querySelector('[role=dialog] .v-dcard.k-new b').textContent`), '90 / 90', 'сравнение с пустым реестром');
+    assert.equal(await ui.evaluate(`document.querySelector('[role=dialog] .v-dcard.k-gone b').textContent`), '0 / 0');
+    const nodesNow = async () => (await api('/api/v1/vulns/groups')).items.find((g) => g.id === group.id).nodes.length;
+    assert.equal(await nodesNow(), 1, 'до подтверждения узла нет');
+    // Отмена ничего не оставляет; второй заход — до конца.
+    await ui.click(button('Отмена', "document.querySelector('[role=dialog]')"));
+    await ui.waitFor(`!document.querySelector('[role=dialog]')`, 'окно закрыто');
+    assert.equal(await nodesNow(), 1, 'после отмены узла нет');
+    await ui.click(button('Импорт скана'));
+    await ui.waitFor(`!!${dialog('Импорт скана')}`, 'окно импорта');
+    await ui.setFiles('[role=dialog] input[type=file]', [linuxFile]);
+    await ui.waitFor(`!!${button('Добавить тип Linux в группу и импортировать')}`, 'предложение добавить тип');
+    await ui.click(button('Добавить тип Linux в группу и импортировать'));
+    await ui.waitFor(`!!document.querySelector('[role=dialog] .v-dcards')`, 'предпросмотр нового узла', 20_000);
+    assert.ok(!(await ui.evaluate(`!!document.querySelector('[data-testid=profile-mismatch]')`)), 'профиль совпал: предупреждения нет');
+    await ui.click(startsWith('Загрузить: новых 90', "document.querySelector('[role=dialog]')"));
+    await ui.waitFor(`location.pathname.startsWith('/vulns/scan/')`, 'экран скана', 30_000);
+    const after = (await api('/api/v1/vulns/groups')).items.find((g) => g.id === group.id);
+    assert.deepEqual(after.nodes.map((n) => n.label).sort(), ['Linux', 'Windows']);
+
+    // Файл Linux в узел Windows: предупреждение, кнопка закрыта до галочки, факт виден в скане.
+    const win = after.nodes.find((n) => n.label === 'Windows');
+    await open(`/vulns/node/${win.id}`, `!!${button('Импорт скана')}`, 'экран узла Windows');
+    await ui.click(button('Импорт скана'));
+    await ui.waitFor(`!!${dialog('Импорт скана')}`, 'окно импорта');
+    await ui.setFiles('[role=dialog] input[type=file]', [linuxFile]);
+    await ui.waitFor(`document.querySelector('[data-testid=profile-mismatch]')?.textContent.includes('Файл похож на скан профиля Linux, а узел — Windows')`, 'предупреждение', 20_000);
+    const load = startsWith('Загрузить', "document.querySelector('[role=dialog]')");
+    assert.equal(await ui.evaluate(`${load}.disabled`), true, 'без галочки загрузить нельзя');
+    await ui.click(`document.querySelector('[data-testid=profile-mismatch] input[type=checkbox]')`);
+    await ui.waitFor(`!${load}.disabled`, 'кнопка открылась');
+    await ui.click(load);
+    await ui.waitFor(`document.querySelector('[data-testid=scan-profile-mismatch]')?.textContent.includes('подтвердил')`, 'подтверждение в скане', 30_000);
+
+    // «Сменить тип»: реестр и сканы остаются у узла, смена — в истории узла.
+    const dockerFile = join(tmp, 'Scan_Docker_2026-10-21.xlsx');
+    copyFileSync(SAMPLE, dockerFile);
+    await open(`/vulns/node/${win.id}`, `!!${button('Сменить тип')}`, 'экран узла');
+    const recordsBefore = (await api(`/api/v1/vulns/nodes/${win.id}/records?state=all`)).total;
+    await ui.click(button('Сменить тип'));
+    await ui.waitFor(`[...document.querySelectorAll('[role=dialog] select option')].some((o) => o.textContent === 'Docker')`, 'типы в окне');
+    assert.ok(!(await ui.evaluate(`[...document.querySelectorAll('[role=dialog] select option')].some((o) => o.textContent === 'Linux')`)), 'тип, который уже есть в группе, не предлагается');
+    await ui.select(q('[role=dialog] select[aria-label="Новый тип"]'), await ui.evaluate(`[...document.querySelectorAll('[role=dialog] select option')].find((o) => o.textContent === 'Docker').value`));
+    await ui.click(button('Сменить тип', "document.querySelector('[role=dialog]')"));
+    await ui.waitFor(`!document.querySelector('[role=dialog]') && document.querySelector('.v-main h1')?.textContent === 'Docker'`, 'тип узла изменён');
+    assert.equal((await api(`/api/v1/vulns/nodes/${win.id}/records?state=all`)).total, recordsBefore, 'реестр остался у узла');
+    await ui.click(startsWith('История'));
+    await ui.waitFor(`document.querySelector('[data-testid=node-history]')?.textContent.includes('«Windows» заменён на «Docker»')`, 'смена типа в истории');
+
+    // Сотрудник без registers.manage: типа нет в группе — сообщение и выбор существующего узла, кнопки нет.
+    const roles = (await api('/api/v1/roles')).items;
+    const staffRole = roles.find((r) => r.code === 'ib_staff');
+    const staff = await send('POST', '/api/v1/users', { login: `${GROUP.toLowerCase()}.staff`, fullName: `Сотрудник ${GROUP}`, roleIds: [staffRole.id] });
+    assert.ok(staff.user?.id, JSON.stringify(staff));
+    const websiteFile = join(tmp, 'Scan_Website_2026-10-22.xlsx');
+    copyFileSync(SAMPLE, websiteFile);
+    try {
+      await relogin(staff.user.login, staff.temporaryPassword);
+      await open(`/vulns/group/${group.id}`, `!!${button('Импорт скана')}`, 'страница группы у сотрудника');
+      await ui.click(button('Импорт скана'));
+      await ui.waitFor(`!!${dialog('Импорт скана')}`, 'окно импорта');
+      await ui.setFiles('[role=dialog] input[type=file]', [websiteFile]);
+      await ui.waitFor(`document.querySelector('[role=dialog] .note[role=alert]')?.textContent.includes('Добавить тип Website в группу может сотрудник с правом «Конструктор реестров»')`, 'сообщение без права');
+      assert.ok(!(await ui.evaluate(`!!${startsWith('Добавить тип', "document.querySelector('[role=dialog]')")}`)), 'без права кнопки нет');
+      assert.equal(await ui.evaluate(`${button('Продолжить', "document.querySelector('[role=dialog]')")}.disabled`), true, 'узел не выбран');
+      await ui.select(q('[role=dialog] select[aria-label="Узел"]'), win.id);
+      await ui.click(button('Продолжить', "document.querySelector('[role=dialog]')"));
+      await ui.waitFor(`document.querySelector('[data-testid=profile-mismatch]')?.textContent.includes('Website')`, 'общий предпросмотр с предупреждением', 20_000);
+      await ui.click(button('Отмена', "document.querySelector('[role=dialog]')"));
+      assert.equal(await nodesNow(), 2, 'сотрудник узел не создал');
+    } finally {
+      await relogin(LOGIN, PASSWORD);
+      const cur = (await api(`/api/v1/users?q=${encodeURIComponent(staff.user.login)}`)).items.find((u) => u.id === staff.user.id);
+      if (cur?.isActive) await send('POST', `/api/v1/users/${staff.user.id}/disable`, { version: cur.version });
+    }
+
+    await open('/vulns', `!!document.querySelector('[data-testid=stale-nodes]')`, 'все группы');
+    assert.match(await ui.evaluate(`document.querySelector('[data-testid=stale-nodes]').textContent`), /Узлов без скана дольше порога/);
+    await ui.waitFor(`!!${treeBtn('Windows')} && [...document.querySelectorAll('.v-tree .v-age')].length > 0`, 'возраст скана в дереве');
   });
 
   it('страница «Реестры» у реестра уязвимостей: нет «Новая запись» и нет загрузки отчёта', async () => {

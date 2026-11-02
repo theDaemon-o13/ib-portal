@@ -15,6 +15,9 @@
 .v-root .tn.s{padding-left:42px;font-size:12.5px;color:var(--muted)}
 .v-root .tn.s[aria-current="true"]{color:var(--accent)}
 .v-root .tn.sys{color:var(--muted)}
+.v-age{font-size:11.5px;color:var(--muted)}
+.v-age.stale{color:var(--high);font-weight:600}
+.v-tree .v-age{padding:0 8px 3px 24px}
 .ictdot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--low);display:inline-block}
 .ictdot.no{background:var(--high)}
 .v-root .tsep{height:1px;background:var(--line);margin:6px 8px}

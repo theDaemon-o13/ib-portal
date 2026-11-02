@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScanSummary } from '../../api/vulns';
-import { applyLabel, defaultSelection, dueHint, lastScanOf, parseView, selectionBody, sumStats, toggleAll, toggleOne, viewPath } from './logic';
+import { applyLabel, defaultSelection, dueHint, lastScanOf, parseView, scanAgeText, selectionBody, sumStats, toggleAll, toggleOne, viewPath } from './logic';
 
 const item = (key: string) => ({ key }) as ScanSummary['groups']['new'][number];
 const summary = {
@@ -56,5 +56,13 @@ describe('раздел «Уязвимости»: логика', () => {
     expect(dueHint('2026-10-28', today, true)).toEqual({ text: 'просрочено на 2 дн.', tone: 'over' });
     expect(dueHint(today, today, false).text).toBe('сегодня');
     expect(dueHint('2026-11-02', today, true)).toEqual({ text: 'через 3 дн. · продлён', tone: 'ext' });
+  });
+});
+
+describe('регулярность сканирования', () => {
+  it('подпись возраста скана', () => {
+    expect(scanAgeText(null)).toBe('Сканов нет');
+    expect(scanAgeText(0)).toBe('Последний скан сегодня');
+    expect(scanAgeText(91)).toBe('Последний скан 91 дн. назад');
   });
 });

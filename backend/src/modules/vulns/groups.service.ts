@@ -3,7 +3,7 @@
 // переименовывается и не получает типов. Удаления групп и узлов нет.
 import type { Prisma } from '../../generated/prisma/client.js';
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
-import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 
 export const SYSTEM_TYPES_CATALOG = 'system_types';
@@ -152,6 +152,51 @@ export async function renameGroup(db: Db, actor: Actor, id: string, input: { nam
     throw err;
   }
   return (await listGroups(db)).find((g) => g.id === id) as GroupDto;
+}
+
+/** Можно ли завести узел «группа × тип»: группа обычная, тип действующий, такого узла нет. */
+export async function checkNewNode(db: Db, groupId: string, systemTypeId: string) {
+  const group = await db.vulnGroup.findUnique({ where: { id: groupId }, include: { nodes: { select: { systemTypeId: true } } } });
+  if (!group) throw notFound('Группа');
+  if (group.systemKey) throw conflict('SYSTEM_GROUP', `В группу «${group.name}» типы не добавляются`);
+  const [type] = await systemTypes(db, [systemTypeId]);
+  if (!type) throw badRequest('BAD_TYPE', 'Нет такого типа систем в справочнике «Типы систем». Обновите страницу');
+  if (group.nodes.some((n) => n.systemTypeId === type.id)) throw conflict('NODE_EXISTS', `В группе «${group.name}» уже есть тип «${type.value}»`);
+  return { group, type };
+}
+
+/**
+ * «Сменить тип узла»: реестр, сканы и продления остаются у узла, меняется только его тип.
+ * fromTypeId — тип, который видел пользователь: у узла нет версии, а типа в чужой группе быть не должно.
+ */
+export async function changeNodeType(db: Db, actor: Actor, nodeId: string, input: { systemTypeId: string; fromTypeId: string }): Promise<GroupDto> {
+  try {
+    const groupId = await withTx(db, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM vuln_nodes WHERE id = ${nodeId}::uuid FOR UPDATE`;
+      const node = await loadNode(tx, nodeId);
+      if (node.systemKey) throw conflict('LEGACY_NODE', 'У узла «Из прежнего реестра» типа нет');
+      if (node.systemTypeId !== input.fromTypeId) throw versionConflict();
+      const { type } = await checkNewNode(tx, node.groupId, input.systemTypeId);
+      await tx.vulnNode.update({ where: { id: nodeId }, data: { systemTypeId: type.id } });
+      await auditSettings(tx, actor, {
+        action: 'vuln.node.type_changed', entity: 'vuln_node', entityId: nodeId,
+        summary: `Уязвимости, группа «${node.group.name}»: тип узла «${node.systemType?.value}» заменён на «${type.value}»`,
+        before: { systemTypeId: node.systemTypeId, label: node.systemType?.value }, after: { systemTypeId: type.id, label: type.value },
+      });
+      return node.groupId;
+    });
+    return (await listGroups(db)).find((g) => g.id === groupId) as GroupDto;
+  } catch (err) {
+    if (isUniqueViolation(err)) throw conflict('NODE_EXISTS', 'Такой тип в группе уже есть. Обновите страницу');
+    throw err;
+  }
+}
+
+/** История узла: из журнала аудита, по праву «История в карточках». */
+export async function nodeHistory(db: Db, nodeId: string) {
+  await loadNode(db, nodeId);
+  const rows = await db.auditLog.findMany({ where: { entity: 'vuln_node', entityId: nodeId }, orderBy: { id: 'desc' }, take: 200, include: { user: { select: { fullName: true } } } });
+  return rows.map((r) => ({ id: String(r.id), at: r.at.toISOString(), actor: r.user?.fullName ?? 'Система', summary: (r.diff as { summary?: string } | null)?.summary ?? r.action }));
 }
 
 export async function addNodes(db: Db, actor: Actor, groupId: string, systemTypeIds: string[]): Promise<GroupDto> {

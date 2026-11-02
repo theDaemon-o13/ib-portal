@@ -9,6 +9,7 @@ import { calendarFor, dateOf, isClosed, loadRegister, toRecordDtos, type Registe
 import { VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { recordExtensions } from './extensions.service.js';
 import { loadNode, nodeLabel } from './groups.service.js';
+import { getVulnSettings, scanFreshness } from './profiles.js';
 
 export type RecordState = 'overdue' | 'not_handed' | 'in_work' | 'fixed' | 'accepted';
 
@@ -59,18 +60,26 @@ export async function overview(db: Db) {
   });
   const nodes = await db.vulnNode.findMany({ include: { group: true, systemType: true } });
   const labels = new Map(nodes.map((n) => [n.id, nodeLabel(n)]));
-  return {
-    registerId: reg.id,
-    nodes: nodes.map((n) => {
+  const { scanMaxAgeDays } = await getVulnSettings(db);
+  const nodeStats = nodes.map((n) => {
       const own = scans.filter((s) => s.nodeId === n.id);
       const first = own[0];
+      // «Без группы» сканов не получает: регулярность там не считается.
+      const fresh = n.systemKey ? { ageDays: null, stale: false } : scanFreshness(first ? iso(first.scanDate) : null, today, scanMaxAgeDays);
       return {
         nodeId: n.id,
         ...(stats.get(n.id) ?? { open: 0, overdue: 0, critical: 0, notHandedOver: 0, fixed: 0, total: 0 }),
         lastScan: first ? { id: first.id, scanDate: iso(first.scanDate), handedOver: first.handedOverOn !== null } : null,
         scans: own.slice(0, 50).map((s) => ({ id: s.id, scanDate: iso(s.scanDate), fileName: s.fileName, handedOver: s.handedOverOn !== null })),
+        scanAgeDays: fresh.ageDays,
+        scanStale: fresh.stale,
       };
-    }),
+    });
+  return {
+    registerId: reg.id,
+    nodes: nodeStats,
+    scanMaxAgeDays,
+    staleNodes: nodeStats.filter((s) => s.scanStale).map((s) => ({ nodeId: s.nodeId, label: labels.get(s.nodeId) ?? '', lastScanDate: s.lastScan?.scanDate ?? null, ageDays: s.scanAgeDays })),
     awaiting: scans.filter((s) => !s.handedOverOn).map((s) => ({
       id: s.id, nodeId: s.nodeId, nodeLabel: labels.get(s.nodeId) ?? '', scanDate: iso(s.scanDate), fileName: s.fileName, createdAt: s.createdAt.toISOString(),
     })),
