@@ -16,7 +16,7 @@ export function actorOf(request: FastifyRequest): Actor {
 }
 
 /** Действия, которые показывает журнал изменений настроек. */
-export const SETTINGS_ACTION_PREFIXES = ['catalog.', 'calendar.', 'form_template.', 'user.', 'role.'] as const;
+export const SETTINGS_ACTION_PREFIXES = ['catalog.', 'calendar.', 'form_template.', 'user.', 'role.', 'portal_param.'] as const;
 
 export interface SettingsAuditEntry {
   action: string;

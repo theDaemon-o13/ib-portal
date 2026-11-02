@@ -13,6 +13,8 @@ type Body<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends
   ? JsonOf<NonNullable<B>>
   : never;
 
+export type PortalParam = Res<'/api/v1/settings/portal-params', 'get'>['items'][number];
+export type PortalParamOptions = Res<'/api/v1/settings/portal-params', 'get'>['options'];
 export type Catalog = Res<'/api/v1/catalogs', 'get'>['items'][number];
 export type CatalogItem = Res<'/api/v1/catalogs/{code}/items', 'get'>['items'][number];
 export type Tone = NonNullable<CatalogItem['color']>;
@@ -37,6 +39,9 @@ export const settingsApi = {
   presentation: () => request<PresentationSignature>('GET', '/api/v1/settings/presentation'),
   setPresentation: (body: Body<'/api/v1/settings/presentation', 'put'>) => request<PresentationSignature>('PUT', '/api/v1/settings/presentation', body),
   catalogs: () => request<Res<'/api/v1/catalogs', 'get'>>('GET', '/api/v1/catalogs'),
+  portalParams: () => request<Res<'/api/v1/settings/portal-params', 'get'>>('GET', '/api/v1/settings/portal-params'),
+  setPortalParam: ({ key, ...body }: { key: string; value: unknown; version: number }) => request<PortalParam>('PUT', `/api/v1/settings/portal-params/${enc(key)}`, body),
+  resetPortalParam: ({ key, version }: { key: string; version: number }) => request<PortalParam>('POST', `/api/v1/settings/portal-params/${enc(key)}/reset`, { version }),
   items: (code: string, includeArchived: boolean) =>
     request<Res<'/api/v1/catalogs/{code}/items', 'get'>>(
       'GET',

@@ -42,6 +42,14 @@ export function requirePerm(code: PermissionCode): Guard {
   });
 }
 
+/** Системная роль «Супер-администратор», а не право: «Параметры портала» другим ролям не выдаются (1.6.0). */
+export function requireSuperAdmin(isSuperAdmin: (userId: string) => Promise<boolean>): Guard {
+  return markGuard(async (request) => {
+    const user = authenticated(request, false);
+    if (!(await isSuperAdmin(user.id))) throw forbidden();
+  });
+}
+
 /** Пользователь хотя бы с одним из прав (загрузка файлов: ib.work или любое право документов). */
 export function requireAnyPerm(codes: readonly PermissionCode[]): Guard {
   return markGuard(async (request) => {

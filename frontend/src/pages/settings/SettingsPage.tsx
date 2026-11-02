@@ -6,6 +6,7 @@ import { CalendarEditor } from './CalendarEditor';
 import { CatalogValues } from './CatalogValues';
 import { FormTemplatesEditor } from './FormTemplatesEditor';
 import { MonitorSlides } from './MonitorSlides';
+import { PortalParams } from './PortalParams';
 import { PresentationSettings } from './PresentationSettings';
 import { RolesMatrix } from './RolesMatrix';
 import { UsersTable } from './UsersTable';
@@ -18,6 +19,8 @@ const TABS = [
   { key: 'monitor', title: 'Экран мониторинга', perm: 'settings.manage' },
   // Подпись в презентации самооценки (этап Д5): только право «Настройки».
   { key: 'presentation', title: 'Презентация', perm: 'settings.manage' },
+  // Параметры портала (релиз 1.6.0): роль, а не право; решает backend.
+  { key: 'params', title: 'Параметры портала', role: 'Супер-администратор' },
 ] as const;
 
 /** Особые разделы в списке справочников: устроены иначе, чем «значение и цвет». */
@@ -68,7 +71,7 @@ export function SettingsPage() {
   const me = useOutletContext<Me>();
   const { tab } = useParams();
   const canCatalogs = me.permissions.includes('settings.manage');
-  const tabs = TABS.filter((t) => !('perm' in t) || me.permissions.includes(t.perm));
+  const tabs = TABS.filter((t) => ('perm' in t ? me.permissions.includes(t.perm) : 'role' in t ? me.roles.includes(t.role) : true));
   // Журнал изменений настроек переехал в раздел «Журнал» (релиз 1.2.0): старые ссылки ведут туда.
   if (tab === 'journal') return <Navigate to={me.permissions.includes('audit.view') ? '/audit' : '/settings/catalogs'} replace />;
   if (!tabs.some((t) => t.key === tab)) return <Navigate to="/settings/catalogs" replace />;
@@ -101,6 +104,7 @@ export function SettingsPage() {
       )}
       {tab === 'monitor' && <MonitorSlides />}
       {tab === 'presentation' && <PresentationSettings />}
+      {tab === 'params' && <PortalParams />}
     </>
   );
 }
