@@ -10,6 +10,7 @@ import { useFileViewer } from '../../components/files/FileViewer';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
 import { rkeys } from '../registers/keys';
+import { BulkDialog } from '../registers/BulkDialog';
 import { RecordDrawer } from '../registers/RecordDrawer';
 import { AddTypeDialog, ChangeTypeDialog, GroupDialog, HandoverDialog, RenameGroupDialog, TransferDialog } from './Dialogs';
 import { ExtensionDialog, ExtensionList } from './ExtensionDialog';
@@ -17,6 +18,7 @@ import { CRIT_TONE, dueHint, groupStats, lastScanOf, parseView, STATE_FILTERS, S
 import { GroupScanImportDialog, ScanImportDialog } from './ScanImportDialog';
 import { useTodayIso } from './today';
 import { VulnRecordBlock } from './VulnRecordBlock';
+import { DeletedStats, DeleteGroupDialog, DeleteNodeDialog } from './Deletion';
 import '../../styles/vulns.css';
 
 type Go = (v: VulnView) => void;
@@ -92,7 +94,9 @@ function Crumbs({ parts, go }: { parts: { t: string; to?: VulnView }[]; go: Go }
   );
 }
 
-function RootView({ groups, ov, go, canManage, onNewGroup }: { groups: VulnGroup[]; ov: VulnOverview; go: Go; canManage: boolean; onNewGroup: () => void }) {
+function RootView({ groups, ov, go, canManage, onNewGroup, legacyNodeId }: {
+  groups: VulnGroup[]; ov: VulnOverview; go: Go; canManage: boolean; onNewGroup: () => void; legacyNodeId: string | null;
+}) {
   const labelOf = (id: string) => ov.awaiting.find((a) => a.id === id)?.nodeLabel ?? '';
   return (
     <>
@@ -104,6 +108,11 @@ function RootView({ groups, ov, go, canManage, onNewGroup }: { groups: VulnGroup
         {canManage && <button className="btn primary" type="button" onClick={onNewGroup}>Создать группу</button>}
       </div>
       <Kpis t={sumStats(ov.nodes)} extra={ov.awaiting.length} extraLabel="Сканов ждут передачи ИКТ" />
+      <div className="row v-between v-mb">
+        <DeletedStats scope={{}} />
+        {/* «Без группы» скрыта, когда записей не осталось; её сканы — здесь (1.6.1). */}
+        {legacyNodeId && <button className="btn sm ghost" type="button" onClick={() => go({ kind: 'node', id: legacyNodeId })}>Архив сканов прежнего реестра</button>}
+      </div>
       <div className="v-grid">
         <section className="panel v-w8">
           <div className="panel-h"><h3>Группы</h3><span className="hint">Нажмите строку, чтобы открыть группу</span></div>
@@ -157,7 +166,8 @@ function RootView({ groups, ov, go, canManage, onNewGroup }: { groups: VulnGroup
 }
 
 function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; go: Go; me: Me }) {
-  const [dialog, setDialog] = useState<'type' | 'rename' | 'extend' | 'import' | null>(null);
+  const [dialog, setDialog] = useState<'type' | 'rename' | 'extend' | 'import' | 'delete' | null>(null);
+  const canDeleteData = me.permissions.includes('data.delete');
   const canEdit = me.permissions.includes('records.edit');
   const canStructure = me.permissions.includes('registers.manage');
   const canDeadlines = me.permissions.includes('vulns.deadlines');
@@ -177,9 +187,11 @@ function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; 
           {!group.system && canStructure && <button className="btn" type="button" onClick={() => setDialog('rename')}>Переименовать</button>}
           {!group.system && canStructure && <button className="btn" type="button" onClick={() => setDialog('type')}>Добавить тип</button>}
           <button className="btn" type="button" disabled={!canDeadlines} title={canDeadlines ? undefined : 'Нужно право «Уязвимости: изменение сроков»'} onClick={() => setDialog('extend')}>Обновить сроки</button>
+          {!group.system && canDeleteData && <button className="btn danger-t" type="button" onClick={() => setDialog('delete')}>Удалить группу</button>}
         </div>
       </div>
       <Kpis t={t} extra={t.notHandedOver} extraLabel="Не передано ИКТ" />
+      <div className="v-mb"><DeletedStats scope={{ groupId: group.id }} /></div>
       <div className="v-tcards">
         {group.nodes.map((n) => {
           const s = st.find((x) => x.nodeId === n.id) ?? NO_STATS;
@@ -205,6 +217,7 @@ function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; 
       </section>
       {dialog === 'type' && <AddTypeDialog group={group} onClose={() => setDialog(null)} />}
       {dialog === 'rename' && <RenameGroupDialog group={group} onClose={() => setDialog(null)} />}
+      {dialog === 'delete' && <DeleteGroupDialog group={group} onClose={() => setDialog(null)} onDeleted={() => { setDialog(null); go({ kind: 'root' }); }} />}
       {dialog === 'extend' && <ExtensionDialog scope={{ groupId: group.id }} onClose={() => setDialog(null)} />}
       {dialog === 'import' && <GroupScanImportDialog group={group} canStructure={canStructure} onClose={() => setDialog(null)} onDone={(id) => { setDialog(null); go({ kind: 'scan', id }); }} />}
     </>
@@ -215,8 +228,8 @@ function fieldId(reg: RegisterDetail, key: string): string {
   return reg.fields.find((f) => f.systemKey === key)?.id ?? '';
 }
 
-function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canEdit }: {
-  reg: RegisterDetail; r: NodeRecord; legacy: boolean; picked: boolean; today: string; canEdit: boolean;
+function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canEdit, pickable }: {
+  reg: RegisterDetail; r: NodeRecord; legacy: boolean; picked: boolean; today: string; canEdit: boolean; pickable: boolean;
   onPick: (id: string) => void; onOpen: (id: string) => void; onMove: (id: string) => void;
 }) {
   const f = (k: string) => fieldId(reg, k);
@@ -230,7 +243,7 @@ function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canE
   const score = r.calc[f('score')];
   return (
     <tr onClick={() => onOpen(r.id)}>
-      {legacy && canEdit && (
+      {pickable && (
         <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={`Выбрать #${r.number}`} checked={picked} onChange={() => onPick(r.id)} /></td>
       )}
       <td className="v-pk"><b>{r.display[f('pkg')] || '—'}</b><span>{r.display[f('cve')]} · #{r.number}</span></td>
@@ -259,17 +272,19 @@ function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canE
 function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode; group: VulnGroup; reg: RegisterDetail; stats: NodeStats; go: Go; me: Me; groups: VulnGroup[] }) {
   const qc = useQueryClient();
   const today = useTodayIso();
-  const [tab, setTab] = useState<'reg' | 'scans' | 'ext' | 'history'>('reg');
+  // «Без группы» без записей — архив сканов прежнего реестра: сразу «Итоги сканирования».
+  const [tab, setTab] = useState<'reg' | 'scans' | 'ext' | 'history'>(node.legacy && stats.total === 0 ? 'scans' : 'reg');
   const [search, setSearch] = useState('');
   const [crit, setCrit] = useState('');
   const [state, setState] = useState<(typeof STATE_FILTERS)[number][0]>('open');
   const [cursor, setCursor] = useState<string | undefined>();
-  const [dialog, setDialog] = useState<'import' | 'extend' | 'type' | null>(null);
+  const [dialog, setDialog] = useState<'import' | 'extend' | 'type' | 'delete' | 'delete-records' | null>(null);
   const [opened, setOpened] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [moving, setMoving] = useState<string[] | null>(null);
   const canEdit = me.permissions.includes('records.edit');
-  const canDelete = me.permissions.includes('records.delete');
+  // Записи уязвимостей, группы и типы удаляет только «Удаление данных» (1.6.1).
+  const canDelete = me.permissions.includes('data.delete');
   const canStructure = me.permissions.includes('registers.manage');
   const canHistory = me.permissions.includes('history.view');
   const canDeadlines = me.permissions.includes('vulns.deadlines');
@@ -284,6 +299,7 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
   const nodeLabel = `${group.name} / ${node.label}`;
   const togglePick = (id: string) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]);
   const legacy = node.legacy;
+  const pickable = (legacy && canEdit) || canDelete;
   return (
     <>
       <Crumbs parts={[{ t: 'Уязвимости', to: { kind: 'root' } }, { t: group.name, to: { kind: 'group', id: group.id } }, { t: node.label }]} go={go} />
@@ -296,8 +312,10 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
           {!legacy && canEdit && <button className="btn primary" type="button" onClick={() => setDialog('import')}>Импорт скана</button>}
           {!legacy && canStructure && <button className="btn" type="button" onClick={() => setDialog('type')}>Сменить тип</button>}
           <button className="btn" type="button" disabled={!canDeadlines} title={canDeadlines ? undefined : 'Нужно право «Уязвимости: изменение сроков»'} onClick={() => setDialog('extend')}>Обновить сроки</button>
+          {!legacy && canDelete && <button className="btn danger-t" type="button" onClick={() => setDialog('delete')}>Удалить тип из группы</button>}
         </div>
       </div>
+      <div className="v-mb"><DeletedStats scope={{ nodeId: node.id }} /></div>
       <div className="tabs page-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'reg'} onClick={() => setTab('reg')}>Реестр · {stats.open}</button>
         <button type="button" role="tab" aria-selected={tab === 'scans'} onClick={() => setTab('scans')}>Итоги сканирования · {stats.scans.length}</button>
@@ -316,19 +334,20 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
               {STATE_FILTERS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
             </select>
             {legacy && canEdit && picked.length > 0 && <button className="btn primary" type="button" onClick={() => setMoving(picked)}>Перенести выбранные: {picked.length}</button>}
+            {canDelete && picked.length > 0 && <button className="btn danger-t" type="button" onClick={() => setDialog('delete-records')}>Удалить выбранные: {picked.length}</button>}
           </div>
           <div className="tbl-wrap">
             <table className="cat-tbl v-recs v-click">
               <thead>
                 <tr>
-                  {legacy && canEdit && <th />}
+                  {pickable && <th />}
                   <th>Пакет / идентификатор</th><th>Уровень</th><th className="v-r">CVSS</th><th className="v-r">Оценка</th><th>Критичность</th><th>Эксплойт</th>
                   <th className="v-r" title="Не число хостов: одно обнаружение — один найденный пакет">Обн.</th><th>Срок</th><th>Статус</th>
                   {legacy && canEdit && <th />}
                 </tr>
               </thead>
               <tbody>
-                {page?.items.map((r) => <RecordRow key={r.id} reg={reg} r={r} legacy={legacy} canEdit={canEdit} picked={picked.includes(r.id)} today={today} onPick={togglePick} onOpen={setOpened} onMove={(id) => setMoving([id])} />)}
+                {page?.items.map((r) => <RecordRow key={r.id} reg={reg} r={r} legacy={legacy} canEdit={canEdit} pickable={pickable} picked={picked.includes(r.id)} today={today} onPick={togglePick} onOpen={setOpened} onMove={(id) => setMoving([id])} />)}
                 {page && !page.items.length && <tr><td colSpan={12} className="hint">Записей нет.</td></tr>}
               </tbody>
             </table>
@@ -365,6 +384,11 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
       {dialog === 'import' && <ScanImportDialog node={node} nodeLabel={nodeLabel} onClose={() => setDialog(null)} onDone={(id) => { setDialog(null); go({ kind: 'scan', id }); }} />}
       {dialog === 'extend' && <ExtensionDialog scope={{ nodeId: node.id }} onClose={() => setDialog(null)} />}
       {dialog === 'type' && <ChangeTypeDialog group={group} node={node} onClose={() => setDialog(null)} />}
+      {dialog === 'delete' && <DeleteNodeDialog group={group} node={node} onClose={() => setDialog(null)} onDeleted={() => { setDialog(null); go({ kind: 'group', id: group.id }); }} />}
+      {dialog === 'delete-records' && (
+        <BulkDialog reg={reg} mode="delete" selection={{ ids: picked }} onClose={() => setDialog(null)}
+          onDone={() => { setDialog(null); setPicked([]); void qc.invalidateQueries({ queryKey: vkeys.all }); }} />
+      )}
       {moving && <TransferDialog recordIds={moving} groups={groups} onClose={() => setMoving(null)} onDone={() => { setMoving(null); setPicked([]); }} />}
     </>
   );
@@ -545,16 +569,18 @@ export function VulnsPage() {
   const [newGroup, setNewGroup] = useState(false);
   const canStructure = me.permissions.includes('registers.manage');
   const gs = groups.data?.items ?? [];
+  const visible = gs.filter((g) => !g.hidden);
+  const legacyNodeId = gs.find((g) => g.system)?.nodes.find((n) => n.legacy)?.id ?? null;
   const ov = overview.data;
   const nodeGroup = view.kind === 'node' ? gs.find((g) => g.nodes.some((n) => n.id === view.id)) : undefined;
   const node = view.kind === 'node' ? nodeGroup?.nodes.find((n) => n.id === view.id) : undefined;
   const group = view.kind === 'group' ? gs.find((g) => g.id === view.id) : undefined;
   return (
     <div className="v-root">
-      {ov && <Tree groups={gs} stats={ov.nodes} view={view} go={go} canManage={canStructure} onNewGroup={() => setNewGroup(true)} />}
+      {ov && <Tree groups={visible} stats={ov.nodes} view={view} go={go} canManage={canStructure} onNewGroup={() => setNewGroup(true)} />}
       <div className="v-main">
         {(groups.isError || overview.isError) && <div className="panel panel-b form-error">Не удалось загрузить раздел. Обновите страницу.</div>}
-        {ov && view.kind === 'root' && <RootView groups={gs} ov={ov} go={go} canManage={canStructure} onNewGroup={() => setNewGroup(true)} />}
+        {ov && view.kind === 'root' && <RootView groups={visible} ov={ov} go={go} canManage={canStructure} onNewGroup={() => setNewGroup(true)} legacyNodeId={legacyNodeId} />}
         {ov && group && <GroupView key={group.id} group={group} ov={ov} go={go} me={me} />}
         {ov && node && nodeGroup && reg.data && (
           <NodeView key={node.id} node={node} group={nodeGroup} reg={reg.data} stats={ov.nodes.find((s) => s.nodeId === node.id) ?? NO_STATS} go={go} me={me} groups={gs} />

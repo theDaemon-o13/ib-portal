@@ -25,7 +25,7 @@ describe('раздел «Уязвимости»: логика', () => {
     s = toggleAll(s, 'gone', summary);
     expect([...s.gone]).toEqual(['f', 'g']);
     expect(applyLabel(s)).toBe('Загрузить: повторно 1, обновить 1, устранено 2');
-    expect(applyLabel({ new: new Set(), reopened: new Set(), changed: new Set(), gone: new Set() })).toBe('Сохранить скан без изменений в реестре');
+    expect(applyLabel({ new: new Set(), reopened: new Set(), changed: new Set(), deleted: new Set(), gone: new Set() })).toBe('Сохранить скан без изменений в реестре');
   });
 
   it('адрес экрана: разбор и обратно; мусор — главная раздела', () => {
@@ -64,5 +64,18 @@ describe('регулярность сканирования', () => {
     expect(scanAgeText(null)).toBe('Сканов нет');
     expect(scanAgeText(0)).toBe('Последний скан сегодня');
     expect(scanAgeText(91)).toBe('Последний скан 91 дн. назад');
+  });
+});
+
+describe('импорт скана: «Были удалены» (1.6.1)', () => {
+  it('по умолчанию не выбраны; выбранные уходят в тело и в подпись кнопки', () => {
+    const item = { key: 'x' } as never;
+    const summary = { groups: { new: [], reopened: [], changed: [], unchanged: [], deleted: [item], gone: [] }, counts: { new: 0, reopened: 0, changed: 0, unchanged: 0, deleted: 1, gone: 0 } } as never;
+    let s = defaultSelection(summary);
+    expect(s.deleted.size).toBe(0);
+    expect(selectionBody(s)).not.toHaveProperty('deleted');
+    s = toggleOne(s, 'deleted', 'x');
+    expect(selectionBody(s).deleted).toEqual(['x']);
+    expect(applyLabel(s)).toBe('Загрузить: заново 1');
   });
 });

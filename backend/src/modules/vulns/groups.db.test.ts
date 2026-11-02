@@ -44,7 +44,7 @@ describe('уязвимости: группы и узлы', () => {
 
   it('«Без группы» (1.6.1): без неархивных записей скрыта; запись появилась (перенос seed) — видна снова; не удаляется', () =>
     inTx(async (tx) => {
-      const visible = async () => (await groups.listGroups(tx)).some((g) => g.system);
+      const visible = async () => !must((await groups.listGroups(tx)).find((g) => g.system)).hidden;
       expect(await visible()).toBe(false);
       const rec = await legacyRecord(tx);
       expect(await visible()).toBe(true);

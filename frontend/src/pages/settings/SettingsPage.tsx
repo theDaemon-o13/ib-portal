@@ -9,6 +9,7 @@ import { MonitorSlides } from './MonitorSlides';
 import { PortalParams } from './PortalParams';
 import { PresentationSettings } from './PresentationSettings';
 import { RolesMatrix } from './RolesMatrix';
+import { TrashTab } from './TrashTab';
 import { UsersTable } from './UsersTable';
 import { keys } from './useAction';
 
@@ -21,6 +22,8 @@ const TABS = [
   { key: 'presentation', title: 'Презентация', perm: 'settings.manage' },
   // Параметры портала (релиз 1.6.0): роль, а не право; решает backend.
   { key: 'params', title: 'Параметры портала', role: 'Супер-администратор' },
+  // Корзина (релиз 1.6.1): просмотр — сотрудник ИБ, восстановление — супер-администратор.
+  { key: 'trash', title: 'Корзина', perm: 'ib.work' },
 ] as const;
 
 /** Особые разделы в списке справочников: устроены иначе, чем «значение и цвет». */
@@ -105,6 +108,7 @@ export function SettingsPage() {
       {tab === 'monitor' && <MonitorSlides />}
       {tab === 'presentation' && <PresentationSettings />}
       {tab === 'params' && <PortalParams />}
+      {tab === 'trash' && <TrashTab canRestore={me.roles.includes('Супер-администратор')} />}
     </>
   );
 }

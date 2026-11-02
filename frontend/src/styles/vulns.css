@@ -100,3 +100,7 @@
   .v-w8,.v-w4{grid-column:span 12}
   .v-dcards{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+/* Удаления в разделе (1.6.1) */
+.v-mb{margin-bottom:12px}
+.v-deleted{gap:8px;align-items:center;font-size:13px}
+.v-deleted .inp{width:auto;padding:4px 8px}

@@ -27,6 +27,8 @@ export function RegistersPage() {
   const list = useQuery({ queryKey: rkeys.listWith(false), queryFn: () => registersApi.list(false) });
   const detail = useQuery({ queryKey: rkeys.detail(id ?? ''), queryFn: () => registersApi.get(id ?? ''), enabled: !!id });
   const go = (regId: string, t: RegTab = tab) => navigate({ pathname: '/registers', hash: `${regId}/${t}` });
+  // Записи уязвимостей удаляет только «Удаление данных» (1.6.1): удаление открытой снимает её с просрочек и эскалаций.
+  const canDeleteRecords = (r: { systemKey: string | null } | undefined) => me.permissions.includes(r?.systemKey === 'vulns' ? 'data.delete' : 'records.delete');
 
   // Первый неархивный реестр, если в адресе ничего не выбрано.
   const first = list.data?.items[0]?.id;
@@ -48,7 +50,8 @@ export function RegistersPage() {
           <p>Реестр собирается из полей. Форма карточки записи строится по полям: новое поле сразу появляется в карточке. Выгрузка в Excel и обратная загрузка обновляют записи по колонке ID.</p>
         </div>
       </div>
-      <RegisterBar reg={reg} owner={owner} tab={tab} canManage={canManage} canDeleteRecords={me.permissions.includes('records.delete')} onPick={go} onTab={(t) => id && go(id, t)} />
+      <RegisterBar reg={reg} owner={owner} tab={tab} canManage={canManage} canDeleteRecords={canDeleteRecords(reg)} canDeleteData={me.permissions.includes('data.delete')}
+        onPick={go} onTab={(t) => id && go(id, t)} onDeleted={() => navigate({ pathname: '/registers', hash: '' })} />
       {detail.isError && <div className="panel panel-b form-error">Реестр не найден. Выберите другой в шапке.</div>}
       {list.isSuccess && list.data.items.length === 0 && !id && (
         <div className="panel panel-b hint">Реестров пока нет.{canManage ? ' Создайте первый в списке реестров в шапке.' : ''}</div>
@@ -72,7 +75,7 @@ export function RegistersPage() {
             key={reg.id}
             reg={reg}
             canEdit={me.permissions.includes('records.edit') && !reg.archived}
-            canDelete={me.permissions.includes('records.delete') && !reg.archived}
+            canDelete={canDeleteRecords(reg) && !reg.archived}
           />
         </div>
       )}

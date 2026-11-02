@@ -322,7 +322,10 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
             <div className="mailbox">
               <div className="eyebrow">Запись реестра</div>
               <div>
-                <Link to={`/registers#${t.record.registerId}/records`}>{t.record.registerName}, запись #{t.record.number}{t.record.title ? ` «${t.record.title}»` : ''}</Link>
+                {/* Реестр или запись удалены (1.6.1): задача остаётся, ссылки нет — открыть можно только из корзины. */}
+                {t.record.registerDeleted || t.record.recordDeleted
+                  ? <span>{t.record.registerName}, запись #{t.record.number}{t.record.title ? ` «${t.record.title}»` : ''} <span className="chip">{t.record.registerDeleted ? 'реестр удалён' : 'запись удалена'}</span></span>
+                  : <Link to={`/registers#${t.record.registerId}/records`}>{t.record.registerName}, запись #{t.record.number}{t.record.title ? ` «${t.record.title}»` : ''}</Link>}
               </div>
               {t.recipientLabel && <div className="hint">Получатели по правилу: {t.recipientLabel}</div>}
             </div>

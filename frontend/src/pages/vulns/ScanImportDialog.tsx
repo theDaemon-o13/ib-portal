@@ -7,11 +7,12 @@ import { vkeys, vulnsApi, type ScanPreview, type VulnGroup, type VulnNode } from
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { Modal } from './Dialogs';
-import { applyLabel, defaultSelection, selectionBody, toggleAll, toggleOne, type ImportGroup, type Selection } from './logic';
+import { applyLabel, defaultSelection, groupCount, selectionBody, toggleAll, toggleOne, type ImportGroup, type Selection } from './logic';
 import { useTodayIso } from './today';
 
 const GROUPS: { key: ImportGroup | 'unchanged'; title: string; hint: string }[] = [
   { key: 'new', title: 'Новые', hint: 'Ключа нет в узле — создаётся запись. Срока нет до передачи ИКТ.' },
+  { key: 'deleted', title: 'Были удалены', hint: 'Запись с этим ключом удалили в узле (причина — в строке). По умолчанию не загружается; выбранная заводится новой записью, удалённая остаётся в корзине.' },
   { key: 'reopened', title: 'Повторно', hint: 'Запись была «Устранена» — откроется заново, срок пойдёт от передачи ИКТ этого скана; продления и решение п. 7.3 снимутся.' },
   { key: 'changed', title: 'Изменились', hint: 'Отличаются Уровень, CVSS, Эксплойт, Сетевой вектор, Обновить до версии или Обнаружений. Поля обновятся, в истории — было → стало.' },
   { key: 'unchanged', title: 'Без изменений', hint: 'Всё совпадает: отмечаются как найденные в этом скане.' },
@@ -142,7 +143,7 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
   const [sel, setSel] = useState<Selection>(() => defaultSelection(s));
   const [confirmed, setConfirmed] = useState(false);
   const mismatch = s.profile?.mismatch ? s.profile : null;
-  const first = (['new', 'reopened', 'changed', 'gone', 'unchanged'] as const).find((g) => s.counts[g] > 0) ?? 'new';
+  const first = (['new', 'reopened', 'changed', 'deleted', 'gone', 'unchanged'] as const).find((g) => groupCount(s, g) > 0) ?? 'new';
   const [tab, setTab] = useState<ImportGroup | 'unchanged'>(first);
   const systems = useQuery({ queryKey: ['settings', 'items', 'systems', 'active'], queryFn: () => settingsApi.items('systems', false) });
   const badDate = !scanDate || scanDate > today;
@@ -160,7 +161,7 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
   };
   const group = GROUPS.find((g) => g.key === tab);
   const selectable = tab !== 'unchanged';
-  const list = tab === 'gone' ? [] : s.groups[tab];
+  const list = tab === 'gone' ? [] : s.groups[tab] ?? [];
   return (
     <Modal title={`Предпросмотр · ${nodeLabel}`} sub={`Файл «${s.fileName}»: строк ${s.rows}, листов находок ${s.sheets.length}. Пока ничего не изменено.`} wide onClose={cancel}
       footer={<>
@@ -201,9 +202,9 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
       {s.warnings.length > 0 && <ul className="warn-list">{s.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
       {s.newOptions.length > 0 && <div className="hint">Добавятся значения списков: {s.newOptions.map((o) => `${o.field} — ${o.values.length}`).join('; ')}</div>}
       <div className="v-dcards">
-        {GROUPS.map((g) => (
+        {GROUPS.filter((g) => g.key !== 'deleted' || groupCount(s, 'deleted') > 0).map((g) => (
           <button key={g.key} type="button" className={`v-dcard k-${g.key}`} aria-pressed={tab === g.key} onClick={() => setTab(g.key)}>
-            <b>{g.key === 'unchanged' ? s.counts.unchanged : `${sel[g.key].size} / ${s.counts[g.key]}`}</b>
+            <b>{g.key === 'unchanged' ? s.counts.unchanged : `${sel[g.key].size} / ${groupCount(s, g.key)}`}</b>
             <span>{g.title}</span>
           </button>
         ))}
@@ -217,7 +218,7 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
           <thead>
             <tr>
               {selectable && (
-                <th><input type="checkbox" aria-label={`Выбрать все: ${group?.title}`} checked={s.counts[tab] > 0 && sel[tab].size === s.counts[tab]} onChange={() => setSel(toggleAll(sel, tab, s))} /></th>
+                <th><input type="checkbox" aria-label={`Выбрать все: ${group?.title}`} checked={groupCount(s, tab) > 0 && sel[tab].size === groupCount(s, tab)} onChange={() => setSel(toggleAll(sel, tab, s))} /></th>
               )}
               <th>Пакет / идентификатор</th>
               <th>{tab === 'changed' ? 'Что изменилось' : tab === 'gone' ? 'Статус' : 'Критичность'}</th>
@@ -237,7 +238,10 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
               : list.map((i) => (
                 <tr key={i.key}>
                   {selectable && <td><input type="checkbox" aria-label={`Выбрать ${i.cve}`} checked={sel[tab].has(i.key)} onChange={() => setSel(toggleOne(sel, tab, i.key))} /></td>}
-                  <td className="v-pk"><b>{i.pkg}</b><span>{i.cve}{i.number ? ` · #${i.number}` : ''}{i.closedStatus ? ` · ${i.closedStatus}` : ''}</span></td>
+                  <td className="v-pk">
+                    <b>{i.pkg}</b><span>{i.cve}{i.number ? ` · #${i.number}` : ''}{i.closedStatus ? ` · ${i.closedStatus}` : ''}</span>
+                    {i.deleted && <span className="hint">Была удалена #{i.deleted.number} {formatDate(i.deleted.deletedAt.slice(0, 10))}: {i.deleted.reason}</span>}
+                  </td>
                   <td>
                     {tab === 'changed' || (tab === 'reopened' && i.changes.length > 0)
                       ? i.changes.map((c) => <div key={c.fieldId} className="v-chg">{c.label}: {c.from || '—'} → <b>{c.to || '—'}</b></div>)

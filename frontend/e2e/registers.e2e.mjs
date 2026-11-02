@@ -398,7 +398,14 @@ describe('Записи', () => {
     await ui.waitFor(`${drawer}?.textContent.includes('В архиве')`, 'в архиве');
     await act('Вернуть из архива', drawer, 'POST', '/restore');
     await ui.click($.button('Удалить запись', drawer));
-    await act('Удалить', `${drawer}.querySelector('.danger-zone')`, 'POST', '/delete', 204);
+    // Причина обязательна (1.6.1): без неё кнопка неактивна; «Другое» — только с текстом.
+    const zone = `${drawer}.querySelector('.danger-zone')`;
+    await ui.waitFor(`!!${zone}?.querySelector('select[aria-label="Причина удаления"]')`, 'зона удаления');
+    assert.ok(await ui.evaluate(`!${$.button('Удалить', zone)}`), 'без причины удалить нельзя'); // $.button находит только активные
+    await ui.select(`${zone}.querySelector('select[aria-label="Причина удаления"]')`, 'other');
+    assert.ok(await ui.evaluate(`!${$.button('Удалить', zone)}`), '«Другое» без текста'); // $.button находит только активные
+    await ui.type(`${zone}.querySelector('textarea[aria-label="Описание причины"]')`, 'Создана сквозным тестом');
+    await act('Удалить', zone, 'POST', '/delete', 204);
     await ui.waitFor(`!${drawer} && !${recRow('Удаляемая запись')}`, 'запись удалена');
   });
 });
@@ -441,6 +448,7 @@ describe('Массовые действия', () => {
     await ui.click(box('Пакет 5'), 'галочка «Пакет 5»');
     await ui.click($.button('Удалить выбранные', bar));
     await ui.waitFor(previewHas('Будет удалено: 1 запись'), 'предпросмотр удаления');
+    await ui.select(`${dlg}.querySelector('select[aria-label="Причина удаления"]')`, 'duplicate');
     await act('Удалить', dlg, 'POST', '/bulk-delete/apply');
     await ui.waitFor(resultIs('Удалено 1'), 'итог удаления');
     await ui.click($.button('Готово', dlg));
@@ -451,6 +459,7 @@ describe('Массовые действия', () => {
     await ui.waitFor(previewHas('Будет удалено: 4 записи'), 'предпросмотр «Удалить все»');
     assert.ok(await ui.evaluate(`!${$.button('Удалить все записи', dlg)}`), 'без названия реестра кнопка неактивна');
     await ui.type(`${dlg}.querySelector('input[aria-label="Название реестра"]')`, reg.name);
+    await ui.select(`${dlg}.querySelector('select[aria-label="Причина удаления"]')`, 'wrong_import');
     await act('Удалить все записи', dlg, 'POST', '/delete-all/apply');
     await ui.waitFor(resultIs('Удалено 4'), 'итог «Удалить все»');
     await ui.click($.button('Готово', dlg));

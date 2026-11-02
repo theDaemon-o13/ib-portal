@@ -37,6 +37,8 @@ export interface GroupDto {
   kind: GroupKind;
   kindLabel: string;
   system: boolean;
+  /** «Без группы» без неархивных записей (1.6.1): в дереве и на «Все группы» не показывается; узел открывается (архив сканов). */
+  hidden: boolean;
   version: number;
   nodes: NodeDto[];
 }
@@ -56,7 +58,7 @@ function nodeDto(n: NodeRow): NodeDto {
 /** Узлы по порядку справочника «Типы систем». */
 const nodeOrder = (a: NodeRow, b: NodeRow) => (a.systemType?.sortOrder ?? 0) - (b.systemType?.sortOrder ?? 0) || a.createdAt.getTime() - b.createdAt.getTime();
 
-/** Группы: сначала обычные по названию, «Без группы» — последней и только если в ней есть неархивные записи. */
+/** Группы: сначала обычные по названию, «Без группы» — последней; без неархивных записей — с отметкой hidden. */
 export async function listGroups(db: Db): Promise<GroupDto[]> {
   const rows = await db.vulnGroup.findMany({ where: { deletedAt: null }, include: { nodes: { where: { deletedAt: null }, include: { systemType: true } } } });
   const ungrouped = rows.find((g) => g.systemKey === UNGROUPED_KEY);
@@ -64,7 +66,6 @@ export async function listGroups(db: Db): Promise<GroupDto[]> {
     ? (await db.vulnRecord.count({ where: { node: { groupId: ungrouped.id }, record: { deletedAt: null, archivedAt: null } } })) === 0
     : false;
   return rows
-    .filter((g) => !(hideUngrouped && g.id === ungrouped?.id))
     .sort((a, b) => Number(a.systemKey !== null) - Number(b.systemKey !== null) || a.name.localeCompare(b.name, 'ru'))
     .map((g) => ({
       id: g.id,
@@ -72,6 +73,7 @@ export async function listGroups(db: Db): Promise<GroupDto[]> {
       kind: g.kind as GroupKind,
       kindLabel: KIND_LABELS[g.kind as GroupKind] ?? g.kind,
       system: g.systemKey !== null,
+      hidden: hideUngrouped && g.id === ungrouped?.id,
       version: g.version,
       nodes: [...g.nodes].sort(nodeOrder).map(nodeDto),
     }));

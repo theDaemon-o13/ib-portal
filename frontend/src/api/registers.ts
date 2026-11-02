@@ -81,6 +81,9 @@ export type BulkSelection = Body<'/api/v1/registers/{id}/records/bulk-delete/pre
 export type BulkPreview = Res<'/api/v1/registers/{id}/records/bulk-delete/preview', 'post'>;
 export type BulkResult = Res<'/api/v1/registers/{id}/records/bulk-delete/apply', 'post'>;
 export type BulkExpected = Pick<BulkPreview, 'total' | 'willDelete' | 'willArchive' | 'willRestore'>;
+/** Причина удаления записей (1.6.1): из списка, «Другое» — с текстом. */
+export type RecordReason = Pick<Body<'/api/v1/register-records/{id}/delete', 'post'>, 'reasonCode' | 'reason'>;
+export type RegisterDeletePreview = Res<'/api/v1/registers/{id}/delete/preview', 'post'>;
 
 /** Параметры фильтра записей — те же имена, что в адресе страницы и в API. */
 export const FILTER_PARAMS = ['state', 'deadline', 'f', 'date', 'from', 'to'] as const;
@@ -149,11 +152,14 @@ export const registersApi = {
     request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/bulk-archive/apply`, { action, selection, expected }),
   bulkDeletePreview: (registerId: string, selection: BulkSelection) =>
     request<BulkPreview>('POST', `/api/v1/registers/${registerId}/records/bulk-delete/preview`, { selection }),
-  bulkDeleteApply: (registerId: string, selection: BulkSelection, expected: BulkExpected) =>
-    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/bulk-delete/apply`, { selection, expected }),
+  bulkDeleteApply: (registerId: string, selection: BulkSelection, expected: BulkExpected, reason: RecordReason) =>
+    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/bulk-delete/apply`, { selection, expected, ...reason }),
   deleteAllPreview: (registerId: string) => request<BulkPreview>('POST', `/api/v1/registers/${registerId}/records/delete-all/preview`),
-  deleteAllApply: (registerId: string, confirmName: string, expected: BulkExpected) =>
-    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/delete-all/apply`, { confirmName, expected }),
+  deleteAllApply: (registerId: string, confirmName: string, expected: BulkExpected, reason: RecordReason) =>
+    request<BulkResult>('POST', `/api/v1/registers/${registerId}/records/delete-all/apply`, { confirmName, expected, ...reason }),
+  deleteRegisterPreview: (id: string) => request<RegisterDeletePreview>('POST', `/api/v1/registers/${id}/delete/preview`),
+  deleteRegister: (id: string, reason: string, confirmName: string) =>
+    request<Res<'/api/v1/registers/{id}/delete', 'post'>>('POST', `/api/v1/registers/${id}/delete`, { reason, confirmName }),
   record: (id: string) => request<RegisterRecord>('GET', `/api/v1/register-records/${id}`),
   history: (id: string) => request<Res<'/api/v1/register-records/{id}/history', 'get'>>('GET', `/api/v1/register-records/${id}/history`),
   createRecord: (registerId: string, values: RecordValues) => request<RegisterRecord>('POST', `/api/v1/registers/${registerId}/records`, { values }),
@@ -167,7 +173,7 @@ export const registersApi = {
   backlinks: (id: string) => request<Res<'/api/v1/register-records/{id}/backlinks', 'get'>>('GET', `/api/v1/register-records/${id}/backlinks`),
   archiveRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/archive`, { version }),
   restoreRecord: (id: string, version: number) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/restore`, { version }),
-  deleteRecord: (id: string, version: number) => request<undefined>('POST', `/api/v1/register-records/${id}/delete`, { version }),
+  deleteRecord: (id: string, version: number, reason: RecordReason) => request<undefined>('POST', `/api/v1/register-records/${id}/delete`, { version, ...reason }),
   /** Решение другого отдела: только с файлом документа-основания (загружен через filesApi.upload). */
   addDecision: (id: string, body: NewDecision) => request<RegisterRecord>('POST', `/api/v1/register-records/${id}/decisions`, body),
   decisions: (id: string, fieldId?: string) =>

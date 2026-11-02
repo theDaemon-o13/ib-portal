@@ -42,6 +42,7 @@ const Node = z.object({
   legacy: z.boolean(),
 });
 export const VulnGroup = z.object({
+  hidden: z.boolean(),
   id: z.string(),
   name: z.string(),
   kind: z.enum(['service', 'department', 'temporary']),

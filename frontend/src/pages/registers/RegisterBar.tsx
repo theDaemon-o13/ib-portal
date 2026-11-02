@@ -1,7 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { registersApi, type RegisterDetail, type RegisterListItem } from '../../api/registers';
+import { DeleteDialog } from '../../components/DeleteDialog';
 import { Overlay } from '../../components/Overlay';
+import { useToast } from '../../components/Toast';
+import { trashKeys } from '../../api/trash';
+import { registerDeleteBlock, registerDeleteLines } from '../settings/trash';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
 import { BulkDialog } from './BulkDialog';
@@ -105,12 +109,43 @@ function RenameDialog({ reg, onClose }: { reg: RegisterDetail; onClose: () => vo
   );
 }
 
+/** «Удалить реестр» (1.6.1): последствия, отказ для системного и для реестра со ссылками, причина, ввод названия. */
+function DeleteRegisterDialog({ reg, onClose, onDeleted }: { reg: RegisterDetail; onClose: () => void; onDeleted: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const preview = useQuery({ queryKey: ['registers', 'delete-preview', reg.id], queryFn: () => registersApi.deleteRegisterPreview(reg.id), gcTime: 0 });
+  const remove = useMutation({
+    mutationFn: (reason: string) => registersApi.deleteRegister(reg.id, reason, reg.name),
+    onSuccess: async () => {
+      toast(`Реестр «${reg.name}» удалён — он в корзине`);
+      onDeleted();
+      await Promise.all([qc.invalidateQueries({ queryKey: rkeys.list }), qc.invalidateQueries({ queryKey: trashKeys.all })]);
+    },
+  });
+  const p = preview.data;
+  return (
+    <DeleteDialog
+      title={`Удалить реестр «${reg.name}»`}
+      lines={p ? registerDeleteLines(p) : null}
+      blocked={p ? registerDeleteBlock(p) : null}
+      confirmName={reg.name}
+      busy={remove.isPending}
+      error={(preview.error ?? remove.error)?.message ?? null}
+      onConfirm={(reason) => remove.mutate(reason)}
+      onClose={onClose}
+    />
+  );
+}
+
 /** Меню действий реестра. Кнопка есть всегда (без прав — неактивна), чтобы шапка не меняла раскладку. */
-function RegisterMenu({ reg, canManage, canDeleteRecords }: { reg: RegisterDetail | undefined; canManage: boolean; canDeleteRecords: boolean }) {
+function RegisterMenu({ reg, canManage, canDeleteRecords, canDeleteData, onDeleted }: {
+  reg: RegisterDetail | undefined; canManage: boolean; canDeleteRecords: boolean; canDeleteData: boolean; onDeleted: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
-  const usable = canManage || canDeleteRecords;
+  const [deleting, setDeleting] = useState(false);
+  const usable = canManage || canDeleteRecords || canDeleteData;
   const ref = useDismiss(open, () => setOpen(false));
   const archive = useAction(() => (reg?.archived ? registersApi.restore(reg.id, reg.version) : registersApi.archive(reg?.id ?? '', reg?.version ?? 0)), {
     invalidate: [rkeys.list, rkeys.detail(reg?.id ?? '')],
@@ -128,8 +163,13 @@ function RegisterMenu({ reg, canManage, canDeleteRecords }: { reg: RegisterDetai
           {canManage && item('Переименовать', () => setRenaming(true))}
           {canManage && item(reg.archived ? 'Вернуть из архива' : 'В архив', () => archive.mutate(undefined))}
           {canDeleteRecords && !reg.archived && item('Удалить все записи…', () => setDeletingAll(true))}
+          {canDeleteData && (reg.systemKey
+            // Системный реестр не удаляется: пункт виден, но неактивен — с объяснением.
+            ? <button type="button" role="menuitem" disabled title="Системный реестр: на него опираются разделы портала — удалить нельзя">Удалить реестр…</button>
+            : item('Удалить реестр…', () => setDeleting(true)))}
         </div>
       )}
+      {deleting && reg && <DeleteRegisterDialog reg={reg} onClose={() => setDeleting(false)} onDeleted={() => { setDeleting(false); onDeleted(); }} />}
       {renaming && reg && <RenameDialog key={reg.version} reg={reg} onClose={() => setRenaming(false)} />}
       {deletingAll && reg && <BulkDialog reg={reg} mode="delete-all" selection={null} onClose={() => setDeletingAll(false)} onDone={() => setDeletingAll(false)} />}
     </div>
@@ -140,9 +180,9 @@ function RegisterMenu({ reg, canManage, canDeleteRecords }: { reg: RegisterDetai
  * Шапка конструктора: одна строка фиксированной высоты. Переключатель вкладок стоит на одном месте
  * на всех вкладках: колонки шапки фиксированы, имя реестра и владелец сжимаются с многоточием.
  */
-export function RegisterBar({ reg, owner, tab, canManage, canDeleteRecords, onPick, onTab }: {
-  reg: RegisterDetail | undefined; owner: string | null; tab: RegTab; canManage: boolean; canDeleteRecords: boolean;
-  onPick: (id: string, tab?: RegTab) => void; onTab: (t: RegTab) => void;
+export function RegisterBar({ reg, owner, tab, canManage, canDeleteRecords, canDeleteData, onPick, onTab, onDeleted }: {
+  reg: RegisterDetail | undefined; owner: string | null; tab: RegTab; canManage: boolean; canDeleteRecords: boolean; canDeleteData: boolean;
+  onPick: (id: string, tab?: RegTab) => void; onTab: (t: RegTab) => void; onDeleted: () => void;
 }) {
   return (
     <div className="panel reg-bar">
@@ -157,7 +197,7 @@ export function RegisterBar({ reg, owner, tab, canManage, canDeleteRecords, onPi
           </button>
         ))}
       </div>
-      <RegisterMenu reg={reg} canManage={canManage} canDeleteRecords={canDeleteRecords} />
+      <RegisterMenu reg={reg} canManage={canManage} canDeleteRecords={canDeleteRecords} canDeleteData={canDeleteData} onDeleted={onDeleted} />
     </div>
   );
 }

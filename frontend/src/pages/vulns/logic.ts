@@ -36,14 +36,22 @@ export function scanAgeText(ageDays: number | null): string {
   return ageDays === 0 ? 'Последний скан сегодня' : `Последний скан ${ageDays} дн. назад`;
 }
 
-export type ImportGroup = 'new' | 'reopened' | 'changed' | 'gone';
+/** deleted — «Были удалены» (1.6.1): ключ удалённой записи узла снова в файле; по умолчанию не выбраны. */
+export type ImportGroup = 'new' | 'reopened' | 'changed' | 'deleted' | 'gone';
 
 export type Selection = Record<ImportGroup, Set<string>>;
 
-/** По умолчанию: новые, повторные и изменившиеся выбраны, пропавшие — нет (процедура: устранение подтверждает сотрудник). */
+/** Строки группы: «Были удалены» в сканах до 1.6.1 нет. */
+export const groupItems = (s: ScanSummary, g: ImportGroup): { key: string }[] => s.groups[g] ?? [];
+export const groupCount = (s: ScanSummary, g: ImportGroup | 'unchanged'): number => s.counts[g] ?? 0;
+
+/**
+ * По умолчанию: новые, повторные и изменившиеся выбраны; пропавшие — нет (устранение подтверждает сотрудник);
+ * «Были удалены» — нет (их удалили намеренно, заводить заново — решение сотрудника).
+ */
 export function defaultSelection(s: ScanSummary): Selection {
-  const keys = (g: ImportGroup) => s.groups[g].map((i) => i.key);
-  return { new: new Set(keys('new')), reopened: new Set(keys('reopened')), changed: new Set(keys('changed')), gone: new Set() };
+  const keys = (g: ImportGroup) => groupItems(s, g).map((i) => i.key);
+  return { new: new Set(keys('new')), reopened: new Set(keys('reopened')), changed: new Set(keys('changed')), deleted: new Set(), gone: new Set() };
 }
 
 export function toggleOne(sel: Selection, group: ImportGroup, key: string): Selection {
@@ -54,16 +62,19 @@ export function toggleOne(sel: Selection, group: ImportGroup, key: string): Sele
 }
 
 export function toggleAll(sel: Selection, group: ImportGroup, s: ScanSummary): Selection {
-  const all = s.groups[group].map((i) => i.key);
+  const all = groupItems(s, group).map((i) => i.key);
   return { ...sel, [group]: sel[group].size === all.length ? new Set<string>() : new Set(all) };
 }
 
-export const selectionBody = (sel: Selection) => ({ new: [...sel.new], reopened: [...sel.reopened], changed: [...sel.changed], gone: [...sel.gone] });
+export const selectionBody = (sel: Selection) => ({
+  new: [...sel.new], reopened: [...sel.reopened], changed: [...sel.changed], gone: [...sel.gone], ...(sel.deleted.size ? { deleted: [...sel.deleted] } : {}),
+});
 
 /** Строка кнопки применения: что будет сделано. */
 export function applyLabel(sel: Selection): string {
   const parts = [
     sel.new.size ? `новых ${sel.new.size}` : '',
+    sel.deleted.size ? `заново ${sel.deleted.size}` : '',
     sel.reopened.size ? `повторно ${sel.reopened.size}` : '',
     sel.changed.size ? `обновить ${sel.changed.size}` : '',
     sel.gone.size ? `устранено ${sel.gone.size}` : '',

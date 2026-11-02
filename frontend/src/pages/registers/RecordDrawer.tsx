@@ -4,6 +4,8 @@ import { Overlay } from '../../components/Overlay';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../../api/client';
 import { registersApi, VULN_REGISTER_KEY, type RegisterDetail, type RegisterField, type RegisterRecord } from '../../api/registers';
+import { EMPTY_REASON, reasonReady, toReason, type ReasonDraft } from '../../api/trash';
+import { ReasonPicker } from '../../components/ReasonPicker';
 import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
@@ -188,6 +190,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null);
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteReason, setDeleteReason] = useState<ReasonDraft>(EMPTY_REASON);
   const [reason, setReason] = useState('');
 
   // Черновик заполняется из записи при открытии и после «Перечитать».
@@ -258,7 +261,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
     onError,
   });
   const remove = useMutation({
-    mutationFn: () => registersApi.deleteRecord(record?.id ?? '', record?.version ?? 0),
+    mutationFn: () => registersApi.deleteRecord(record?.id ?? '', record?.version ?? 0, toReason(deleteReason)),
     onSuccess: async () => {
       // Сначала закрыть и забыть удалённую запись: иначе история перечитывалась бы (404) с повторами.
       onClose();
@@ -372,10 +375,11 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
           )}
           {confirmDelete && (
             <div className="danger-zone">
-              <div>Удалить запись #{record?.number}? Она пропадёт из реестра; в журнале останется снимок значений.</div>
+              <div>Удалить запись #{record?.number}? Она пропадёт из реестра и показателей и попадёт в корзину; восстановить может супер-администратор.</div>
+              <ReasonPicker vuln={reg.systemKey === 'vulns'} value={deleteReason} onChange={setDeleteReason} disabled={remove.isPending} />
               <div className="row">
-                <button className="btn sm danger" type="button" onClick={() => remove.mutate()} disabled={remove.isPending}>Удалить</button>
-                <button className="btn sm" type="button" onClick={() => setConfirmDelete(false)}>Отмена</button>
+                <button className="btn sm danger" type="button" onClick={() => remove.mutate()} disabled={remove.isPending || !reasonReady(deleteReason)}>Удалить</button>
+                <button className="btn sm" type="button" onClick={() => { setConfirmDelete(false); setDeleteReason(EMPTY_REASON); }}>Отмена</button>
               </div>
             </div>
           )}

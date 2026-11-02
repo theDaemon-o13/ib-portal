@@ -1,11 +1,13 @@
 // Сквозной тест раздела «Уязвимости» (релиз 1.5.0) тем же путём, что и браузер пользователя: Chrome → Vite (прокси /api) →
 // backend → PostgreSQL, настоящие щелчки мыши и ввод с клавиатуры. Создать группу с типом → импорт образца → предпросмотр →
-// загрузить → передать ИКТ → «Обновить сроки» (было → станет) → отмена → карточка записи → перенос из «Без группы».
+// загрузить → передать ИКТ → «Обновить сроки» (было → станет) → отмена → карточка записи → перенос из «Без группы» →
+// удаление группы (отказ при открытых записях, удаление пустой) и восстановление из корзины (1.6.1).
 //
 //   npm run test:e2e   (логин и пароль — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
 // Группы «E2E-…» и их данные после прогона удаляет код тестов прямо в dev-базе (vulns-cleanup.mjs): в продукте удаления
-// групп нет (ADR-0029). Право vulns.deadlines на время прогона выдаётся своей ролью, после прогона роль снимается и удаляется.
+// групп нет (ADR-0029). Права vulns.deadlines и data.delete на время прогона выдаются своей ролью, после прогона роль снимается
+// и удаляется.
 import assert from 'node:assert/strict';
 import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -90,6 +92,8 @@ before(async () => {
   const role = await send('POST', '/api/v1/roles', { name: `E2E-сроки-${GROUP}`, description: 'Сквозной тест' });
   roleId = role.id;
   await send('PUT', `/api/v1/roles/${roleId}/permissions/vulns.deadlines`, { granted: true });
+  // «Удаление данных» (1.6.1) тоже никому не выдаётся автоматически.
+  await send('PUT', `/api/v1/roles/${roleId}/permissions/data.delete`, { granted: true });
   const me = await findMe();
   priorRoleIds = me.roles.map((r) => r.id);
   const patched = await send('PATCH', `/api/v1/users/${meId}`, { version: me.version, roleIds: [...priorRoleIds, roleId] });
@@ -344,6 +348,41 @@ describe('Раздел «Уязвимости»', () => {
     await open('/vulns', `!!document.querySelector('[data-testid=stale-nodes]')`, 'все группы');
     assert.match(await ui.evaluate(`document.querySelector('[data-testid=stale-nodes]').textContent`), /Узлов без скана дольше порога/);
     await ui.waitFor(`!!${treeBtn('Windows')} && [...document.querySelectorAll('.v-tree .v-age')].length > 0`, 'возраст скана в дереве');
+  });
+
+  it('удаление группы (1.6.1): с открытыми записями — отказ со списком; пустая — удаляется и восстанавливается из корзины', async () => {
+    const modal = `document.querySelector('[role=dialog]')`;
+    // Группа прогона: 90 открытых записей — удалить нельзя, окно объясняет почему.
+    const main = (await api('/api/v1/vulns/groups')).items.find((g) => g.name === GROUP);
+    await open(`/vulns/group/${main.id}`, `!!${button('Удалить группу')}`, 'экран группы');
+    await ui.click(button('Удалить группу'));
+    await ui.waitFor(`document.querySelector('[data-testid=delete-blocked]')?.textContent.includes('открытые записи')`, 'отказ при открытых записях');
+    assert.match(await ui.evaluate(`document.querySelector('[data-testid=delete-blocked]').textContent`), /«Windows» — \d+/);
+    assert.ok(!(await ui.evaluate(`!!${button('Удалить', modal)}`)), 'кнопки удаления нет');
+    await ui.click(button('Закрыть', modal));
+
+    // Пустая группа: удаляется с причиной и вводом названия, исчезает из дерева, появляется в корзине.
+    const name = `${GROUP}-удаление`;
+    const types = await api('/api/v1/catalogs/system_types/items');
+    const linux = (types.items ?? types).find((t) => t.value === 'Linux');
+    const created = await send('POST', '/api/v1/vulns/groups', { name, kind: 'service', systemTypeIds: [linux.id] });
+    assert.ok(created.id, `группа не создана: ${JSON.stringify(created)}`);
+    await open(`/vulns/group/${created.id}`, `!!${button('Удалить группу')}`, 'экран пустой группы');
+    await ui.click(button('Удалить группу'));
+    await ui.waitFor(`!!document.querySelector('[data-testid=delete-preview]')`, 'последствия удаления');
+    assert.match(await ui.evaluate(`document.querySelector('[data-testid=delete-preview]').textContent`), /Группа .* и её 1 тип систем пропадут/);
+    assert.equal(await ui.evaluate(`${button('Удалить', modal)}.disabled`), true, 'без причины и названия — нельзя');
+    await ui.type(q('[role=dialog] textarea[aria-label="Причина удаления"]'), 'Создана сквозным тестом');
+    await ui.type(q('[role=dialog] input[aria-label="Название для подтверждения"]'), name);
+    await ui.click(button('Удалить', modal));
+    await ui.waitFor(`location.pathname === '/vulns' && !!${q('.v-tree')} && !${treeBtn(name)}`, 'группы нет в дереве');
+
+    await open('/settings/trash?scope=vulns', `[...document.querySelectorAll('[data-testid=trash-row]')].some((r) => r.textContent.includes(${JSON.stringify(name)}))`, 'событие в корзине');
+    const row = `[...document.querySelectorAll('[data-testid=trash-row]')].find((r) => r.textContent.includes(${JSON.stringify(name)}))`;
+    assert.match(await ui.evaluate(`${row}.textContent`), /Причина: Создана сквозным тестом/);
+    await ui.click(button('Восстановить', row));
+    await ui.waitFor(`![...document.querySelectorAll('[data-testid=trash-row]')].some((r) => r.textContent.includes(${JSON.stringify(name)}))`, 'событие восстановлено');
+    await open('/vulns', `!!${treeBtn(name)}`, 'группа снова в дереве');
   });
 
   it('страница «Реестры» у реестра уязвимостей: нет «Новая запись» и нет загрузки отчёта', async () => {

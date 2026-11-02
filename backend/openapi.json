@@ -47857,6 +47857,9 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "hidden": {
+                            "type": "boolean"
+                          },
                           "id": {
                             "type": "string"
                           },
@@ -47939,6 +47942,7 @@
                           }
                         },
                         "required": [
+                          "hidden",
                           "id",
                           "name",
                           "kind",
@@ -48207,6 +48211,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "hidden": {
+                      "type": "boolean"
+                    },
                     "id": {
                       "type": "string"
                     },
@@ -48289,6 +48296,7 @@
                     }
                   },
                   "required": [
+                    "hidden",
                     "id",
                     "name",
                     "kind",
@@ -48551,6 +48559,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "hidden": {
+                      "type": "boolean"
+                    },
                     "id": {
                       "type": "string"
                     },
@@ -48633,6 +48644,7 @@
                     }
                   },
                   "required": [
+                    "hidden",
                     "id",
                     "name",
                     "kind",
@@ -48895,6 +48907,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "hidden": {
+                      "type": "boolean"
+                    },
                     "id": {
                       "type": "string"
                     },
@@ -48977,6 +48992,7 @@
                     }
                   },
                   "required": [
+                    "hidden",
                     "id",
                     "name",
                     "kind",
@@ -49240,6 +49256,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "hidden": {
+                      "type": "boolean"
+                    },
                     "id": {
                       "type": "string"
                     },
@@ -49322,6 +49341,7 @@
                     }
                   },
                   "required": [
+                    "hidden",
                     "id",
                     "name",
                     "kind",

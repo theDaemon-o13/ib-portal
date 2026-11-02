@@ -28,6 +28,8 @@ export type ExtensionPlan = Body<'/api/v1/vulns/extensions/preview', 'post'>;
 export type ExtensionPreview = Res<'/api/v1/vulns/extensions/preview', 'post'>;
 export type ExtensionApply = Body<'/api/v1/vulns/extensions', 'post'>;
 export type TransferResult = Res<'/api/v1/vulns/records/transfer', 'post'>;
+export type DeletePreview = Res<'/api/v1/vulns/groups/{id}/delete/preview', 'post'>;
+export type DeletionStats = Res<'/api/v1/vulns/deletions/stats', 'get'>;
 
 const qs = (o: Record<string, string | undefined>) => {
   const p = new URLSearchParams();
@@ -46,6 +48,7 @@ export const vkeys = {
   scans: (nodeId: string) => ['vulns', 'scans', nodeId] as const,
   scan: (id: string) => ['vulns', 'scan', id] as const,
   extensions: (scope: { nodeId?: string; groupId?: string }) => ['vulns', 'extensions', scope] as const,
+  deletionStats: (scope: { nodeId?: string; groupId?: string }, from: string, to: string) => ['vulns', 'deletion-stats', scope, from, to] as const,
   systemTypes: ['vulns', 'system-types'] as const,
 };
 
@@ -70,6 +73,12 @@ export const vulnsApi = {
   renameGroup: (id: string, body: Body<'/api/v1/vulns/groups/{id}', 'patch'>) => request<VulnGroup>('PATCH', `/api/v1/vulns/groups/${id}`, body),
   scanTarget: (groupId: string, fileName: string) => request<Res<'/api/v1/vulns/groups/{id}/scan-target', 'get'>>('GET', `/api/v1/vulns/groups/${groupId}/scan-target${qs({ fileName })}`),
   addNodes: (id: string, systemTypeIds: string[]) => request<VulnGroup>('POST', `/api/v1/vulns/groups/${id}/nodes`, { systemTypeIds }),
+  deleteGroupPreview: (id: string) => request<DeletePreview>('POST', `/api/v1/vulns/groups/${id}/delete/preview`),
+  deleteGroup: (id: string, reason: string, confirmName: string) => request<unknown>('POST', `/api/v1/vulns/groups/${id}/delete`, { reason, confirmName }),
+  deleteNodePreview: (id: string) => request<DeletePreview>('POST', `/api/v1/vulns/nodes/${id}/delete/preview`),
+  deleteNode: (id: string, reason: string) => request<unknown>('POST', `/api/v1/vulns/nodes/${id}/delete`, { reason }),
+  deletionStats: (scope: { nodeId?: string; groupId?: string }, from: string, to: string) =>
+    request<DeletionStats>('GET', `/api/v1/vulns/deletions/stats${qs({ ...scope, from, to })}`),
   overview: () => request<VulnOverview>('GET', '/api/v1/vulns/overview'),
   records: (nodeId: string, q: { search?: string; crit?: string; state?: string; cursor?: string }) =>
     request<NodeRecordsPage>('GET', `/api/v1/vulns/nodes/${nodeId}/records${qs({ ...q, limit: '100' })}`),

@@ -99,7 +99,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -246,7 +246,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -319,7 +319,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                             };
                         };
@@ -6173,9 +6173,9 @@ export interface paths {
                                 description: string;
                                 isSystem: boolean;
                                 version: number;
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 activeUserCount: number;
                                 userCount: number;
                             }[];
@@ -6301,9 +6301,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -6448,9 +6448,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -6687,7 +6687,7 @@ export interface paths {
                 header?: never;
                 path: {
                     id: string;
-                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
+                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
                 };
                 cookie?: never;
             };
@@ -6712,9 +6712,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             activeUserCount: number;
                             userCount: number;
                         };
@@ -7233,6 +7233,7 @@ export interface paths {
                                     fullName: string;
                                 } | null;
                                 archived: boolean;
+                                system: boolean;
                                 version: number;
                                 fieldCount: number;
                                 recordCount: number;
@@ -8542,6 +8543,312 @@ export interface paths {
                                 }[];
                                 managed?: boolean;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/delete/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить реестр: что скроется; системный или со ссылками из полей-связей — blocked */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            system: boolean;
+                            linkedBy: {
+                                registerId: string;
+                                register: string;
+                                field: string;
+                            }[];
+                            counts: {
+                                records: number;
+                                automations: number;
+                            };
+                            blocked: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/registers/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить реестр (мягко, в корзину): причина и ввод названия */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                        confirmName: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deletionId: string;
+                            counts: {
+                                records: number;
+                                automations: number;
+                            };
                         };
                     };
                 };
@@ -14800,7 +15107,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Удалить запись (мягкое удаление) */
+        /** Удалить запись (мягко, в корзину, с причиной). Уязвимости — право data.delete */
         post: {
             parameters: {
                 query?: never;
@@ -14814,6 +15121,9 @@ export interface paths {
                 content: {
                     "application/json": {
                         version: number;
+                        /** @enum {string} */
+                        reasonCode: "wrong_import" | "false_positive" | "duplicate" | "other";
+                        reason?: string | null;
                     };
                 };
             };
@@ -15487,7 +15797,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Удалить выбранные: применить (мягкое удаление пакетами, с журналом) */
+        /** Удалить выбранные: применить (мягко, в корзину одним событием, с одной причиной) */
         post: {
             parameters: {
                 query?: never;
@@ -15526,6 +15836,9 @@ export interface paths {
                             willArchive: number;
                             willRestore: number;
                         };
+                        /** @enum {string} */
+                        reasonCode: "wrong_import" | "false_positive" | "duplicate" | "other";
+                        reason?: string | null;
                     };
                 };
             };
@@ -15823,7 +16136,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Удалить все записи реестра: применить; confirmName — название реестра */
+        /** Удалить все записи реестра: применить; confirmName — название реестра, причина */
         post: {
             parameters: {
                 query?: never;
@@ -15843,6 +16156,9 @@ export interface paths {
                             willArchive: number;
                             willRestore: number;
                         };
+                        /** @enum {string} */
+                        reasonCode: "wrong_import" | "false_positive" | "duplicate" | "other";
+                        reason?: string | null;
                     };
                 };
             };
@@ -17308,6 +17624,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             items: {
+                                hidden: boolean;
                                 id: string;
                                 name: string;
                                 /** @enum {string} */
@@ -17444,6 +17761,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            hidden: boolean;
                             id: string;
                             name: string;
                             /** @enum {string} */
@@ -17597,6 +17915,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            hidden: boolean;
                             id: string;
                             name: string;
                             /** @enum {string} */
@@ -17741,6 +18060,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            hidden: boolean;
                             id: string;
                             name: string;
                             /** @enum {string} */
@@ -17896,6 +18216,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
+                            hidden: boolean;
                             id: string;
                             name: string;
                             /** @enum {string} */
@@ -18004,6 +18325,691 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/vulns/groups/{id}/delete/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить группу: что скроется; открытые записи — blocked */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            nodes: {
+                                id: string;
+                                label: string;
+                                open: number;
+                                records: number;
+                                scans: number;
+                            }[];
+                            counts: {
+                                nodes: number;
+                                records: number;
+                                scans: number;
+                            };
+                            open: number;
+                            blocked: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/groups/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить группу (мягко, в корзину): только без открытых записей; причина и ввод названия */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                        confirmName: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deletionId: string;
+                            counts: {
+                                nodes: number;
+                                records: number;
+                                scans: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/nodes/{id}/delete/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить тип из группы: что скроется; открытые записи — blocked */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            nodes: {
+                                id: string;
+                                label: string;
+                                open: number;
+                                records: number;
+                                scans: number;
+                            }[];
+                            counts: {
+                                nodes: number;
+                                records: number;
+                                scans: number;
+                            };
+                            open: number;
+                            blocked: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/nodes/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить тип из группы (мягко, в корзину): только без открытых записей; причина */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deletionId: string;
+                            counts: {
+                                nodes: number;
+                                records: number;
+                                scans: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vulns/deletions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Удалено записей» за период по причинам: узел, группа или весь раздел (восстановленные не считаются) */
+        get: {
+            parameters: {
+                query: {
+                    nodeId?: string;
+                    groupId?: string;
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            total: number;
+                            open: number;
+                            byReason: {
+                                code: string;
+                                label: string;
+                                count: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/vulns/nodes/{id}/history": {
@@ -18222,6 +19228,7 @@ export interface paths {
                                     reopened: number;
                                     changed: number;
                                     unchanged: number;
+                                    deleted?: number;
                                     gone: number;
                                 };
                                 critCounts: {
@@ -18256,6 +19263,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     reopened: {
                                         key: string;
@@ -18278,6 +19290,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     changed: {
                                         key: string;
@@ -18300,6 +19317,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     unchanged: {
                                         key: string;
@@ -18322,6 +19344,38 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
+                                    }[];
+                                    deleted?: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     gone: {
                                         key: string;
@@ -18803,6 +19857,7 @@ export interface paths {
                                     reopened: number;
                                     changed: number;
                                     unchanged: number;
+                                    deleted?: number;
                                     gone: number;
                                 };
                                 critCounts: {
@@ -18837,6 +19892,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     reopened: {
                                         key: string;
@@ -18859,6 +19919,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     changed: {
                                         key: string;
@@ -18881,6 +19946,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     unchanged: {
                                         key: string;
@@ -18903,6 +19973,38 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
+                                    }[];
+                                    deleted?: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     gone: {
                                         key: string;
@@ -19107,6 +20209,7 @@ export interface paths {
                                     reopened: number;
                                     changed: number;
                                     unchanged: number;
+                                    deleted?: number;
                                     gone: number;
                                 };
                                 critCounts: {
@@ -19141,6 +20244,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     reopened: {
                                         key: string;
@@ -19163,6 +20271,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     changed: {
                                         key: string;
@@ -19185,6 +20298,11 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     unchanged: {
                                         key: string;
@@ -19207,6 +20325,38 @@ export interface paths {
                                         dueAfter: string | null;
                                         becomesOverdue: boolean;
                                         closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
+                                    }[];
+                                    deleted?: {
+                                        key: string;
+                                        sheet: string;
+                                        row: number;
+                                        recordId: string | null;
+                                        number: number | null;
+                                        pkg: string;
+                                        cve: string;
+                                        cvss: number | null;
+                                        score: number | null;
+                                        crit: string;
+                                        changes: {
+                                            fieldId: string;
+                                            label: string;
+                                            from: string;
+                                            to: string;
+                                        }[];
+                                        dueBefore: string | null;
+                                        dueAfter: string | null;
+                                        becomesOverdue: boolean;
+                                        closedStatus: string | null;
+                                        deleted?: {
+                                            number: number;
+                                            reason: string;
+                                            deletedAt: string;
+                                        } | null;
                                     }[];
                                     gone: {
                                         key: string;
@@ -19365,6 +20515,7 @@ export interface paths {
                             reopened?: string[];
                             changed?: string[];
                             gone?: string[];
+                            deleted?: string[];
                         };
                         profileConfirmed?: boolean;
                     };
@@ -20090,6 +21241,7 @@ export interface paths {
                                     reopened: number;
                                     changed: number;
                                     unchanged: number;
+                                    deleted?: number;
                                     gone: number;
                                 } | null;
                                 critCounts: {
@@ -20245,6 +21397,7 @@ export interface paths {
                                 reopened: number;
                                 changed: number;
                                 unchanged: number;
+                                deleted?: number;
                                 gone: number;
                             } | null;
                             critCounts: {
@@ -24604,6 +25757,8 @@ export interface paths {
                                 registerName: string;
                                 number: number;
                                 title: string;
+                                registerDeleted: boolean;
+                                recordDeleted: boolean;
                             } | null;
                             automationId: string | null;
                             recipientLabel: string | null;
@@ -43770,6 +44925,299 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Корзина: события удаления, новые сверху. scope=vulns — раздел «Уязвимости» (с узлом или группой) */
+        get: {
+            parameters: {
+                query?: {
+                    entity?: "register" | "vuln_group" | "vuln_node" | "register_records";
+                    scope?: "vulns";
+                    nodeId?: string;
+                    groupId?: string;
+                    restored?: "true" | "false";
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                /** @enum {string} */
+                                entity: "register" | "vuln_group" | "vuln_node" | "register_records";
+                                entityLabel: string;
+                                entityId: string;
+                                vulns: boolean;
+                                title: string;
+                                path: string;
+                                reasonCode: string | null;
+                                reasonLabel: string | null;
+                                reason: string;
+                                counts: {
+                                    [key: string]: number;
+                                };
+                                openRecords: number;
+                                items: {
+                                    number: number;
+                                    title: string;
+                                    status: string | null;
+                                    open: boolean | null;
+                                    due: string | null;
+                                }[];
+                                deletedAt: string;
+                                deletedBy: string;
+                                restoredAt: string | null;
+                                restoredBy: string | null;
+                            }[];
+                            nextCursor: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trash/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Восстановить всё, что скрыто этим удалением. Название занято — newName */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        newName?: string | null;
+                    } | null;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            counts: {
+                                [key: string]: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;

@@ -15,6 +15,7 @@ const GUARDS = [
   ['vuln_extension_items', 'vuln_extension_items_append_only'],
   ['task_transitions', 'task_transitions_no_update_delete'],
   ['register_records', 'register_records_lock_guard'],
+  ['deletions', 'deletions_guard'],
 ];
 
 function devEnv() {
@@ -96,6 +97,9 @@ export async function cleanE2eGroups() {
     await del(`DELETE FROM register_imports WHERE id = ANY($1::uuid[]) OR (kind = 'scan' AND payload ->> 'nodeId' = ANY($2::text[]))`, [imports, nodes]);
     await del('DELETE FROM vuln_nodes WHERE id = ANY($1::uuid[])', [nodes]);
     await del('DELETE FROM vuln_groups WHERE id = ANY($1::uuid[])', [groups]);
+    // События корзины (1.6.1) о группах, узлах и записях прогона — после самих объектов (их deletion_id ссылается на событие).
+    await del(`DELETE FROM deletions WHERE entity_id = ANY($1::uuid[]) OR entity_id = ANY($2::uuid[])
+      OR (entity = 'register_records' AND EXISTS (SELECT 1 FROM jsonb_array_elements(snapshot) i WHERE i ->> 'nodeId' = ANY($3::text[])))`, [groups, nodes, nodes]);
     await del(`DELETE FROM register_field_options o WHERE (o.id::text = ANY($1::text[]) OR o.label LIKE 'Пакет E2E-%')
       AND NOT EXISTS (SELECT 1 FROM register_records r WHERE r.register_id = $2::uuid AND r."values" ->> o.field_id::text = o.id::text)`, [reportOptions, reg]);
     for (const [table, trigger] of GUARDS) await db.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);

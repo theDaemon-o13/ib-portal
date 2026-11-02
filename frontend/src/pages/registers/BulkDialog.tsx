@@ -2,7 +2,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../../api/client';
 import { registersApi, type BulkPreview, type BulkResult, type BulkSelection, type RegisterDetail } from '../../api/registers';
+import { EMPTY_REASON, reasonReady, toReason, type ReasonDraft } from '../../api/trash';
 import { Overlay } from '../../components/Overlay';
+import { ReasonPicker } from '../../components/ReasonPicker';
 import { previewLines, reasonLines, records, resultSummary } from './bulk';
 import { rkeys } from './keys';
 
@@ -31,6 +33,7 @@ export function BulkDialog({ reg, mode, selection, onClose, onDone }: {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmName, setConfirmName] = useState('');
+  const [reason, setReason] = useState<ReasonDraft>(EMPTY_REASON);
   const action = mode === 'delete-all' ? 'delete' : mode;
 
   useEffect(() => {
@@ -69,9 +72,9 @@ export function BulkDialog({ reg, mode, selection, onClose, onDone }: {
     setError(null);
     try {
       const r = mode === 'delete-all'
-        ? await registersApi.deleteAllApply(reg.id, confirmName, expected)
+        ? await registersApi.deleteAllApply(reg.id, confirmName, expected, toReason(reason))
         : mode === 'delete'
-          ? await registersApi.bulkDeleteApply(reg.id, selection ?? { ids: [] }, expected)
+          ? await registersApi.bulkDeleteApply(reg.id, selection ?? { ids: [] }, expected, toReason(reason))
           : await registersApi.bulkArchiveApply(reg.id, mode, selection ?? { ids: [] }, expected);
       setResult(r);
     } catch (err) {
@@ -89,6 +92,7 @@ export function BulkDialog({ reg, mode, selection, onClose, onDone }: {
 
   const nothing = !!preview && preview.willDelete + preview.willArchive + preview.willRestore === 0;
   const nameOk = mode !== 'delete-all' || confirmName.trim() === reg.name.trim();
+  const reasonOk = action !== 'delete' || reasonReady(reason);
   const summary = result ? resultSummary(result) : null;
   const why = result ? reasonLines(result.byReason) : preview && action === 'delete' ? reasonLines(preview.byReason) : [];
 
@@ -109,7 +113,7 @@ export function BulkDialog({ reg, mode, selection, onClose, onDone }: {
           ) : (
             <>
               {mode === 'delete-all' && (
-                <p>Все записи реестра «{reg.name}», включая архивные{preview ? `: ${records(preview.total)}` : ''}. Удаление мягкое — в журнале остаётся снимок каждой записи.</p>
+                <p>Все записи реестра «{reg.name}», включая архивные{preview ? `: ${records(preview.total)}` : ''}. Удаление мягкое — записи попадут в корзину одним событием, в журнале остаётся снимок каждой записи.</p>
               )}
               {!preview && !error && <p className="hint">Считаем…</p>}
               {changed && <div className="note" role="status">Записи изменились, пока окно было открыто. Проверьте новые числа и подтвердите ещё раз.</div>}
@@ -119,6 +123,9 @@ export function BulkDialog({ reg, mode, selection, onClose, onDone }: {
                 </ul>
               )}
               {preview && why.length > 0 && <div className="hint">Зависимости: {why.join(', ')}. Такие записи не удаляются, а уходят в архив.</div>}
+              {action === 'delete' && preview && preview.willDelete > 0 && (
+                <ReasonPicker vuln={reg.systemKey === 'vulns'} value={reason} onChange={setReason} disabled={busy} />
+              )}
               {mode === 'delete-all' && preview && preview.total > 0 && (
                 <label>Чтобы подтвердить, введите название реестра
                   <input className="inp" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={reg.name} autoFocus aria-label="Название реестра" />
@@ -127,7 +134,7 @@ export function BulkDialog({ reg, mode, selection, onClose, onDone }: {
               {error && <p className="form-error" role="alert">{error}</p>}
               <div className="row end">
                 <button className="btn" type="button" onClick={onClose} disabled={busy}>Отмена</button>
-                <button className={action === 'delete' ? 'btn danger' : 'btn primary'} type="submit" disabled={!preview || nothing || !nameOk || busy}>
+                <button className={action === 'delete' ? 'btn danger' : 'btn primary'} type="submit" disabled={!preview || nothing || !nameOk || !reasonOk || busy}>
                   {busy ? 'Выполняется…' : BUTTONS[mode]}
                 </button>
               </div>
