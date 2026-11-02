@@ -19,6 +19,7 @@ import * as scans from './scans.service.js';
 import * as section from './section.service.js';
 import { SCAN_MAX_ROWS } from './scan-parser.js';
 import * as transfer from './transfer.service.js';
+import * as trash from '../trash/service.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const IdParams = z.object({ id: z.string().uuid() });
@@ -55,6 +56,8 @@ const ScanItem = z.object({
   pkg: z.string(), cve: z.string(), cvss: z.number().nullable(), score: z.number().nullable(), crit: z.string(),
   changes: z.array(z.object({ fieldId: z.string(), label: z.string(), from: z.string(), to: z.string() })),
   dueBefore: z.string().nullable(), dueAfter: z.string().nullable(), becomesOverdue: z.boolean(), closedStatus: z.string().nullable(),
+  /** «Была удалена» (1.6.1): номер удалённой записи, причина, дата удаления. */
+  deleted: z.object({ number: z.number().int(), reason: z.string(), deletedAt: z.string() }).nullish(),
 });
 const ProfileType = z.object({ id: z.string(), label: z.string() });
 const ScanIssue = z.object({ sheet: z.string().optional(), row: z.number().int(), field: z.string().nullable(), message: z.string() });
@@ -74,11 +77,11 @@ const ScanSummary = z.object({
   warnings: z.array(z.string()),
   previousScan: z.object({ id: z.string(), scanDate: z.string(), fileName: z.string(), handedOver: z.boolean() }).nullable(),
   coverage: z.object({ newHosts: z.array(z.string()), goneHosts: z.array(z.string()) }),
-  counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), gone: z.number().int() }),
+  counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), deleted: z.number().int().optional(), gone: z.number().int() }),
   critCounts: z.array(z.object({ key: z.enum(['critical', 'high', 'medium', 'low']), label: z.string(), count: z.number().int() })),
   newOptions: z.array(z.object({ field: z.string(), values: z.array(z.string()) })),
   groups: z.object({
-    new: z.array(ScanItem), reopened: z.array(ScanItem), changed: z.array(ScanItem), unchanged: z.array(ScanItem),
+    new: z.array(ScanItem), reopened: z.array(ScanItem), changed: z.array(ScanItem), unchanged: z.array(ScanItem), deleted: z.array(ScanItem).optional(),
     gone: z.array(z.object({ key: z.string(), recordId: z.string(), number: z.number().int(), pkg: z.string(), cve: z.string(), crit: z.string(), status: z.string(), due: z.string().nullable() })),
   }),
   archived: z.array(z.object({ number: z.number().int(), pkg: z.string(), cve: z.string() })),
@@ -91,7 +94,7 @@ const Handover = z.object({ date: z.string(), to: z.string(), fileId: z.string()
 const ScanBrief = z.object({
   id: z.string(), nodeId: z.string(), scanDate: z.string(), fileName: z.string(), fileId: z.string().nullable(), coverageTitle: z.string(),
   hostsCount: z.number().int(), findingsCount: z.number().int(),
-  counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), gone: z.number().int() }).nullable(),
+  counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), deleted: z.number().int().optional(), gone: z.number().int() }).nullable(),
   critCounts: z.array(z.object({ key: z.string(), label: z.string(), count: z.number().int() })),
   legacy: z.boolean(), createdBy: z.string(), createdAt: z.string(), handover: Handover.nullable(),
 });
@@ -143,6 +146,7 @@ const view = requirePerm('ib.work');
 const structure = requirePerm('registers.manage');
 const edit = requirePerm('records.edit');
 const deadlines = requirePerm('vulns.deadlines');
+const dataDelete = requirePerm('data.delete');
 
 export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = async (app, { db, store }) => {
   /** Срок изменился: просрочка и напоминания видны сразу, не ждать часового прогона. Сбой правил не отменяет действие. */
@@ -191,6 +195,58 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
       params: IdParams, body: z.object({ systemTypeId: z.string().uuid(), fromTypeId: z.string().uuid() }), response: { 200: VulnGroup, ...errors },
     },
   }, async (request) => groups.changeNodeType(db, actorOf(request), request.params.id, request.body));
+
+  // ------------------------------------------------------------ удаление групп и узлов (1.6.1, ADR-0033)
+  const DeletePreview = z.object({
+    name: z.string(),
+    nodes: z.array(z.object({ id: z.string(), label: z.string(), open: z.number().int(), records: z.number().int(), scans: z.number().int() })),
+    counts: z.object({ nodes: z.number().int(), records: z.number().int(), scans: z.number().int() }),
+    open: z.number().int(),
+    blocked: z.boolean(),
+  });
+  const Deleted = z.object({ deletionId: z.string(), counts: z.object({ nodes: z.number().int(), records: z.number().int(), scans: z.number().int() }) });
+
+  app.post('/vulns/groups/:id/delete/preview', {
+    preHandler: dataDelete,
+    schema: { tags: ['vulns'], summary: 'Удалить группу: что скроется; открытые записи — blocked', params: IdParams, response: { 200: DeletePreview, ...errors } },
+  }, async (request) => groups.previewGroupDelete(db, request.params.id));
+
+  app.post('/vulns/groups/:id/delete', {
+    preHandler: dataDelete,
+    schema: {
+      tags: ['vulns'], summary: 'Удалить группу (мягко, в корзину): только без открытых записей; причина и ввод названия', params: IdParams,
+      body: z.object({ reason: z.string().max(4000), confirmName: z.string().max(400) }), response: { 200: Deleted, ...errors },
+    },
+  }, async (request) => groups.deleteGroup(db, actorOf(request), request.params.id, request.body));
+
+  app.post('/vulns/nodes/:id/delete/preview', {
+    preHandler: dataDelete,
+    schema: { tags: ['vulns'], summary: 'Удалить тип из группы: что скроется; открытые записи — blocked', params: IdParams, response: { 200: DeletePreview, ...errors } },
+  }, async (request) => groups.previewNodeDelete(db, request.params.id));
+
+  app.post('/vulns/nodes/:id/delete', {
+    preHandler: dataDelete,
+    schema: {
+      tags: ['vulns'], summary: 'Удалить тип из группы (мягко, в корзину): только без открытых записей; причина', params: IdParams,
+      body: z.object({ reason: z.string().max(4000) }), response: { 200: Deleted, ...errors },
+    },
+  }, async (request) => groups.deleteNode(db, actorOf(request), request.params.id, request.body));
+
+  app.get('/vulns/deletions/stats', {
+    preHandler: view,
+    schema: {
+      tags: ['vulns'], summary: '«Удалено записей» за период по причинам: узел, группа или весь раздел (восстановленные не считаются)',
+      querystring: z.object({ nodeId: z.string().uuid().optional(), groupId: z.string().uuid().optional(), from: z.string().date(), to: z.string().date() }),
+      response: {
+        200: z.object({ total: z.number().int(), open: z.number().int(), byReason: z.array(z.object({ code: z.string(), label: z.string(), count: z.number().int() })) }),
+        ...errors,
+      },
+    },
+  }, async (request) => {
+    const { nodeId, groupId, from, to } = request.query;
+    if (from > to) throw badRequest('BAD_PERIOD', 'Начало периода позже конца');
+    return trash.vulnDeletionStats(db, { nodeId, groupId }, new Date(`${from}T00:00:00Z`), new Date(`${to}T23:59:59.999Z`));
+  });
 
   app.get('/vulns/nodes/:id/history', {
     preHandler: requirePerm('history.view'),
@@ -270,6 +326,7 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
         selected: z.object({
           new: z.array(z.string()).max(SCAN_MAX_ROWS).optional(), reopened: z.array(z.string()).max(SCAN_MAX_ROWS).optional(),
           changed: z.array(z.string()).max(SCAN_MAX_ROWS).optional(), gone: z.array(z.string()).max(SCAN_MAX_ROWS).optional(),
+          deleted: z.array(z.string()).max(SCAN_MAX_ROWS).optional(),
         }).optional(),
         profileConfirmed: z.boolean().optional(),
       }),

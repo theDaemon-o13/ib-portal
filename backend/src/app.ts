@@ -35,6 +35,7 @@ import { healthRoutes } from './modules/health/routes.js';
 import { IMPORT_BODY_LIMIT, registerRoutes, XLSX_TYPE } from './modules/registers/routes.js';
 import { roleRoutes } from './modules/roles/routes.js';
 import { searchRoutes } from './modules/search/routes.js';
+import { trashRoutes } from './modules/trash/routes.js';
 import { journalRoutes } from './modules/settings/journal.js';
 import { auditRoutes } from './modules/audit/routes.js';
 import { userRoutes } from './modules/users/routes.js';
@@ -122,6 +123,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(fileRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(searchRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(trashRoutes, { prefix: '/api/v1', db: deps.db });
   // Дашборд и мониторинг делят кэш: KPI считаются раз в минуту для обоих.
   const cache = createCache(CACHE_TTL_MS, deps.now);
   await app.register(dashboardRoutes, { prefix: '/api/v1', db: deps.db, cache });

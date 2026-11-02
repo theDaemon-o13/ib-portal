@@ -19,6 +19,7 @@ import { requiredTitleField } from '../assets/derive.js';
 import { applyDerived, autoCritOption } from '../vulns/derive.js';
 import { isVulnRegister, vulnFields } from '../vulns/definition.js';
 import { releaseVulnKeys } from '../vulns/keys.js';
+import { checkRecordReason, createDeletion, reasonText, vulnSnapshot, type RecordReason } from '../trash/service.js';
 import {
   assertNotArchived,
   assignableUsers,
@@ -481,23 +482,37 @@ export async function deletedSnapshot(tx: Db, reg: RegisterDef, row: { number: n
   return { number: row.number, values: Object.fromEntries(reg.fields.filter((f) => values[f.id] !== undefined).map((f) => [f.label, displayValue(f, values[f.id], { users })])) };
 }
 
-/** Удаление мягкое (раздел 3.4): запись скрывается везде, снимок значений — в журнале. */
-export async function deleteRecord(db: Db, actor: Actor, id: string, version: number) {
+/** Реестр записи — для проверки права на удаление (уязвимости — data.delete). */
+export async function registerOfRecord(db: Db, id: string) {
+  return loadRegister(db, (await getRecordRow(db, id)).registerId);
+}
+
+/**
+ * Удаление мягкое (раздел 3.4, 1.6.1): запись скрывается везде, событие с причиной — в корзине (восстанавливает
+ * супер-администратор), снимок значений — в журнале. У записи уязвимости в событии — статус и итоговый срок.
+ */
+export async function deleteRecord(db: Db, actor: Actor, id: string, version: number, input: RecordReason) {
   await withTx(db, async (tx) => {
     const row = await getRecordRow(tx, id);
     const reg = await loadRegister(tx, row.registerId);
     assertNotArchived(reg);
+    const why = checkRecordReason(input, isVulnRegister(reg));
     if (row.version !== version) throw versionConflict();
     // Те же зависимости, что и у массового удаления (dependencies.ts); первая найденная — в ответе.
-    const [reason] = (await recordDependencies(tx, reg, [row])).get(id) ?? [];
-    if (reason) throw dependencyError(reason);
-    const res = await tx.registerRecord.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), version: { increment: 1 } } });
+    const [dep] = (await recordDependencies(tx, reg, [row])).get(id) ?? [];
+    if (dep) throw dependencyError(dep);
+    const snapshot = await vulnSnapshot(tx, reg, [row]);
+    const deletionId = await createDeletion(tx, actor, {
+      entity: 'register_records', entityId: reg.id, title: reg.name, ...why, counts: { records: 1 }, snapshot,
+    });
+    const res = await tx.registerRecord.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), deletionId, version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerRecord.findFirst({ where: { id, deletedAt: null } }), 'Запись');
     if (isVulnRegister(reg)) await releaseVulnKeys(tx, [id]);
     await auditSettings(tx, actor, {
       action: 'register_record.deleted', entity: 'register_record', entityId: id,
-      summary: `«${reg.name}»: удалена запись #${row.number}`,
+      summary: `«${reg.name}»: удалена запись #${row.number}. Причина: ${reasonText(why.reasonCode, why.reason)}`,
       before: await deletedSnapshot(tx, reg, row),
+      after: { deletionId, ...why, ...(snapshot[0] ? { status: snapshot[0].status, open: snapshot[0].open, due: snapshot[0].due } : {}) },
     });
   });
 }

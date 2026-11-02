@@ -652,7 +652,7 @@ async function runAutomationsNow(db: Db, opts: { now?: Date; registerId?: string
     if (!lock?.ok) return { ran: false, today, rules: 0, checked: 0, created: 0, tasksCreated: 0, tasksCommented: 0 };
     const rules = await tx.registerAutomation.findMany({
       where: {
-        enabled: true, archivedAt: null, deletedAt: null, register: { archivedAt: null },
+        enabled: true, archivedAt: null, deletedAt: null, register: { archivedAt: null, deletedAt: null },
         ...(opts.registerId ? { registerId: opts.registerId } : {}),
       },
       orderBy: { createdAt: 'asc' },

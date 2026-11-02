@@ -56,7 +56,11 @@ export const Task = z.object({
   actions: z.array(z.enum(PROCESS_ACTIONS)),
 });
 const TaskDetail = Task.extend({
-  record: z.object({ id: z.string(), registerId: z.string(), registerName: z.string(), number: z.number().int(), title: z.string() }).nullable(),
+  record: z.object({
+    id: z.string(), registerId: z.string(), registerName: z.string(), number: z.number().int(), title: z.string(),
+    /** 1.6.1: реестр или запись удалены — задача остаётся. */
+    registerDeleted: z.boolean(), recordDeleted: z.boolean(),
+  }).nullable(),
   /** Метки и их e-mail: если ответственного нет, сотрудник ИБ пишет им вручную (для справки: письма портал не отправляет). */
   recipients: z.array(z.object({ label: z.string(), emails: z.array(z.string()) })),
   mail: z.object({

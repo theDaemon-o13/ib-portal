@@ -358,7 +358,7 @@ describe('разделы методики', () => {
     inTx(async (tx) => {
       const facts = await assetFacts(tx, NOW);
       const sections = await assetSections(tx, facts);
-      expect(sections.map((s) => s.code)).toEqual(['1.2', '2.2', '2.3', '3.2', '5.2', '8.2', '9.2', '9.3']);
+      expect(sections.map((s) => s.code)).toEqual(['1.2', '2.2', '2.3', '3.2', '5.2', '5.3', '8.2', '9.2', '9.3']);
       const s = must(sections.find((x) => x.code === '2.2'));
       expect([s.name, s.domainNo, s.domainName]).toEqual(['Инвентаризация активов', 2, 'Управление активами']);
       expect(s.target).toContain('единая база активов');
@@ -402,7 +402,7 @@ describe('маршруты', () => {
       const S = await login(staff.login);
       const checks = await app.inject({ url: '/api/v1/assets/checks', headers: { cookie: S } });
       expect(checks.statusCode).toBe(200);
-      expect(checks.json<{ sections: unknown[] }>().sections.length).toBe(8);
+      expect(checks.json<{ sections: unknown[] }>().sections.length).toBe(9);
       // Текст методики виден сотруднику, сам раздел самооценки — нет.
       expect((await app.inject({ url: '/api/v1/assessments', headers: { cookie: S } })).statusCode).toBe(403);
     }));

@@ -61,8 +61,8 @@ export async function detectFileProfile(db: Db, fileName: string): Promise<Profi
 
 /** Импорт со страницы группы: какой профиль у файла и есть ли его узел в группе. */
 export async function groupScanTarget(db: Db, groupId: string, fileName: string) {
-  const group = await db.vulnGroup.findUnique({ where: { id: groupId }, include: { nodes: { select: { id: true, systemTypeId: true } } } });
-  if (!group) throw notFound('Группа');
+  const group = await db.vulnGroup.findUnique({ where: { id: groupId }, include: { nodes: { where: { deletedAt: null }, select: { id: true, systemTypeId: true } } } });
+  if (!group || group.deletedAt) throw notFound('Группа');
   if (group.systemKey) throw conflict('LEGACY_NODE', 'В «Без группы» сканы не загружаются. Откройте другую группу');
   const detected = await detectFileProfile(db, fileName);
   return { detected, nodeId: detected ? group.nodes.find((n) => n.systemTypeId === detected.id)?.id ?? null : null };

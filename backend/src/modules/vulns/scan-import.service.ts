@@ -18,6 +18,7 @@ import { describeChanges, nextNumbers } from '../registers/records.service.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 import { CRIT_LABELS, optionByKey, VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { applyDerived } from './derive.js';
+import { reasonText, vulnKeyOf } from '../trash/service.js';
 import { checkNewNode, loadNode, nodeLabel } from './groups.service.js';
 import { keyNorm } from './keys.js';
 import { detectFileProfile, type ProfileType } from './profiles.js';
@@ -35,7 +36,8 @@ const OPTION_ALIASES: Partial<Record<keyof VulnFields, Record<string, string>>> 
 type OptionKey = 'level' | 'exploit' | 'vector';
 const OPTION_KEYS: readonly OptionKey[] = ['level', 'exploit', 'vector'];
 
-export type ScanGroup = 'new' | 'reopened' | 'changed' | 'unchanged';
+/** deleted — ключ записи, удалённой в этом узле (1.6.1): по умолчанию не выбрана, выбор заводит новую запись. */
+export type ScanGroup = 'new' | 'reopened' | 'changed' | 'unchanged' | 'deleted';
 
 export interface ScanFieldChange {
   fieldId: string;
@@ -64,6 +66,8 @@ export interface ScanItem {
   becomesOverdue: boolean;
   /** Запись закрыта не как «Устранена» («Риск принят»): не открывается, поля обновляются. */
   closedStatus: string | null;
+  /** «Была удалена»: номер удалённой записи, причина и дата удаления. */
+  deleted?: { number: number; reason: string; deletedAt: string } | null;
 }
 
 export interface ScanGoneItem {
@@ -102,7 +106,7 @@ export interface ScanSummary {
   /** Новые записи по критичности. */
   critCounts: { key: CritKey; label: string; count: number }[];
   newOptions: { field: string; values: string[] }[];
-  groups: { new: ScanItem[]; reopened: ScanItem[]; changed: ScanItem[]; unchanged: ScanItem[]; gone: ScanGoneItem[] };
+  groups: { new: ScanItem[]; reopened: ScanItem[]; changed: ScanItem[]; unchanged: ScanItem[]; deleted?: ScanItem[]; gone: ScanGoneItem[] };
   /** Запись узла в архиве — строка файла её не трогает. */
   archived: { number: number; pkg: string; cve: string }[];
   /** Система из прошлого импорта узла: предзаполняет окно. */
@@ -145,6 +149,31 @@ async function nodeRecords(db: Db, nodeId: string): Promise<NodeRecord[]> {
     FROM vuln_records v JOIN register_records r ON r.id = v.record_id
     WHERE v.node_id = ${nodeId}::uuid AND v.key_norm IS NOT NULL AND r.deleted_at IS NULL
     ORDER BY r.number`;
+}
+
+type DeletedInfo = NonNullable<ScanItem['deleted']>;
+
+/**
+ * Удалённые записи узла по ключу «Пакет + Идентификатор» (ключ считается из значений: при удалении узел его освобождает).
+ * Последнее удаление ключа; восстановленные записи — уже не удалённые. Удалённые до 1.6.1 — «причина не указана».
+ */
+async function deletedRecords(db: Db, reg: RegisterDef, nodeId: string): Promise<Map<string, DeletedInfo>> {
+  const rows = await db.$queryRaw<{ number: number; values: Values; deleted_at: Date; reason_code: string | null; reason: string | null }[]>`
+    SELECT r.number, r."values", r.deleted_at, d.reason_code, d.reason
+    FROM vuln_records v JOIN register_records r ON r.id = v.record_id LEFT JOIN deletions d ON d.id = r.deletion_id
+    WHERE v.node_id = ${nodeId}::uuid AND r.deleted_at IS NOT NULL
+    ORDER BY r.deleted_at`;
+  const out = new Map<string, DeletedInfo>();
+  for (const r of rows) {
+    const key = vulnKeyOf(reg, r.values);
+    if (!key) continue;
+    out.set(key, {
+      number: r.number,
+      reason: r.reason_code === null && r.reason === null ? 'причина не указана' : reasonText(r.reason_code, r.reason ?? ''),
+      deletedAt: r.deleted_at.toISOString(),
+    });
+  }
+  return out;
 }
 
 /** Существующее значение списка по системному ключу (через синонимы) или по подписи, без учёта регистра. */
@@ -233,10 +262,13 @@ interface Classified {
 }
 
 /** Раскладывает строки файла по группам. Одна функция для предпросмотра и применения: версии проверены — результат тот же. */
-function classify(reg: RegisterDef, vf: VulnFields, rows: readonly ScanRow[], known: readonly NodeRecord[], calendar: WorkCalendar | null): Classified {
+function classify(
+  reg: RegisterDef, vf: VulnFields, rows: readonly ScanRow[], known: readonly NodeRecord[], calendar: WorkCalendar | null,
+  deletedOf: ReadonlyMap<string, DeletedInfo> = new Map(),
+): Classified {
   const recordOf = new Map(known.map((k) => [k.key, k]));
   const rowOf = new Map<string, ScanRow>();
-  const out: Classified = { items: { new: [], reopened: [], changed: [], unchanged: [] }, gone: [], archived: [], rowOf, recordOf };
+  const out: Classified = { items: { new: [], reopened: [], changed: [], unchanged: [], deleted: [] }, gone: [], archived: [], rowOf, recordOf };
   const today = todayIso();
   const option = optionResolver(vf);
   for (const r of rows) {
@@ -246,7 +278,10 @@ function classify(reg: RegisterDef, vf: VulnFields, rows: readonly ScanRow[], kn
     const base = { key, sheet: r.sheet, row: r.row, pkg: r.pkg, cve: r.cve, cvss: r.cvss, score, crit: critLabel(vf, crit) };
     const rec = recordOf.get(key);
     if (!rec) {
-      out.items.new.push({ ...base, recordId: null, number: null, changes: [], dueBefore: null, dueAfter: null, becomesOverdue: false, closedStatus: null });
+      const item: ScanItem = { ...base, recordId: null, number: null, changes: [], dueBefore: null, dueAfter: null, becomesOverdue: false, closedStatus: null };
+      const deleted = deletedOf.get(key);
+      if (deleted) out.items.deleted.push({ ...item, deleted });
+      else out.items.new.push(item);
       continue;
     }
     if (rec.archived) {
@@ -313,7 +348,7 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
   const { unique, duplicates } = mergeDuplicates(parsed.rows);
   const known = nodeId ? await nodeRecords(db, nodeId) : [];
   const calendar = await calendarFor(db, reg);
-  const c = classify(reg, vf, unique, known, calendar);
+  const c = classify(reg, vf, unique, known, calendar, nodeId ? await deletedRecords(db, reg, nodeId) : new Map());
 
   const previous = nodeId ? await previousScanOf(db, nodeId) : null;
   const hostKeys = (hosts: readonly ScanHostRow[]) => new Set(hosts.map((h) => norm(h.name)));
@@ -326,7 +361,7 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
     : { newHosts: [], goneHosts: [] };
 
   const critCounts = new Map<CritKey, number>();
-  for (const i of c.items.new) {
+  for (const i of [...c.items.new, ...c.items.deleted]) {
     const { crit } = rowScore(vf, c.rowOf.get(i.key) as ScanRow);
     critCounts.set(crit, (critCounts.get(crit) ?? 0) + 1);
   }
@@ -337,7 +372,7 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
     if (![...set].some((l) => norm(l) === norm(label))) set.add(label);
     newLabels.set(key, set);
   };
-  for (const i of c.items.new) noteNew('pkg', i.pkg);
+  for (const i of [...c.items.new, ...c.items.deleted]) noteNew('pkg', i.pkg);
   for (const r of unique) for (const k of OPTION_KEYS) noteNew(k, r[k]);
 
   const detected = await detectFileProfile(db, fileName);
@@ -348,6 +383,7 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
   if (prevDate && parsed.reportDate && parsed.reportDate < prevDate) warnings.push(`Дата скана раньше прошлого скана узла (${formatDateRu(prevDate)})`);
   if (coverage.goneHosts.length) warnings.push(`Из охвата выбыли хосты (${coverage.goneHosts.length}): часть «Пропавших» могла просто не сканироваться`);
   if (c.archived.length) warnings.push(`Записей в архиве, которые есть в файле: ${c.archived.length} — они не обновятся`);
+  if (c.items.deleted.length) warnings.push(`Снова пришли удалённые записи: ${c.items.deleted.length} — по умолчанию не загружаются, отметьте нужные в группе «Были удалены»`);
   if (parsed.errors.length > MAX_LIST) warnings.push(`Показаны первые ${MAX_LIST} пропущенных строк`);
 
   const prevSystem = (previous?.comparison as { systemId?: string | null } | null)?.systemId ?? null;
@@ -367,7 +403,7 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
     warnings,
     previousScan: previous && prevDate ? { id: previous.id, scanDate: prevDate, fileName: previous.fileName, handedOver: previous.handedOverOn !== null } : null,
     coverage,
-    counts: { new: c.items.new.length, reopened: c.items.reopened.length, changed: c.items.changed.length, unchanged: c.items.unchanged.length, gone: c.gone.length },
+    counts: { new: c.items.new.length, reopened: c.items.reopened.length, changed: c.items.changed.length, unchanged: c.items.unchanged.length, deleted: c.items.deleted.length, gone: c.gone.length },
     critCounts: (['critical', 'high', 'medium', 'low'] as const)
       .filter((k) => critCounts.has(k))
       .map((k) => ({ key: k, label: critLabel(vf, k), count: critCounts.get(k) ?? 0 })),
@@ -422,7 +458,7 @@ export interface ApplyScanInput {
   /** Система новых записей: от неё правила п. 7.4 находят владельца. Не указано — из прошлого импорта узла. */
   systemId?: string | null;
   /** Выбор по строкам — ключи групп. Не указано: новые, повторные и изменившиеся все, пропавшие никакие. */
-  selected?: { new?: string[]; reopened?: string[]; changed?: string[]; gone?: string[] };
+  selected?: { new?: string[]; reopened?: string[]; changed?: string[]; deleted?: string[]; gone?: string[] };
   /** «Я проверил, файл относится к этому узлу»: обязательно, если профиль файла не совпал с типом узла. */
   profileConfirmed?: boolean;
   /** Право «Конструктор реестров»: без него узел при применении не создаётся. */
@@ -495,9 +531,10 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     }
 
     const calendar = await calendarFor(tx, reg);
-    const c = classify(reg, vf, payload.rows, known, calendar);
+    const c = classify(reg, vf, payload.rows, known, calendar, await deletedRecords(tx, reg, node.id));
     const chosen = {
       new: pick(c.items.new, input.selected?.new, true, 'Новые'),
+      deleted: pick(c.items.deleted, input.selected?.deleted, false, 'Были удалены'),
       reopened: pick(c.items.reopened, input.selected?.reopened, true, 'Повторно обнаружены'),
       changed: pick(c.items.changed, input.selected?.changed, true, 'Изменились'),
       gone: pick(c.gone, input.selected?.gone, false, 'Пропали'),
@@ -520,7 +557,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       createdOptions.push(`${field.label}: «${o.label}»`);
       return o.id;
     };
-    for (const k of [...chosen.new, ...chosen.reopened, ...chosen.changed]) {
+    for (const k of [...chosen.new, ...chosen.deleted, ...chosen.reopened, ...chosen.changed]) {
       const r = c.rowOf.get(k) as ScanRow;
       for (const o of OPTION_KEYS) await ensureOption(o, r[o]);
     }
@@ -528,14 +565,14 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
 
     // Подпись и отдел — для реестра и отката на 1.1.0: «Отчёт сканирования» и «Отдел» заполняются охватом скана.
     let reportOption: string | null = null;
-    if (chosen.new.size || chosen.reopened.size) {
+    if (chosen.new.size || chosen.deleted.size || chosen.reopened.size) {
       const base = `${payload.coverageTitle || nodeLabel(node)} · ${formatDateRu(scanDate)}`;
       let label = base;
       for (let n = 2; vf.report.options.some((o) => norm(o.label) === norm(label)); n++) label = `${base} (${n})`;
       reportOption = await ensureOption('report', label);
     }
     const coverage = payload.coverageTitle.trim();
-    const departmentId = coverage && chosen.new.size ? departmentOption(vf, coverage)?.id ?? await ensureOption('department', coverage) : null;
+    const departmentId = coverage && (chosen.new.size || chosen.deleted.size) ? departmentOption(vf, coverage)?.id ?? await ensureOption('department', coverage) : null;
 
     const users = await loadUsers(tx);
     const statusOpen = optionByKey(vf.status, 'open');
@@ -543,9 +580,10 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
 
     // Новые записи — до скана: скан не меняется, а в его сравнении нужны их номера.
     const createdByKey = new Map<string, { id: string; number: number }>();
-    let number = chosen.new.size ? await nextNumbers(tx, reg.id, chosen.new.size) : 0;
-    for (const i of c.items.new) {
-      if (!chosen.new.has(i.key)) continue;
+    // Выбранные «Были удалены» заводятся новыми записями: удалённая остаётся в корзине.
+    const toCreate = [...c.items.new.filter((i) => chosen.new.has(i.key)), ...c.items.deleted.filter((i) => chosen.deleted.has(i.key))];
+    let number = toCreate.length ? await nextNumbers(tx, reg.id, toCreate.length) : 0;
+    for (const i of toCreate) {
       const r = c.rowOf.get(i.key) as ScanRow;
       const raw: Values = {
         [vf.cve.id]: r.cve, [vf.status.id]: statusOpen,
@@ -573,17 +611,17 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       await auditSettings(tx, actor, {
         action: 'register_record.created', entity: 'register_record', entityId: rec.id,
         summary: `«${reg.name}»: создана запись #${number} из скана «${summary.fileName}» (${nodeLabel(node)})`,
-        after: { registerId: reg.id, number, via: 'scan_import', importId, nodeId: node.id, sheet: r.sheet, row: r.row },
+        after: { registerId: reg.id, number, via: 'scan_import', importId, nodeId: node.id, sheet: r.sheet, row: r.row, ...(i.deleted ? { wasDeleted: i.deleted } : {}) },
       });
       number++;
     }
 
     const selectedOf = (group: ScanGroup, key: string) => (group === 'unchanged' ? true : chosen[group].has(key));
     const groupOf = new Map<string, ScanGroup>();
-    for (const g of ['new', 'reopened', 'changed', 'unchanged'] as const) for (const i of c.items[g]) groupOf.set(i.key, g);
+    for (const g of ['new', 'reopened', 'changed', 'unchanged', 'deleted'] as const) for (const i of c.items[g]) groupOf.set(i.key, g);
     const brief = (g: ScanGroup) => c.items[g].map((i) => ({
       key: i.key, pkg: i.pkg, cve: i.cve, recordId: i.recordId ?? createdByKey.get(i.key)?.id ?? null, number: i.number ?? createdByKey.get(i.key)?.number ?? null,
-      selected: selectedOf(g, i.key), changes: i.changes, closedStatus: i.closedStatus,
+      selected: selectedOf(g, i.key), changes: i.changes, closedStatus: i.closedStatus, ...(i.deleted ? { deleted: i.deleted } : {}),
     }));
     const findings = payload.rows.map((r) => {
       const key = keyNorm(r.pkg, r.cve);
@@ -592,7 +630,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       return { ...r, key, score, crit, critLabel: critLabel(vf, crit), group, selected: group ? selectedOf(group, key) : false };
     });
     const comparison = {
-      groups: { new: brief('new'), reopened: brief('reopened'), changed: brief('changed'), unchanged: brief('unchanged'), gone: c.gone.map((g) => ({ ...g, selected: chosen.gone.has(g.key) })) },
+      groups: { new: brief('new'), reopened: brief('reopened'), changed: brief('changed'), unchanged: brief('unchanged'), deleted: brief('deleted'), gone: c.gone.map((g) => ({ ...g, selected: chosen.gone.has(g.key) })) },
       counts: summary.counts,
       critCounts: summary.critCounts,
       coverage: summary.coverage,
@@ -685,7 +723,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
 
     await tx.registerImport.update({ where: { id: importId }, data: { status: 'applied', appliedAt: new Date() } });
     const result = {
-      scanId: scan.id, created: chosen.new.size, reopened: chosen.reopened.size, changed: chosen.changed.size,
+      scanId: scan.id, created: createdByKey.size, reopened: chosen.reopened.size, changed: chosen.changed.size,
       unchanged: c.items.unchanged.length, gone: chosen.gone.size, skipped: summary.errorRows,
     };
     await auditSettings(tx, actor, {

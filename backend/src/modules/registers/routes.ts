@@ -1,14 +1,16 @@
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import type { FileStore } from '../../lib/file-store.js';
-import { badRequest, conflict } from '../../lib/errors.js';
+import { badRequest, conflict, forbidden } from '../../lib/errors.js';
 import { isVulnRegister } from '../vulns/definition.js';
 import { TEXT_MAX_MULTILINE } from '../../lib/field-settings.js';
 import { PageQuery } from '../../lib/pagination.js';
 import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
+import { RECORD_REASONS } from '../trash/service.js';
 import { actorOf } from '../settings/common.js';
 import { assetImportAdapter } from '../assets/import.js';
 import { registerAnalytics } from './analytics.service.js';
@@ -119,10 +121,25 @@ const RegisterListItem = z.object({
   description: z.string(),
   owner: z.object({ id: z.string(), fullName: z.string() }).nullable(),
   archived: z.boolean(),
+  /** Системный реестр: не удаляется (1.6.1) и не архивируется. */
+  system: z.boolean(),
   version: z.number().int(),
   fieldCount: z.number().int(),
   recordCount: z.number().int(),
 });
+
+/** Причина удаления записей (1.6.1): из списка, «Другое» — с текстом; «Ложное срабатывание» — только у уязвимостей. */
+const RecordReason = z.object({ reasonCode: z.enum(RECORD_REASONS), reason: z.string().max(4000).nullish() });
+
+/**
+ * Записи уязвимостей удаляет только «Удаление данных» (data.delete): удаление открытой записи снимает её с просрочек
+ * и эскалаций п. 7.4. Записи остальных реестров — records.delete, как раньше.
+ */
+const recordDelete = requireAnyPerm(['records.delete', 'data.delete']);
+function assertCanDeleteRecords(request: FastifyRequest, reg: { systemKey: string | null }) {
+  const need = isVulnRegister(reg) ? 'data.delete' : 'records.delete';
+  if (!request.user?.permissions.has(need)) throw forbidden();
+}
 const Decision = z.object({
   optionId: z.string(), label: z.string(), documentTitle: z.string(), documentNumber: z.string(), documentDate: z.string(),
   hasFile: z.boolean(), fileId: z.string(), reviewDue: z.string().nullable(), decidedAt: z.string(), decidedBy: z.string(),
@@ -286,6 +303,33 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       schema: { tags: ['registers'], summary, params: IdParams, body: Version, response: { 200: RegisterDetail, ...errors } },
     }, async (request) => asDetail(await structure.setRegisterArchived(db, actorOf(request), request.params.id, request.body.version, archived)));
   }
+
+  // ------------------------------------------------------------ удаление реестра (1.6.1, ADR-0033)
+  const dataDelete = requirePerm('data.delete');
+  app.post('/registers/:id/delete/preview', {
+    preHandler: dataDelete,
+    schema: {
+      tags: ['registers'], summary: 'Удалить реестр: что скроется; системный или со ссылками из полей-связей — blocked', params: IdParams,
+      response: {
+        200: z.object({
+          name: z.string(), system: z.boolean(),
+          linkedBy: z.array(z.object({ registerId: z.string(), register: z.string(), field: z.string() })),
+          counts: z.object({ records: z.number().int(), automations: z.number().int() }),
+          blocked: z.boolean(),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => structure.previewRegisterDelete(db, request.params.id));
+
+  app.post('/registers/:id/delete', {
+    preHandler: dataDelete,
+    schema: {
+      tags: ['registers'], summary: 'Удалить реестр (мягко, в корзину): причина и ввод названия', params: IdParams,
+      body: z.object({ reason: z.string().max(4000), confirmName: z.string().max(400) }),
+      response: { 200: z.object({ deletionId: z.string(), counts: z.object({ records: z.number().int(), automations: z.number().int() }) }), ...errors },
+    },
+  }, async (request) => structure.deleteRegister(db, actorOf(request), request.params.id, request.body));
 
   // ------------------------------------------------------------ поля
   app.post('/registers/:id/fields', {
@@ -545,10 +589,15 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   }, async (request) => ({ items: await decisions.listDecisions(db, request.params.id, request.query.fieldId) }));
 
   app.post('/register-records/:id/delete', {
-    preHandler: requirePerm('records.delete'),
-    schema: { tags: ['register-records'], summary: 'Удалить запись (мягкое удаление)', params: IdParams, body: Version, response: { 204: z.null(), ...errors } },
+    preHandler: recordDelete,
+    schema: {
+      tags: ['register-records'], summary: 'Удалить запись (мягко, в корзину, с причиной). Уязвимости — право data.delete', params: IdParams,
+      body: Version.merge(RecordReason), response: { 204: z.null(), ...errors },
+    },
   }, async (request, reply) => {
-    await records.deleteRecord(db, actorOf(request), request.params.id, request.body.version);
+    assertCanDeleteRecords(request, await records.registerOfRecord(db, request.params.id));
+    const { version, ...reason } = request.body;
+    await records.deleteRecord(db, actorOf(request), request.params.id, version, reason);
     return reply.status(204).send(null);
   });
 
@@ -601,40 +650,53 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     request.body.action === 'archive' ? 'массовая отправка в архив' : 'массовый возврат из архива'));
 
   app.post('/registers/:id/records/bulk-delete/preview', {
-    preHandler: requirePerm('records.delete'),
+    preHandler: recordDelete,
     schema: {
       tags: ['register-records'], summary: 'Удалить выбранные: предпросмотр (записи с зависимостями уйдут в архив)', params: IdParams,
       body: z.object({ selection: BulkSelection }),
       response: { 200: BulkPreview, ...errors },
     },
-  }, async (request) => bulk.previewBulk(db, request.params.id, 'delete', await toSelection(request.params.id, request.body.selection)));
+  }, async (request) => {
+    assertCanDeleteRecords(request, await loadRegister(db, request.params.id));
+    return bulk.previewBulk(db, request.params.id, 'delete', await toSelection(request.params.id, request.body.selection));
+  });
 
   app.post('/registers/:id/records/bulk-delete/apply', {
-    preHandler: requirePerm('records.delete'),
+    preHandler: recordDelete,
     schema: {
-      tags: ['register-records'], summary: 'Удалить выбранные: применить (мягкое удаление пакетами, с журналом)', params: IdParams,
-      body: z.object({ selection: BulkSelection, expected: Expected }),
+      tags: ['register-records'], summary: 'Удалить выбранные: применить (мягко, в корзину одним событием, с одной причиной)', params: IdParams,
+      body: z.object({ selection: BulkSelection, expected: Expected }).merge(RecordReason),
       response: { 200: BulkResult, ...errors },
     },
-  }, async (request) => bulk.applyBulk(db, actorOf(request), request.params.id, 'delete',
-    await toSelection(request.params.id, request.body.selection), request.body.expected, 'массовое удаление'));
+  }, async (request) => {
+    assertCanDeleteRecords(request, await loadRegister(db, request.params.id));
+    const { selection, expected, ...reason } = request.body;
+    return bulk.applyBulk(db, actorOf(request), request.params.id, 'delete', await toSelection(request.params.id, selection), expected, 'массовое удаление', reason);
+  });
 
   app.post('/registers/:id/records/delete-all/preview', {
-    preHandler: requirePerm('records.delete'),
+    preHandler: recordDelete,
     schema: {
       tags: ['register-records'], summary: 'Удалить все записи реестра (включая архивные): предпросмотр', params: IdParams,
       response: { 200: BulkPreview, ...errors },
     },
-  }, async (request) => bulk.previewBulk(db, request.params.id, 'delete', { all: true }));
+  }, async (request) => {
+    assertCanDeleteRecords(request, await loadRegister(db, request.params.id));
+    return bulk.previewBulk(db, request.params.id, 'delete', { all: true });
+  });
 
   app.post('/registers/:id/records/delete-all/apply', {
-    preHandler: requirePerm('records.delete'),
+    preHandler: recordDelete,
     schema: {
-      tags: ['register-records'], summary: 'Удалить все записи реестра: применить; confirmName — название реестра', params: IdParams,
-      body: z.object({ confirmName: z.string().max(300), expected: Expected }),
+      tags: ['register-records'], summary: 'Удалить все записи реестра: применить; confirmName — название реестра, причина', params: IdParams,
+      body: z.object({ confirmName: z.string().max(300), expected: Expected }).merge(RecordReason),
       response: { 200: BulkResult, ...errors },
     },
-  }, async (request) => bulk.deleteAllRecords(db, actorOf(request), request.params.id, request.body.confirmName, request.body.expected));
+  }, async (request) => {
+    assertCanDeleteRecords(request, await loadRegister(db, request.params.id));
+    const { confirmName, expected, ...reason } = request.body;
+    return bulk.deleteAllRecords(db, actorOf(request), request.params.id, confirmName, expected, reason);
+  });
 
   // ------------------------------------------------------------ сравнение с реестром (релиз 1.1.0, ADR-0017)
   const ScopeOut = z.union([

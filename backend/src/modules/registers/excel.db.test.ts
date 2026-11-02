@@ -249,7 +249,7 @@ describe('реестры по HTTP: права на маршрутах, загр
       const created = await app.inject({ method: 'POST', url: `${base}/records`, headers: { cookie: S }, payload: { values: { [x.f.title]: 'От сотрудника' } } });
       expect(created.statusCode).toBe(201);
       const rec = created.json() as { id: string; version: number };
-      const del = { method: 'POST' as const, url: `/api/v1/register-records/${rec.id}/delete`, payload: { version: rec.version } };
+      const del = { method: 'POST' as const, url: `/api/v1/register-records/${rec.id}/delete`, payload: { version: rec.version, reasonCode: 'duplicate' } };
       expect((await app.inject({ ...del, headers: { cookie: S } })).statusCode).toBe(403);
       expect((await app.inject({ ...del, headers: { cookie: A } })).statusCode).toBe(204);
 

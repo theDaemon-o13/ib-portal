@@ -55,10 +55,11 @@ export async function overview(db: Db) {
     stats.set(r.nodeId, s);
   }
   const scans = await db.vulnScan.findMany({
+    where: { node: { deletedAt: null, group: { deletedAt: null } } },
     select: { id: true, nodeId: true, scanDate: true, fileName: true, handedOverOn: true, createdAt: true, legacyReportId: true },
     orderBy: [{ scanDate: 'desc' }, { createdAt: 'desc' }],
   });
-  const nodes = await db.vulnNode.findMany({ include: { group: true, systemType: true } });
+  const nodes = await db.vulnNode.findMany({ where: { deletedAt: null, group: { deletedAt: null } }, include: { group: true, systemType: true } });
   const labels = new Map(nodes.map((n) => [n.id, nodeLabel(n)]));
   const { scanMaxAgeDays } = await getVulnSettings(db);
   const nodeStats = nodes.map((n) => {

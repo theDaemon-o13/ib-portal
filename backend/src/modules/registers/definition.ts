@@ -88,7 +88,8 @@ export async function loadRegister(db: Db, id: string): Promise<RegisterDef> {
       },
     },
   });
-  if (!r) throw notFound('Реестр');
+  // Удалённый реестр (1.6.1) — как несуществующий: открывается только из корзины.
+  if (!r || r.deletedAt) throw notFound('Реестр');
   return {
     id: r.id,
     name: r.name,

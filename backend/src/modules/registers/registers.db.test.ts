@@ -265,7 +265,7 @@ describe('записи', () => {
       expect((await records.listRecords(tx, x.reg.id, { limit: 10 })).total).toBe(0);
       expect((await records.listRecords(tx, x.reg.id, { limit: 10, includeArchived: true })).total).toBe(1);
       await expectCode(records.updateRecord(tx, x.actor, r.id, { version: a.version, values: { [x.f.score]: 1 } }), 'RECORD_ARCHIVED');
-      await records.deleteRecord(tx, x.actor, r.id, a.version);
+      await records.deleteRecord(tx, x.actor, r.id, a.version, { reasonCode: 'duplicate' });
       expect((await tx.registerRecord.findUniqueOrThrow({ where: { id: r.id } })).deletedAt).not.toBeNull();
       expect((await lastAudit(tx)).diff).toMatchObject({ before: { values: { 'Наименование': 'Удаляемая', 'Баллы': '7' } } });
       await expectCode(records.getRecord(tx, r.id), 'NOT_FOUND');

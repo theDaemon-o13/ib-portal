@@ -86,7 +86,7 @@ describe('импорт скана в узел: образец', () => {
       const before = await tx.registerRecord.count({ where: { registerId: x.reg.id } });
       const p = await scan.previewNodeScan(tx, store, x.actor, node.id, SAMPLE, SAMPLE_NAME);
       const s = p.summary;
-      expect(s.counts).toEqual({ new: 90, reopened: 0, changed: 0, unchanged: 0, gone: 0 });
+      expect(s.counts).toEqual({ new: 90, reopened: 0, changed: 0, unchanged: 0, deleted: 0, gone: 0 });
       expect([s.hostsCount, s.coverageTitle, s.scanDate, s.rows, s.inFileDuplicates, s.errorRows, s.previousScan]).toEqual([12, 'Отдел платёжных карт', '2026-10-15', 90, 0, 0, null]);
       expect(s.critCounts.reduce((n, c) => n + c.count, 0)).toBe(90);
       const item = (cve: string) => must(s.groups.new.find((i) => i.cve === cve));
@@ -110,7 +110,7 @@ describe('импорт скана в узел: образец', () => {
       expect(scanRow.scanDate.toISOString().slice(0, 10)).toBe('2026-10-15');
       expect(scanRow.file).toMatchObject({ originalName: SAMPLE_NAME, sha256: scanRow.fileSha256 });
       expect((scanRow.findings as { key: string; score: number | null; group: string }[]).find((f) => f.key === sampleKey('Adobe Adobe Acrobat DC', 'CVE-2026-34621'))).toMatchObject({ score: 8.2, group: 'new', selected: true });
-      expect((scanRow.comparison as { counts: unknown }).counts).toEqual({ new: 90, reopened: 0, changed: 0, unchanged: 0, gone: 0 });
+      expect((scanRow.comparison as { counts: unknown }).counts).toEqual({ new: 90, reopened: 0, changed: 0, unchanged: 0, deleted: 0, gone: 0 });
       expect(await tx.vulnRecord.count({ where: { nodeId: node.id } })).toBe(90);
       expect(await tx.vulnRecordScan.count({ where: { scanId: applied.scanId, outcome: 'new' } })).toBe(90);
 
@@ -133,7 +133,7 @@ describe('импорт скана в узел: образец', () => {
       const first = await load(tx, x, node.id);
       const a = await byCve(tx, x, node.id, 'CVE-2025-0411');
       const { preview, applied } = await load(tx, x, node.id, SAMPLE, 'vuln-windows-2026-10-22.xlsx');
-      expect(preview.summary.counts).toEqual({ new: 0, reopened: 0, changed: 0, unchanged: 90, gone: 0 });
+      expect(preview.summary.counts).toEqual({ new: 0, reopened: 0, changed: 0, unchanged: 90, deleted: 0, gone: 0 });
       expect(preview.summary.previousScan).toMatchObject({ id: first.applied.scanId, scanDate: '2026-10-15', handedOver: false });
       expect(preview.summary.coverage).toEqual({ newHosts: [], goneHosts: [] });
       expect(applied.unchanged).toBe(90);
@@ -193,7 +193,7 @@ describe('импорт скана: пять групп и выбор по стр
       hosts.addRow([99, 'HOST-NEW', '10.0.0.99', 'Windows 11']);
 
       const { summary: s, id } = await scan.previewNodeScan(tx, store, x.actor, node.id, await toBuffer(wb), 'vuln_2026_10_22.xlsx');
-      expect(s.counts).toEqual({ new: 1, reopened: 1, changed: 1, unchanged: 87, gone: 1 });
+      expect(s.counts).toEqual({ new: 1, reopened: 1, changed: 1, unchanged: 87, deleted: 0, gone: 1 });
       expect([s.inFileDuplicates, s.scanDate, s.sheets.length]).toEqual([1, '2026-10-22', 2]);
       expect(s.notes.map((n) => n.field)).toEqual(['CVSS']);
       expect(s.groups.new[0]).toMatchObject({ pkg: 'Новый пакет', cve: 'BDU:2026-00001', recordId: null });
@@ -276,7 +276,7 @@ describe('импорт скана: пять групп и выбор по стр
       rowOf('CVE-2025-0411').row.getCell(col('CVSS')).value = 2.2;
       drop('CVE-2025-6218');
       const { preview } = await load(tx, x, node.id, await toBuffer(wb), 'vuln-2026-10-30.xlsx');
-      expect(preview.summary.counts).toEqual({ new: 0, reopened: 0, changed: 1, unchanged: 88, gone: 0 });
+      expect(preview.summary.counts).toEqual({ new: 0, reopened: 0, changed: 1, unchanged: 88, deleted: 0, gone: 0 });
       expect(preview.summary.groups.changed[0]).toMatchObject({ closedStatus: 'Риск принят' });
       const b = await byCve(tx, x, node.id, 'CVE-2025-0411');
       expect([b.rec.display[x.vf.status.id], b.rec.values[x.vf.cvss.id], b.vuln.cycle]).toEqual(['Риск принят', 2.2, 1]);
@@ -400,20 +400,31 @@ describe('импорт скана: отказы', () => {
       const a = await byCve(tx, x, node.id, 'CVE-2025-0411');
       await records.setRecordArchived(tx, x.actor, a.rec.id, a.rec.version, true);
       const p = await scan.previewNodeScan(tx, store, x.actor, node.id, SAMPLE, SAMPLE_NAME);
-      expect(p.summary.counts).toEqual({ new: 0, reopened: 0, changed: 0, unchanged: 89, gone: 0 });
+      expect(p.summary.counts).toEqual({ new: 0, reopened: 0, changed: 0, unchanged: 89, deleted: 0, gone: 0 });
       expect(p.summary.archived.map((r) => r.number)).toEqual([a.rec.number]);
       expect(p.summary.warnings.join(' ')).toContain('Записей в архиве');
     }));
 
-  it('удалённая запись освобождает ключ: следующий скан заводит её заново', () =>
+  it('удалённая запись снова в скане (1.6.1): «Была удалена (причина)», по умолчанию не выбрана; выбор заводит новую', () =>
     inTx(async (tx) => {
       const { x, node } = await setup(tx);
       await load(tx, x, node.id);
       const a = await byCve(tx, x, node.id, 'CVE-2025-0411');
-      await records.deleteRecord(tx, x.actor, a.rec.id, a.rec.version);
-      const { preview } = await load(tx, x, node.id, SAMPLE, 'vuln-2026-10-30.xlsx');
-      expect(preview.summary.counts).toMatchObject({ new: 1, unchanged: 89 });
-      expect((await byCve(tx, x, node.id, 'CVE-2025-0411')).rec.id).not.toBe(a.rec.id);
+      await records.deleteRecord(tx, x.actor, a.rec.id, a.rec.version, { reasonCode: 'false_positive' });
+      // По умолчанию не выбрана: запись не заводится.
+      const first = await load(tx, x, node.id, SAMPLE, 'vuln-2026-10-30.xlsx');
+      expect(first.preview.summary.counts).toMatchObject({ new: 0, deleted: 1, unchanged: 89 });
+      const item = must(first.preview.summary.groups.deleted?.[0]);
+      expect(item.deleted).toMatchObject({ number: a.rec.number, reason: 'Ложное срабатывание' });
+      expect(first.preview.summary.warnings.join(' ')).toContain('Снова пришли удалённые записи: 1');
+      expect(first.applied.created).toBe(0);
+      expect(await tx.vulnRecord.count({ where: { nodeId: node.id, record: { deletedAt: null } } })).toBe(89);
+      // Выбрана — новая запись; удалённая остаётся удалённой.
+      const second = await load(tx, x, node.id, SAMPLE, 'vuln-2026-10-31.xlsx', { selected: { deleted: [item.key] } });
+      expect(second.applied.created).toBe(1);
+      const fresh = await byCve(tx, x, node.id, 'CVE-2025-0411');
+      expect(fresh.rec.id).not.toBe(a.rec.id);
+      expect((await tx.registerRecord.findUniqueOrThrow({ where: { id: a.rec.id } })).deletedAt).not.toBeNull();
     }));
 
   it('система: необязательна, у новых записей; следующий импорт узла предзаполняет её', () =>

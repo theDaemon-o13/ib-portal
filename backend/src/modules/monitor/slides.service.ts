@@ -92,7 +92,7 @@ async function checkFilter(db: Db, kind: SlideKind, f: SlideFilter): Promise<Sli
   if (kind === 'dlp') {
     const basis = await db.$queryRaw<{ id: string }[]>`
       SELECT DISTINCT g.id::text FROM register_fields f JOIN registers g ON g.id = f.register_id
-      WHERE f.deleted_at IS NULL AND g.archived_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis'`;
+      WHERE f.deleted_at IS NULL AND g.archived_at IS NULL AND g.deleted_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis'`;
     if (!f.registerId || !basis.some((b) => b.id === f.registerId)) throw badRequest('BAD_SLIDE', 'Выберите реестр со статусом основания (сверка с DLP)');
     out.registerId = f.registerId;
   }
@@ -250,7 +250,7 @@ export async function slideOptions(db: Db) {
   const kpis = await computeKpis(db);
   const basis = await db.$queryRaw<{ id: string; name: string }[]>`
     SELECT DISTINCT g.id::text, g.name FROM register_fields f JOIN registers g ON g.id = f.register_id
-    WHERE f.deleted_at IS NULL AND f.archived_at IS NULL AND g.archived_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis' ORDER BY g.name`;
+    WHERE f.deleted_at IS NULL AND f.archived_at IS NULL AND g.archived_at IS NULL AND g.deleted_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis' ORDER BY g.name`;
   return {
     kinds: SLIDE_KINDS.map((k) => ({ kind: k, label: SLIDE_KIND_NAMES[k] })),
     kpis: kpis.map((k) => ({ id: k.key, label: k.label })),

@@ -13,6 +13,8 @@ import { assertNotArchived, loadRegister, type RegisterDef } from './definition.
 import { DEPENDENCY_REASONS, recordDependencies, type DependencyReason } from './dependencies.js';
 import { deletedSnapshot, selectRecordIds, type SelectionQuery } from './records.service.js';
 import { releaseVulnKeys } from '../vulns/keys.js';
+import { isVulnRegister } from '../vulns/definition.js';
+import { checkRecordReason, createDeletion, reasonText, vulnSnapshot, type RecordReason } from '../trash/service.js';
 
 export const BULK_BATCH = 200;
 /** Явный список id — не больше; больше — выбор «все по фильтру». */
@@ -147,9 +149,10 @@ function describeSelection(selection: BulkSelection): unknown {
  */
 export async function applyBulk(
   db: Db, actor: Actor, registerId: string, action: BulkAction, selection: BulkSelection,
-  expected: Omit<BulkCounts, 'alreadyInState'>, label = 'массовое действие',
+  expected: Omit<BulkCounts, 'alreadyInState'>, label = 'массовое действие', reason?: RecordReason,
 ): Promise<BulkResult> {
   const p = await plan(db, registerId, action, selection);
+  const delReason = action === 'delete' ? checkRecordReason(reason ?? { reasonCode: '' as never }, isVulnRegister(p.reg)) : null;
   const now = countsOf(p);
   if (now.total !== expected.total || now.willDelete !== expected.willDelete || now.willArchive !== expected.willArchive || now.willRestore !== expected.willRestore) {
     throw new AppError(409, 'BULK_CHANGED', 'Записи изменились после предпросмотра — проверьте числа и подтвердите ещё раз', { preview: { ...now, byReason: p.byReason } });
@@ -160,6 +163,25 @@ export async function applyBulk(
   const restoredIds: string[] = [];
   // Причины «не удалена»: из предпросмотра плюс появившиеся к моменту применения.
   const finalReasons = new Map(p.reasons);
+
+  // Одно событие корзины на всё удаление (1.6.1): заводится до пакетов по окончательному составу — зависимости
+  // перепроверяются здесь; появившиеся позже (внутри пакета) переводят запись в архив, как раньше.
+  let deletionId: string | null = null;
+  if (delReason && p.deleteRows.length) {
+    const fresh = await dependenciesOf(db, reg, p.deleteRows);
+    const late = p.deleteRows.filter((r) => fresh.has(r.id));
+    for (const r of late) {
+      p.reasons.set(r.id, fresh.get(r.id) as DependencyReason[]);
+      if (!r.archivedAt) p.archiveRows.push(r);
+    }
+    p.deleteRows = p.deleteRows.filter((r) => !fresh.has(r.id));
+    if (p.deleteRows.length) {
+      const snapshot = await vulnSnapshot(db, reg, p.deleteRows);
+      deletionId = await createDeletion(db, actor, {
+        entity: 'register_records', entityId: reg.id, title: reg.name, ...delReason, counts: { records: p.deleteRows.length }, snapshot,
+      });
+    }
+  }
 
   // Удаление: зависимости проверяются ещё раз внутри пакета — появившаяся задача переводит запись в архив.
   const work: { row: Row; op: 'delete' | 'archive' | 'restore' }[] = [
@@ -179,13 +201,14 @@ export async function applyBulk(
         const op = w.op === 'delete' && why ? 'archive' : w.op;
         if (w.op === 'delete' && why) finalReasons.set(row.id, why);
         if (op === 'delete') {
-          const res = await tx.registerRecord.updateMany({ where: { id: row.id, deletedAt: null }, data: { deletedAt: at, version: { increment: 1 } } });
+          const res = await tx.registerRecord.updateMany({ where: { id: row.id, deletedAt: null }, data: { deletedAt: at, deletionId, version: { increment: 1 } } });
           if (!res.count) continue;
           await releaseVulnKeys(tx, [row.id]);
           await auditSettings(tx, actor, {
             action: 'register_record.deleted', entity: 'register_record', entityId: row.id,
-            summary: `«${reg.name}»: удалена запись #${row.number} (${label})`,
+            summary: `«${reg.name}»: удалена запись #${row.number} (${label}). Причина: ${delReason ? reasonText(delReason.reasonCode, delReason.reason) : '—'}`,
             before: await deletedSnapshot(tx, reg, row),
+            after: { deletionId },
           });
           deletedIds.push(row.id);
         } else if (op === 'archive') {
@@ -226,7 +249,7 @@ export async function applyBulk(
     action: `register_records.bulk_${action}`, entity: 'register', entityId: reg.id,
     summary: `«${reg.name}»: ${label} — ${parts.join(', ') || 'ничего не изменилось'}`,
     after: {
-      count: p.total, deletedIds, archivedIds, restoredIds,
+      count: p.total, deletedIds, archivedIds, restoredIds, ...(delReason ? { deletionId, ...delReason } : {}),
       reasons: Object.fromEntries(Object.entries(byReason).filter(([, n]) => n > 0)),
       selection: describeSelection(selection),
     },
@@ -236,9 +259,9 @@ export async function applyBulk(
 
 /** «Удалить все записи»: подтверждение вводом названия реестра (сверяется на сервере). */
 export async function deleteAllRecords(
-  db: Db, actor: Actor, registerId: string, confirmName: string, expected: Omit<BulkCounts, 'alreadyInState'>,
+  db: Db, actor: Actor, registerId: string, confirmName: string, expected: Omit<BulkCounts, 'alreadyInState'>, reason?: RecordReason,
 ): Promise<BulkResult> {
   const reg = await loadRegister(db, registerId);
   if (confirmName.trim() !== reg.name.trim()) throw conflict('CONFIRM_NAME', 'Название реестра введено неверно — записи не удалены');
-  return applyBulk(db, actor, registerId, 'delete', { all: true }, expected, 'удаление всех записей');
+  return applyBulk(db, actor, registerId, 'delete', { all: true }, expected, 'удаление всех записей', reason);
 }

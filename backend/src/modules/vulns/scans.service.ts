@@ -68,7 +68,8 @@ export async function getScan(db: Db, id: string) {
     where: { id },
     include: { ...withPeople, node: { include: { group: true, systemType: true } }, legacyReport: { include: { hosts: { orderBy: { sortOrder: 'asc' } } } }, previous: { select: { id: true, scanDate: true, fileName: true } } },
   });
-  if (!s) throw notFound('Скан');
+  // Скан удалённого узла скрыт вместе с ним (1.6.1).
+  if (!s || s.node.deletedAt || s.node.group.deletedAt) throw notFound('Скан');
   const cmp = (s.comparison ?? {}) as Comparison;
   const coverage = cmp.coverage ?? { newHosts: [], goneHosts: [] };
   const fresh = new Set(coverage.newHosts);
@@ -112,7 +113,7 @@ export async function handOverScan(db: Db, actor: Actor, id: string, input: Hand
   return withTx(db, async (tx) => {
     await tx.$queryRaw`SELECT id FROM vuln_scans WHERE id = ${id}::uuid FOR UPDATE`;
     const scan = await tx.vulnScan.findUnique({ where: { id }, include: { node: { include: { group: true, systemType: true } } } });
-    if (!scan) throw notFound('Скан');
+    if (!scan || scan.node.deletedAt || scan.node.group.deletedAt) throw notFound('Скан');
     if (scan.handedOverOn) throw conflict('ALREADY_HANDED_OVER', `Скан уже передан ИКТ ${formatDateRu(iso(scan.handedOverOn))}. Повторная передача и правка даты не предусмотрены`);
     if (!isIsoDate(input.date)) throw badRequest('BAD_DATE', 'Дата передачи: неверная дата');
     const scanDate = iso(scan.scanDate);

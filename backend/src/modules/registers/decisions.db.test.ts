@@ -65,7 +65,7 @@ describe('решения ОУР', () => {
       expect(ev).toMatchObject({ kind: 'decision', status: 'accepted' });
       expect(ev.files.map((f) => f.fileId)).toEqual([file.id]);
       // Файл приложен дважды (решение и доказательство) — запись больше не удаляется, только архив.
-      await expectCode(records.deleteRecord(tx, x.actor, x.rec.id, rec.version), 'HAS_DECISIONS');
+      await expectCode(records.deleteRecord(tx, x.actor, x.rec.id, rec.version, { reasonCode: 'duplicate' }), 'HAS_DECISIONS');
       const hist = await listDecisions(tx, x.rec.id);
       expect(hist[0]).toMatchObject({ label: 'Передача', file: { name: 'СЗ_ОУР_88.pdf' } });
       // Устаревший экран — 409.

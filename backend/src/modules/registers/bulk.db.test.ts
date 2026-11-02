@@ -74,7 +74,7 @@ describe('массовые действия с записями', () => {
       const p = await bulk.previewBulk(tx, x.reg.id, 'delete', sel);
       expect(p).toMatchObject({ total: 4, willDelete: 1, willArchive: 2, alreadyInState: 1, byReason: { tasks: 2, links: 1, decisions: 0, evidence: 0, locked: 0 } });
 
-      const r = await bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', sel, counts(p), 'массовое удаление');
+      const r = await bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', sel, counts(p), 'массовое удаление', { reasonCode: 'duplicate' as const });
       expect(r).toEqual({ deleted: 1, archived: 2, restored: 0, skipped: 1, byReason: { tasks: 2, links: 1, decisions: 0, evidence: 0, locked: 0 } });
       expect(await tx.registerRecord.findUnique({ where: { id: must(free).id } })).toMatchObject({ deletedAt: expect.any(Date) });
       expect(await tx.registerRecord.findUnique({ where: { id: must(withTask).id } })).toMatchObject({ deletedAt: null, archivedAt: expect.any(Date) });
@@ -92,13 +92,13 @@ describe('массовые действия с записями', () => {
       const x = await makeRegister(tx);
       const [withTask, linked] = await seed(tx, x, 2);
       await openTaskFor(tx, x, must(withTask).id);
-      await expectCode(records.deleteRecord(tx, x.actor, must(withTask).id, must(withTask).version), 'HAS_TASKS');
+      await expectCode(records.deleteRecord(tx, x.actor, must(withTask).id, must(withTask).version, { reasonCode: 'duplicate' }), 'HAS_TASKS');
       const { y, link } = await linkingRegister(tx, x);
       const ref = await records.createRecord(tx, y.actor, y.reg.id, { values: { [y.f.title]: 'Ссылка', [link]: [must(linked).id] } });
-      await expectCode(records.deleteRecord(tx, x.actor, must(linked).id, must(linked).version), 'HAS_LINKS');
+      await expectCode(records.deleteRecord(tx, x.actor, must(linked).id, must(linked).version, { reasonCode: 'duplicate' }), 'HAS_LINKS');
       // Ссылающаяся запись удалена — ссылки больше нет.
-      await records.deleteRecord(tx, y.actor, ref.id, ref.version);
-      await records.deleteRecord(tx, x.actor, must(linked).id, must(linked).version);
+      await records.deleteRecord(tx, y.actor, ref.id, ref.version, { reasonCode: 'duplicate' });
+      await records.deleteRecord(tx, x.actor, must(linked).id, must(linked).version, { reasonCode: 'duplicate' });
     }));
 
   it('если после предпросмотра выборка изменилась — 409 BULK_CHANGED, ничего не меняется', () =>
@@ -109,12 +109,12 @@ describe('массовые действия с записями', () => {
       const p = await bulk.previewBulk(tx, x.reg.id, 'delete', sel);
       expect(p).toMatchObject({ total: 3, willDelete: 3 });
       await seed(tx, x, 1, 'Новая');
-      await expectCode(bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', sel, counts(p)), 'BULK_CHANGED');
+      await expectCode(bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', sel, counts(p), undefined, { reasonCode: 'duplicate' as const }), 'BULK_CHANGED');
       expect(await tx.registerRecord.count({ where: { registerId: x.reg.id, deletedAt: null } })).toBe(4);
       // Появилась задача — запись уже не удалить, числа разошлись.
       const p2 = await bulk.previewBulk(tx, x.reg.id, 'delete', { ids: [must(a).id] });
       await openTaskFor(tx, x, must(a).id);
-      await expectCode(bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', { ids: [must(a).id] }, counts(p2)), 'BULK_CHANGED');
+      await expectCode(bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', { ids: [must(a).id] }, counts(p2), undefined, { reasonCode: 'duplicate' as const }), 'BULK_CHANGED');
     }));
 
   it('«Удалить все»: включая архивные, подтверждение названием реестра; пакеты больше 200', () =>
@@ -124,8 +124,8 @@ describe('массовые действия с записями', () => {
       await records.setRecordArchived(tx, x.actor, must(many[0]).id, must(many[0]).version, true);
       const p = await bulk.previewBulk(tx, x.reg.id, 'delete', { all: true });
       expect(p).toMatchObject({ total: 205, willDelete: 205 });
-      await expectCode(bulk.deleteAllRecords(tx, x.actor, x.reg.id, 'Реестр', counts(p)), 'CONFIRM_NAME');
-      const r = await bulk.deleteAllRecords(tx, x.actor, x.reg.id, ' Реестр для очистки ', counts(p));
+      await expectCode(bulk.deleteAllRecords(tx, x.actor, x.reg.id, 'Реестр', counts(p), { reasonCode: 'duplicate' as const }), 'CONFIRM_NAME');
+      const r = await bulk.deleteAllRecords(tx, x.actor, x.reg.id, ' Реестр для очистки ', counts(p), { reasonCode: 'duplicate' as const });
       expect(r).toMatchObject({ deleted: 205, archived: 0 });
       expect(await tx.registerRecord.count({ where: { registerId: x.reg.id, deletedAt: null } })).toBe(0);
     }));
@@ -173,13 +173,13 @@ describe('массовые действия по HTTP: права и два ша
 
       const pd = await post(A, 'bulk-delete/preview', { selection });
       expect(pd.json()).toMatchObject({ total: 3, willDelete: 3 });
-      const stale = await post(A, 'bulk-delete/apply', { selection, expected: { ...counts(pd.json()), total: 2 } });
+      const stale = await post(A, 'bulk-delete/apply', { selection, expected: { ...counts(pd.json()), total: 2 }, reasonCode: 'duplicate' });
       expect(stale.statusCode).toBe(409);
       expect(stale.json().error).toMatchObject({ code: 'BULK_CHANGED', details: { preview: { total: 3 } } });
 
       const all = await post(A, 'delete-all/preview', {});
-      expect((await post(A, 'delete-all/apply', { confirmName: 'не то', expected: counts(all.json()) })).json().error.code).toBe('CONFIRM_NAME');
-      const done = await post(A, 'delete-all/apply', { confirmName: x.reg.name, expected: counts(all.json()) });
+      expect((await post(A, 'delete-all/apply', { confirmName: 'не то', expected: counts(all.json()), reasonCode: 'duplicate' })).json().error.code).toBe('CONFIRM_NAME');
+      const done = await post(A, 'delete-all/apply', { confirmName: x.reg.name, expected: counts(all.json()), reasonCode: 'other', reason: 'Очистка тестового реестра' });
       expect(done.json()).toMatchObject({ deleted: 3, archived: 0 });
       // В списке «Архив» после удаления пусто.
       const list = await app.inject({ url: `${base}?archived=only&limit=50`, headers: { cookie: S } });

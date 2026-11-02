@@ -67,7 +67,7 @@ describe('ключ импорта: настройка поля и уникаль
       await expectCode(records.updateRecord(tx, x.actor, b.id, { version: b.version, values: { [host]: ' PC-01' } }), 'IMPORT_KEY_TAKEN');
       // Правка своей же записи (регистр) — не конфликт.
       await records.updateRecord(tx, x.actor, a.id, { version: a.version, values: { [host]: 'pc-01' } });
-      await records.deleteRecord(tx, x.actor, b.id, b.version);
+      await records.deleteRecord(tx, x.actor, b.id, b.version, { reasonCode: 'duplicate' });
       await create(tx, x, host, 'Касса (новый ПК)', 'PC-02');
 
       const reg = await x.reload();

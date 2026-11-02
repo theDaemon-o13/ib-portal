@@ -82,7 +82,7 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
       const view = await assetSettingsView(db);
       const known = (ids: string[], options: { id: string }[]) => ids.every((id) => options.some((o) => o.id === id));
       if (!known(value.significantLevelOptionIds, view.levelOptions)) throw badRequest('BAD_PARAM', 'Такой категории критичности нет');
-      if (value.dlpRegisterId && !(await db.register.findFirst({ where: { id: value.dlpRegisterId, archivedAt: null }, select: { id: true } }))) {
+      if (value.dlpRegisterId && !(await db.register.findFirst({ where: { id: value.dlpRegisterId, archivedAt: null, deletedAt: null }, select: { id: true } }))) {
         throw badRequest('BAD_PARAM', 'Такого реестра нет или он в архиве');
       }
     },
@@ -150,7 +150,7 @@ async function view(db: Db, def: ParamDef) {
 export async function listPortalParams(db: Db) {
   const assets = await assetSettingsView(db);
   const types = await db.catalogItem.findMany({ where: { catalogCode: SYSTEM_TYPES_CATALOG, deletedAt: null, archivedAt: null }, orderBy: { sortOrder: 'asc' }, select: { id: true, value: true } });
-  const registers = await db.register.findMany({ where: { archivedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true } });
+  const registers = await db.register.findMany({ where: { archivedAt: null, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true } });
   const items = [];
   for (const def of PORTAL_PARAMS) items.push(await view(db, def));
   return {

@@ -181,7 +181,7 @@ export async function listWidgets(db: Db): Promise<WidgetRef[]> {
   // Сверка с DLP (этап 8б): реестр с полями «статус основания» — виджет «Доступ без основания».
   const basisRegs = await db.$queryRaw<{ id: string; name: string }[]>`
     SELECT DISTINCT g.id::text, g.name, g.created_at FROM register_fields f JOIN registers g ON g.id = f.register_id
-    WHERE f.deleted_at IS NULL AND f.archived_at IS NULL AND g.archived_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis'
+    WHERE f.deleted_at IS NULL AND f.archived_at IS NULL AND g.archived_at IS NULL AND g.deleted_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis'
     ORDER BY g.created_at`;
   const basis = basisRegs.map((r) => ({ key: `basis:${r.id}`, title: 'Доступ без основания', kind: 'basis' as const, source: r.name, registerId: r.id }));
   return [...basis, ...fromFields, ...FIXED];

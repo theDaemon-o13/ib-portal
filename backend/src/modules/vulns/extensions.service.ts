@@ -65,11 +65,11 @@ async function scopeOf(db: Db, input: ExtensionScope): Promise<{ nodeIds: string
   if (!input.nodeId === !input.groupId) throw badRequest('BAD_SCOPE', 'Выберите область: узел или группу');
   if (input.nodeId) {
     const node = await db.vulnNode.findUnique({ where: { id: input.nodeId }, include: { group: true, systemType: true } });
-    if (!node) throw notFound('Узел');
+    if (!node || node.deletedAt || node.group.deletedAt) throw notFound('Узел');
     return { nodeIds: [node.id], label: nodeLabel(node), nodeId: node.id, groupId: null };
   }
-  const group = await db.vulnGroup.findUnique({ where: { id: input.groupId as string }, include: { nodes: true } });
-  if (!group) throw notFound('Группа');
+  const group = await db.vulnGroup.findUnique({ where: { id: input.groupId as string }, include: { nodes: { where: { deletedAt: null } } } });
+  if (!group || group.deletedAt) throw notFound('Группа');
   return { nodeIds: group.nodes.map((n) => n.id), label: `${group.name} (все узлы)`, nodeId: null, groupId: group.id };
 }
 

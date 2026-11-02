@@ -130,7 +130,7 @@ describe('фиксация полей статусом «Действует»', 
         await expectCode(records.updateRecord(tx, s.actor, rec.id, { version: rec.version, values: { [s.P(label)]: v } }), 'FIELD_LOCKED');
       }
       await expectCode(records.updateRecord(tx, s.actor, rec.id, { version: rec.version, values: { [s.P('Статус')]: s.opt(s.perm, 'Статус', 'Оформляется') } }), 'STATUS_LOCKED');
-      await expectCode(records.deleteRecord(tx, s.actor, rec.id, rec.version), 'RECORD_LOCKED');
+      await expectCode(records.deleteRecord(tx, s.actor, rec.id, rec.version, { reasonCode: 'duplicate' }), 'RECORD_LOCKED');
 
       // Пустое зафиксированное поле заполнить можно; остальные поля — как обычно; статус — на другой фиксирующий.
       rec = await records.updateRecord(tx, s.actor, rec.id, { version: rec.version, values: { [s.P('Кто разрешил')]: 'Председатель правления', [s.P('Место хранения оригинала')]: 'Дело 7, папка 2' } });
@@ -138,7 +138,7 @@ describe('фиксация полей статусом «Действует»', 
       rec = await records.updateRecord(tx, s.actor, rec.id, { version: rec.version, values: { [s.P('Статус')]: s.opt(s.perm, 'Статус', 'Отозвано') } });
       expect(rec.closed).toBe(true);
       // Отозванное разрешение тоже хранится навсегда: файл не удаляется, запись не удаляется.
-      await expectCode(records.deleteRecord(tx, s.actor, rec.id, rec.version), 'RECORD_LOCKED');
+      await expectCode(records.deleteRecord(tx, s.actor, rec.id, rec.version, { reasonCode: 'duplicate' }), 'RECORD_LOCKED');
       expect(await tx.file.findUnique({ where: { id: doc.file.id }, select: { deletedAt: true } })).toEqual({ deletedAt: null });
     }));
 

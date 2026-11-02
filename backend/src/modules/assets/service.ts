@@ -7,7 +7,9 @@ import { addDaysIso, todayIso } from '../../lib/today.js';
 import { dateOf, isClosed, loadRegister, type FieldMeta, type RegisterDef } from '../registers/definition.js';
 import { readPortalParam } from '../settings/portal-params.js';
 import { RISK_REGISTER_KEY } from '../risks/definition.js';
+import { deletedVulns } from '../trash/service.js';
 import { nodeLabel } from '../vulns/groups.service.js';
+import { formatDateRu } from '../../lib/register-values.js';
 import { getVulnSettings, iso, scanFreshness } from '../vulns/profiles.js';
 import { ASSET_COMPONENTS_KEY, ASSET_HOSTS_KEY, ASSET_SERVICES_KEY, ASSET_SETTINGS_KEY, CATEGORIES, DLP_DEVICES_NAME, SIGNIFICANT_LEVELS } from './definition.js';
 import { checkedFact, nameCollisions, noDataFact, normalizeHostName, type AssetFact, type FactDef, type FactRecord, type FactWarning } from './logic.js';
@@ -17,6 +19,8 @@ const SILENT_VISIBLE_DAYS = 7;
 const SILENT_CONNECT_DAYS = 30;
 const DEPLOYMENT_MAX_AGE_DAYS = 35;
 
+/** Окно проверки «Удалённые открытые уязвимости» (5.3). */
+const DELETED_WINDOW_MONTHS = 12;
 const DEFS = {
   withoutCategory: { code: 'products.without_category', section: '2.3', title: 'У продукта и компонента задана категория критичности' },
   workingWithoutCategory: { code: 'products.working_without_category', section: '2.3', title: 'Работающий продукт классифицирован' },
@@ -35,6 +39,7 @@ const DEFS = {
   osFromScan: { code: 'hosts.os_from_scan', section: '2.2', title: 'ОС хоста указана, если её видит сканер' },
   notScanned: { code: 'products.not_scanned', section: '5.2', title: `Хосты значимого продукта были в сканах за ${SCAN_WINDOW_DAYS} дней` },
   nodesScanned: { code: 'vuln_nodes.without_recent_scan', section: '5.2', title: 'Узел уязвимостей сканировали в пределах порога' },
+  deletedOpen: { code: 'vulns.deleted_open', section: '5.3', title: `Открытые уязвимости не удалялись (за ${DELETED_WINDOW_MONTHS} месяцев)` },
   notInRegistry: { code: 'scan_hosts.not_in_registry', section: '2.2', title: 'Хост из сканов есть в реестре' },
   withoutRisk: { code: 'products.without_risk', section: '2.3', relatedSections: ['1.2'], title: 'Для значимого продукта есть риск в реестре рисков' },
   notMonitored: { code: 'products.not_monitored', section: '3.2', title: 'Значимый продукт подключён к мониторингу' },
@@ -125,7 +130,7 @@ async function loadByKey(db: Db, systemKey: string): Promise<Loaded | null> {
 export async function assetDefaults(db: Db): Promise<AssetSettings> {
   const row = await db.register.findUnique({ where: { systemKey: ASSET_SERVICES_KEY }, select: { id: true } });
   const level = row ? (await loadRegister(db, row.id)).fields.find((f) => f.systemKey === 'level') : undefined;
-  const dlp = await db.register.findFirst({ where: { archivedAt: null, systemKey: null, name: { equals: DLP_DEVICES_NAME, mode: 'insensitive' } }, select: { id: true } });
+  const dlp = await db.register.findFirst({ where: { archivedAt: null, deletedAt: null, systemKey: null, name: { equals: DLP_DEVICES_NAME, mode: 'insensitive' } }, select: { id: true } });
   return {
     significantLevelOptionIds: (level?.options ?? []).filter((o) => SIGNIFICANT_LEVELS.includes(o.label)).map((o) => o.id),
     dlpRegisterId: dlp?.id ?? null,
@@ -144,7 +149,7 @@ interface ScanHost { name: string; scanId: string; ip: string; os: string }
 /** Хосты из сканов за окно: новые сканы — vuln_scans.hosts, перенесённые — scan_hosts. Ключи — имя и IP. */
 async function recentScanHosts(db: Db, since: string): Promise<Map<string, ScanHost>> {
   const scans = await db.vulnScan.findMany({
-    where: { scanDate: { gte: new Date(`${since}T00:00:00Z`) } },
+    where: { scanDate: { gte: new Date(`${since}T00:00:00Z`) }, node: { deletedAt: null, group: { deletedAt: null } } },
     orderBy: { scanDate: 'desc' },
     select: { id: true, hosts: true, legacyReportId: true },
   });
@@ -177,10 +182,10 @@ export async function assetFacts(db: Db, now: Date = new Date()): Promise<AssetF
   const components = await loadByKey(db, ASSET_COMPONENTS_KEY);
   const hosts = await loadByKey(db, ASSET_HOSTS_KEY);
   const risks = await loadByKey(db, RISK_REGISTER_KEY);
-  const dlpReg = settings.dlpRegisterId ? await db.register.findFirst({ where: { id: settings.dlpRegisterId, archivedAt: null }, select: { id: true } }) : null;
+  const dlpReg = settings.dlpRegisterId ? await db.register.findFirst({ where: { id: settings.dlpRegisterId, archivedAt: null, deletedAt: null }, select: { id: true } }) : null;
   const dlp = dlpReg ? await loadRows(db, await loadRegister(db, dlpReg.id)) : null;
   const systems = await db.catalogItem.findMany({ where: { catalogCode: 'systems', deletedAt: null, archivedAt: null }, select: { id: true, value: true } });
-  const scansTotal = await db.vulnScan.count();
+  const scansTotal = await db.vulnScan.count({ where: { node: { deletedAt: null, group: { deletedAt: null } } } });
   const scanned = await recentScanHosts(db, addDaysIso(today, -SCAN_WINDOW_DAYS));
 
   const facts: AssetFact[] = [];
@@ -508,7 +513,7 @@ export async function assetFacts(db: Db, now: Date = new Date()): Promise<AssetF
   // Регулярность сканирования: узлы «Без группы» сканов не получают и не считаются.
   const { scanMaxAgeDays } = await getVulnSettings(db);
   const nodes = await db.vulnNode.findMany({
-    where: { systemKey: null },
+    where: { systemKey: null, deletedAt: null, group: { deletedAt: null } },
     include: { group: true, systemType: true, scans: { select: { scanDate: true }, orderBy: { scanDate: 'desc' }, take: 1 } },
   });
   const staleNodes = nodes.flatMap((n) => {
@@ -517,6 +522,22 @@ export async function assetFacts(db: Db, now: Date = new Date()): Promise<AssetF
     return stale ? [{ id: n.id, title: nodeLabel(n), href: `/vulns/node/${n.id}`, detail: last ? `Последний скан: ${last}, ${ageDays} дн. назад` : 'Сканов нет' }] : [];
   });
   push({ ...DEFS.nodesScanned, title: `Узел уязвимостей сканировали за ${scanMaxAgeDays} дней` }, { checked: nodes.length, violators: staleNodes, emptyMessage: 'Нет данных: узлов уязвимостей нет' });
+
+  // Удалённые открытые уязвимости (5.3, 1.6.1): удаление открытой записи снимает её с просрочек и эскалаций п. 7.4.
+  // Знаменатель — все записи уязвимостей, удалённые за окно (не восстановленные); нарушения — открытые на момент удаления.
+  const since = new Date(now);
+  since.setUTCMonth(since.getUTCMonth() - DELETED_WINDOW_MONTHS);
+  const deleted = await deletedVulns(db, since);
+  push(DEFS.deletedOpen, {
+    checked: deleted.length,
+    violators: deleted.filter((d) => d.open).map((d) => ({
+      id: `${d.deletionId}:${d.recordId}`,
+      title: `#${d.number} ${d.title}`,
+      href: `/settings/trash?id=${d.deletionId}`,
+      detail: `${d.status || 'без статуса'}${d.due ? `, срок ${formatDateRu(d.due)}` : ''}. Удалена ${formatDateRu(d.deletedAt.slice(0, 10))}, ${d.deletedBy}: ${d.reason}`,
+    })),
+    emptyMessage: `Нет данных: записи уязвимостей за ${DELETED_WINDOW_MONTHS} месяцев не удалялись`,
+  });
 
   return facts;
 }

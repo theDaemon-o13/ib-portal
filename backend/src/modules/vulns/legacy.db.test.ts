@@ -216,7 +216,7 @@ describe('уязвимости: «Перенести» из «Без групп�
       await expectCode(transferRecords(tx, x.actor, { recordIds: [twin.id], nodeId: legacy.id }), 'LEGACY_TARGET');
 
       // Удалённая запись освобождает ключ: теперь переносится вторая.
-      await records.deleteRecord(tx, x.actor, a.id, (await tx.registerRecord.findUniqueOrThrow({ where: { id: a.id } })).version);
+      await records.deleteRecord(tx, x.actor, a.id, (await tx.registerRecord.findUniqueOrThrow({ where: { id: a.id } })).version, { reasonCode: 'duplicate' });
       expect((await tx.vulnRecord.findUniqueOrThrow({ where: { recordId: a.id } })).keyNorm).toBeNull();
       expect((await transferRecords(tx, x.actor, { recordIds: [twin.id], nodeId: node.id })).moved).toHaveLength(1);
     }));

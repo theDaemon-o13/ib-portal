@@ -51,7 +51,8 @@ async function toDto(db: Db, t: TileRow, regs: Map<string, RegisterDef>): Promis
 const select = { id: true, registerId: true, fieldId: true, title: true, optionIds: true, sortOrder: true, version: true } as const;
 
 export async function listTiles(db: Db): Promise<TileDto[]> {
-  const rows = await db.dashboardTile.findMany({ where: { deletedAt: null }, select, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });
+  // Плитки удалённого реестра (1.6.1) скрыты вместе с ним; восстановление реестра их возвращает.
+  const rows = await db.dashboardTile.findMany({ where: { deletedAt: null, register: { deletedAt: null } }, select, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });
   const regs = new Map<string, RegisterDef>();
   const out: TileDto[] = [];
   for (const r of rows) out.push(await toDto(db, r, regs));
@@ -59,7 +60,7 @@ export async function listTiles(db: Db): Promise<TileDto[]> {
 }
 
 async function getTile(db: Db, id: string) {
-  const t = await db.dashboardTile.findFirst({ where: { id, deletedAt: null }, select });
+  const t = await db.dashboardTile.findFirst({ where: { id, deletedAt: null, register: { deletedAt: null } }, select });
   if (!t) throw notFound('Плитка');
   return t;
 }

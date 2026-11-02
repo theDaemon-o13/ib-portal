@@ -12,7 +12,6 @@ import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import { notifyAssignee, notifyComment, notifyMoved, notifyReviewer } from '../notifications/service.js';
-import { loadRegister } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import {
   assertCanAssign, commentRequired, initialStatusId, recordTransition, statusIdOf, type StatusKey, type TaskActor, type TransitionKind,
@@ -197,12 +196,20 @@ async function recipientsOf(db: Db, label: string | null) {
 export async function getTask(db: Db, id: string) {
   const t = await getTaskRow(db, id);
   const mail = await db.taskMailSource.findUnique({ where: { taskId: id }, include: { mailRule: { select: { id: true, value: true } } } });
-  let record: { id: string; registerId: string; registerName: string; number: number; title: string } | null = null;
+  let record: { id: string; registerId: string; registerName: string; number: number; title: string; registerDeleted: boolean; recordDeleted: boolean } | null = null;
   if (t.record) {
-    const reg = await loadRegister(db, t.record.registerId);
-    const values = (await db.registerRecord.findUnique({ where: { id: t.record.id }, select: { values: true } }))?.values as Record<string, unknown> | undefined;
-    const titleField = reg.fields.find((f) => f.isTitle);
-    record = { ...t.record, registerName: reg.name, title: titleField && values ? String(values[titleField.id] ?? '') : '' };
+    // Реестр или запись могли удалить (1.6.1): задача остаётся, в карточке — пометка «реестр удалён».
+    const reg = await db.register.findUniqueOrThrow({
+      where: { id: t.record.registerId },
+      select: { name: true, deletedAt: true, fields: { where: { isTitle: true, deletedAt: null }, select: { id: true } } },
+    });
+    const row = await db.registerRecord.findUnique({ where: { id: t.record.id }, select: { values: true, deletedAt: true } });
+    const values = row?.values as Record<string, unknown> | undefined;
+    const titleId = reg.fields[0]?.id;
+    record = {
+      ...t.record, registerName: reg.name, title: titleId && values ? String(values[titleId] ?? '') : '',
+      registerDeleted: reg.deletedAt !== null, recordDeleted: row?.deletedAt != null,
+    };
   }
   return {
     ...toTaskDto(t, todayIso()),

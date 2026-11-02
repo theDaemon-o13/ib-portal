@@ -12,6 +12,16 @@ import * as groups from './groups.service.js';
 const PASSWORD = 'Vulns-Test-Pass-2026';
 const unique = (s: string) => `${s} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
+/** Запись реестра уязвимостей в «Без группы / Из прежнего реестра». */
+async function legacyRecord(tx: Tx) {
+  const reg = await tx.register.findUniqueOrThrow({ where: { systemKey: 'vulns' } });
+  const node = await groups.legacyNode(tx);
+  const max = await tx.registerRecord.aggregate({ where: { registerId: reg.id }, _max: { number: true } });
+  const rec = await tx.registerRecord.create({ data: { registerId: reg.id, number: (max._max.number ?? 0) + 1, values: {} } });
+  await tx.vulnRecord.create({ data: { recordId: rec.id, nodeId: node.id, legacy: true } });
+  return rec;
+}
+
 async function types(tx: Tx) {
   const items = await tx.catalogItem.findMany({ where: { catalogCode: groups.SYSTEM_TYPES_CATALOG, deletedAt: null, archivedAt: null }, orderBy: { sortOrder: 'asc' } });
   const by = (value: string) => must(items.find((i) => i.value === value)).id;
@@ -25,10 +35,29 @@ describe('уязвимости: группы и узлы', () => {
       expect(t.items.map((i) => i.value)).toEqual(expect.arrayContaining(['БД', 'Серверы', 'Рабочие станции', 'Сетевое оборудование', 'Веб-приложения']));
       const admin = await actorFor(tx, (await makeUser(tx, ['super_admin'])).id);
       await groups.createGroup(tx, admin, { name: unique('Ааа'), kind: 'service', systemTypeIds: [t.by('БД')] });
+      await legacyRecord(tx);
       const list = await groups.listGroups(tx);
       const last = must(list.at(-1));
       expect(last).toMatchObject({ kind: 'temporary', system: true, kindLabel: 'Временная' });
       expect(last.nodes).toEqual([expect.objectContaining({ legacy: true, label: 'Из прежнего реестра', systemType: null })]);
+    }));
+
+  it('«Без группы» (1.6.1): без неархивных записей скрыта; запись появилась (перенос seed) — видна снова; не удаляется', () =>
+    inTx(async (tx) => {
+      const visible = async () => (await groups.listGroups(tx)).some((g) => g.system);
+      expect(await visible()).toBe(false);
+      const rec = await legacyRecord(tx);
+      expect(await visible()).toBe(true);
+      await tx.registerRecord.update({ where: { id: rec.id }, data: { archivedAt: new Date() } });
+      expect(await visible()).toBe(false);
+      await tx.registerRecord.update({ where: { id: rec.id }, data: { archivedAt: null } });
+      expect(await visible()).toBe(true);
+      const ungrouped = await tx.vulnGroup.findUniqueOrThrow({ where: { systemKey: groups.UNGROUPED_KEY } });
+      await expectCode(groups.previewGroupDelete(tx, ungrouped.id), 'SYSTEM_GROUP');
+      await expectCode(groups.previewNodeDelete(tx, (await groups.legacyNode(tx)).id), 'LEGACY_NODE');
+      // Узел «Без группы» открывается и скрытой: архив сканов прежнего реестра.
+      await tx.registerRecord.update({ where: { id: rec.id }, data: { archivedAt: new Date() } });
+      expect((await groups.loadNode(tx, (await groups.legacyNode(tx)).id)).systemKey).toBe(groups.LEGACY_NODE_KEY);
     }));
 
   it('создание: название уникально без регистра и пробелов, вид, хотя бы один тип; узлы — по порядку справочника; журнал', () =>
@@ -61,7 +90,7 @@ describe('уязвимости: группы и узлы', () => {
       expect(after.nodes.map((n) => n.label)).toEqual(['Рабочие станции', 'Сетевое оборудование']);
       expect(await lastAudit(tx)).toMatchObject({ action: 'vuln.node.created', entityId: g.id });
       await expectCode(groups.addNodes(tx, admin, g.id, [t.by('Рабочие станции')]), 'NODE_EXISTS');
-      const ungrouped = must((await groups.listGroups(tx)).find((x) => x.system));
+      const ungrouped = await tx.vulnGroup.findUniqueOrThrow({ where: { systemKey: groups.UNGROUPED_KEY } });
       await expectCode(groups.addNodes(tx, admin, ungrouped.id, [t.by('БД')]), 'SYSTEM_GROUP');
     }));
 
@@ -77,7 +106,7 @@ describe('уязвимости: группы и узлы', () => {
       expect(await lastAudit(tx)).toMatchObject({ action: 'vuln.group.renamed', diff: expect.objectContaining({ before: { name: a.name }, after: { name: newName } }) });
       await expectCode(groups.renameGroup(tx, admin, b.id, { name: newName.toLowerCase(), version: b.version }), 'GROUP_EXISTS');
       await expectCode(groups.renameGroup(tx, admin, a.id, { name: unique('Дельта'), version: a.version }), 'VERSION_CONFLICT');
-      const ungrouped = must((await groups.listGroups(tx)).find((x) => x.system));
+      const ungrouped = await tx.vulnGroup.findUniqueOrThrow({ where: { systemKey: groups.UNGROUPED_KEY } });
       await expectCode(groups.renameGroup(tx, admin, ungrouped.id, { name: unique('Другое'), version: ungrouped.version }), 'SYSTEM_GROUP');
     }));
 

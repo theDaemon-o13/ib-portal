@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { checkConfirmName, checkTextReason, createDeletion } from '../trash/service.js';
 import {
   ALLOWED_ROLES,
   displayValue,
@@ -61,7 +62,7 @@ function assertNotSystemOption(option: { label: string; systemKey: string | null
 
 export async function listRegisters(db: Db, opts: { includeArchived: boolean }) {
   const rows = await db.register.findMany({
-    where: opts.includeArchived ? {} : { archivedAt: null },
+    where: opts.includeArchived ? { deletedAt: null } : { archivedAt: null, deletedAt: null },
     include: { owner: { select: { id: true, fullName: true } } },
     orderBy: { name: 'asc' },
   });
@@ -74,6 +75,8 @@ export async function listRegisters(db: Db, opts: { includeArchived: boolean }) 
     description: r.description,
     owner: r.owner,
     archived: r.archivedAt !== null,
+    /** Системный реестр (уязвимости, инциденты, риски ИБ, активы): не удаляется и не архивируется. */
+    system: r.systemKey !== null,
     version: r.version,
     fieldCount: count(fieldCounts, r.id),
     recordCount: count(recordCounts, r.id),
@@ -82,7 +85,7 @@ export async function listRegisters(db: Db, opts: { includeArchived: boolean }) 
 
 async function assertRegisterNameFree(db: Db, name: string, exceptId?: string) {
   const clash = await db.register.findFirst({
-    where: { archivedAt: null, name: { equals: name, mode: 'insensitive' }, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+    where: { archivedAt: null, deletedAt: null, name: { equals: name, mode: 'insensitive' }, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
   });
   if (clash) throw conflict('DUPLICATE', `Реестр «${name}» уже есть`);
 }
@@ -433,7 +436,7 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
     let linkRegister: { id: string; name: string } | null = null;
     if (input.type === 'link') {
       if (!input.linkRegisterId) throw badRequest('NO_LINK_REGISTER', 'Выберите реестр, на записи которого ссылается поле');
-      linkRegister = await tx.register.findFirst({ where: { id: input.linkRegisterId, archivedAt: null }, select: { id: true, name: true } });
+      linkRegister = await tx.register.findFirst({ where: { id: input.linkRegisterId, archivedAt: null, deletedAt: null }, select: { id: true, name: true } });
       if (!linkRegister) throw badRequest('NO_LINK_REGISTER', 'Реестр для связи не найден или в архиве');
     } else if (input.linkRegisterId) {
       throw badRequest('NO_LINK_REGISTER', 'Реестр выбирается только у поля «Связь с записью»');
@@ -915,5 +918,66 @@ export async function deleteOption(db: Db, actor: Actor, optionId: string, versi
       summary: `Реестр «${reg.name}», поле «${field.label}»: удалено значение «${option.label}»`,
     });
     return loadRegister(tx, reg.id);
+  });
+}
+
+// ---------------------------------------------------------------- удаление реестра (1.6.1, ADR-0033)
+
+export interface RegisterDeletePreview {
+  name: string;
+  system: boolean;
+  /** Поля-связи других реестров, которые ссылаются на этот: удалить нельзя, пока они есть. */
+  linkedBy: { registerId: string; register: string; field: string }[];
+  counts: { records: number; automations: number };
+  blocked: boolean;
+}
+
+async function registerDeletePlan(db: Db, id: string): Promise<RegisterDeletePreview> {
+  const reg = await loadRegister(db, id);
+  const linked = await db.registerField.findMany({
+    where: { type: 'link', linkRegisterId: id, deletedAt: null, registerId: { not: id }, register: { deletedAt: null } },
+    select: { label: true, register: { select: { id: true, name: true } } },
+    orderBy: [{ register: { name: 'asc' } }, { label: 'asc' }],
+  });
+  const records = await db.registerRecord.count({ where: { registerId: id, deletedAt: null } });
+  const automations = await db.registerAutomation.count({ where: { registerId: id, deletedAt: null } });
+  return {
+    name: reg.name,
+    system: reg.systemKey !== null,
+    linkedBy: linked.map((f) => ({ registerId: f.register.id, register: f.register.name, field: f.label })),
+    counts: { records, automations },
+    blocked: reg.systemKey !== null || linked.length > 0,
+  };
+}
+
+export async function previewRegisterDelete(db: Db, id: string): Promise<RegisterDeletePreview> {
+  return registerDeletePlan(db, id);
+}
+
+/**
+ * «Удалить реестр»: только пользовательский и без ссылок из полей-связей других реестров. Скрываются реестр, записи,
+ * автоматизации и плитки дашборда; задачи автоматизаций остаются с пометкой «реестр удалён».
+ */
+export async function deleteRegister(db: Db, actor: Actor, id: string, input: { reason: string; confirmName: string }) {
+  const reason = checkTextReason(input.reason);
+  return withTx(db, async (tx) => {
+    await tx.$queryRaw`SELECT id FROM registers WHERE id = ${id}::uuid FOR UPDATE`;
+    const p = await registerDeletePlan(tx, id);
+    if (p.system) throw conflict('SYSTEM_REGISTER', `«${p.name}» — системный реестр: на него опираются разделы портала, его нельзя удалить`);
+    checkConfirmName(input.confirmName, p.name, 'реестра');
+    if (p.linkedBy.length) {
+      throw new AppError(409, 'REGISTER_LINKED', `На реестр «${p.name}» ссылаются поля других реестров: ${p.linkedBy.map((l) => `«${l.register}» → «${l.field}»`).join(', ')}. Удалите или переведите эти поля, затем удалите реестр`, { linkedBy: p.linkedBy });
+    }
+    const deletionId = await createDeletion(tx, actor, { entity: 'register', entityId: id, title: p.name, reason, counts: p.counts });
+    const at = new Date();
+    const records = (await tx.registerRecord.updateMany({ where: { registerId: id, deletedAt: null }, data: { deletedAt: at, deletionId, version: { increment: 1 } } })).count;
+    const automations = (await tx.registerAutomation.updateMany({ where: { registerId: id, deletedAt: null }, data: { deletedAt: at, deletionId, version: { increment: 1 } } })).count;
+    await tx.register.update({ where: { id }, data: { deletedAt: at, deletionId, version: { increment: 1 } } });
+    await auditSettings(tx, actor, {
+      action: 'register.deleted', entity: 'register', entityId: id,
+      summary: `Удалён реестр «${p.name}» — записей ${records}, автоматизаций ${automations}. Причина: ${reason}`,
+      after: { deletionId, reason, counts: { records, automations } },
+    });
+    return { deletionId, counts: { records, automations } };
   });
 }
