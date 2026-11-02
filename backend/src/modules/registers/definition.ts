@@ -1,6 +1,7 @@
 // Описание реестра и общие операции модуля: загрузка полей, «есть ли данные», поиск, сборка записи.
 import { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
+import { ASSET_MANAGED_FIELDS } from '../assets/definition.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import {
   calcRuleFieldIds,
@@ -53,8 +54,9 @@ export interface FieldMeta extends FieldDef {
 /**
  * Служебные поля системных реестров по ключам (релиз 1.5.0, ADR-0030): у реестра уязвимостей дата передачи ИКТ,
  * срок из прежнего реестра и сумма продлений — их ставят передача ИКТ, перенос и продления, а не человек.
+ * У активов (1.6.0) — ключ компонента, исходное написание ОС и покрытие защиты: их ставят адаптеры импорта.
  */
-export const MANAGED_FIELDS: Readonly<Record<string, readonly string[]>> = { vulns: ['notified', 'legacyDue', 'extDays'] };
+export const MANAGED_FIELDS: Readonly<Record<string, readonly string[]>> = { vulns: ['notified', 'legacyDue', 'extDays'], ...ASSET_MANAGED_FIELDS };
 
 export interface RegisterDef {
   id: string;

@@ -18,7 +18,7 @@ import {
   type StoredValue,
   type Values,
 } from '../../lib/register-values.js';
-import { compactSettings, LOCK_MODES, TEXT_MAX, TEXT_MAX_MULTILINE, type FieldSettings } from '../../lib/field-settings.js';
+import { compactSettings, HINT_MAX, LOCK_MODES, TEXT_MAX, TEXT_MAX_MULTILINE, type FieldSettings } from '../../lib/field-settings.js';
 import { isBasisRule, type BasisRule } from '../../lib/link-basis.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import {
@@ -357,6 +357,10 @@ async function validateSettings(db: Db, reg: RegisterDef, field: { id: string | 
     if (field.type !== 'text') throw badRequest('BAD_SETTINGS', 'Многострочным бывает только текстовое поле');
     out.text = { multiline: true };
   }
+  if (input.hint?.trim()) {
+    if (input.hint.trim().length > HINT_MAX) throw badRequest('BAD_SETTINGS', `Подсказка — не длиннее ${HINT_MAX} символов`);
+    out.hint = input.hint.trim();
+  }
   // Снять «Многострочный текст» нельзя, пока есть значения длиннее обычного лимита: они бы не прошли проверку.
   if (field.id && field.settings?.text?.multiline && !out.text) {
     const rows = await db.$queryRaw<{ n: bigint }[]>`
@@ -391,6 +395,7 @@ function describeSettings(reg: RegisterDef, s: FieldSettings | null): string {
   if (s.date?.notAfterYearEndOfFieldId) parts.push(`не позже 31.12 года «${reg.fields.find((f) => f.id === s.date?.notAfterYearEndOfFieldId)?.label ?? '?'}»`);
   if (s.date?.defaultEndOfYear) parts.push('по умолчанию 31.12 текущего года');
   if (s.text?.multiline) parts.push(`многострочный текст (до ${TEXT_MAX_MULTILINE} символов)`);
+  if (s.hint) parts.push(`подсказка «${s.hint}»`);
   return parts.join('; ');
 }
 

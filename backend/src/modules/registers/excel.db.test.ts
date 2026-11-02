@@ -200,6 +200,21 @@ describe('импорт: применение', () => {
       expect((await records.getRecord(tx, a.id)).values[x.f.score]).toBe(7.5);
     }));
 
+  it('поле в архиве не мешает применению; поле, ушедшее в архив после предпросмотра, — не применяется ничего', () =>
+    inTx(async (tx) => {
+      const x = await makeRegister(tx);
+      const { a } = await seedRecords(tx, x);
+      await tx.registerField.update({ where: { id: x.f.found }, data: { archivedAt: new Date() } });
+      const wb = await book((await excel.exportRegister(tx, x.reg.id)).buffer);
+      const ws = wb.getWorksheet('Реестр') as ExcelJS.Worksheet;
+      rowById(ws, a.number).getCell(col(ws, 'Баллы')).value = 8;
+      const p = await excel.previewImport(tx, x.actor, x.reg.id, await save(wb), 'архив.xlsx');
+      expect(await excel.applyImport(tx, x.actor, p.id)).toMatchObject({ updated: 1 });
+      const p2 = await excel.previewImport(tx, x.actor, x.reg.id, await save(wb), 'архив.xlsx');
+      await tx.registerField.update({ where: { id: x.f.score }, data: { archivedAt: new Date() } });
+      await expectCode(excel.applyImport(tx, x.actor, p2.id), 'IMPORT_STALE');
+    }));
+
   it('применить может только загрузивший; отмена', () =>
     inTx(async (tx) => {
       const x = await makeRegister(tx);

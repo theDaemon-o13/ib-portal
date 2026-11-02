@@ -10,10 +10,10 @@ describe('реестры', () => {
     inTx(async (tx) => {
       const list = await structure.listRegisters(tx, { includeArchived: false });
       const inc = list.find((r) => r.name === 'Реестр инцидентов');
-      expect(inc).toMatchObject({ fieldCount: 6, recordCount: 0, archived: false });
+      expect(inc).toMatchObject({ fieldCount: 7, recordCount: 0, archived: false });
       const reg = await loadRegister(tx, inc?.id as string);
       expect(reg.fields.map((f) => [f.label, f.type])).toEqual([
-        ['Инцидент', 'text'], ['Тип', 'select'], ['Уровень', 'select'], ['Дата выявления', 'date'], ['Статус', 'select'], ['Ответственный', 'user'],
+        ['Инцидент', 'text'], ['Тип', 'select'], ['Уровень', 'select'], ['Дата выявления', 'date'], ['Статус', 'select'], ['Ответственный', 'user'], ['Сервис', 'link'],
       ]);
       const status = reg.fields.find((f) => f.isStatus);
       expect(status?.options.filter((o) => o.isClosed).map((o) => o.label)).toEqual(['Закрыт']);

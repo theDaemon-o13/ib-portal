@@ -203,7 +203,23 @@ export const registersApi = {
     if (!res.ok) throw await errorOf(res);
     return (await res.json()) as FilePreview;
   },
-  applyImport: (id: string) => request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`),
+  /**
+   * Импорт через адаптер (1.6.0): реестр сервисов в «Компоненты», отчёт Kaspersky Security Center (.xls XML или .xlsx)
+   * в «Хосты». Формат backend определяет по содержимому.
+   */
+  async previewAdapter(registerId: string, adapter: 'services' | 'ksc', file: File): Promise<ImportPreview> {
+    const res = await fetch(`/api/v1/registers/${registerId}/imports?adapter=${adapter}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) },
+      body: file,
+    });
+    if (!res.ok) throw await errorOf(res);
+    return (await res.json()) as ImportPreview;
+  },
+  /** skip — снятые блоки адаптера («Будут созданы хосты»): не создаются. */
+  applyImport: (id: string, skip: string[] = []) =>
+    request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`, skip.length ? { skip } : undefined),
   /** Сравнение: тот же файл, что в предпросмотре импорта; область — обязательно. Записи не меняются. */
   async compare(importId: string, file: File, scope: CompareScope): Promise<CompareResult> {
     const q = 'all' in scope ? 'scope=all'

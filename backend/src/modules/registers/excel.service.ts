@@ -66,7 +66,7 @@ const TYPE_NAME: Record<string, string> = {
  * Записи реестров, на которые ссылаются поля «Связь с записью»: ключ → id. Ключи — «#номер», заголовок
  * и значение ключа импорта (без регистра и лишних пробелов). Повтор ключа — несколько id (неоднозначно).
  */
-async function linkTargetsOf(db: Db, reg: RegisterDef): Promise<Map<string, Map<string, string[]>>> {
+export async function linkTargetsOf(db: Db, reg: RegisterDef): Promise<Map<string, Map<string, string[]>>> {
   const out = new Map<string, Map<string, string[]>>();
   const cache = new Map<string, Map<string, string[]>>();
   for (const f of reg.fields.filter((x) => x.type === 'link' && x.linkRegisterId)) {
@@ -287,20 +287,72 @@ export interface ImportSummary {
   matches: ImportMatch[];
   missing: ImportMissing[];
   missingTotal: number;
+  /** Адаптер импорта (1.6.0, ADR-0032): сведения об источнике — тип отчёта, итог сводки, дубли. */
+  source?: Record<string, unknown>;
+  /** Блоки предпросмотра адаптера: что будет создано, дубли в источнике. optional — можно снять при применении. */
+  blocks?: ImportBlock[];
+}
+
+export interface ImportBlock {
+  code: string;
+  title: string;
+  hint: string | null;
+  items: string[];
+  total: number;
+  optional: boolean;
+}
+
+/**
+ * Адаптер импорта (релиз 1.6.0, ADR-0032): превращает чужой файл (отчёт KSC, реестр сервисов) в лист с колонками
+ * по названиям полей и передаёт его этому же конвейеру — предпросмотр, применение одной транзакцией, проверка версий.
+ */
+export interface ImportAdapter {
+  wb: ExcelJS.Workbook;
+  ws: ExcelJS.Worksheet;
+  /** Служебные поля, которые ставит этот адаптер. */
+  managedWritable: string[];
+  /** Поля, которые ставятся только у новой записи: у найденной не перезаписываются (имя, тип, источник). */
+  createOnly: string[];
+  /** «Нет в файле»: false — не считать; scope — только среди записей с этим значением списка. */
+  missing: boolean | { fieldId: string; optionId: string };
+  /** Значения списков, которых ещё нет: создаются при применении. В ячейке — метка, в значении — токен. */
+  newOptions: { fieldId: string; label: string; token: string }[];
+  /** Записи других реестров, которые создаются при применении до строк; на них ссылаются поля связи по токену. */
+  newRecords: NewRecordGroup[];
+  /** Ключ связи (как в ячейке) → токен новой записи, по полям связи. */
+  linkTokens: Record<string, Record<string, string>>;
+  source: Record<string, unknown>;
+  warnings: string[];
+  blocks: ImportBlock[];
+}
+
+export interface NewRecordGroup {
+  /** Код блока предпросмотра: снятый блок не создаётся, ссылки на его записи убираются. */
+  block: string;
+  registerId: string;
+  items: { token: string; values: Values }[];
 }
 
 interface ImportPayload {
   creates: { row: number; values: Values }[];
   updates: { row: number; recordId: string; number: number; version: number; changes: Values }[];
   fieldVersions: Record<string, number>;
+  newOptions?: ImportAdapter['newOptions'];
+  newRecords?: NewRecordGroup[];
 }
+
+/** Токен записи или значения списка, которые создаст применение. */
+export const NEW_TOKEN = /^new:/;
 
 const MAX_ISSUES = 500;
 const MAX_MISSING = 2000;
 
 export type ColMap = Map<number, { kind: ColKind; field?: FieldMeta }>;
 
-export function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDef, warnings: string[]): { cols: ColMap; matchBy: 'id' | 'key' } {
+export function mapColumns(
+  wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: RegisterDef, warnings: string[], managedWritable: readonly string[] = [],
+): { cols: ColMap; matchBy: 'id' | 'key' } {
+  const writable = (f: FieldMeta) => isWritable(f.type) && (!f.managed || managedWritable.includes(f.id));
   const cols: ColMap = new Map();
   const headerRow = ws.getRow(1);
   const headers: string[] = [];
@@ -348,7 +400,7 @@ export function mapColumns(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, reg: Reg
       if (docField) cols.set(col, { kind: 'doc', field: docField });
       else if (!field) warnings.push(`Колонка «${h}» не совпадает ни с одним полем реестра — пропущена`);
       else if (field.archived) warnings.push(`Колонка «${h}»: поле в архиве — пропущена`);
-      else cols.set(col, { kind: isWritable(field.type) && !field.managed ? 'value' : 'readonly', field });
+      else cols.set(col, { kind: writable(field) ? 'value' : 'readonly', field });
     });
   }
   if ([...cols.values()].some((c) => c.kind === 'id')) return { cols, matchBy: 'id' };
@@ -401,9 +453,17 @@ export interface FileRow {
  * Строки с данными и разбор ячеек — один код для импорта и сравнения с реестром (релиз 1.1.0):
  * значения в файле читаются одинаково (parseCell: списки по значению, сотрудник по логину, даты и числа).
  */
-export async function readFileRows(db: Db, reg: RegisterDef, ws: ExcelJS.Worksheet, cols: ColMap): Promise<FileRow[]> {
+export async function readFileRows(
+  db: Db, reg: RegisterDef, ws: ExcelJS.Worksheet, cols: ColMap, linkTokens: ImportAdapter['linkTokens'] = {},
+): Promise<FileRow[]> {
   const allUsers = await db.user.findMany({ select: { id: true, login: true, fullName: true, isActive: true } });
   const linkTargets = await linkTargetsOf(db, reg);
+  // Записи, которые создаст применение: ключ в ячейке → токен.
+  for (const [fieldId, tokens] of Object.entries(linkTokens)) {
+    const map = new Map(linkTargets.get(fieldId) ?? []);
+    for (const [k, token] of Object.entries(tokens)) if (!map.has(linkKey(k))) map.set(linkKey(k), [token]);
+    linkTargets.set(fieldId, map);
+  }
   const out: FileRow[] = [];
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
@@ -421,13 +481,25 @@ export async function readFileRows(db: Db, reg: RegisterDef, ws: ExcelJS.Workshe
   return out;
 }
 
-export async function previewImport(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string) {
-  const reg = await loadRegister(db, registerId);
-  assertNotArchived(reg);
-  const { wb, ws } = await openRegisterSheet(buffer);
+export async function previewImport(db: Db, actor: Actor, registerId: string, buffer: Buffer, fileName: string, adapter?: ImportAdapter) {
+  const loaded = await loadRegister(db, registerId);
+  assertNotArchived(loaded);
+  const { wb, ws } = adapter ?? await openRegisterSheet(buffer);
+  // Новые значения списков адаптера — варианты с токенами вместо id: строки разбираются как обычно.
+  const reg: RegisterDef = adapter?.newOptions.length
+    ? {
+      ...loaded,
+      fields: loaded.fields.map((f) => {
+        const extra = adapter.newOptions.filter((o) => o.fieldId === f.id);
+        return extra.length
+          ? { ...f, options: [...f.options, ...extra.map((o) => ({ id: o.token, label: o.label, isClosed: false, archived: false, sortOrder: 0, version: 0, systemKey: null }))] }
+          : f;
+      }),
+    }
+    : loaded;
 
-  const warnings: string[] = [];
-  const { cols, matchBy } = mapColumns(wb, ws, reg, warnings);
+  const warnings: string[] = [...(adapter?.warnings ?? [])];
+  const { cols, matchBy } = mapColumns(wb, ws, reg, warnings, adapter?.managedWritable);
   const keyField = importKeyField(reg) ?? null;
   const idCol = [...cols.entries()].find(([, c]) => c.kind === 'id')?.[0];
   const keyCol = keyField ? [...cols.entries()].find(([, c]) => c.kind === 'value' && c.field?.id === keyField.id)?.[0] : undefined;
@@ -435,7 +507,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   const today = todayIso();
 
   // Первый проход: что в файле в колонке сопоставления.
-  const dataRows = await readFileRows(db, reg, ws, cols);
+  const dataRows = await readFileRows(db, reg, ws, cols, adapter?.linkTokens);
   const rawMatch = dataRows.map((d) => cellText(cellPrimitive(d.row.getCell(matchCol).value)));
   // Значения ключа после правок строки (в обоих режимах): проверка уникальности ключа до применения.
   const rawKeys = keyCol ? dataRows.map((d) => cellText(cellPrimitive(d.row.getCell(keyCol).value))) : [];
@@ -485,7 +557,9 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   const payload: ImportPayload = {
     creates: [],
     updates: [],
-    fieldVersions: Object.fromEntries(reg.fields.map((f) => [f.id, f.version])),
+    // Архивные поля не участвуют: иначе применение считало бы их «изменившимися» и импорт в реестр с архивным полем не проходил.
+    fieldVersions: Object.fromEntries(loaded.fields.filter((f) => !f.archived).map((f) => [f.id, f.version])),
+    ...(adapter ? { newOptions: adapter.newOptions, newRecords: adapter.newRecords } : {}),
   };
   const issue = (i: ImportIssue) => {
     if (errors.length < MAX_ISSUES) errors.push(i);
@@ -529,6 +603,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     const changes: Values = {};
     for (const e of cellErrors) rowErrors.push({ row: rowNumber, id: matchRaw || null, field: e.field, message: e.message });
     for (const { field: f, value } of parsed) {
+      if (rec && adapter?.createOnly.includes(f.id)) continue;
       if (!sameValue(current[f.id], value)) changes[f.id] = value;
     }
     if (rec) {
@@ -601,13 +676,15 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   // Импорт по ключу: действующие незакрытые записи, которых нет в файле, — кандидаты на «Выведено».
   let missing: ImportMissing[] = [];
   let missingTotal = 0;
-  if (matchBy === 'key' && keyField) {
+  if (matchBy === 'key' && keyField && adapter?.missing !== false) {
     const inFile = new Set(rawMatch.map((v) => norm.get(v)).filter((k): k is string => !!k));
     const active = await db.$queryRaw<{ id: string; number: number; values: Values; import_key: string | null }[]>`
       SELECT r.id, r.number, r."values", r.import_key FROM register_records r
       WHERE ${baseSql(reg.id)} AND NOT ${closedSql(reg)}
       ORDER BY r.number`;
-    const absent = active.filter((r) => !r.import_key || !inFile.has(r.import_key));
+    // Область адаптера: отчёт о развёртывании KSC сравнивается только с хостами «В KSC = Да».
+    const scope = typeof adapter?.missing === 'object' ? adapter.missing : null;
+    const absent = active.filter((r) => (!scope || r.values[scope.fieldId] === scope.optionId) && (!r.import_key || !inFile.has(r.import_key)));
     missingTotal = absent.length;
     missing = absent.slice(0, MAX_MISSING).map((r) => ({
       id: r.id,
@@ -636,6 +713,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     matches,
     missing,
     missingTotal,
+    ...(adapter ? { source: adapter.source, blocks: adapter.blocks } : {}),
   };
   const sha256 = createHash('sha256').update(buffer).digest('hex');
   const imp = await withTx(db, async (tx) => {
@@ -671,8 +749,104 @@ export async function getImport(db: Db, id: string) {
 
 // ---------------------------------------------------------------- импорт: применение
 
+/** Новые записи импорта: номера, статус по умолчанию, производные поля, журнал. */
+async function insertRecords(tx: Db, actor: Actor, reg: RegisterDef, list: Values[], fileName: string, importId: string): Promise<string[]> {
+  if (!list.length) return [];
+  const users = await loadUsers(tx, userIdsIn(reg, list));
+  const links = linkLabels(await loadLinkRefs(tx, linkIdsIn(reg, list)));
+  const today = todayIso();
+  const status = reg.fields.find((f) => f.isStatus && !f.archived);
+  const firstStatus = status?.options.find((o) => !o.archived);
+  let number = await nextNumbers(tx, reg.id, list.length);
+  const ids: string[] = [];
+  for (const input of list) {
+    const { values, manualFieldIds } = applyDerived(reg, { before: {}, after: { ...input }, manual: [], edited: Object.keys(input), isNew: true });
+    if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
+    applyDateDefaults(reg, values, today);
+    const rec = await tx.registerRecord.create({
+      data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users, links) },
+    });
+    const changes = Object.keys(values).map((fid) => {
+      const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
+      return { fieldId: fid, label: f.label, from: '', to: displayValue(f, values[fid], { users, links }) };
+    });
+    await auditSettings(tx, actor, {
+      action: 'register_record.created', entity: 'register_record', entityId: rec.id,
+      summary: `«${reg.name}»: создана запись #${number} импортом из Excel «${fileName}»`,
+      after: { registerId: reg.id, number, changes, via: 'import', importId },
+    });
+    ids.push(rec.id);
+    number++;
+  }
+  return ids;
+}
+
+/**
+ * Значения списков и записи других реестров, которые адаптер запланировал в предпросмотре (ADR-0032).
+ * Снятые блоки не создаются. Возвращает токен → id; токены снятых блоков — null (ссылка убирается).
+ */
+async function createPlanned(tx: Db, actor: Actor, payload: ImportPayload, skip: ReadonlySet<string>, fileName: string, importId: string): Promise<Map<string, string | null>> {
+  const out = new Map<string, string | null>();
+  const used = new Set<string>();
+  const collect = (v: StoredValue) => (Array.isArray(v) ? v : [v]).forEach((x) => typeof x === 'string' && NEW_TOKEN.test(x) && used.add(x));
+  for (const c of payload.creates) Object.values(c.values).forEach(collect);
+  for (const u of payload.updates) Object.values(u.changes).forEach(collect);
+  for (const g of payload.newRecords ?? []) for (const it of g.items) Object.values(it.values).forEach(collect);
+
+  for (const o of payload.newOptions ?? []) {
+    if (!used.has(o.token)) continue;
+    const hit = await tx.registerFieldOption.findFirst({ where: { fieldId: o.fieldId, deletedAt: null, label: { equals: o.label, mode: 'insensitive' } } });
+    if (hit) {
+      out.set(o.token, hit.id);
+      continue;
+    }
+    const max = await tx.registerFieldOption.aggregate({ where: { fieldId: o.fieldId }, _max: { sortOrder: true } });
+    const created = await tx.registerFieldOption.create({ data: { fieldId: o.fieldId, label: o.label, sortOrder: (max._max.sortOrder ?? 0) + 1 } });
+    out.set(o.token, created.id);
+    await auditSettings(tx, actor, {
+      action: 'register_field.option_added', entity: 'register_field', entityId: o.fieldId,
+      summary: `Импорт «${fileName}»: добавлено значение списка «${o.label}»`, after: { optionId: created.id, label: o.label, importId },
+    });
+  }
+  for (const g of payload.newRecords ?? []) {
+    if (skip.has(g.block)) {
+      for (const it of g.items) out.set(it.token, null);
+      continue;
+    }
+    const target = await loadRegister(tx, g.registerId);
+    assertNotArchived(target);
+    // Ключ импорта у целевого реестра: если запись с тем же ключом появилась после предпросмотра — ничего не применяем.
+    const key = importKeyField(target);
+    if (key) {
+      const raw = g.items.map((it) => it.values[key.id]).filter((v): v is string => typeof v === 'string');
+      const keys = [...new Set([...(await normalizeImportKeys(tx, raw)).values()].filter((k): k is string => !!k))];
+      const taken = keys.length ? await tx.registerRecord.count({ where: { registerId: target.id, deletedAt: null, importKey: { in: keys } } }) : 0;
+      if (taken) throw conflict('IMPORT_STALE', `После предпросмотра в реестре «${target.name}» появились записи, которые импорт собирался создать. Повторите предпросмотр`);
+    }
+    const sub = (values: Values) => substituteTokens(values, out);
+    const ids = await insertRecords(tx, actor, target, g.items.map((it) => sub(it.values)), fileName, importId);
+    g.items.forEach((it, i) => out.set(it.token, ids[i] ?? null));
+  }
+  return out;
+}
+
+/** Токены → id; токен снятого блока убирается из связи, пустая связь — из значений. */
+export function substituteTokens(values: Values, tokens: ReadonlyMap<string, string | null>): Values {
+  const out: Values = {};
+  for (const [k, v] of Object.entries(values)) {
+    if (Array.isArray(v)) {
+      const list = v.flatMap((x) => (NEW_TOKEN.test(x) ? (tokens.get(x) ? [tokens.get(x) as string] : []) : [x]));
+      if (list.length) out[k] = list;
+    } else if (typeof v === 'string' && NEW_TOKEN.test(v)) {
+      const id = tokens.get(v);
+      if (id) out[k] = id;
+    } else out[k] = v;
+  }
+  return out;
+}
+
 /** Применение одной транзакцией. Если что-то изменилось после предпросмотра — ничего не применяется. */
-export async function applyImport(db: Db, actor: Actor, importId: string) {
+export async function applyImport(db: Db, actor: Actor, importId: string, opts: { skip?: string[] } = {}) {
   return withTx(db, async (tx) => {
     // Блокировка строки импорта: повторное «Применить» не выполнится дважды.
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM register_imports WHERE id = ${importId}::uuid FOR UPDATE`;
@@ -685,15 +859,24 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
       await tx.registerImport.update({ where: { id: importId }, data: { status: 'expired' } });
       throw conflict('IMPORT_EXPIRED', 'Предпросмотр устарел (30 минут). Загрузите файл снова');
     }
-    const reg = await loadRegister(tx, imp.registerId);
+    let reg = await loadRegister(tx, imp.registerId);
     assertNotArchived(reg);
     const payload = imp.payload as unknown as ImportPayload;
     const summary = imp.summary as unknown as ImportSummary;
+    const skip = new Set((opts.skip ?? []).filter((b) => summary.blocks?.some((x) => x.code === b && x.optional)));
 
     // Структура реестра не должна была измениться после предпросмотра.
     for (const [fieldId, version] of Object.entries(payload.fieldVersions)) {
       const f = reg.fields.find((x) => x.id === fieldId);
       if (!f || f.version !== version || f.archived) throw conflict('IMPORT_STALE', 'После предпросмотра изменились поля реестра. Повторите предпросмотр');
+    }
+    // Запланированное адаптером создаётся первым; дальше строки — как у обычного импорта.
+    if (payload.newOptions?.length || payload.newRecords?.length) {
+      const tokens = await createPlanned(tx, actor, payload, skip, summary.fileName, importId);
+      for (const c of payload.creates) c.values = substituteTokens(c.values, tokens);
+      for (const u of payload.updates) u.changes = substituteTokens(u.changes, tokens);
+      payload.updates = payload.updates.filter((u) => Object.keys(u.changes).length);
+      reg = await loadRegister(tx, imp.registerId);
     }
     const optionOk = (f: FieldMeta, v: StoredValue) => (f.type !== 'select' && f.type !== 'catalog') || f.options.some((o) => o.id === v);
     const usersNeeded = new Set<string>();
@@ -748,7 +931,6 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
     const users = await loadUsers(tx, [...usersNeeded, ...userIdsIn(reg, current.map((r) => r.values))]);
     const allValues = [...current.map((r) => ({ ...r.values, ...(payload.updates.find((u) => u.recordId === r.id)?.changes ?? {}) })), ...payload.creates.map((c) => c.values)];
     const links = linkLabels(await loadLinkRefs(tx, linkIdsIn(reg, allValues)));
-    const today = todayIso();
 
     for (const u of payload.updates) {
       const r = byId.get(u.recordId);
@@ -772,34 +954,16 @@ export async function applyImport(db: Db, actor: Actor, importId: string) {
       });
     }
 
-    // Статус по умолчанию для новых записей.
-    const status = reg.fields.find((f) => f.isStatus && !f.archived);
-    const firstStatus = status?.options.find((o) => !o.archived);
-    let number = payload.creates.length ? await nextNumbers(tx, reg.id, payload.creates.length) : 0;
-    for (const c of payload.creates) {
-      const { values, manualFieldIds } = applyDerived(reg, { before: {}, after: { ...c.values }, manual: [], edited: Object.keys(c.values), isNew: true });
-      if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
-      applyDateDefaults(reg, values, today);
-      const rec = await tx.registerRecord.create({
-        data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users, links) },
-      });
-      const changes = Object.keys(values).map((fid) => {
-        const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
-        return { fieldId: fid, label: f.label, from: '', to: displayValue(f, values[fid], { users, links }) };
-      });
-      await auditSettings(tx, actor, {
-        action: 'register_record.created', entity: 'register_record', entityId: rec.id,
-        summary: `«${reg.name}»: создана запись #${number} импортом из Excel «${summary.fileName}»`,
-        after: { registerId: reg.id, number, changes, via: 'import', importId },
-      });
-      number++;
-    }
+    await insertRecords(tx, actor, reg, payload.creates.map((c) => c.values), summary.fileName, importId);
 
     await tx.registerImport.update({ where: { id: importId }, data: { status: 'applied', appliedAt: new Date() } });
     await auditSettings(tx, actor, {
       action: 'register.import.applied', entity: 'register_import', entityId: importId,
       summary: `«${reg.name}»: применён импорт «${summary.fileName}» — добавлено ${payload.creates.length}, изменено ${payload.updates.length}, пропущено строк с ошибками ${summary.errorRows}`,
-      after: { fileName: summary.fileName, sha256: imp.fileSha256, added: payload.creates.length, updated: payload.updates.length, errorRows: summary.errorRows },
+      after: {
+        fileName: summary.fileName, sha256: imp.fileSha256, added: payload.creates.length, updated: payload.updates.length, errorRows: summary.errorRows,
+        ...(summary.source ? { source: summary.source } : {}), ...(skip.size ? { skipped: [...skip] } : {}),
+      },
     });
     return { added: payload.creates.length, updated: payload.updates.length, skipped: summary.errorRows };
   });

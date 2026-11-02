@@ -19,9 +19,13 @@ export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDet
   const byKey = s.matchBy === 'key';
   const [show, setShow] = useState<'all' | 'add' | 'update' | 'unchanged' | 'error'>('all');
   const matches = s.matches.filter((m) => show === 'all' || m.action === show);
+  // Блоки адаптера (1.6.0): что будет создано; необязательные можно снять.
+  const blocks = s.blocks ?? [];
+  const [skip, setSkip] = useState<string[]>([]);
+  const ksc = s.source?.adapter === 'ksc' ? s.source as { reportName?: string; summaryTotal?: number | null; detailsRows?: number; devices?: number } : null;
 
   const apply = useMutation({
-    mutationFn: () => registersApi.applyImport(preview.id),
+    mutationFn: () => registersApi.applyImport(preview.id, skip),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: rkeys.records(reg.id) });
       await qc.invalidateQueries({ queryKey: rkeys.list });
@@ -49,6 +53,11 @@ export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDet
     <div className="backdrop" role="presentation">
       <div className="modal panel wide-modal" role="dialog" aria-modal="true" aria-labelledby="imp-title">
         <h2 id="imp-title">Импорт в «{reg.name}»</h2>
+        {ksc && (
+          <p className="imp-kind">Отчёт Kaspersky Security Center <span className="chip info">{ksc.reportName}</span>
+            {' '}устройств: {ksc.devices}{ksc.summaryTotal != null ? `, в сводке ${ksc.summaryTotal}` : ''}. Обновляются только поля этого отчёта.</p>
+        )}
+        {s.source?.adapter === 'services' && <p className="imp-kind">Реестр сервисов <span className="chip info">лист «{String(s.source.sheet)}», заголовки в строке {String(s.source.headerRow)}</span></p>}
         {byKey
           ? <p className="imp-kind">Сопоставление по ключу <span className="chip acc">{s.keyField?.label}</span>: найдена запись — обновление, нет — новая. Колонки ID в файле нет.</p>
           : <p className="imp-kind">Файл распознан как <span className="chip info">Выгрузка реестра</span> — записи обновляются по колонке ID.</p>}
@@ -66,6 +75,23 @@ export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDet
           </div>
         )}
         {s.warnings.length > 0 && <ul className="warn-list">{s.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
+        {blocks.map((b) => (
+          <div key={b.code} className="grid-gap" data-block={b.code}>
+            {b.optional
+              ? (
+                <label className="check eyebrow">
+                  <input type="checkbox" checked={!skip.includes(b.code)} onChange={(e) => setSkip(e.target.checked ? skip.filter((x) => x !== b.code) : [...skip, b.code])} />
+                  {b.title}
+                </label>
+              )
+              : <div className="eyebrow">{b.title}</div>}
+            {b.hint && <p className="hint">{b.hint}</p>}
+            <div className="cover">
+              {b.items.map((it) => <span key={it} className="chip">{it}</span>)}
+              {b.total > b.items.length && <span className="hint">и ещё {b.total - b.items.length}</span>}
+            </div>
+          </div>
+        ))}
         {s.errors.length > 0 && (
           <div className="grid-gap">
             <div className="eyebrow">Строки с ошибками — не будут применены</div>

@@ -9,11 +9,14 @@
 //          defaultEndOfYear — новая запись получает 31.12 текущего года.
 //   text — только у текстового поля: multiline — многострочный текст (в карточке поле от 6 строк),
 //          лимит TEXT_MAX_MULTILINE вместо TEXT_MAX (релиз 1.1.0).
+//   hint — подсказка под полем в карточке записи, любой тип (релиз 1.6.0: RTO и RPO по категориям).
 
 /** Лимит текстового поля, символов. */
 export const TEXT_MAX = 4000;
 /** Лимит многострочного текстового поля: меньше лимита ячейки Excel (32 767). */
 export const TEXT_MAX_MULTILINE = 20_000;
+/** Лимит подсказки поля, символов. */
+export const HINT_MAX = 1000;
 
 export const LOCK_MODES = ['locked', 'reason'] as const;
 export type LockMode = (typeof LOCK_MODES)[number];
@@ -36,6 +39,7 @@ export interface FieldSettings {
   lock?: LockSettings;
   date?: DateSettings;
   text?: TextSettings;
+  hint?: string;
 }
 
 /** Хранимое значение → настройки (пустой объект, если ничего не задано или формат чужой). */
@@ -58,6 +62,7 @@ export function readSettings(raw: unknown): FieldSettings {
   }
   const text = o.text as Record<string, unknown> | undefined;
   if (text && typeof text === 'object' && text.multiline === true) out.text = { multiline: true };
+  if (typeof o.hint === 'string' && o.hint.trim()) out.hint = o.hint;
   return out;
 }
 
@@ -72,6 +77,7 @@ export function compactSettings(s: FieldSettings): FieldSettings | null {
     };
   }
   if (s.text?.multiline) out.text = { multiline: true };
+  if (s.hint?.trim()) out.hint = s.hint.trim();
   return Object.keys(out).length ? out : null;
 }
 

@@ -10,6 +10,7 @@ import { ANALYTICS_ROLES, FIELD_TYPES } from '../../lib/register-values.js';
 import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
+import { assetImportAdapter } from '../assets/import.js';
 import { registerAnalytics } from './analytics.service.js';
 import * as bulk from './bulk.service.js';
 import * as compare from './compare.service.js';
@@ -67,6 +68,8 @@ const FieldSettings = z.object({
   date: z.object({ notAfterYearEndOfFieldId: z.string().uuid().nullable().optional(), defaultEndOfYear: z.boolean().optional() }).optional(),
   /** Многострочный текст (релиз 1.1.0): лимит 20 000 символов вместо 4000. */
   text: z.object({ multiline: z.boolean().optional() }).optional(),
+  /** Подсказка под полем в карточке записи (релиз 1.6.0). */
+  hint: z.string().max(1000).optional(),
 });
 const Option = z.object({
   id: z.string(), label: z.string(), isClosed: z.boolean(), archived: z.boolean(), sortOrder: z.number().int(), version: z.number().int(),
@@ -201,6 +204,12 @@ const ImportSummary = z.object({
   /** Импорт по ключу: действующие записи, которых нет в файле, — кандидаты на «Выведено» (портал их не меняет). */
   missing: z.array(z.object({ id: z.string(), number: z.number().int(), key: z.string(), title: z.string() })),
   missingTotal: z.number().int(),
+  /** Адаптер импорта (1.6.0): сведения об источнике — тип отчёта KSC, итог сводки, дубли. */
+  source: z.record(z.string(), z.unknown()).optional(),
+  /** Блоки адаптера: что будет создано (optional — можно снять при применении), дубли в источнике. */
+  blocks: z.array(z.object({
+    code: z.string(), title: z.string(), hint: z.string().nullable(), items: z.array(z.string()), total: z.number().int(), optional: z.boolean(),
+  })).optional(),
 });
 export const ImportPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ImportSummary });
 const Label = z.string().trim().min(1).max(200);
@@ -769,8 +778,10 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     bodyLimit: IMPORT_BODY_LIMIT,
     schema: {
       tags: ['register-excel'],
-      summary: 'Импорт, шаг 1: предпросмотр. Тело — файл .xlsx (Content-Type xlsx), имя файла — в X-File-Name',
+      summary: 'Импорт, шаг 1: предпросмотр. Тело — файл .xlsx (Content-Type xlsx), имя файла — в X-File-Name. '
+        + 'adapter — разбор чужого файла (1.6.0): services — реестр сервисов в «Компоненты», ksc — отчёт Kaspersky Security Center в «Хосты»',
       params: IdParams,
+      querystring: z.object({ adapter: z.enum(['services', 'ksc']).optional() }),
       body: z.any(),
       response: { 201: ImportPreview, ...errors },
     },
@@ -785,7 +796,8 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
         fileName = raw;
       }
     }
-    const preview = await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName);
+    const adapter = request.query.adapter ? await assetImportAdapter(db, request.params.id, request.query.adapter, request.body) : undefined;
+    const preview = await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName, adapter);
     return reply.status(201).send(preview);
   });
 
@@ -797,10 +809,11 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   app.post('/register-imports/:id/apply', {
     preHandler: edit,
     schema: {
-      tags: ['register-excel'], summary: 'Импорт, шаг 2: применить одной транзакцией', params: IdParams,
+      tags: ['register-excel'], summary: 'Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать)', params: IdParams,
+      body: z.object({ skip: z.array(z.string().max(50)).max(10).optional() }).nullish(),
       response: { 200: z.object({ added: z.number().int(), updated: z.number().int(), skipped: z.number().int() }), ...errors },
     },
-  }, async (request) => excel.applyImport(db, actorOf(request), request.params.id));
+  }, async (request) => excel.applyImport(db, actorOf(request), request.params.id, { skip: request.body?.skip }));
 
   app.post('/register-imports/:id/cancel', {
     preHandler: edit,

@@ -223,6 +223,25 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   };
 
   // Выгрузка реестра. Отчёт сканера backend не примет: его загружают в узел раздела «Уязвимости» (ADR-0029).
+  // Адаптеры реестра активов (1.6.0): реестр сервисов → «Компоненты», отчёт KSC → «Хосты».
+  const adapter = reg.systemKey === 'asset_components' ? 'services' as const : reg.systemKey === 'asset_hosts' ? 'ksc' as const : null;
+  const adapterRef = useRef<HTMLInputElement>(null);
+  const onAdapterFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !adapter) return;
+    setBusy(true);
+    try {
+      const p = await registersApi.previewAdapter(reg.id, adapter, file);
+      setImportFile(null);
+      setPreview(p);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Не удалось прочитать файл', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -250,6 +269,16 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
             <>
               <button className="btn" type="button" onClick={() => fileRef.current?.click()} disabled={busy}>Импорт из Excel</button>
               <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => void onFile(e)} aria-label="Файл импорта" />
+              {adapter && (
+                <>
+                  <button className="btn" type="button" onClick={() => adapterRef.current?.click()} disabled={busy}
+                    title={adapter === 'ksc' ? 'Отчёт о развёртывании защиты, о статусе антивирусных баз или о версиях программ — .xls из KSC как есть или .xlsx' : 'Форма реестра сервисов, лист «Список активов»'}>
+                    {adapter === 'ksc' ? 'Импорт отчёта KSC' : 'Импорт реестра сервисов'}
+                  </button>
+                  <input ref={adapterRef} type="file" accept=".xls,.xml,.xlsx" hidden onChange={(e) => void onAdapterFile(e)}
+                    aria-label={adapter === 'ksc' ? 'Файл отчёта KSC' : 'Файл реестра сервисов'} />
+                </>
+              )}
             </>
           )}
           <button className="btn" type="button" onClick={() => void exportFile()} disabled={busy}>Экспорт в Excel</button>

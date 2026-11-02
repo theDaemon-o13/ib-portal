@@ -150,6 +150,7 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
         <span className="field-label">{f.label}</span>
         {control}
         {f.type === 'link' && lockNote}
+        {f.settings.hint && <small className="field-hint">{f.settings.hint}</small>}
       </div>
     );
   }
@@ -158,6 +159,7 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
       {f.label}
       {control}
       {lockNote}
+      {f.settings.hint && <small className="field-hint">{f.settings.hint}</small>}
     </label>
   );
 }

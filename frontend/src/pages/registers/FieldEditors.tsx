@@ -245,6 +245,7 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
   const [anchor, setAnchor] = useState(field.settings.date?.notAfterYearEndOfFieldId ?? '');
   const [endOfYear, setEndOfYear] = useState(!!field.settings.date?.defaultEndOfYear);
   const [multiline, setMultiline] = useState(!!field.settings.text?.multiline);
+  const [hint, setHint] = useState(field.settings.hint ?? '');
   const lockable = field.type !== 'calc' && field.type !== 'decision' && !field.isStatus && !!status;
   const dates = reg.fields.filter((f) => !f.archived && f.type === 'date' && f.id !== field.id);
   const toggle = (id: string) => setLockIds(lockIds.includes(id) ? lockIds.filter((x) => x !== id) : [...lockIds, id]);
@@ -252,10 +253,13 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
     ...(lockIds.length ? { lock: { statusOptionIds: lockIds, mode } } : {}),
     ...(field.type === 'date' && (anchor || endOfYear) ? { date: { notAfterYearEndOfFieldId: anchor || null, defaultEndOfYear: endOfYear } } : {}),
     ...(field.type === 'text' && multiline ? { text: { multiline: true } } : {}),
+    ...(hint.trim() ? { hint: hint.trim() } : {}),
   };
-  if (!lockable && field.type !== 'date' && field.type !== 'text') return <div className="hint">{status ? 'Это поле не фиксируется.' : 'Фиксация задаётся по значениям поля статуса — в реестре его нет.'}</div>;
   return (
     <div className="grid-gap">
+      {!lockable && field.type !== 'date' && field.type !== 'text' && (
+        <div className="hint">{status ? 'Это поле не фиксируется.' : 'Фиксация задаётся по значениям поля статуса — в реестре его нет.'}</div>
+      )}
       {lockable && (
         <>
           <div className="row"><span className="hint">Фиксировать при статусах:</span>
@@ -290,6 +294,9 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
           Многострочный текст — в карточке поле от 6 строк, до 20 000 символов вместо 4000
         </label>
       )}
+      <label className="fd-label">Подсказка под полем в карточке записи
+        <textarea className="inp" maxLength={1000} value={hint} onChange={(e) => setHint(e.target.value)} placeholder="Например, допустимые значения по категориям" />
+      </label>
       <div className="row">
         <button className="btn primary sm" type="button" disabled={pending} onClick={() => onSave(Object.keys(settings).length ? settings : null)}>Сохранить</button>
         {lockable && <span className="hint">Пока статус записи фиксирующий, запись не удаляется, а статус меняется только на другой фиксирующий.</span>}
