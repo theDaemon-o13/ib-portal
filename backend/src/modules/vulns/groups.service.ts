@@ -11,6 +11,7 @@ import { isClosed, loadRegister } from '../registers/definition.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { checkConfirmName, checkTextReason, createDeletion } from '../trash/service.js';
 import { VULN_REGISTER_KEY } from './definition.js';
+import { releaseVulnKeys } from './keys.js';
 
 export const SYSTEM_TYPES_CATALOG = 'system_types';
 export const UNGROUPED_KEY = 'ungrouped';
@@ -305,8 +306,10 @@ export async function previewGroupDelete(db: Db, id: string): Promise<DeletePrev
   return previewOf(group.name, await nodeDeleteInfo(db, group.nodes), true);
 }
 
-/** Скрывает записи узлов (неудалённые) этим событием. */
+/** Скрывает записи узлов (неудалённые) этим событием; ключи в узле освобождаются, как у удалённой записи. */
 async function hideNodeRecords(tx: Prisma.TransactionClient, nodeIds: readonly string[], deletionId: string, at: Date): Promise<number> {
+  const ids = (await tx.vulnRecord.findMany({ where: { nodeId: { in: [...nodeIds] }, record: { deletedAt: null } }, select: { recordId: true } })).map((v) => v.recordId);
+  await releaseVulnKeys(tx, ids);
   const res = await tx.registerRecord.updateMany({
     where: { deletedAt: null, vuln: { nodeId: { in: [...nodeIds] } } },
     data: { deletedAt: at, deletionId, version: { increment: 1 } },

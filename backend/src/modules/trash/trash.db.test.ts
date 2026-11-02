@@ -82,6 +82,8 @@ describe('группы и узлы уязвимостей', () => {
       expect((await section.overview(tx)).nodes.some((n) => n.nodeId === s.node.id)).toBe(false);
       expect(await liveCount(tx, s.node.id)).toBe(0);
       expect(await tx.registerRecord.count({ where: { deletionId: done.deletionId } })).toBe(90);
+      // Скрытые записи не держат ключ в узле (проверка целостности); восстановление вернёт ключи.
+      expect(await tx.vulnRecord.count({ where: { nodeId: s.node.id, keyNorm: { not: null } } })).toBe(0);
 
       // Название свободно: новая группа с тем же именем.
       const twin = await groups.createGroup(tx, s.x.actor, { name: s.name, kind: 'service', systemTypeIds: [s.t('БД')] });
@@ -92,6 +94,7 @@ describe('группы и узлы уязвимостей', () => {
       expect(restored.counts).toEqual({ nodes: 2, records: 90 });
       expect((await groups.listGroups(tx)).find((g) => g.id === s.group.id)?.name).toBe(`${s.name} (прежняя)`);
       expect(await liveCount(tx, s.node.id)).toBe(90);
+      expect(await tx.vulnRecord.count({ where: { nodeId: s.node.id, keyNorm: { not: null } } })).toBe(90);
       expect((await scans.getScan(tx, s.scanId)).id).toBe(s.scanId);
       expect(twin.name).toBe(s.name);
       await expectCode(trash.restoreDeletion(tx, s.x.actor, done.deletionId), 'ALREADY_RESTORED');

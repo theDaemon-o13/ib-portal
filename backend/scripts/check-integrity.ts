@@ -356,6 +356,15 @@ async function main() {
   const keyDup = await prisma.$queryRaw<{ n: bigint }[]>`
     SELECT count(*) AS n FROM vuln_records v JOIN register_records r ON r.id = v.record_id WHERE v.key_norm IS NOT NULL AND r.deleted_at IS NOT NULL`;
   check(Number(keyDup[0]?.n ?? 0) === 0, 'удалённые записи не держат ключ в узле', 'vuln_records.key_norm у удалённых записей');
+  // Корзина (1.6.1, ADR-0033): у удалённой группы удалены и узлы; восстановленное событие ничего не скрывает.
+  const liveNodesOfDeleted = await prisma.vulnNode.count({ where: { deletedAt: null, group: { deletedAt: { not: null } } } });
+  check(liveNodesOfDeleted === 0, 'у удалённой группы уязвимостей нет действующих типов систем', `таких узлов: ${liveNodesOfDeleted}`);
+  const stillHidden = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT (SELECT count(*) FROM register_records r JOIN deletions d ON d.id = r.deletion_id WHERE d.restored_at IS NOT NULL)
+         + (SELECT count(*) FROM registers r JOIN deletions d ON d.id = r.deletion_id WHERE d.restored_at IS NOT NULL)
+         + (SELECT count(*) FROM vuln_groups g JOIN deletions d ON d.id = g.deletion_id WHERE d.restored_at IS NOT NULL)
+         + (SELECT count(*) FROM vuln_nodes n JOIN deletions d ON d.id = n.deletion_id WHERE d.restored_at IS NOT NULL) AS n`;
+  check(Number(stillHidden[0]?.n ?? 0) === 0, 'восстановленные удаления ничего не скрывают (корзина)', `скрыто восстановленными событиями: ${stillHidden[0]?.n ?? 0}`);
   const badTypes = await prisma.vulnNode.count({ where: { systemTypeId: { not: null }, systemType: { catalogCode: { not: 'system_types' } } } });
   check(badTypes === 0, 'тип узла — значение справочника «Типы систем»', 'проверьте vuln_nodes.system_type_id');
   const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });

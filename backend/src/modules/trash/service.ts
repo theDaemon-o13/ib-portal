@@ -280,6 +280,11 @@ async function restoreVulnKeys(tx: Prisma.TransactionClient, reg: RegisterDef, d
   for (const p of plan) await tx.vulnRecord.update({ where: { recordId: p.id }, data: { keyNorm: p.key, version: { increment: 1 } } });
 }
 
+async function vulnDef(tx: Prisma.TransactionClient): Promise<RegisterDef> {
+  const row = await tx.register.findUniqueOrThrow({ where: { systemKey: VULN_REGISTER_KEY }, select: { id: true } });
+  return loadRegister(tx, row.id);
+}
+
 async function nameTaken(tx: Prisma.TransactionClient, entity: 'register' | 'vuln_group', name: string, exceptId: string): Promise<boolean> {
   if (entity === 'register') {
     return !!(await tx.register.findFirst({ where: { id: { not: exceptId }, archivedAt: null, deletedAt: null, name: { equals: name, mode: 'insensitive' } } }));
@@ -326,6 +331,7 @@ export async function restoreDeletion(db: Db, actor: Actor, id: string, input: {
       const name = await freeNameFor(tx, 'vuln_group', group.name, group.id, input.newName);
       await tx.vulnGroup.update({ where: { id: group.id }, data: { name, deletedAt: null, deletionId: null, version: { increment: 1 } } });
       counts.nodes = (await tx.vulnNode.updateMany({ where: { deletionId: d.id }, data: { deletedAt: null, deletionId: null } })).count;
+      await restoreVulnKeys(tx, await vulnDef(tx), d.id);
       counts.records = await restoreRecords(tx, d.id);
       entity = 'vuln_group';
       summary = `Уязвимости: восстановлена группа «${name}»${name !== group.name ? ` (прежнее название «${group.name}»)` : ''}: типов ${counts.nodes}, записей ${counts.records}`;
@@ -336,6 +342,7 @@ export async function restoreDeletion(db: Db, actor: Actor, id: string, input: {
       const twin = await tx.vulnNode.findFirst({ where: { groupId: node.groupId, systemTypeId: node.systemTypeId, deletedAt: null, id: { not: node.id } } });
       if (twin) throw conflict('NODE_EXISTS', `В группе «${node.group.name}» тип «${node.systemType?.value ?? ''}» добавлен заново — восстановить прежний нельзя`);
       await tx.vulnNode.update({ where: { id: node.id }, data: { deletedAt: null, deletionId: null } });
+      await restoreVulnKeys(tx, await vulnDef(tx), d.id);
       counts.records = await restoreRecords(tx, d.id);
       entity = 'vuln_node';
       summary = `Уязвимости: в группе «${node.group.name}» восстановлен тип «${node.systemType?.value ?? ''}»: записей ${counts.records}`;
