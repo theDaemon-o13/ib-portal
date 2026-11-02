@@ -247,9 +247,17 @@ describe('реестр сервисов', () => {
         const prod = String(c.values[C('key')]).split(' / ')[1];
         await tx.registerRecord.update({ where: { id: c.id }, data: { values: { ...rest, [C('key')]: `api / ${prod}` } as object } });
       }
+      // Компонент, заведённый вручную (без ключа) с тем же адресом: ключа не получит, совпадением не станет.
+      const prodEnv = must(s.F(s.components, 'env').options.find((o) => o.systemKey === 'prod')).id;
+      const manual = await tx.registerRecord.create({
+        data: { registerId: s.components.id, number: 900, values: { [C('title')]: 'api', [C('env')]: prodEnv, [C('ip')]: '10.0.0.5', [C('port')]: '80' } },
+      });
       const marker = 'system.register.assets.components_instance.v1';
       await tx.seedMarker.delete({ where: { key: marker } });
       await seedComponentInstances(tx);
+      const manualAfter = (await tx.registerRecord.findUniqueOrThrow({ where: { id: manual.id } })).values as Record<string, unknown>;
+      expect([manualAfter[C('key')], manualAfter[C('instance')]]).toEqual([undefined, 'api · Prod · 10.0.0.5:80']);
+      await tx.registerRecord.update({ where: { id: manual.id }, data: { deletedAt: new Date() } });
       const comps = await s.rows(s.components);
       expect(comps.map((c) => [c.values[C('key')], c.values[C('instance')]])).toEqual([
         ['api / команда а / prod / 10.0.0.5:80', 'api · Prod · 10.0.0.5:80'],

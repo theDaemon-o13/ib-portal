@@ -211,7 +211,9 @@ export async function seedComponentInstances(tx: Tx): Promise<void> {
       const e = env ? envLabels.get(str(v[env.id])) ?? '' : '';
       const a = ip ? str(v[ip.id]) : '';
       const p = port ? str(v[port.id]) : '';
-      return { r, comp, key: comp ? componentKey(comp, prod, e, a, p) : '', instance: comp ? componentInstance(comp, e, a, p) : '' };
+      // Ключ — только у записей с ключом (их завёл адаптер): компонент, заведённый вручную, ключа не получает (1.6.0).
+      const hadKey = typeof v[key.id] === 'string' && v[key.id] !== '';
+      return { r, comp, key: comp && hadKey ? componentKey(comp, prod, e, a, p) : '', instance: comp ? componentInstance(comp, e, a, p) : '' };
     });
     const groups = new Map<string, number[]>();
     for (const x of planned) if (x.key && !x.r.deletedAt) groups.set(x.key, [...(groups.get(x.key) ?? []), x.r.number]);
@@ -223,8 +225,8 @@ export async function seedComponentInstances(tx: Tx): Promise<void> {
     let changed = 0;
     for (const x of planned) {
       const v = x.r.values as Values;
-      if (!x.comp || (v[key.id] === x.key && v[instance.id] === x.instance)) continue;
-      const values: Values = { ...v, [key.id]: x.key, [instance.id]: x.instance };
+      if (!x.comp || ((!x.key || v[key.id] === x.key) && v[instance.id] === x.instance)) continue;
+      const values: Values = { ...v, ...(x.key ? { [key.id]: x.key } : {}), [instance.id]: x.instance };
       await tx.registerRecord.update({
         where: { id: x.r.id },
         data: { values: values as Prisma.InputJsonValue, searchText: searchTextOf(def, x.r.number, values, new Map()), version: { increment: 1 } },
@@ -233,9 +235,9 @@ export async function seedComponentInstances(tx: Tx): Promise<void> {
         data: {
           userId: null, action: 'register_record.updated', entity: 'register_record', entityId: x.r.id,
           diff: {
-            summary: `«${reg.name}», запись #${x.r.number}: ключ и заголовок пересчитаны при обновлении на 1.6.1`,
+            summary: `«${reg.name}», запись #${x.r.number}: ${x.key ? 'ключ и заголовок пересчитаны' : 'заголовок заполнен'} при обновлении на 1.6.1`,
             after: { via: 'seed', changes: [
-              { fieldId: key.id, label: key.label, from: str(v[key.id]), to: x.key },
+              ...(x.key ? [{ fieldId: key.id, label: key.label, from: str(v[key.id]), to: x.key }] : []),
               { fieldId: instance.id, label: instance.label, from: str(v[instance.id]), to: x.instance },
             ] },
           } as Prisma.InputJsonValue,
