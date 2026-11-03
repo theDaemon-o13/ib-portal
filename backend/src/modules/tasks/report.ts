@@ -95,7 +95,7 @@ export async function taskReport(db: Db, f: TaskReportFilter, limit = REPORT_LIM
 }
 
 /** Первый вход задачи в «Поставленные», «В работе», «На проверке»: переходы 1.2.0 и журнал до 1.2.0 — что раньше. */
-async function stepDates(db: Db, ids: readonly string[]): Promise<Map<string, Partial<Record<Step, Date>>>> {
+export async function stepDates(db: Db, ids: readonly string[]): Promise<Map<string, Partial<Record<Step, Date>>>> {
   const out = new Map<string, Partial<Record<Step, Date>>>();
   if (!ids.length) return out;
   const put = (id: string, key: string | null | undefined, at: Date) => {

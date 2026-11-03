@@ -9,6 +9,7 @@ import * as bulk from './bulk.js';
 import type { TaskActor } from './flow.js';
 import { PROCESS_ACTIONS, runAction, withActions } from './process.js';
 import { exportTaskReport, REPORT_LIMIT, REPORT_PERIODS } from './report.js';
+import { STATS_LIMIT, taskStats } from './stats.js';
 import { replaceReviewer } from './reviewer.js';
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -146,6 +147,41 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       .header('Content-Disposition', `attachment; filename="tasks-report.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
       .header('Cache-Control', 'no-store')
       .send(buffer);
+  });
+
+  // Отчёт по выполненным задачам (1.6.4) — по тому же праву «Задачи: отчёт».
+  const Named = z.object({ id: z.string(), fullName: z.string() });
+  app.get('/tasks/stats', {
+    preHandler: requirePerm('tasks.report'),
+    schema: {
+      tags, summary: `Выполненные задачи за период: цифры, по неделям, сотрудникам и категориям, список (до ${STATS_LIMIT}; больше — 409)`,
+      querystring: z.object({
+        from: IsoDate, to: IsoDate,
+        assigneeId: z.string().uuid().optional(),
+        categoryId: z.string().uuid().optional(),
+        late: z.enum(['true', 'false']).optional(),
+        archived: z.enum(['true', 'false']).optional(),
+      }).refine((q) => q.from <= q.to, { message: 'Начало периода позже конца', path: ['from'] }),
+      response: {
+        200: z.object({
+          summary: z.object({ done: z.number().int(), onTime: z.number().int(), late: z.number().int(), avgLateDays: z.number().nullable(), avgLeadDays: z.number().nullable() }),
+          weeks: z.array(z.object({ week: z.string(), onTime: z.number().int(), late: z.number().int() })),
+          byAssignee: z.array(z.object({ id: z.string().nullable(), fullName: z.string(), done: z.number().int(), onTime: z.number().int(), late: z.number().int(), avgLeadDays: z.number().nullable() })),
+          byCategory: z.array(z.object({ id: z.string(), value: z.string(), color: z.string().nullable(), done: z.number().int() })),
+          items: z.array(z.object({
+            id: z.string(), number: z.number().int(), title: z.string(),
+            category: z.object({ id: z.string(), value: z.string(), color: z.string().nullable() }),
+            assignee: Named.nullable(), createdAt: z.string(), startedAt: z.string().nullable(), completedAt: z.string(), dueDate: z.string().nullable(),
+            lateDays: z.number().int().nullable(), leadDays: z.number().int(),
+            closedBy: z.object({ how: z.enum(['accepted', 'self', 'system', 'override']), fullName: z.string().nullable() }),
+          })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => {
+    const q = request.query;
+    return taskStats(db, { from: q.from, to: q.to, assigneeId: q.assigneeId, categoryId: q.categoryId, late: q.late === 'true', archived: q.archived === 'true' });
   });
 
   app.post('/tasks/mail-draft', {
