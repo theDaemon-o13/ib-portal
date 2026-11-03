@@ -53,6 +53,7 @@ model User {
   taskComments         TaskComment[]
   taskTransitions      TaskTransition[]     @relation("TransitionActor")
   reviewTasks          Task[]               @relation("TaskReviewer")
+  taskCandidacies      TaskCandidate[]
   reviewTransitions    TaskTransition[]     @relation("TransitionReviewer")
   notifications        Notification[]       @relation("NotificationRecipient")
   notificationsSent    Notification[]       @relation("NotificationActor")
@@ -989,6 +990,8 @@ model Task {
   events        AutomationEventTask[]
   transitions   TaskTransition[]
   notifications Notification[]
+  /// Общая задача (1.6.4, ADR-0034): кто может взять её себе.
+  candidates    TaskCandidate[]
 
   @@index([statusId])
   @@index([assigneeId, dueDate])
@@ -1045,6 +1048,20 @@ model TaskComment {
 }
 
 /// Переходы задачи между колонками (релиз 1.2.0, ADR-0022). Только пополняется: права и триггер, как у audit_log.
+/// Общая задача без исполнителя (1.6.4): проверка документа сотрудниками, этап перевода с несколькими ответственными.
+/// Взять её себе может только пользователь из списка; список приводит к составу syncStageTasks.
+model TaskCandidate {
+  taskId String @map("task_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_candidates")
+}
+
 model TaskTransition {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   taskId       String   @map("task_id") @db.Uuid
