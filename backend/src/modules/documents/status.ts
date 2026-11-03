@@ -234,6 +234,8 @@ export type StageTaskRole = 'holder' | 'reviewer';
 export const DOC_STAGE_DAYS_KEY = 'documents.stageDays';
 export const DEFAULT_STAGE_DAYS = { '11': 5, '12': 3, '13': 3, '15': 3, '16': 5 } as const;
 export type StageDays = Record<keyof typeof DEFAULT_STAGE_DAYS, number>;
+/** Роль, которая проверяет документ на этапе 12 (1.6.4); не выбрана — все сотрудники ИБ. «Параметры портала». */
+export const DOC_REVIEW_ROLE_KEY = 'documents.reviewRole';
 
 export interface StageTaskText {
   title: string;

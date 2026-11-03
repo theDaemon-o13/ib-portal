@@ -13,7 +13,7 @@ import { reviewerFor, subordinateIdsOf } from '../../lib/hierarchy.js';
 import { todayIso } from '../../lib/today.js';
 import { notifyStep } from '../notifications/service.js';
 import { auditSettings, ensureVersioned } from '../settings/common.js';
-import { commentRequired, recordTransition, statusIdOf, type StatusKey, type TaskActor } from './flow.js';
+import { assertCandidate, commentRequired, recordTransition, statusIdOf, type StatusKey, type TaskActor } from './flow.js';
 import { assertActive, assertAssignee, COMMENT_MAX, getTaskRow, toTaskDto, type TaskDto } from './service.js';
 
 export const PROCESS_ACTIONS = ['take', 'start', 'submit', 'complete', 'accept', 'return'] as const;
@@ -65,7 +65,7 @@ function allowed(actor: TaskActor, t: TaskDto, f: ReviewFacts): ProcessAction[] 
   const key = t.status.systemKey;
   const mine = t.assignee?.id === actor.id;
   const out: ProcessAction[] = [];
-  if (key === 'new' && !t.assignee) out.push('take');
+  if (key === 'new' && !t.assignee && (!t.candidates.length || t.candidates.some((c) => c.id === actor.id))) out.push('take');
   if (key === 'assigned' && mine) out.push('start');
   if (key === 'work' && mine) out.push(f.mineReviewed ? 'submit' : 'complete');
   if (key === 'review' && !reviewDenied(actor, { assigneeId: t.assignee?.id ?? null, creatorId: t.createdBy?.id ?? null, reviewer: t.reviewer }, f)) out.push('accept', 'return');
@@ -92,6 +92,7 @@ export async function runAction(db: Db, actor: TaskActor, id: string, action: Pr
     }
     if (action === 'take') {
       if (t.assigneeId) throw conflict('HAS_ASSIGNEE', 'У задачи уже есть исполнитель. Обновите карточку');
+      assertCandidate(actor.id, t.candidates.map((c) => c.user.id));
       await assertAssignee(tx, actor.id);
     } else if (action === 'start' || action === 'submit' || action === 'complete') {
       if (t.assigneeId !== actor.id) throw new AppError(403, 'NOT_ASSIGNEE', `«${rule.label}» может только исполнитель задачи`);

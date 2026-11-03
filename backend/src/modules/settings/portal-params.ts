@@ -10,7 +10,7 @@ import { ASSET_SETTINGS_KEY } from '../assets/definition.js';
 import { DEFAULT_SCAN_MAX_AGE_DAYS, VULN_SETTINGS_KEY } from '../vulns/profiles.js';
 import { SYSTEM_TYPES_CATALOG } from '../vulns/groups.service.js';
 import { auditSettings, type Actor } from './common.js';
-import { DEFAULT_STAGE_DAYS, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
+import { DEFAULT_STAGE_DAYS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
 
 const text = (what: string, max = 200) => z.string().trim().min(1, `${what}: пустое значение`).max(max, `${what}: не длиннее ${max} символов`);
 const uuid = (what: string) => z.string().uuid(`${what}: неверный идентификатор`);
@@ -52,7 +52,7 @@ const HOST_TYPE_RULES = {
   workstation: { namePatterns: ['(NB|PC|MAC)\\d*$'] },
 };
 
-export type ParamForm = 'vulns' | 'assets' | 'lines' | 'text' | 'json' | 'stageDays';
+export type ParamForm = 'vulns' | 'assets' | 'lines' | 'text' | 'json' | 'stageDays' | 'reviewRole';
 
 interface ParamDef {
   key: string;
@@ -122,6 +122,14 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
     description: 'Срок задачи этапа маршрута в рабочих днях от дня, когда документ пришёл на этап. Этап 14 — ближайший срок ответственного лица, перевод — срок языка (задаются в карточке документа). Новое значение — для новых задач.',
     schema: StageDaysSchema, defaults: async () => ({ ...DEFAULT_STAGE_DAYS }),
   },
+  {
+    key: DOC_REVIEW_ROLE_KEY, title: 'Документы: роль проверки сотрудниками', form: 'reviewRole',
+    description: 'Кто может взять общую задачу «Проверить документ» на этапе «Проверка сотрудниками»: активные пользователи с этой ролью и доступом к разделам ИБ, кроме автора. Роль не выбрана — все сотрудники ИБ. Список открытых задач меняется при следующем действии с документом.',
+    schema: z.strictObject({ roleId: uuid('Роль').nullable() }), defaults: async () => ({ roleId: null }),
+    check: async (db, value: { roleId: string | null }) => {
+      if (value.roleId && !(await db.role.findUnique({ where: { id: value.roleId }, select: { id: true } }))) throw badRequest('BAD_PARAM', 'Такой роли нет');
+    },
+  },
 ];
 
 /**
@@ -160,6 +168,7 @@ export async function listPortalParams(db: Db) {
   const assets = await assetSettingsView(db);
   const types = await db.catalogItem.findMany({ where: { catalogCode: SYSTEM_TYPES_CATALOG, deletedAt: null, archivedAt: null }, orderBy: { sortOrder: 'asc' }, select: { id: true, value: true } });
   const registers = await db.register.findMany({ where: { archivedAt: null, deletedAt: null }, orderBy: { name: 'asc' }, select: { id: true, name: true } });
+  const roles = await db.role.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } });
   const items = [];
   for (const def of PORTAL_PARAMS) items.push(await view(db, def));
   return {
@@ -167,6 +176,7 @@ export async function listPortalParams(db: Db) {
     options: {
       levels: assets.levelOptions,
       systemTypes: types.map((t) => ({ id: t.id, label: t.value })), registers: registers.map((r) => ({ id: r.id, label: r.name })),
+      roles: roles.map((r) => ({ id: r.id, label: r.name })),
     },
   };
 }

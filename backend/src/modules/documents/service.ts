@@ -19,12 +19,12 @@ import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDocComment, notifyReturned } from './notify.js';
 import { notify } from '../notifications/service.js';
-import { closeDocumentTasks, closeTasks, createStageTask, documentTask, moveStageTaskDue, OWNER_LABEL } from './tasks.js';
+import { closeDocumentTasks, closeTasks, createStageTask, documentTask, moveStageTaskDue, OWNER_LABEL, setTaskCandidates } from './tasks.js';
 import { readPortalParam } from '../settings/portal-params.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import {
-  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, DOC_STAGE_DAYS_KEY, docComparator, docStatus, dueMatches, stageState, stageTaskDescription, stageTaskText, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
+  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY, docComparator, docStatus, dueMatches, stageState, stageTaskDescription, stageTaskText, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
   ROUTE, SIGN_STAGE, stageHolders, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
   type DocDueFilter, type DocSort, type HolderCtx, type Holders, type Person, type StageDays, type StagePhase, type StageTaskRole,
 } from './status.js';
@@ -401,32 +401,64 @@ export async function notifyWaiting(db: Db, docId: string, actorId: string | nul
   });
 }
 
-// ---------------------------------------------------------------- задачи этапов маршрута (1.6.3)
+// ---------------------------------------------------------------- задачи этапов маршрута (1.6.3; общая задача — 1.6.4)
 
 /** Метка задачи этапа без ответственного, когда отметка «Является начальником ИБ» никому не поставлена. */
 export const NO_HEAD_LABEL = 'Начальник ИБ (не назначен)';
+/** Метки общих задач (1.6.4): кому они предназначены. */
+export const REVIEW_GROUP_LABEL = 'Проверка сотрудниками';
+export const HOLDERS_GROUP_LABEL = 'Начальник ИБ или старшие над автором';
+/** Состояние общей задачи — состояние маршрута с этим суффиксом: так она не путается с личной задачей того же этапа. */
+const GROUP = '#group';
 
-interface StageTarget { assigneeId: string | null; label: string | null; role: StageTaskRole }
+interface StageTarget {
+  /** Состояние задачи: состояние маршрута, у общей — с суффиксом #group. */
+  state: string;
+  /** Личная задача — исполнитель; общая и задача без ответственного — null. */
+  assigneeId: string | null;
+  label: string | null;
+  role: StageTaskRole;
+  /** Общая задача: кто может взять её себе. */
+  candidates: string[] | null;
+}
+
+/** Кто проверяет документ на этапе 12: активные пользователи с ib.work и ролью из параметра портала (нет роли — все сотрудники ИБ), кроме владельца. */
+async function reviewCandidates(db: Db, ownerId: string): Promise<string[]> {
+  const { roleId } = await readPortalParam<{ roleId: string | null }>(db, DOC_REVIEW_ROLE_KEY);
+  const rows = await db.user.findMany({
+    where: { isActive: true, id: { not: ownerId }, AND: [IB_WORK, ...(roleId ? [{ roles: { some: { roleId } } }] : [])] },
+    select: { id: true }, orderBy: { fullName: 'asc' },
+  });
+  return rows.map((u) => u.id);
+}
 
 /**
- * Кому задача на текущем этапе: «Сейчас у» (stageHolders — та же функция, что «ждёт вас»), на этапе 12 — ещё все
- * активные сотрудники ИБ, кроме владельца, «Проверить документ». Этап 11 — только первый драфт, заведённый за другого
- * владельца (после возврата у автора задача «Доработать документ»). Без ib.work или отключённый — задача без
- * ответственного с меткой, кому предназначалась (одна на документ — индекс tasks_doc_open_uq).
+ * Кому задача на текущем этапе: «Сейчас у» (stageHolders — та же функция, что «ждёт вас»). Один человек — личная задача;
+ * несколько (этап 15, переводы готовы) — одна общая со списком. На этапе 12 — ещё одна общая «Проверить документ»
+ * (reviewCandidates). Этап 11 — только первый драфт, заведённый за другого владельца (после возврата у автора задача
+ * «Доработать документ»). Без ib.work или отключённый — задача без ответственного с меткой (одна на документ — индекс
+ * tasks_doc_open_uq; рядом с общей задачей её нет).
  */
-async function stageTargets(db: Db, d: DocRow, v: VersionRow, f: RouteFacts): Promise<StageTarget[]> {
+async function stageTargets(db: Db, d: DocRow, v: VersionRow, f: RouteFacts, state: string): Promise<StageTarget[]> {
   if (v.stage === FIRST_STAGE && !(v.no === 1 && v.round === 1 && d.createdBy !== d.ownerId)) return [];
   const h = (await holdersOf(db, [d], new Map([[v.id, f]]), false)).holders.get(d.id) ?? { people: [], missingHead: false };
-  const staff = await db.user.findMany({ where: { isActive: true, ...IB_WORK }, select: { id: true }, orderBy: { fullName: 'asc' } });
-  const ib = new Set(staff.map((u) => u.id));
+  const ids = h.people.map((p) => p.id);
+  const ib = new Set((await db.user.findMany({ where: { id: { in: ids }, isActive: true, ...IB_WORK }, select: { id: true } })).map((u) => u.id));
+  const people = h.people.filter((p) => ib.has(p.id));
   const out: StageTarget[] = [];
-  const push = (t: StageTarget) => {
-    if (out.some((x) => x.assigneeId === t.assigneeId)) return;
-    out.push(t);
-  };
-  for (const p of h.people) push(ib.has(p.id) ? { assigneeId: p.id, label: null, role: 'holder' } : { assigneeId: null, label: p.id === d.ownerId ? OWNER_LABEL : p.fullName, role: 'holder' });
-  if (h.missingHead) push({ assigneeId: null, label: NO_HEAD_LABEL, role: 'holder' });
-  if (v.stage === 12) for (const u of staff) if (u.id !== d.ownerId) push({ assigneeId: u.id, label: null, role: 'reviewer' });
+  if (people.length > 1) {
+    out.push({ state: state + GROUP, assigneeId: null, label: HOLDERS_GROUP_LABEL, role: 'holder', candidates: people.map((p) => p.id) });
+  } else if (people.length === 1) {
+    out.push({ state, assigneeId: people[0]?.id ?? null, label: null, role: 'holder', candidates: null });
+  }
+  const reviewers = v.stage === 12 ? await reviewCandidates(db, d.ownerId) : null;
+  if (reviewers) out.push({ state: state + GROUP, assigneeId: null, label: REVIEW_GROUP_LABEL, role: 'reviewer', candidates: reviewers });
+  // Ответственный без доступа к ИБ или начальник ИБ не назначен — задача без ответственного, если нет общей.
+  if (!people.length && !reviewers) {
+    const missing = h.people[0];
+    if (missing) out.push({ state, assigneeId: null, label: missing.id === d.ownerId ? OWNER_LABEL : missing.fullName, role: 'holder', candidates: null });
+    else if (h.missingHead) out.push({ state, assigneeId: null, label: NO_HEAD_LABEL, role: 'holder', candidates: null });
+  }
   return out;
 }
 
@@ -439,17 +471,28 @@ async function stageDue(db: Db, stage: number, phase: StagePhase | null, f: Rout
   return { due: isoDate(addWorkingDays(parseIsoDate(todayIso()), days, await loadFullWorkCalendar(db))), derived: null };
 }
 
+type OpenStageTask = { id: string; number: number; statusId: string; assigneeId: string | null; documentState: string | null; dueDate: Date | null; candidates: { userId: string }[] };
+
+/** Задача подходит цели: то же состояние и тот же исполнитель; общая — взята кем-то из списка или ещё никем. */
+function fits(t: OpenStageTask, x: StageTarget): boolean {
+  if (t.documentState !== x.state) return false;
+  if (x.candidates) return t.assigneeId === null || x.candidates.includes(t.assigneeId);
+  return t.assigneeId === x.assigneeId;
+}
+
 /**
- * Задачи этапа приводятся к текущему состоянию маршрута: прежние (другой этап, круг, фаза; ответственный сменился)
- * закрываются системой, недостающие создаются. Закрытая вручную задача того же состояния повторно не создаётся.
- * Вызывается в транзакции каждого действия, которое меняет этап, ответственных, лиц или переводы. closing — комментарий,
- * когда рабочей версии нет (подписан, удалён, в архиве, пересмотр отменён).
+ * Задачи этапа приводятся к текущему состоянию маршрута. Документ ушёл на другой этап (круг, фазу) — прежние задачи
+ * закрываются системой («Выполнено»); сменился ответственный — задача прежнего закрывается и уходит в архив (это не его
+ * работа, в отчёт по выполненным не идёт). Недостающие создаются; у общей задачи список приводится к составу. Закрытая
+ * вручную задача того же состояния повторно не создаётся. Вызывается в транзакции каждого действия, которое меняет этап,
+ * ответственных, лиц или переводы. closing — комментарий, когда рабочей версии нет (подписан, удалён, в архиве, пересмотр
+ * отменён).
  */
 export async function syncStageTasks(db: Db, docId: string, closing = 'Маршрут документа завершён'): Promise<void> {
   const d = await db.document.findUnique({ where: { id: docId }, include: docInclude });
-  const open = await db.task.findMany({
+  const open: OpenStageTask[] = await db.task.findMany({
     where: { documentId: docId, documentReason: 'stage', completedAt: null, archivedAt: null, deletedAt: null },
-    select: { id: true, number: true, statusId: true, assigneeId: true, documentState: true, dueDate: true },
+    select: { id: true, number: true, statusId: true, assigneeId: true, documentState: true, dueDate: true, candidates: { select: { userId: true } } },
   });
   const v = d && !d.deletedAt ? activeWorking(d) : null;
   if (!d || !v) {
@@ -459,12 +502,12 @@ export async function syncStageTasks(db: Db, docId: string, closing = 'Марш�
   const f = (await routeFacts(db, [v.id])).get(v.id) ?? NO_FACTS;
   const phase: StagePhase | null = v.stage === 15 ? (f.missingTranslations > 0 ? 'translate' : 'ready') : null;
   const state = stageState(v, phase);
-  const targets = await stageTargets(db, d, v, f);
-  const moved = open.filter((t) => t.documentState !== state);
-  const replaced = open.filter((t) => t.documentState === state && !targets.some((x) => x.assigneeId === t.assigneeId));
-  await closeTasks(db, moved, `Документ на этапе «${stageName(v.stage)}»`);
-  await closeTasks(db, replaced, 'Ответственный по этапу сменился');
-  const kept = open.filter((t) => t.documentState === state && targets.some((x) => x.assigneeId === t.assigneeId));
+  const targets = await stageTargets(db, d, v, f, state);
+  const kept = open.filter((t) => targets.some((x) => fits(t, x)));
+  const stale = open.filter((t) => !kept.includes(t));
+  const baseOf = (s: string | null) => (s ?? '').replace(GROUP, '');
+  await closeTasks(db, stale.filter((t) => baseOf(t.documentState) !== state), `Документ на этапе «${stageName(v.stage)}»`);
+  await closeTasks(db, stale.filter((t) => baseOf(t.documentState) === state), 'Ответственный по этапу сменился', { archive: true });
   const { due, derived } = await stageDue(db, v.stage, phase, f);
   // Срок из сроков лиц или переводов идёт за ними; срок «N рабочих дней» после создания не трогается — его правят в задаче.
   if (derived) {
@@ -475,18 +518,32 @@ export async function syncStageTasks(db: Db, docId: string, closing = 'Марш�
   }
   const label = `#${d.number} «${v.title}»`;
   for (const x of targets) {
-    if (kept.some((t) => t.assigneeId === x.assigneeId)) continue;
+    const have = kept.find((t) => fits(t, x));
+    if (have) {
+      if (x.candidates) await setTaskCandidates(db, have.id, have.candidates.map((c) => c.userId), x.candidates);
+      continue;
+    }
     // Задачу того же состояния закрыли вручную (или удалили) — не возвращаем; закрытую системой (сменился ответственный и вернулся) — создаём снова.
     const before = await db.task.findFirst({
-      where: { documentId: docId, documentReason: 'stage', documentState: state, assigneeId: x.assigneeId, transitions: { none: { kind: 'system', fromStatusId: { not: null } } } },
+      where: {
+        documentId: docId, documentReason: 'stage', documentState: x.state, ...(x.candidates ? {} : { assigneeId: x.assigneeId }),
+        transitions: { none: { kind: 'system', fromStatusId: { not: null } } },
+      },
       select: { id: true },
     });
     if (before) continue;
     const text = stageTaskText(v.stage, phase, x.role, { label, versionNo: v.no, languages: f.missingLanguages });
-    await createStageTask(db, {
-      documentId: docId, state, assigneeId: x.assigneeId, recipientLabel: x.label, title: text.title, due,
+    const taskId = await createStageTask(db, {
+      documentId: docId, state: x.state, assigneeId: x.assigneeId, recipientLabel: x.label, title: text.title, due, candidates: x.candidates ?? [],
       description: stageTaskDescription({ label, type: d.type.value, stage: v.stage, versionNo: v.no, requirement: text.requirement }),
     }, d.number);
+    // Проверяющих никто не уведомляет «ждёт вас» (это не «Сейчас у») — список узнаёт о задаче здесь.
+    if (x.role === 'reviewer' && x.candidates?.length) {
+      await notify(db, {
+        kind: 'doc_waiting', to: x.candidates, documentId: docId, taskId, actorId: null,
+        title: `Документ ${label} ждёт проверки сотрудниками — возьмите задачу, если проверяете вы`, dedupeKey: `doc_review:${taskId}`,
+      });
+    }
   }
 }
 

@@ -93,19 +93,25 @@ export async function closeDocumentTasks(tx: Db, documentId: string, reason: Doc
   return closeTasks(tx, open, comment);
 }
 
-/** Закрыть задачи системой: «Выполнено» без проверки, комментарий перехода, запись в журнал. */
-export async function closeTasks(tx: Db, open: readonly { id: string; number: number; statusId: string }[], comment: string): Promise<number> {
+/**
+ * Закрыть задачи системой: «Выполнено» без проверки, комментарий перехода, запись в журнал. archive — ещё и в архив
+ * (1.6.4): задача прежнего ответственного — не его выполненная работа, в отчёт и на доску не идёт.
+ */
+export async function closeTasks(tx: Db, open: readonly { id: string; number: number; statusId: string }[], comment: string, opts: { archive?: boolean } = {}): Promise<number> {
   if (!open.length) return 0;
   const done = await statusIdOf(tx, 'done');
   const now = new Date();
   for (const t of open) {
-    await tx.task.update({ where: { id: t.id }, data: { statusId: done, completedAt: now, reviewerId: null, version: { increment: 1 } } });
+    await tx.task.update({ where: { id: t.id }, data: { statusId: done, completedAt: now, reviewerId: null, ...(opts.archive ? { archivedAt: now } : {}), version: { increment: 1 } } });
     // Системная задача закрывается сама, без проверки (решение владельца, этап Б); комментарий перехода — в ленте задачи.
     await recordTransition(tx, { taskId: t.id, from: t.statusId, to: done, actorId: null, kind: 'system', comment: `${comment}. Задача закрыта автоматически` });
     await tx.auditLog.create({
       data: {
         userId: null, action: 'task.updated', entity: 'task', entityId: t.id,
-        diff: { summary: `Задача #${t.number} закрыта: ${comment}`, after: { changes: [{ label: 'Статус', from: 'открыта', to: 'Выполнено' }] } } as Prisma.InputJsonValue,
+        diff: {
+          summary: `Задача #${t.number} закрыта${opts.archive ? ' и отправлена в архив' : ''}: ${comment}`,
+          after: { changes: [{ label: 'Статус', from: 'открыта', to: 'Выполнено' }, ...(opts.archive ? [{ label: 'Архив', from: 'нет', to: 'да' }] : [])] },
+        } as Prisma.InputJsonValue,
       },
     });
   }
@@ -122,6 +128,8 @@ export interface StageTaskInput {
   title: string;
   description: string;
   due: string | null;
+  /** Общая задача (1.6.4): кто может взять её себе. */
+  candidates?: readonly string[];
 }
 
 /**
@@ -146,12 +154,13 @@ export async function createStageTask(tx: Db, input: StageTaskInput, docNumber: 
     },
     select: { id: true, number: true, statusId: true },
   });
+  if (input.candidates?.length) await tx.taskCandidate.createMany({ data: input.candidates.map((userId) => ({ taskId: task.id, userId })) });
   await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
   await tx.auditLog.create({
     data: {
       userId: null, action: 'task.created', entity: 'task', entityId: task.id,
       diff: {
-        summary: `Задача #${task.number} создана по этапу документа #${docNumber}${input.assigneeId ? '' : ` (ответственный не назначен: ${input.recipientLabel ?? '—'})`}`,
+        summary: `Задача #${task.number} создана по этапу документа #${docNumber}${input.candidates?.length ? ` (общая, могут взять: ${input.candidates.length})` : ''}${input.assigneeId ? '' : ` (ответственный не назначен: ${input.recipientLabel ?? '—'})`}`,
         after: { source: 'document', documentId: input.documentId, reason: 'stage', state: input.state, dueDate: input.due },
       } as Prisma.InputJsonValue,
     },
@@ -171,4 +180,12 @@ export async function moveStageTaskDue(tx: Db, t: { id: string; number: number }
       diff: { summary: `Задача #${t.number}: ${body}`, after: { changes: [{ label: 'Срок', from: show(from), to: show(to) }] } } as Prisma.InputJsonValue,
     },
   });
+}
+
+/** Список общей задачи приводится к составу (роль проверки сменили, пользователя отключили): строки заменяются. */
+export async function setTaskCandidates(tx: Db, taskId: string, was: readonly string[], next: readonly string[]): Promise<void> {
+  const drop = was.filter((id) => !next.includes(id));
+  const add = next.filter((id) => !was.includes(id));
+  if (drop.length) await tx.taskCandidate.deleteMany({ where: { taskId, userId: { in: drop } } });
+  if (add.length) await tx.taskCandidate.createMany({ data: add.map((userId) => ({ taskId, userId })) });
 }

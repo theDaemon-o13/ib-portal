@@ -1,6 +1,8 @@
 import type { User } from '../../generated/prisma/client.js';
 import { describe, expect, it } from 'vitest';
-import { seedDocumentRoute, seedDocumentStageTasks } from '../../../prisma/seed/documents.js';
+import { seedDocumentRoute, seedDocumentStageTasks, seedReviewTasksGrouped } from '../../../prisma/seed/documents.js';
+import { runAction } from '../tasks/process.js';
+import { closeTasks } from './tasks.js';
 import { testDbConfig } from '../../../scripts/test-db.js';
 import { createPrisma } from '../../lib/db.js';
 import { MIME_BY_EXT } from '../../lib/file-type.js';
@@ -559,12 +561,16 @@ describe('документы: фильтры и порядок реестра', 
     }));
 });
 
-describe('документы: задачи этапов маршрута (1.6.3)', () => {
+describe('документы: задачи этапов маршрута (1.6.3; общая задача — 1.6.4)', () => {
   const stageTasks = (tx: Tx, id: string, open = true) => tx.task.findMany({
-    where: { documentId: id, documentReason: 'stage', ...(open ? { completedAt: null } : {}) },
-    include: { assignee: { select: { fullName: true } } }, orderBy: { number: 'asc' },
+    where: { documentId: id, documentReason: 'stage', ...(open ? { completedAt: null, archivedAt: null } : {}) },
+    include: { assignee: { select: { fullName: true } }, candidates: { select: { user: { select: { id: true, fullName: true } } }, orderBy: { user: { fullName: 'asc' } } } },
+    orderBy: { number: 'asc' },
   });
-  const who = async (tx: Tx, id: string) => (await stageTasks(tx, id)).map((t) => t.assignee?.fullName ?? `— ${t.recipientLabel}`).sort();
+  /** Личная — ФИО; без ответственного — «— метка»; общая — «[метка] ФИО из списка». */
+  const who = async (tx: Tx, id: string) => (await stageTasks(tx, id)).map((t) => (t.candidates.length
+    ? `[${t.recipientLabel}] ${t.candidates.map((c) => c.user.fullName).join(', ')}${t.assignee ? ` → ${t.assignee.fullName}` : ''}`
+    : t.assignee?.fullName ?? `— ${t.recipientLabel}`)).sort();
   const workdays = async (tx: Tx, n: number) => isoDate(addWorkingDays(parseIsoDate(todayIso()), n, await loadFullWorkCalendar(tx)));
   const dueOf = (t: { dueDate: Date | null }) => t.dueDate?.toISOString().slice(0, 10) ?? null;
 
@@ -583,16 +589,25 @@ describe('документы: задачи этапов маршрута (1.6.3)
       // Уведомления «назначена задача» нет — о событии и так сообщает «ждёт вас».
       expect(await tx.notification.count({ where: { taskId: must(t11).id } })).toBe(0);
 
-      // 12: автору — «Учесть комментарии», всем сотрудникам ИБ кроме автора — «Проверить» (3 рабочих дня); читателю — нет.
+      // 12: автору — «Учесть комментарии»; одна общая «Проверить» без исполнителя — список: сотрудники ИБ кроме автора (роль не выбрана).
       await move(tx, x.owner, id, 'to_review');
       expect((await tx.task.findUniqueOrThrow({ where: { id: must(t11).id } })).completedAt).not.toBeNull();
       const t12 = await stageTasks(tx, id);
+      expect(t12).toHaveLength(2);
       expect(t12.find((t) => t.assigneeId === x.owner.id)?.title).toMatch(/^Учесть комментарии/);
-      const reviewers = t12.filter((t) => t.title.startsWith('Проверить')).map((t) => t.assigneeId);
-      expect(reviewers).toEqual(expect.arrayContaining([x.staff.id, x.head.id, x.chief.id, x.admin.id]));
-      expect(reviewers).not.toContain(x.owner.id);
-      expect(reviewers).not.toContain(x.legal.id);
+      const review = must(t12.find((t) => t.title.startsWith('Проверить')));
+      expect(review).toMatchObject({ assigneeId: null, recipientLabel: svc.REVIEW_GROUP_LABEL });
+      const list = review.candidates.map((c) => c.user.id);
+      expect(list).toEqual(expect.arrayContaining([x.staff.id, x.head.id, x.chief.id, x.admin.id]));
+      expect(list).not.toContain(x.owner.id);
+      expect(list).not.toContain(x.legal.id);
+      // Список узнаёт о задаче уведомлением (проверяющие — не «Сейчас у», «ждёт вас» им не приходит).
+      expect(await tx.notification.count({ where: { taskId: review.id, userId: { in: [x.staff.id, x.head.id] } } })).toBe(2);
       for (const t of t12) expect(dueOf(t)).toBe(await workdays(tx, 3));
+      // Берёт сотрудник из списка; дальше — обычный процесс задач.
+      const fresh = await tx.task.findUniqueOrThrow({ where: { id: review.id } });
+      await runAction(tx, { ...(await x.as(x.staff)), perms: new Set(['ib.work']) }, review.id, 'take', { version: fresh.version });
+      expect(await who(tx, id)).toContain(`[${svc.REVIEW_GROUP_LABEL}] ${review.candidates.map((c) => c.user.fullName).join(', ')} → Сотрудник ИБ`);
 
       // 13: начальнику ИБ «Согласовать», задачи этапа 12 закрыты с комментарием.
       await move(tx, x.owner, id, 'to_head');
@@ -600,8 +615,10 @@ describe('документы: задачи этапов маршрута (1.6.3)
       const [t13] = await stageTasks(tx, id);
       expect(must(t13).description).toContain('Этап: Согласование начальника ИБ (3 из 6), версия 1');
       expect(must(t13).description).toContain('Что требуется: согласовать версию 1 или вернуть документ на доработку с комментарием.');
-      const closedComment = await tx.taskComment.findFirst({ where: { taskId: must(t12[0]).id }, orderBy: { createdAt: 'desc' } });
+      const closedComment = await tx.taskComment.findFirst({ where: { taskId: review.id }, orderBy: { createdAt: 'desc' } });
       expect(closedComment?.body).toMatch(/Документ на этапе «Согласование начальника ИБ»/);
+      // Взятая общая задача — выполненная работа взявшего: «Выполнено», не в архиве.
+      expect(await tx.task.findUniqueOrThrow({ where: { id: review.id } })).toMatchObject({ assigneeId: x.staff.id, archivedAt: null });
 
       // 14: срок — ближайший срок несогласовавшего лица; меняется вместе со сроком лица.
       await move(tx, x.head, id, 'approve');
@@ -618,9 +635,9 @@ describe('документы: задачи этапов маршрута (1.6.3)
       await parties.approveParty(tx, await x.as(x.head), id, p.id, await cur(tx, id));
       expect(dueOf(await tx.task.findUniqueOrThrow({ where: { id: t14id } }))).toBe('2026-12-20');
 
-      // 15 без переводов — «Отправить на подписание» начальнику ИБ и старшему над автором; 16 — автору; подписание закрывает всё.
+      // 15 без переводов — одна общая «Отправить на подписание»: начальник ИБ и старший над автором; 16 — автору; подписание закрывает всё.
       await moveTo(tx, x, id, 15);
-      expect(await who(tx, id)).toEqual(['Начальник ИБ', 'Руководитель автора']);
+      expect(await who(tx, id)).toEqual([`[${svc.HOLDERS_GROUP_LABEL}] Начальник ИБ, Руководитель автора`]);
       expect((await stageTasks(tx, id))[0]?.title).toMatch(/^Отправить на подписание/);
       await moveTo(tx, x, id, 16);
       expect(await who(tx, id)).toEqual(['Автор Документа']);
@@ -650,7 +667,7 @@ describe('документы: задачи этапов маршрута (1.6.3)
       expect(dueOf(must(tt))).toBe('2026-12-05');
       const t = await tx.documentTranslation.findFirstOrThrow({ where: { documentId: id } });
       await tr.addTranslationFiles(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.owner.id, { name: 'en.docx', mime: MIME_BY_EXT.docx })).id] });
-      expect(await who(tx, id)).toEqual(['Начальник ИБ', 'Руководитель автора']);
+      expect(await who(tx, id)).toEqual([`[${svc.HOLDERS_GROUP_LABEL}] Начальник ИБ, Руководитель автора`]);
     }));
 
   it('seed: документы в работе получают задачи этапа; повторный запуск ничего не меняет; запрос отката — задачи становятся «доработкой»', () =>
@@ -668,14 +685,68 @@ describe('документы: задачи этапов маршрута (1.6.3)
       expect(await tx.task.count({ where: { documentReason: 'stage' } })).toBe(n);
     }));
 
+  it('роль проверки из параметров портала: в списке только её участники; взять себе — только из списка; список меняется за ролью', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const role = await tx.role.create({ data: { code: `senior_${Math.random().toString(36).slice(2, 8)}`, name: `Стар. сотрудник ИБ ${Math.random().toString(36).slice(2, 6)}` } });
+      await tx.userRole.create({ data: { userId: x.chief.id, roleId: role.id } });
+      await tx.userRole.create({ data: { userId: x.owner.id, roleId: role.id } });
+      await updatePortalParam(tx, await x.as(x.admin), 'documents.reviewRole', { value: { roleId: role.id }, version: 0 });
+      await expectCode(updatePortalParam(tx, await x.as(x.admin), 'documents.reviewRole', { value: { roleId: '00000000-0000-4000-8000-000000000000' }, version: 1 }), 'BAD_PARAM');
+      const id = await x.create();
+      await moveTo(tx, x, id, 12);
+      // Владелец в роли, но свой документ не проверяет.
+      expect(await who(tx, id)).toEqual([`[${svc.REVIEW_GROUP_LABEL}] Руководитель автора`, 'Автор Документа']);
+      const review = must((await stageTasks(tx, id)).find((t) => t.candidates.length));
+      const as = async (u: User) => ({ ...(await x.as(u)), perms: new Set(['ib.work']) });
+      const version = async () => (await tx.task.findUniqueOrThrow({ where: { id: review.id } })).version;
+      await expectCode(runAction(tx, await as(x.staff), review.id, 'take', { version: await version() }), 'NOT_CANDIDATE');
+
+      // В роль добавили сотрудника — список пополняется при следующем действии с документом.
+      await tx.userRole.create({ data: { userId: x.staff.id, roleId: role.id } });
+      await svc.syncStageTasks(tx, id);
+      expect(await who(tx, id)).toContain(`[${svc.REVIEW_GROUP_LABEL}] Руководитель автора, Сотрудник ИБ`);
+      await runAction(tx, await as(x.staff), review.id, 'take', { version: await version() });
+      expect((await tx.task.findUniqueOrThrow({ where: { id: review.id } })).assigneeId).toBe(x.staff.id);
+    }));
+
+  it('seed 1.6.4: задачи «Проверить» по одной на сотрудника (1.6.3) — в архив; документ получает одну общую', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, 12);
+      // Как в 1.6.3: общей задачи не было — была личная каждому; одна уже закрыта системой.
+      const v = await tx.document.findUniqueOrThrow({ where: { id }, include: { workingVersion: true } });
+      const state = `${must(v.workingVersion).id}:1:12`;
+      // Общей задачи в 1.6.3 не было: здесь её закрывает система (как смена состояния) — seed создаёт её заново.
+      await closeTasks(tx, (await stageTasks(tx, id)).filter((t) => t.candidates.length), 'как в 1.6.3');
+      const old = await stageTasks(tx, id);
+      const mk = async (u: User, done = false) => (await tx.task.create({ data: {
+        title: 'Проверить: документ', statusId: must(old[0]).statusId, priorityId: must(old[0]).priorityId, categoryId: must(old[0]).categoryId,
+        assigneeId: u.id, source: 'document', documentId: id, documentReason: 'stage', documentState: state, ...(done ? { completedAt: new Date() } : {}),
+      } })).id;
+      const a = await mk(x.staff);
+      const b = await mk(x.head, true);
+      await tx.seedMarker.deleteMany({ where: { key: 'docs.stage_tasks.group.v1' } });
+      await seedReviewTasksGrouped(tx);
+      await seedDocumentStageTasks(tx);
+      for (const t of [a, b]) expect((await tx.task.findUniqueOrThrow({ where: { id: t } })).archivedAt).not.toBeNull();
+      // Задачу владельца («Учесть комментарии») уборка не трогает.
+      expect(await who(tx, id)).toEqual(expect.arrayContaining(['Автор Документа', expect.stringMatching(new RegExp(`^\\[${svc.REVIEW_GROUP_LABEL}\\]`))]));
+      expect((await stageTasks(tx, id)).filter((t) => t.candidates.length)).toHaveLength(1);
+    }));
+
   it('отметку начальника ИБ передали или сняли — задача переходит или остаётся без ответственного; закрытую вручную не возвращаем', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const id = await x.create();
       await moveTo(tx, x, id, 13);
       const head = await tx.user.findUniqueOrThrow({ where: { id: x.head.id } });
+      const [was] = await stageTasks(tx, id);
       await setIbHead(tx, await x.as(x.admin), x.staff.id, { version: (await tx.user.findUniqueOrThrow({ where: { id: x.staff.id } })).version, value: true, transfer: true });
       expect(await who(tx, id)).toEqual(['Сотрудник ИБ']);
+      // Задача прежнего начальника ИБ — не его выполненная работа: закрыта и в архиве.
+      expect((await tx.task.findUniqueOrThrow({ where: { id: must(was).id } })).archivedAt).not.toBeNull();
       await setIbHead(tx, await x.as(x.admin), x.staff.id, { version: (await tx.user.findUniqueOrThrow({ where: { id: x.staff.id } })).version, value: false });
       expect(await who(tx, id)).toEqual([`— ${svc.NO_HEAD_LABEL}`]);
       // Вернули отметку прежнему — задача снова у него: системное закрытие повтор не запрещает.
@@ -1072,8 +1143,10 @@ describe('документы: этап 15 — перевод (Г4)', () => {
 
 describe('документы: уведомления (Г5)', () => {
   /** Уведомления пользователя по документу: вид и заголовок. */
+  // Уведомление списку общей задачи «Проверить документ» (1.6.4) проверяет тест задач этапов; здесь — только «ждёт вас» и события.
   const inbox = async (tx: Tx, u: User, id: string) =>
-    (await tx.notification.findMany({ where: { userId: u.id, documentId: id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })).map((n) => `${n.kind}: ${n.title}`);
+    (await tx.notification.findMany({ where: { userId: u.id, documentId: id, OR: [{ dedupeKey: null }, { NOT: { dedupeKey: { startsWith: 'doc_review:' } } }] }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }))
+      .map((n) => `${n.kind}: ${n.title}`);
 
   it('«ждёт вас» по этапам, возврат и комментарий — автору; о своих действиях — нет; ссылка ведёт на документ', () =>
     inTx(async (tx) => {

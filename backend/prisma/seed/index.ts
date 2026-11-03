@@ -9,7 +9,7 @@ import { seedAssessmentMethodology } from './assessment.js';
 import { seedAssets, seedComponentInstances } from './assets.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
-import { seedDocumentRoute, seedDocumentStageTasks } from './documents.js';
+import { seedDocumentRoute, seedDocumentStageTasks, seedReviewTasksGrouped } from './documents.js';
 import { seedMonitorSlides } from './monitor.js';
 import { seedDocReaders, seedPermissionGrants, seedSystemRoles } from './rbac.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
@@ -76,6 +76,7 @@ async function main() {
     await seedCompareKeys(tx);
     await seedDashboardLayouts(tx);
     await seedMonitorSlides(tx);
+    await seedReviewTasksGrouped(tx);
     await seedDocumentStageTasks(tx);
     // Одна транзакция на весь seed: перенос прежнего реестра уязвимостей (1.5.0) на десятках тысяч записей идёт
     // минуты — таймаут по умолчанию (5 с) откатил бы всё обновление.

@@ -54,14 +54,24 @@ export const NO_ASSIGN_MESSAGE = 'Ставить задачи другим мо�
  * Смена исполнителя. Без tasks.assign: себя — на задачу без исполнителя; снять себя — пока задача не взята в работу
  * (в «Поставленные»). Остальное — только с правом.
  */
-export function assertCanAssign(actor: TaskActor, from: string | null, to: string | null, statusKey: string | null) {
+export function assertCanAssign(actor: TaskActor, from: string | null, to: string | null, statusKey: string | null, candidates: readonly string[] = []) {
   if (from === to || actor.perms.has('tasks.assign')) return;
-  if (from === null && to === actor.id) return;
+  if (from === null && to === actor.id) {
+    assertCandidate(actor.id, candidates);
+    return;
+  }
   if (to === null && from === actor.id) {
     if (statusKey === 'assigned') return;
     throw new AppError(403, 'TASK_TAKEN', 'Снять себя можно, пока задача не взята в работу. Дальше исполнителя меняет пользователь с правом «Задачи: постановка другим»');
   }
   throw new AppError(403, 'NO_ASSIGN', NO_ASSIGN_MESSAGE);
+}
+
+/** Общая задача (1.6.4): взять себе может только пользователь из списка; без списка — любой сотрудник ИБ. */
+export function assertCandidate(userId: string, candidates: readonly string[]) {
+  if (candidates.length && !candidates.includes(userId)) {
+    throw new AppError(403, 'NOT_CANDIDATE', 'Эту задачу берёт себе только пользователь из списка «Могут взять». Назначить другого может пользователь с правом «Задачи: постановка другим»');
+  }
 }
 
 /** Комментарий обязателен по признаку колонки (ADR-0022): вперёд — comment_forward, возврат — comment_return. */

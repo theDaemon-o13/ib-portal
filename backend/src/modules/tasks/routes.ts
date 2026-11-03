@@ -31,6 +31,8 @@ export const Task = z.object({
   priority: Item,
   category: Item,
   assignee: Person.nullable(),
+  /** Общая задача (1.6.4): кто может взять её себе; пусто — любой сотрудник ИБ. */
+  candidates: z.array(Person),
   /** Проверяющий (релиз 1.4.0, ADR-0028): у задачи «На проверке»; null — проверка по правилам до 1.4.0 или задача не на проверке. */
   reviewer: Person.nullable(),
   dueDate: z.string().nullable(),

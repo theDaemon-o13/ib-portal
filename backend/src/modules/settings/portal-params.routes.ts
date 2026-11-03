@@ -10,7 +10,7 @@ import { listPortalParams, resetPortalParam, updatePortalParam } from './portal-
 const tags = ['settings'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const Param = z.object({
-  key: z.string(), title: z.string(), description: z.string(), form: z.enum(['vulns', 'assets', 'lines', 'text', 'json', 'stageDays']),
+  key: z.string(), title: z.string(), description: z.string(), form: z.enum(['vulns', 'assets', 'lines', 'text', 'json', 'stageDays', 'reviewRole']),
   value: z.unknown(), defaultValue: z.unknown(), isDefault: z.boolean(), version: z.number().int(),
 });
 const Option = z.object({ id: z.string(), label: z.string() });
@@ -23,7 +23,7 @@ export const portalParamRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, 
     preHandler: guard,
     schema: {
       tags, summary: 'Параметры портала: значение, значение по умолчанию, варианты для форм',
-      response: { 200: z.object({ items: z.array(Param), options: z.object({ levels: z.array(Option), systemTypes: z.array(Option), registers: z.array(Option) }) }), ...errors },
+      response: { 200: z.object({ items: z.array(Param), options: z.object({ levels: z.array(Option), systemTypes: z.array(Option), registers: z.array(Option), roles: z.array(Option) }) }), ...errors },
     },
   }, async () => listPortalParams(db));
 

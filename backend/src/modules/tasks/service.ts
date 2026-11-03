@@ -39,6 +39,7 @@ export const taskInclude = {
   record: { select: { id: true, registerId: true, number: true } },
   document: { select: { id: true, number: true } },
   evidence: { select: { id: true, number: true } },
+  candidates: { select: { user: userBrief }, orderBy: { user: { fullName: 'asc' } } },
   _count: { select: { comments: { where: { deletedAt: null } } } },
 } as const;
 type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
@@ -55,6 +56,8 @@ export function toTaskDto(t: TaskRow, today: string) {
     priority: t.priority,
     category: t.category,
     assignee: t.assignee,
+    /** Общая задача (1.6.4): кто может взять её себе; пусто — любой сотрудник ИБ. */
+    candidates: t.candidates.map((c) => c.user),
     /** Проверяющий (релиз 1.4.0): только у задачи «На проверке»; null — проверка по правилам до 1.4.0. */
     reviewer: t.status.systemKey === 'review' ? t.reviewer : null,
     dueDate: due,
@@ -393,7 +396,7 @@ export async function updateTask(db: Db, actor: TaskActor, id: string, input: Ta
     }
     if (input.assigneeId !== undefined && input.assigneeId !== t.assigneeId) {
       let name: string | null = null;
-      assertCanAssign(actor, t.assigneeId, input.assigneeId, t.status.systemKey);
+      assertCanAssign(actor, t.assigneeId, input.assigneeId, t.status.systemKey, t.candidates.map((c) => c.user.id));
       if (input.assigneeId) {
         await assertAssignee(tx, input.assigneeId);
         name = (await tx.user.findUnique({ where: { id: input.assigneeId }, select: { fullName: true } }))?.fullName ?? null;
