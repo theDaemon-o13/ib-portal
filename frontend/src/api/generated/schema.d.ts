@@ -27957,16 +27957,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге */
+        /** Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге. Фильтры: тип, автор, срок пересмотра; sort — по типам или по алфавиту */
         get: {
             parameters: {
                 query?: {
                     archived?: "true" | "false";
                     status?: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
                     typeId?: string;
+                    ownerId?: string;
+                    due?: "overdue" | "d30" | "d90" | "d365";
+                    dueTo?: string;
                     q?: string;
                     waiting?: "me";
                     review?: "due";
+                    sort?: "type" | "title";
                     limit?: number;
                     cursor?: string;
                 };
@@ -28025,6 +28029,16 @@ export interface paths {
                             nextCursor: string | null;
                             total: number;
                             archivedTotal: number;
+                            facets: {
+                                owners: {
+                                    id: string;
+                                    fullName: string;
+                                }[];
+                                types: {
+                                    id: string;
+                                    value: string;
+                                }[];
+                            };
                         };
                     };
                 };

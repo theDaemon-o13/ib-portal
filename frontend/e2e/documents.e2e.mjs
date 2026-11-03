@@ -633,3 +633,54 @@ describe('Документы: просмотр файлов на весь экр
     assert.ok([403, 404].includes(denied), `читатель: ${denied}`);
   });
 });
+
+describe('Документы: фильтры и порядок', () => {
+  it('автор, тип и срок пересмотра; по типам — ветки, сначала «Политика»; по алфавиту — без веток', async () => {
+    const late = await makeDoc('Ялта фильтр');
+    const early = await makeDoc('Анапа фильтр', { ownerId: users.staff.id });
+    await loginAs(admin);
+    await openDocs();
+    const titles = `[...document.querySelectorAll('.docs-tbl tbody tr[data-doc]')].map((tr) => tr.querySelector('td .w500')?.textContent ?? '').filter((t) => t.startsWith(${JSON.stringify(RUN)}) && t.endsWith('фильтр'))`;
+    const shows = (list, what) => ui.waitFor(`JSON.stringify(${titles}) === ${JSON.stringify(JSON.stringify(list))}`, what);
+    const select = (name) => `document.querySelector('[data-testid=docs-filters] select[aria-label="${name}"]')`;
+
+    // По умолчанию — по типам: документы прогона в ветке своего типа; «Политика», если есть, — первая ветка.
+    await ui.waitFor(`!!document.querySelector('[data-testid=doc-type-group][data-type-id="${docType.id}"]')`, 'ветка типа документов прогона');
+    const types = await ui.evaluate(`[...document.querySelectorAll('[data-testid=doc-type-group]')].map((tr) => tr.dataset.type)`);
+    const policy = types.findIndex((t) => t.trim().toLowerCase() === 'политика');
+    assert.ok(policy <= 0, `«Политика» — первая ветка: ${types.join(', ')}`);
+    await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'внутри ветки — по алфавиту');
+
+    // Ветка сворачивается и разворачивается.
+    const caret = `document.querySelector('[data-testid=doc-type-group][data-type-id="${docType.id}"] button')`;
+    await ui.click(caret, 'свернуть ветку');
+    await shows([], 'ветка свёрнута');
+    await ui.click(caret, 'развернуть ветку');
+    await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'ветка развёрнута');
+
+    // Автор и тип.
+    await ui.select(select('Автор'), users.staff.id);
+    await shows([`${RUN} Анапа фильтр`], 'только документы автора');
+    await ui.select(select('Тип документа'), docType.id);
+    await shows([`${RUN} Анапа фильтр`], 'автор и тип');
+    await ui.click($.button('Сбросить'), 'сбросить фильтры');
+    await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'фильтры сброшены');
+
+    // Срок пересмотра: у черновиков его нет — в фильтр по сроку не попадают.
+    await ui.select(select('Срок пересмотра'), 'd365');
+    await shows([], 'черновики без срока пересмотра');
+    await ui.select(select('Срок пересмотра'), 'to');
+    await ui.waitFor(`!!document.querySelector('[data-testid=docs-filters] input[type=date]')`, 'поле «До даты»');
+    await ui.click($.button('Сбросить'), 'сбросить фильтры');
+
+    // По алфавиту — без веток; выбор запоминается.
+    await ui.click($.button('По алфавиту'), 'по алфавиту');
+    await ui.waitFor(`!document.querySelector('[data-testid=doc-type-group]')`, 'без веток');
+    await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'по алфавиту');
+    await openDocs();
+    await ui.waitFor(`document.querySelector('[data-testid=docs-filters] button[aria-pressed=true]')?.textContent === 'По алфавиту'`, 'порядок запомнился');
+    await ui.click($.button('По типам'), 'по типам');
+    await ui.waitFor(`!!document.querySelector('[data-testid=doc-type-group]')`, 'снова ветки');
+    assert.ok(late.id && early.id);
+  });
+});

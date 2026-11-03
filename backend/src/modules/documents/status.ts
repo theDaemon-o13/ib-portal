@@ -176,3 +176,41 @@ export function checkDocUrlPrefix(prefix: string): string | null {
     return 'не похоже на адрес, пример: https://onlyoffice.bank.local/';
   }
 }
+
+// ---------------------------------------------------------------- реестр: фильтр по сроку и порядок
+
+/** Фильтр «Срок пересмотра»: прошёл или наступает в ближайшие N дней (сегодня включительно). */
+export const DOC_DUE_FILTERS = ['overdue', 'd30', 'd90', 'd365'] as const;
+export type DocDueFilter = (typeof DOC_DUE_FILTERS)[number];
+const DUE_DAYS: Record<Exclude<DocDueFilter, 'overdue'>, number> = { d30: 30, d90: 90, d365: 365 };
+
+/** Подходит ли дата пересмотра под фильтр; dueTo — «не позже даты». Без даты пересмотра (не утверждён) — нет. */
+export function dueMatches(reviewDue: string | null, today: string, due?: DocDueFilter, dueTo?: string): boolean {
+  if (!due && !dueTo) return true;
+  if (reviewDue === null) return false;
+  if (dueTo && reviewDue > dueTo) return false;
+  if (!due) return true;
+  if (due === 'overdue') return reviewDue < today;
+  const left = (Date.parse(`${reviewDue}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000;
+  return left >= 0 && left <= DUE_DAYS[due];
+}
+
+/** Порядок реестра: «type» — деревом по типам (сначала «Политика»), «title» — по алфавиту. */
+export const DOC_SORTS = ['type', 'title'] as const;
+export type DocSort = (typeof DOC_SORTS)[number];
+
+/** Тип «Политика» — первым (решение владельца 03.11.2026), остальные — по алфавиту. */
+export const FIRST_DOC_TYPE = 'политика';
+
+type Sortable = { number: number; title: string; type: { value: string } };
+const ru = (a: string, b: string) => a.localeCompare(b, 'ru', { sensitivity: 'base' });
+const byTitle = (x: Sortable, y: Sortable) => ru(x.title, y.title) || x.number - y.number;
+
+export function compareTypes(a: string, b: string): number {
+  const first = (v: string) => Number(v.trim().toLowerCase() !== FIRST_DOC_TYPE);
+  return first(a) - first(b) || ru(a.trim(), b.trim());
+}
+
+export function docComparator(sort: DocSort): (x: Sortable, y: Sortable) => number {
+  return sort === 'type' ? (x, y) => compareTypes(x.type.value, y.type.value) || byTitle(x, y) : byTitle;
+}

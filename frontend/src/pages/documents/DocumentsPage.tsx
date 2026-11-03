@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import type { Me } from '../../api/client';
-import { docsApi, dkeys, type DocItem, type DocQuery, type DocStatus } from '../../api/documents';
+import { docsApi, dkeys, type DocItem, type DocQuery, type DocSort, type DocStatus } from '../../api/documents';
 import { formatDate } from '../registers/logic';
 import { DocumentPanel } from './DocumentPanel';
 import { HoldersLine } from './Holders';
-import { reviewLabel, STATUS_TONE, stageHint, versionLabel } from './logic';
+import { DUE_FILTERS, groupByType, isDocDue, parseSort, reviewLabel, SORTS, STATUS_TONE, stageHint, versionLabel } from './logic';
 import { NewDocumentDrawer } from './NewDocumentDrawer';
 
 const STATUS_FILTERS: { key: DocStatus; title: string }[] = [
@@ -16,6 +16,23 @@ const STATUS_FILTERS: { key: DocStatus; title: string }[] = [
   { key: 'in_review', title: 'На пересмотре' },
   { key: 'review_overdue', title: 'Пересмотр просрочен' },
 ];
+
+/** Выбранный порядок реестра запоминается в браузере. */
+const SORT_KEY = 'docs.sort';
+function loadSort(): DocSort {
+  try {
+    return parseSort(window.localStorage.getItem(SORT_KEY));
+  } catch {
+    return 'type';
+  }
+}
+function saveSort(sort: DocSort) {
+  try {
+    window.localStorage.setItem(SORT_KEY, sort);
+  } catch {
+    // хранилище недоступно — выбор просто не запомнится
+  }
+}
 
 /** Этапы маршрута 1.2.0 (ADR-0024): 11 «Драфт» … 16 «Подписание». */
 const ROUTE_STAGES = [11, 12, 13, 14, 15, 16];
@@ -45,6 +62,16 @@ export function DocumentsPage() {
   const archived = filter === 'archive';
   const [search, setSearch] = useState('');
   const [newOpen, setNewOpen] = useState(false);
+  const [sort, setSortState] = useState<DocSort>(loadSort);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const typeId = params.get('type') ?? undefined;
+  const ownerId = params.get('owner') ?? undefined;
+  const dueParam = params.get('due');
+  const due = isDocDue(dueParam) ? dueParam : undefined;
+  const dueTo = /^\d{4}-\d{2}-\d{2}$/.test(params.get('dueTo') ?? '') ? (params.get('dueTo') ?? undefined) : undefined;
+  // «До даты» выбран, но дата ещё не введена — поле видно, фильтр не действует.
+  const dueMode = due ?? (dueParam === 'to' || dueTo ? 'to' : '');
+  const narrowed = !!(typeId || ownerId || due || dueTo);
 
   const query: DocQuery = {
     archived,
@@ -52,10 +79,16 @@ export function DocumentsPage() {
     review: filter === 'review',
     status: STATUS_FILTERS.some((s) => s.key === filter) ? (filter as DocStatus) : undefined,
     q: search,
+    typeId,
+    ownerId,
+    due,
+    dueTo: dueMode === 'to' ? dueTo : undefined,
+    sort,
   };
   const docs = useQuery({ queryKey: dkeys.list(query), queryFn: () => docsApi.list(query) });
   const summary = useQuery({ queryKey: dkeys.summary, queryFn: docsApi.summary });
   const items = docs.data?.items ?? [];
+  const facets = docs.data?.facets ?? { owners: [], types: [] };
   const selected = params.get('doc') ?? items[0]?.id ?? null;
 
   const setParam = useCallback((patch: Record<string, string | null>) => {
@@ -66,6 +99,31 @@ export function DocumentsPage() {
     }, { replace: true });
   }, [setParams]);
   const select = (id: string | null) => setParam({ doc: id });
+  const setSort = (s: DocSort) => { setSortState(s); saveSort(s); };
+  const toggleType = (id: string) => setCollapsed((c) => {
+    const n = new Set(c);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+
+  const row = (d: DocItem) => (
+    <tr key={d.id} data-doc={d.id} className={d.id === selected ? 'sel' : undefined} tabIndex={0} aria-selected={d.id === selected}
+      onClick={() => select(d.id)} onKeyDown={(e) => { if (e.key === 'Enter') select(d.id); }}>
+      <td><div className="w500">{d.title}</div>{sort !== 'type' && <div className="hint">{d.type.value}</div>}</td>
+      <td>{d.owner.fullName}</td>
+      <td className="mono">{versionLabel({ no: d.versionNo, edition: d.edition })}</td>
+      <td className="mono">{d.approvedAt ? formatDate(d.approvedAt.slice(0, 10)) : '—'}</td>
+      <td className={`mono${d.status === 'review_overdue' ? ' late-t' : ''}`}>{reviewLabel(d)}</td>
+      <td>
+        <RouteDots d={d} />
+        {stageHint(d) && <div className={`hint${d.waitingForMe ? ' tone-accent w600' : ''}`}>{stageHint(d)}</div>}
+        {d.holders && <HoldersLine holders={d.holders} testId="doc-holders" />}
+        {d.partiesDue && <div className={`hint mono${d.partiesOverdue ? ' late-t' : ''}`} title="Ближайший срок ответственного лица">лица: до {formatDate(d.partiesDue)}</div>}
+        {d.openBlockers > 0 && <div><span className="chip crit" title="Открытые блокеры">блокер{d.openBlockers > 1 ? ` · ${d.openBlockers}` : ''}</span></div>}
+      </td>
+      <td><span className={`chip ${STATUS_TONE[d.status]}`}>{d.statusName}</span></td>
+    </tr>
+  );
 
   return (
     <>
@@ -110,6 +168,36 @@ export function DocumentsPage() {
         <input className="inp docs-search" type="search" placeholder="Поиск по названию" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Поиск по названию" />
       </div>
 
+      <div className="row docs-bar docs-filters" data-testid="docs-filters">
+        <div className="row">
+          <select className="inp" value={typeId ?? ''} aria-label="Тип документа" onChange={(e) => setParam({ type: e.target.value || null, doc: null })}>
+            <option value="">Все типы</option>
+            {facets.types.map((t) => <option key={t.id} value={t.id}>{t.value}</option>)}
+          </select>
+          <select className="inp" value={ownerId ?? ''} aria-label="Автор" onChange={(e) => setParam({ owner: e.target.value || null, doc: null })}>
+            <option value="">Все авторы</option>
+            {facets.owners.map((o) => <option key={o.id} value={o.id}>{o.fullName}</option>)}
+          </select>
+          <select className="inp" value={dueMode} aria-label="Срок пересмотра"
+            onChange={(e) => setParam({ due: e.target.value || null, dueTo: e.target.value === 'to' ? dueTo ?? null : null, doc: null })}>
+            <option value="">Любой срок пересмотра</option>
+            {DUE_FILTERS.map((f) => <option key={f.key} value={f.key}>{f.title}</option>)}
+            <option value="to">До даты…</option>
+          </select>
+          {dueMode === 'to' && (
+            <input className="inp" type="date" value={dueTo ?? ''} aria-label="Пересмотр не позже" onChange={(e) => setParam({ due: 'to', dueTo: e.target.value || null, doc: null })} />
+          )}
+          {(narrowed || dueMode) && (
+            <button className="btn sm ghost" type="button" onClick={() => setParam({ type: null, owner: null, due: null, dueTo: null, doc: null })}>Сбросить</button>
+          )}
+        </div>
+        <div className="filters" role="group" aria-label="Порядок">
+          {SORTS.map((s) => (
+            <button key={s.key} type="button" aria-pressed={sort === s.key} onClick={() => setSort(s.key)}>{s.title}</button>
+          ))}
+        </div>
+      </div>
+
       {docs.isError && <div className="form-error">{docs.error.message}</div>}
       <div className="dash">
         <section className="panel w8">
@@ -119,27 +207,26 @@ export function DocumentsPage() {
                 <tr><th>Документ</th><th>Владелец</th><th>Версия</th><th>Утверждён</th><th>Пересмотр до</th><th>Согласование</th><th>Статус</th></tr>
               </thead>
               <tbody>
-                {items.map((d) => (
-                  <tr key={d.id} data-doc={d.id} className={d.id === selected ? 'sel' : undefined} tabIndex={0} aria-selected={d.id === selected}
-                    onClick={() => select(d.id)} onKeyDown={(e) => { if (e.key === 'Enter') select(d.id); }}>
-                    <td><div className="w500">{d.title}</div><div className="hint">{d.type.value}</div></td>
-                    <td>{d.owner.fullName}</td>
-                    <td className="mono">{versionLabel({ no: d.versionNo, edition: d.edition })}</td>
-                    <td className="mono">{d.approvedAt ? formatDate(d.approvedAt.slice(0, 10)) : '—'}</td>
-                    <td className={`mono${d.status === 'review_overdue' ? ' late-t' : ''}`}>{reviewLabel(d)}</td>
-                    <td>
-                      <RouteDots d={d} />
-                      {stageHint(d) && <div className={`hint${d.waitingForMe ? ' tone-accent w600' : ''}`}>{stageHint(d)}</div>}
-                      {d.holders && <HoldersLine holders={d.holders} testId="doc-holders" />}
-                      {d.partiesDue && <div className={`hint mono${d.partiesOverdue ? ' late-t' : ''}`} title="Ближайший срок ответственного лица">лица: до {formatDate(d.partiesDue)}</div>}
-                      {d.openBlockers > 0 && <div><span className="chip crit" title="Открытые блокеры">блокер{d.openBlockers > 1 ? ` · ${d.openBlockers}` : ''}</span></div>}
-                    </td>
-                    <td><span className={`chip ${STATUS_TONE[d.status]}`}>{d.statusName}</span></td>
-                  </tr>
-                ))}
+                {sort === 'type'
+                  ? groupByType(items).map((g) => {
+                    const open = !collapsed.has(g.type.id);
+                    return (
+                      <Fragment key={g.type.id}>
+                        <tr className="docs-grp" data-testid="doc-type-group" data-type-id={g.type.id} data-type={g.type.value}>
+                          <td colSpan={7}>
+                            <button type="button" aria-expanded={open} onClick={() => toggleType(g.type.id)}>
+                              <span className="docs-caret" aria-hidden="true">{open ? '▾' : '▸'}</span> {g.type.value} <span className="mono hint">{g.items.length}</span>
+                            </button>
+                          </td>
+                        </tr>
+                        {open && g.items.map(row)}
+                      </Fragment>
+                    );
+                  })
+                  : items.map(row)}
                 {docs.isSuccess && items.length === 0 && (
                   <tr><td colSpan={7} className="hint">
-                    {filter === 'waiting' ? 'Сейчас ничего не ждёт вашего согласования' : search ? 'Ничего не найдено' : 'Документов пока нет'}
+                    {filter === 'waiting' ? 'Сейчас ничего не ждёт вашего согласования' : search || narrowed ? 'Ничего не найдено' : 'Документов пока нет'}
                   </td></tr>
                 )}
               </tbody>

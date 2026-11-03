@@ -502,6 +502,13 @@ textarea.mail-raw{min-height:150px}
 .w4{grid-column:span 4}.w8{grid-column:span 8}
 .docs-bar{justify-content:space-between;margin-bottom:12px}
 .docs-search{max-width:260px}
+.docs-filters{flex-wrap:wrap;gap:8px}
+.docs-filters .row{flex-wrap:wrap;gap:8px}
+.docs-filters select.inp,.docs-filters input[type="date"]{width:auto;max-width:240px}
+.docs-tbl tbody tr.docs-grp{cursor:default;background:var(--fill)}
+.docs-tbl tbody tr.docs-grp:hover{background:var(--fill)}
+.docs-grp button{border:0;background:none;padding:2px 0;font:inherit;font-weight:600;color:var(--fg);cursor:pointer;display:inline-flex;gap:6px;align-items:baseline}
+.docs-caret{display:inline-block;width:12px;color:var(--muted)}
 .docs-tbl tbody tr{cursor:pointer;transition:background .12s}
 .docs-tbl tbody tr:hover{background:var(--fill-2)}
 .docs-tbl tbody tr.sel{background:var(--accent-soft)}

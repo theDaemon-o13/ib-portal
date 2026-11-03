@@ -76920,7 +76920,7 @@
     },
     "/api/v1/documents": {
       "get": {
-        "summary": "Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге",
+        "summary": "Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге. Фильтры: тип, автор, срок пересмотра; sort — по типам или по алфавиту",
         "tags": [
           "documents"
         ],
@@ -76965,6 +76965,39 @@
           {
             "schema": {
               "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "ownerId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "overdue",
+                "d30",
+                "d90",
+                "d365"
+              ]
+            },
+            "in": "query",
+            "name": "due",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "dueTo",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
               "maxLength": 200
             },
             "in": "query",
@@ -76991,6 +77024,18 @@
             },
             "in": "query",
             "name": "review",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "type",
+                "title"
+              ]
+            },
+            "in": "query",
+            "name": "sort",
             "required": false
           },
           {
@@ -77255,13 +77300,62 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "facets": {
+                      "type": "object",
+                      "properties": {
+                        "owners": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "types": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "owners",
+                        "types"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "items",
                     "nextCursor",
                     "total",
-                    "archivedTotal"
+                    "archivedTotal",
+                    "facets"
                   ],
                   "additionalProperties": false
                 }

@@ -1,5 +1,5 @@
 // Раздел «Документы»: подписи и тона без React — проверяются юнит-тестами.
-import type { DocAction, DocDetail, DocItem, DocStatus } from '../../api/documents';
+import type { DocAction, DocDetail, DocDue, DocItem, DocSort, DocStatus } from '../../api/documents';
 import { formatDate } from '../registers/logic';
 
 /** Тон плашки статуса: как в прототипе — согласование синим, просрочка красным, пересмотр оранжевым. */
@@ -106,4 +106,31 @@ export function approversLabel(r: { approvers: readonly string[]; missingHead: b
 export function stageHint(d: Pick<DocItem, 'waitingForMe' | 'stageName'>): string {
   if (d.waitingForMe) return 'ждёт вас';
   return d.stageName ?? '';
+}
+
+/** Фильтр «Срок пересмотра»; «До даты» — отдельное поле даты (dueTo). */
+export const DUE_FILTERS: { key: DocDue; title: string }[] = [
+  { key: 'overdue', title: 'Срок прошёл' },
+  { key: 'd30', title: 'В ближайшие 30 дней' },
+  { key: 'd90', title: 'В ближайшие 90 дней' },
+  { key: 'd365', title: 'В ближайший год' },
+];
+export const isDocDue = (v: string | null): v is DocDue => DUE_FILTERS.some((f) => f.key === v);
+
+export const SORTS: { key: DocSort; title: string }[] = [
+  { key: 'type', title: 'По типам' },
+  { key: 'title', title: 'По алфавиту' },
+];
+/** Порядок по умолчанию — деревом по типам. */
+export const parseSort = (v: string | null | undefined): DocSort => (v === 'title' ? 'title' : 'type');
+
+/** Дерево по типам: соседние документы одного типа — одна ветка (порядок задаёт backend, сначала «Политика»). */
+export function groupByType<T extends Pick<DocItem, 'type'>>(items: readonly T[]): { type: T['type']; items: T[] }[] {
+  const out: { type: T['type']; items: T[] }[] = [];
+  for (const d of items) {
+    const last = out[out.length - 1];
+    if (last && last.type.id === d.type.id) last.items.push(d);
+    else out.push({ type: d.type, items: [d] });
+  }
+  return out;
 }

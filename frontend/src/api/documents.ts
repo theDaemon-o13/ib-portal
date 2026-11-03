@@ -17,6 +17,11 @@ export type NewDoc = Body<'/api/v1/documents', 'post'>;
 export type DocPatch = Body<'/api/v1/documents/{id}', 'patch'>;
 export type DocRevise = Body<'/api/v1/documents/{id}/revise', 'post'>;
 export type DocSummary = Res<'/api/v1/documents/summary', 'get'>;
+type DocListParams = NonNullable<paths['/api/v1/documents']['get']['parameters']['query']>;
+/** «Срок пересмотра»: прошёл или в ближайшие 30 / 90 / 365 дней. */
+export type DocDue = NonNullable<DocListParams['due']>;
+/** Порядок реестра: по типам (дерево, сначала «Политика») или по алфавиту. */
+export type DocSort = NonNullable<DocListParams['sort']>;
 
 /** Версия документа и этап на экране: устаревший экран получает 409. */
 export interface At { version: number; stage: number }
@@ -30,6 +35,13 @@ export interface DocQuery {
   /** «К пересмотру» (этап 8): пересмотр просрочен или идёт, либо дата пересмотра в ближайшие 30 дней. */
   review?: boolean;
   q?: string;
+  typeId?: string;
+  /** Автор — владелец документа. */
+  ownerId?: string;
+  due?: DocDue;
+  /** Пересмотр не позже даты (YYYY-MM-DD). */
+  dueTo?: string;
+  sort?: DocSort;
 }
 
 function qs(q: DocQuery): string {
@@ -38,6 +50,11 @@ function qs(q: DocQuery): string {
   if (q.waiting) p.set('waiting', 'me');
   if (q.review) p.set('review', 'due');
   if (q.q?.trim()) p.set('q', q.q.trim());
+  if (q.typeId) p.set('typeId', q.typeId);
+  if (q.ownerId) p.set('ownerId', q.ownerId);
+  if (q.due) p.set('due', q.due);
+  if (q.dueTo) p.set('dueTo', q.dueTo);
+  if (q.sort) p.set('sort', q.sort);
   return p.toString();
 }
 

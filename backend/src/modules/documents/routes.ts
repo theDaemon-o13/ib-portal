@@ -7,7 +7,7 @@ import { actorOf } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as svc from './service.js';
 import * as translations from './translations.js';
-import { DOC_ACTIONS, DOC_STATUSES } from './status.js';
+import { DOC_ACTIONS, DOC_DUE_FILTERS, DOC_SORTS, DOC_STATUSES } from './status.js';
 
 const tags = ['documents'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
@@ -159,23 +159,35 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.get('/documents', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге',
+      tags, summary: 'Реестр документов. Без ib.work — утверждённые, «ждёт вас» и согласованные вами в текущем круге. Фильтры: тип, автор, срок пересмотра; sort — по типам или по алфавиту',
       querystring: z.object({
         archived: z.enum(['true', 'false']).optional(),
         status: Status.optional(),
         typeId: z.string().uuid().optional(),
+        ownerId: z.string().uuid().optional(),
+        due: z.enum(DOC_DUE_FILTERS).optional(),
+        dueTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         q: z.string().max(200).optional(),
         waiting: z.enum(['me']).optional(),
         review: z.enum(['due']).optional(),
+        sort: z.enum(DOC_SORTS).optional(),
         limit: z.coerce.number().int().min(1).max(svc.LIST_LIMIT).default(200),
         cursor: z.string().max(20).optional(),
       }),
-      response: { 200: z.object({ items: z.array(DocItem), nextCursor: z.string().nullable(), total: z.number().int(), archivedTotal: z.number().int() }), ...errors },
+      response: {
+        200: z.object({
+          items: z.array(DocItem), nextCursor: z.string().nullable(), total: z.number().int(), archivedTotal: z.number().int(),
+          /** Значения фильтров «Автор» и «Тип» из видимых документов (без учёта других фильтров). */
+          facets: z.object({ owners: z.array(z.object({ id: z.string(), fullName: z.string() })), types: z.array(z.object({ id: z.string(), value: z.string() })) }),
+        }),
+        ...errors,
+      },
     },
   }, async (request) => {
     const q = request.query;
     return svc.listDocuments(db, await access(request), {
-      archived: q.archived === 'true', status: q.status, typeId: q.typeId, q: q.q, waiting: q.waiting === 'me', review: q.review === 'due', limit: q.limit, cursor: q.cursor,
+      archived: q.archived === 'true', status: q.status, typeId: q.typeId, ownerId: q.ownerId, due: q.due, dueTo: q.dueTo, q: q.q,
+      waiting: q.waiting === 'me', review: q.review === 'due', sort: q.sort, limit: q.limit, cursor: q.cursor,
     });
   });
 

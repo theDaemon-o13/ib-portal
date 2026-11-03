@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addMonthsIso, allowedActions, checkDocUrlPrefix, docStatus, isDocUrl, ROUTE_FROM_LEGACY, stageHolders, stageName, type DocRole, type HolderCtx } from './status.js';
+import { addMonthsIso, allowedActions, checkDocUrlPrefix, compareTypes, docComparator, docStatus, dueMatches, isDocUrl, ROUTE_FROM_LEGACY, stageHolders, stageName, type DocRole, type HolderCtx } from './status.js';
 
 describe('статус документа', () => {
   const today = '2026-10-27';
@@ -104,5 +104,29 @@ describe('stageHolders — «Сейчас у» (1.4.0)', () => {
     expect(stageHolders(15, { ...base, head: null, seniors: [] })).toEqual({ people: [], missingHead: true });
     // Начальник ИБ — сам старший над автором: в списке один раз.
     expect(names(15, { ...base, seniors: [head, chief] })).toEqual(['Начальник', 'Руководитель']);
+  });
+});
+
+describe('реестр: срок пересмотра и порядок', () => {
+  const today = '2026-11-03';
+  it('срок: прошёл, в ближайшие N дней, не позже даты; без даты пересмотра — не подходит', () => {
+    expect(dueMatches('2026-11-02', today, 'overdue')).toBe(true);
+    expect(dueMatches(today, today, 'overdue')).toBe(false);
+    expect(dueMatches(today, today, 'd30')).toBe(true);
+    expect(dueMatches('2026-12-03', today, 'd30')).toBe(true);
+    expect(dueMatches('2026-12-04', today, 'd30')).toBe(false);
+    expect(dueMatches('2026-11-02', today, 'd30')).toBe(false);
+    expect(dueMatches('2027-01-31', today, undefined, '2027-01-31')).toBe(true);
+    expect(dueMatches('2027-02-01', today, undefined, '2027-01-31')).toBe(false);
+    expect(dueMatches('2026-11-10', today, 'd30', '2026-11-05')).toBe(false);
+    expect(dueMatches(null, today, 'd365')).toBe(false);
+    expect(dueMatches(null, today)).toBe(true);
+  });
+  it('по типам — сначала «Политика» (без регистра), остальные и документы внутри — по алфавиту', () => {
+    const d = (number: number, title: string, type: string) => ({ number, title, type: { value: type } });
+    const docs = [d(1, 'Яблоко', 'Инструкция'), d(2, 'банан', ' политика '), d(3, 'Апельсин', 'Методика'), d(4, 'Арбуз', 'Политика'), d(5, 'Арбуз', 'Политика')];
+    expect([...docs].sort(docComparator('type')).map((x) => x.number)).toEqual([4, 5, 2, 1, 3]);
+    expect([...docs].sort(docComparator('title')).map((x) => x.number)).toEqual([3, 4, 5, 2, 1]);
+    expect(compareTypes('Аудит', 'Политика')).toBeGreaterThan(0);
   });
 });

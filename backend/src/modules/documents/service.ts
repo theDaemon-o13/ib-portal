@@ -21,9 +21,9 @@ import { notifyDocComment, notifyReturned } from './notify.js';
 import { notify } from '../notifications/service.js';
 import { closeDocumentTasks, documentTask } from './tasks.js';
 import {
-  addMonthsIso, DEFAULT_REVIEW_MONTHS, docStatus, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
+  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, docComparator, docStatus, dueMatches, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
   ROUTE, SIGN_STAGE, stageHolders, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
-  type HolderCtx, type Holders, type Person,
+  type DocDueFilter, type DocSort, type HolderCtx, type Holders, type Person,
 } from './status.js';
 
 export const TITLE_MAX = 300;
@@ -394,10 +394,17 @@ export interface DocListQuery {
   archived: boolean;
   status?: DocStatus;
   typeId?: string;
+  /** Владелец (автор) документа. */
+  ownerId?: string;
+  /** Срок пересмотра: прошёл или в ближайшие N дней; dueTo — не позже даты. */
+  due?: DocDueFilter;
+  dueTo?: string;
   q?: string;
   waiting?: boolean;
   /** Только «к пересмотру» (needsReview) — ссылка с дашборда. */
   review?: boolean;
+  /** Порядок: по типам (сначала «Политика») или по алфавиту; без него — сначала «ждёт вас», затем просроченный пересмотр. */
+  sort?: DocSort;
   limit: number;
   cursor?: string;
 }
@@ -417,17 +424,19 @@ async function loadVisible(db: Db, a: DocAccess, where: Prisma.DocumentWhereInpu
 export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
   const today = todayIso();
   // Без ib.work архив не виден.
-  if (q.archived && !a.ibWork) return { items: [], nextCursor: null, total: 0, archivedTotal: 0 };
-  const { rows, who } = await loadVisible(db, a, { archivedAt: q.archived ? { not: null } : null, ...(q.typeId ? { typeId: q.typeId } : {}) });
+  if (q.archived && !a.ibWork) return { items: [], nextCursor: null, total: 0, archivedTotal: 0, facets: { owners: [], types: [] } };
+  const { rows, who } = await loadVisible(db, a, { archivedAt: q.archived ? { not: null } : null });
   const needle = q.q?.trim().toLowerCase();
-  const items = rows
-    .map(({ d, shown }) => toItem(who, d, shown, today))
-    .filter((x) => (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle))
-      && (!q.review || needsReview(x, today)))
-    // Сначала то, что ждёт вас, затем просроченный пересмотр, дальше по названию.
-    .sort((x, y) => Number(y.waitingForMe) - Number(x.waitingForMe)
-      || Number(y.status === 'review_overdue') - Number(x.status === 'review_overdue')
-      || x.title.localeCompare(y.title, 'ru'));
+  const all = rows.map(({ d, shown }) => toItem(who, d, shown, today));
+  const items = all
+    .filter((x) => (!q.typeId || x.type.id === q.typeId) && (!q.ownerId || x.owner.id === q.ownerId)
+      && (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle))
+      && (!q.review || needsReview(x, today)) && dueMatches(x.reviewDue, today, q.due, q.dueTo))
+    .sort(q.sort ? docComparator(q.sort)
+      // Сначала то, что ждёт вас, затем просроченный пересмотр, дальше по названию.
+      : (x, y) => Number(y.waitingForMe) - Number(x.waitingForMe)
+        || Number(y.status === 'review_overdue') - Number(x.status === 'review_overdue')
+        || x.title.localeCompare(y.title, 'ru'));
   const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
   const archivedTotal = a.ibWork ? await db.document.count({ where: { archivedAt: { not: null }, deletedAt: null } }) : 0;
   return {
@@ -435,6 +444,17 @@ export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
     nextCursor: items.length > offset + q.limit ? String(offset + q.limit) : null,
     total: items.length,
     archivedTotal,
+    facets: listFacets(all),
+  };
+}
+
+/** Значения фильтров «Автор» и «Тип» — из видимых пользователю документов (архив — отдельно), без учёта других фильтров. */
+function listFacets(items: DocItem[]) {
+  const owners = new Map(items.map((x) => [x.owner.id, { id: x.owner.id, fullName: x.owner.fullName }]));
+  const types = new Map(items.map((x) => [x.type.id, x.type]));
+  return {
+    owners: [...owners.values()].sort((x, y) => x.fullName.localeCompare(y.fullName, 'ru')),
+    types: [...types.values()].sort((x, y) => compareTypes(x.value, y.value)),
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocDetail } from '../../api/documents';
-import { approversLabel, authorFiles, historyText, holdersLabel, reviewLabel, stageHint, versionLabel } from './logic';
+import { approversLabel, authorFiles, groupByType, historyText, holdersLabel, parseSort, reviewLabel, stageHint, versionLabel } from './logic';
 
 const h = (extra: Partial<DocDetail['history'][number]>): DocDetail['history'][number] => ({
   id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, toStage: null, toStageName: null, selfApproved: false, ...extra,
@@ -57,5 +57,17 @@ describe('13 → 14: файлы автора (1.4.0)', () => {
     const r = authorFiles(files);
     expect([r.list.map((x) => x.id), r.latest?.id]).toEqual([['a', 'c'], 'c']);
     expect(authorFiles([]).latest).toBeNull();
+  });
+});
+
+describe('документы: дерево по типам и порядок', () => {
+  const d = (id: string, typeId: string) => ({ id, type: { id: typeId, value: typeId } });
+  it('соседние документы одного типа — одна ветка, порядок сохраняется', () => {
+    const g = groupByType([d('1', 'Политика'), d('2', 'Политика'), d('3', 'Инструкция')]);
+    expect(g.map((x) => [x.type.value, x.items.map((i) => i.id)])).toEqual([['Политика', ['1', '2']], ['Инструкция', ['3']]]);
+    expect(groupByType([])).toEqual([]);
+  });
+  it('по умолчанию — по типам', () => {
+    expect([parseSort(null), parseSort('title'), parseSort('junk')]).toEqual(['type', 'title', 'type']);
   });
 });

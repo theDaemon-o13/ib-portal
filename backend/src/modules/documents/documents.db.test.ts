@@ -4,7 +4,7 @@ import { seedDocumentRoute } from '../../../prisma/seed/documents.js';
 import { testDbConfig } from '../../../scripts/test-db.js';
 import { createPrisma } from '../../lib/db.js';
 import { MIME_BY_EXT } from '../../lib/file-type.js';
-import { todayIso } from '../../lib/today.js';
+import { addDaysIso, todayIso } from '../../lib/today.js';
 import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from '../../test/db.js';
 import type { Actor } from '../settings/common.js';
 import * as parties from './parties.js';
@@ -502,6 +502,56 @@ describe('документы: удаление (docs.delete)', () => {
       expect((await tx.auditLog.findFirstOrThrow({ where: { action: 'document.deleted', entityId: draft } })).diff).toMatchObject({ summary: 'Документ #' + row.number + ' «Ненужный драфт» удалён: Дубль' });
       // Удалить подписанный нельзя и SQL-запросом.
       expect(await sqlError(tx, `UPDATE documents SET deleted_at = now(), archived_at = now() WHERE id = '${signed}'`)).toMatch(/documents_deleted_check/);
+    }));
+});
+
+describe('документы: фильтры и порядок реестра', () => {
+  it('тип, автор, срок пересмотра; по типам — сначала «Политика», по алфавиту; значения фильтров — из видимых документов', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      // «Политика» — стартовое значение seed; в чистой базе — создаём.
+      const policy = await tx.catalogItem.findFirst({ where: { catalogCode: 'document_types', value: 'Политика' } })
+        ?? await tx.catalogItem.create({ data: { catalogCode: 'document_types', value: 'Политика' } });
+      const instr = await tx.catalogItem.create({ data: { catalogCode: 'document_types', value: 'Аа-инструкция' } });
+      const today = todayIso();
+      const make = async (title: string, typeId: string, ownerId = x.owner.id) => {
+        const id = await x.create(title, ownerId);
+        await tx.document.update({ where: { id }, data: { typeId } });
+        return id;
+      };
+      const soon = await make('Абрикос: пересмотр скоро', instr.id);
+      const late = await make('Банан: пересмотр прошёл', policy.id);
+      const draft = await make('Вишня: черновик', policy.id, x.staff.id);
+      // Пересмотр через 12 месяцев от подписания: ≈ сегодня + 65 дней и ≈ сегодня − 35 дней.
+      await moveTo(tx, x, soon, 16);
+      await sign(tx, x.owner, soon, { signedOn: addDaysIso(today, -300) });
+      await moveTo(tx, x, late, 16);
+      await sign(tx, x.owner, late, { signedOn: addDaysIso(today, -400) });
+
+      const mine = [soon, late, draft];
+      const q = async (extra: Partial<svc.DocListQuery>) =>
+        (await svc.listDocuments(tx, await svc.accessOf(tx, x.head.id), { archived: false, limit: 500, ...extra })).items.map((d) => d.id).filter((id) => mine.includes(id));
+
+      expect(await q({ typeId: policy.id, sort: 'title' })).toEqual([late, draft]);
+      expect(await q({ ownerId: x.staff.id })).toEqual([draft]);
+      expect(await q({ due: 'overdue' })).toEqual([late]);
+      expect(await q({ due: 'd90' })).toEqual([soon]);
+      expect(await q({ due: 'd30' })).toEqual([]);
+      expect(await q({ dueTo: today, sort: 'title' })).toEqual([late]);
+      // Черновик без даты пересмотра в фильтр по сроку не попадает.
+      expect(await q({ due: 'd365', sort: 'title' })).toEqual([soon]);
+
+      // По типам: «Политика» первой, хотя «Аа-инструкция» раньше по алфавиту; внутри типа — по названию.
+      expect(await q({ sort: 'type' })).toEqual([late, draft, soon]);
+      expect(await q({ sort: 'title' })).toEqual([soon, late, draft]);
+
+      // Значения фильтров не сужаются выбранным фильтром; без ib.work — только видимые документы.
+      const page = await svc.listDocuments(tx, await svc.accessOf(tx, x.head.id), { archived: false, limit: 500, typeId: instr.id });
+      expect(page.facets.types.map((t) => t.value).slice(0, 1)).toEqual(['Политика']);
+      expect(page.facets.types.map((t) => t.id)).toEqual(expect.arrayContaining([policy.id, instr.id]));
+      expect(page.facets.owners.map((o) => o.id)).toEqual(expect.arrayContaining([x.owner.id, x.staff.id]));
+      const reader = await svc.listDocuments(tx, await svc.accessOf(tx, x.legal.id), { archived: false, limit: 500 });
+      expect(reader.facets.owners.some((o) => o.id === x.staff.id)).toBe(false);
     }));
 });
 
