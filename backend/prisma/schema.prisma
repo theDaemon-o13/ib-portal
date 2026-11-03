@@ -953,8 +953,10 @@ model Task {
   recipientLabel String?   @map("recipient_label")
   /// Задача по документу (этап 6): пересмотр или возврат на доработку.
   documentId     String?   @map("document_id") @db.Uuid
-  /// review | returned
+  /// review | returned | stage (этап маршрута, 1.6.3)
   documentReason String?   @map("document_reason")
+  /// Задача этапа: состояние маршрута «версия:круг:этап[:фаза]» — смена состояния закрывает задачу.
+  documentState  String?   @map("document_state")
   /// Задача по доказательству (этап 7): отклонено или истекает срок действия.
   evidenceId     String?   @map("evidence_id") @db.Uuid
   /// rejected | expiring
