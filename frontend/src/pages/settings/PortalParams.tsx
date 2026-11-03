@@ -8,6 +8,29 @@ const paramsKey = ['settings', 'portal-params'] as const;
 type Assets = { significantLevelOptionIds: string[]; dlpRegisterId: string | null };
 type Vulns = { scanMaxAgeDays: number; profileAliases: Record<string, string[]> };
 type Option = { id: string; label: string };
+type StageDays = Record<'11' | '12' | '13' | '15' | '16', number>;
+
+/** Сроки задач этапов документа (1.6.3); этапа 14 нет — его срок берётся из сроков ответственных лиц. */
+const STAGE_DAY_FIELDS: { key: keyof StageDays; label: string }[] = [
+  { key: '11', label: 'Драфт (документ заведён за другого владельца)' },
+  { key: '12', label: 'Проверка сотрудниками' },
+  { key: '13', label: 'Согласование начальника ИБ' },
+  { key: '15', label: 'Перевод: переводы готовы, отправить на подписание' },
+  { key: '16', label: 'Подписание' },
+];
+
+function StageDaysForm({ value, onChange }: { value: StageDays; onChange: (v: StageDays) => void }) {
+  return (
+    <div className="fgrid">
+      {STAGE_DAY_FIELDS.map((f) => (
+        <label key={f.key} className="fd-label">{f.label}, рабочих дней
+          <input className="inp" type="number" min={1} max={60} aria-label={`Срок: ${f.label}`} value={Number.isNaN(value[f.key]) ? '' : value[f.key]}
+            onChange={(e) => onChange({ ...value, [f.key]: e.target.valueAsNumber })} />
+        </label>
+      ))}
+    </div>
+  );
+}
 
 function Checks({ title, options, value, onChange }: { title: string; options: Option[]; value: string[]; onChange: (v: string[]) => void }) {
   return (
@@ -101,6 +124,7 @@ function ParamPanel({ param, options }: { param: PortalParam; options: PortalPar
         <p className="hint">{param.description}</p>
         {param.form === 'vulns' && <VulnsForm value={draft as Vulns} onChange={setDraft} options={options} />}
         {param.form === 'assets' && <AssetsForm value={draft as Assets} onChange={setDraft} options={options} />}
+        {param.form === 'stageDays' && <StageDaysForm value={draft as StageDays} onChange={setDraft} />}
         {param.form === 'text' && <input className="inp" aria-label={param.title} value={String(draft)} onChange={(e) => setDraft(e.target.value)} />}
         {(param.form === 'lines' || param.form === 'json') && <textarea className="inp mono" rows={param.form === 'json' ? 8 : 4} aria-label={param.title} value={String(draft)} onChange={(e) => setDraft(e.target.value)} />}
         <details><summary className="hint">Значение по умолчанию</summary><pre className="hint">{shownDefault(param)}</pre></details>

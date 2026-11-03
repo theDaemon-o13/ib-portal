@@ -44,6 +44,12 @@ function changes(t: TaskDetail, d: Draft): Omit<TaskPatch, 'version'> {
   return out;
 }
 
+/** Задача по документу: причина и когда закроется сама. Этап маршрута (1.6.3) — действие в карточке документа. */
+const DOC_REASON: Record<NonNullable<TaskDetail['document']>['reason'], { label: string; hint: string }> = {
+  review: { label: 'пересмотр', hint: 'Задача закроется сама, когда новую версию утвердят.' },
+  returned: { label: 'доработка после возврата', hint: 'Задача закроется сама, когда документ снова отправят на согласование.' },
+  stage: { label: 'этап маршрута', hint: 'Действие выполняется в карточке документа. Задача закроется сама, когда документ перейдёт на следующий этап.' },
+};
 const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу', evidence: 'по доказательству' };
 
 export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: boolean; onClose: () => void }) {
@@ -335,9 +341,9 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
               <div className="eyebrow">Документ</div>
               <div>
                 <Link to={`/documents?doc=${t.document.id}`}>Документ #{t.document.number}</Link>
-                {' · '}{t.document.reason === 'review' ? 'пересмотр' : 'доработка после возврата'}
+                {' · '}{DOC_REASON[t.document.reason].label}
               </div>
-              <div className="hint">Задача закроется сама, когда {t.document.reason === 'review' ? 'новую версию утвердят' : 'документ снова отправят на согласование'}.</div>
+              <div className="hint">{DOC_REASON[t.document.reason].hint}</div>
             </div>
           )}
           {t?.evidence && (

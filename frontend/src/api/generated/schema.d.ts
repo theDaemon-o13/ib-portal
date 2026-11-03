@@ -2063,7 +2063,7 @@ export interface paths {
                                 title: string;
                                 description: string;
                                 /** @enum {string} */
-                                form: "vulns" | "assets" | "lines" | "text" | "json";
+                                form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays";
                                 value: unknown;
                                 defaultValue: unknown;
                                 isDefault: boolean;
@@ -2219,7 +2219,7 @@ export interface paths {
                             title: string;
                             description: string;
                             /** @enum {string} */
-                            form: "vulns" | "assets" | "lines" | "text" | "json";
+                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays";
                             value: unknown;
                             defaultValue: unknown;
                             isDefault: boolean;
@@ -2359,7 +2359,7 @@ export interface paths {
                             title: string;
                             description: string;
                             /** @enum {string} */
-                            form: "vulns" | "assets" | "lines" | "text" | "json";
+                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays";
                             value: unknown;
                             defaultValue: unknown;
                             isDefault: boolean;
@@ -25057,7 +25057,7 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     /** @enum {string} */
-                                    reason: "review" | "returned";
+                                    reason: "review" | "returned" | "stage";
                                 } | null;
                                 evidence: {
                                     id: string;
@@ -25259,7 +25259,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;
@@ -25766,7 +25766,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;
@@ -25978,7 +25978,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;
@@ -26171,7 +26171,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;
@@ -26369,7 +26369,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;
@@ -26564,7 +26564,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;
@@ -26759,7 +26759,7 @@ export interface paths {
                                 id: string;
                                 number: number;
                                 /** @enum {string} */
-                                reason: "review" | "returned";
+                                reason: "review" | "returned" | "stage";
                             } | null;
                             evidence: {
                                 id: string;

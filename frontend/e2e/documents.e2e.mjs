@@ -133,6 +133,27 @@ async function signAllViaApi(id) {
   await signViaApi(users.owner, id);
 }
 
+/** Все неархивные задачи, постранично (на доске — не больше 500). */
+async function allTasks(as = null) {
+  const out = [];
+  for (let cursor = ''; ;) {
+    const page = await (as ? apiAs(as, 'GET', `/api/v1/tasks?archived=false${cursor}`) : api('GET', `/api/v1/tasks?archived=false${cursor}`)).catch(() => ({ items: [], nextCursor: null }));
+    out.push(...page.items);
+    if (!page.nextCursor) return out;
+    cursor = `&cursor=${encodeURIComponent(page.nextCursor)}`;
+  }
+}
+
+/** Карточка задачи по ссылке: в dev-базе задач больше, чем помещается на доску. */
+async function openTask(title, as) {
+  const t = (await allTasks(as)).find((x) => x.title === title && !x.completedAt);
+  assert.ok(t, `задача «${title}»`);
+  await ui.goto(`/tasks?task=${t.id}&n=${++navSeq}`);
+  const drawer = `document.querySelector('aside.drawer[aria-label="Задача"]')`;
+  await ui.waitFor(`${drawer}?.textContent.includes(${JSON.stringify(title)})`, `карточка задачи «${title}»`);
+  return drawer;
+}
+
 async function openDocs(id) {
   await ui.goto(`/documents?n=${++navSeq}${id ? `&doc=${id}` : ''}`);
   await ui.waitFor(`!!document.querySelector('.docs-tbl')`, 'реестр документов');
@@ -190,9 +211,9 @@ after(async () => {
     for (const d of docs.items.filter((x) => x.title.startsWith(RUN))) {
       await api('POST', `/api/v1/documents/${d.id}/archive`, { version: d.version }).catch(() => undefined);
     }
-    const tasks = await api('GET', '/api/v1/tasks?archived=false').catch(() => ({ items: [] }));
-    for (const t of tasks.items.filter((x) => x.title.includes(RUN))) {
-      await api('POST', `/api/v1/tasks/${t.id}/archive`, { version: t.version }).catch(() => undefined);
+    // Задачи этапов (1.6.3) получают все сотрудники ИБ dev-базы — их может быть больше страницы списка.
+    for (const t of await allTasks()) {
+      if (t.title.includes(RUN)) await api('POST', `/api/v1/tasks/${t.id}/archive`, { version: t.version }).catch(() => undefined);
     }
     for (const u of Object.values(users)) {
       const cur = (await api('GET', '/api/v1/users').catch(() => ({ items: [] }))).items.find((x) => x.id === u.id);
@@ -439,12 +460,8 @@ describe('Документы: возврат на доработку', () => {
 
     // Автор: задача на доске, карточка ведёт на документ.
     await loginAs(users.owner);
-    await ui.goto(`/tasks?n=${++navSeq}`);
     const taskTitle = `Доработать документ «${RUN} Регламент доступа»`;
-    const card = `[...document.querySelectorAll('article.card')].find((c) => c.querySelector('.card-t')?.textContent === ${JSON.stringify(taskTitle)})`;
-    await ui.waitFor(`!!${card}`, 'задача автору на доске');
-    await ui.click(card);
-    const drawer = `document.querySelector('aside.drawer[aria-label="Задача"]')`;
+    const drawer = await openTask(taskTitle, users.owner);
     await ui.waitFor(`${drawer}?.textContent.includes(${JSON.stringify(comment)})`, 'замечание в описании задачи');
     await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
     await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(`${RUN} Регламент доступа`)}`, 'переход к документу из задачи');
@@ -456,7 +473,7 @@ describe('Документы: возврат на доработку', () => {
     await act('Сохранить', 'PATCH', `/api/v1/documents/${doc.id}`);
     await ui.click($.button('Отправить на проверку сотрудникам', panel));
     await act('Отправить на проверку сотрудникам', 'POST', `/api/v1/documents/${doc.id}/actions/to_review`);
-    const tasks = (await api('GET', '/api/v1/tasks?archived=false')).items.filter((t) => t.title === taskTitle);
+    const tasks = (await allTasks()).filter((t) => t.title === taskTitle);
     assert.equal(tasks.length, 1);
     assert.notEqual(tasks[0].completedAt, null, 'задача доработки закрыта после отправки');
   });
@@ -682,5 +699,30 @@ describe('Документы: фильтры и порядок', () => {
     await ui.click($.button('По типам'), 'по типам');
     await ui.waitFor(`!!document.querySelector('[data-testid=doc-type-group]')`, 'снова ветки');
     assert.ok(late.id && early.id);
+  });
+});
+
+describe('Документы: задачи этапов маршрута (1.6.3)', () => {
+  it('этап 13 — задача начальнику ИБ на доске: документ, тип, этап, что требуется, ссылка; согласование закрывает её', async () => {
+    const doc = await makeDoc('Положение о задачах этапов');
+    await moveViaApi(doc.id, 13);
+    await loginAs(users.head);
+    const taskTitle = `Согласовать: документ #${doc.number} «${RUN} Положение о задачах этапов»`;
+    const drawer = await openTask(taskTitle, users.head);
+    await ui.waitFor(`${drawer}?.textContent.includes('этап маршрута')`, 'причина «этап маршрута»');
+    const text = await ui.text(drawer);
+    for (const part of [`Тип: ${docType.value}`, 'Этап: Согласование начальника ИБ (3 из 6), версия 1', 'Что требуется: согласовать версию 1']) {
+      assert.ok(text.includes(part), `в задаче: ${part}`);
+    }
+    await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
+    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(`${RUN} Положение о задачах этапов`)}`, 'переход к документу из задачи');
+
+    // Этап 12 прошёл: задачи «Проверить» закрыты; согласование — задача этапа 13 закрыта, у начальника ИБ — этап 14.
+    await routeStep(users.head, doc.id, 'approve');
+    const mine = (await allTasks(users.head)).filter((t) => t.title.includes(`#${doc.number} «${RUN}`));
+    const open = mine.filter((t) => !t.completedAt).map((t) => t.title);
+    assert.deepEqual(open, [`Согласовать с ответственными лицами: документ #${doc.number} «${RUN} Положение о задачах этапов»`]);
+    assert.ok(mine.some((t) => t.title === taskTitle && t.completedAt), 'задача этапа 13 закрыта');
+    assert.ok(mine.some((t) => t.title.startsWith('Проверить:') && t.completedAt), 'задача проверки этапа 12 закрыта');
   });
 });
