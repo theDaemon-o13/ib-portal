@@ -224,7 +224,7 @@ describe('дашборд: «Настроить» (релиз 1.1.0)', () => {
 });
 
 describe('подпись автора и «О портале»', () => {
-  it('внизу меню — «Портал ИБ <версия> · Разработал: …»; щелчок по версии — окно с версией, коммитом, датой и автором', async () => {
+  it('внизу меню — «Портал ИБ <версия> · Разработал: …»; щелчок по версии — окно только с версией и подписью (1.6.4)', async () => {
     await ui.goto('/dashboard');
     const credit = `document.querySelector('.rail .credit')`;
     await ui.waitFor(`!!${credit}`, 'подпись в меню');
@@ -236,13 +236,10 @@ describe('подпись автора и «О портале»', () => {
     const dlg = `document.querySelector('[role=dialog][aria-labelledby=about-title]')`;
     await ui.waitFor(`!!${dlg}`, 'окно «О портале»');
     const rows = await ui.evaluate(`Object.fromEntries([...${dlg}.querySelectorAll('dt')].map((dt) => [dt.textContent, dt.nextElementSibling.textContent]))`);
-    assert.equal(rows['Название'], 'Портал ИБ');
-    assert.equal(rows['Автор'], 'Машарипов Искандар');
-    if (version) {
-      assert.equal(rows['Версия'], version);
-      assert.match(rows['Коммит сборки'], /^[0-9a-f]{7,}$/);
-      assert.match(rows['Дата сборки'], /^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/);
-    }
+    assert.deepEqual(Object.keys(rows), ['Версия', 'Разработал']);
+    assert.equal(rows['Разработал'], 'Машарипов Искандар');
+    assert.equal(await ui.text(`${dlg}.querySelector('h2')`), 'Портал ИБ');
+    if (version) assert.equal(rows['Версия'], version);
     await ui.press('Escape');
     await ui.waitFor(`!${dlg}`, 'окно закрыто по Esc');
     // Узкий экран: меню — строкой сверху, видна версия, без горизонтальной прокрутки страницы.

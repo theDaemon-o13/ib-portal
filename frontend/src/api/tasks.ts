@@ -21,6 +21,8 @@ export type TaskBulkPreview = Res<'/api/v1/tasks/bulk-delete/preview', 'post'>;
 export type TaskBulkResult = Res<'/api/v1/tasks/bulk-delete/apply', 'post'>;
 /** Фильтр отчёта: период — по дате создания (по умолчанию), сроку или выполнению; даты YYYY-MM-DD включительно. */
 export type TaskReportFilter = NonNullable<paths['/api/v1/tasks/report']['get']['parameters']['query']>;
+export type TaskStats = Res<'/api/v1/tasks/stats', 'get'>;
+export type TaskStatsFilter = NonNullable<paths['/api/v1/tasks/stats']['get']['parameters']['query']>;
 
 export const tasksApi = {
   list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean }) =>
@@ -45,6 +47,12 @@ export const tasksApi = {
   comments: (id: string) => request<Res<'/api/v1/tasks/{id}/comments', 'get'>>('GET', `/api/v1/tasks/${id}/comments`),
   addComment: (id: string, body: string) => request<TaskComment>('POST', `/api/v1/tasks/${id}/comments`, { body }),
   history: (id: string) => request<Res<'/api/v1/tasks/{id}/history', 'get'>>('GET', `/api/v1/tasks/${id}/history`),
+  /** Отчёт по выполненным задачам (1.6.4) — по праву tasks.report. */
+  stats: (f: TaskStatsFilter) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(f)) if (v) p.set(k, String(v));
+    return request<TaskStats>('GET', `/api/v1/tasks/stats?${p.toString()}`);
+  },
   mailDraft: (raw: string) => request<MailDraft>('POST', '/api/v1/tasks/mail-draft', { raw }),
   // Отчёт в Excel (релиз 1.2.0) — по праву tasks.report; больше 100 000 задач — 409 «Сузьте период».
   async report(f: TaskReportFilter): Promise<{ blob: Blob; fileName: string }> {

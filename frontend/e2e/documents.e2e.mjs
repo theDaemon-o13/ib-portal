@@ -726,3 +726,22 @@ describe('Документы: задачи этапов маршрута (1.6.3)
     assert.ok(mine.some((t) => t.title.startsWith('Проверить:') && t.completedAt), 'задача проверки этапа 12 закрыта');
   });
 });
+
+describe('Документы: общая задача проверки (1.6.4)', () => {
+  it('«Проверка сотрудниками» — одна задача со списком «Могут взять»; сотрудник из списка берёт её себе', async () => {
+    const doc = await makeDoc('Проверка одной задачей');
+    await moveViaApi(doc.id, 12);
+    const title = `Проверить: документ #${doc.number} «${RUN} Проверка одной задачей»`;
+    const group = (await allTasks()).filter((t) => t.title === title && !t.completedAt);
+    assert.equal(group.length, 1, 'одна общая задача, а не по задаче каждому');
+    assert.equal(group[0].assignee, null);
+    assert.ok(group[0].candidates.some((c) => c.id === users.staff.id), 'сотрудник ИБ в списке');
+    assert.ok(!group[0].candidates.some((c) => c.id === users.owner.id), 'автор свой документ не проверяет');
+
+    await loginAs(users.staff);
+    const drawer = await openTask(title, users.staff);
+    await ui.waitFor(`${drawer}.querySelector('[data-testid=task-candidates]')?.textContent.includes('Могут взять:')`, 'список «Могут взять»');
+    await ui.click($.button('Взять себе', drawer));
+    await ui.waitFor(`${drawer}.querySelector('[data-testid=task-candidates]')?.textContent.includes(${JSON.stringify(`Взял(а): ${users.staff.fullName}`)})`, 'задачу взял сотрудник');
+  });
+});

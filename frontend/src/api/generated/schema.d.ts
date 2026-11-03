@@ -2063,7 +2063,7 @@ export interface paths {
                                 title: string;
                                 description: string;
                                 /** @enum {string} */
-                                form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays";
+                                form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole";
                                 value: unknown;
                                 defaultValue: unknown;
                                 isDefault: boolean;
@@ -2079,6 +2079,10 @@ export interface paths {
                                     label: string;
                                 }[];
                                 registers: {
+                                    id: string;
+                                    label: string;
+                                }[];
+                                roles: {
                                     id: string;
                                     label: string;
                                 }[];
@@ -2219,7 +2223,7 @@ export interface paths {
                             title: string;
                             description: string;
                             /** @enum {string} */
-                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays";
+                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole";
                             value: unknown;
                             defaultValue: unknown;
                             isDefault: boolean;
@@ -2359,7 +2363,7 @@ export interface paths {
                             title: string;
                             description: string;
                             /** @enum {string} */
-                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays";
+                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole";
                             value: unknown;
                             defaultValue: unknown;
                             isDefault: boolean;
@@ -25037,6 +25041,10 @@ export interface paths {
                                     id: string;
                                     fullName: string;
                                 } | null;
+                                candidates: {
+                                    id: string;
+                                    fullName: string;
+                                }[];
                                 reviewer: {
                                     id: string;
                                     fullName: string;
@@ -25239,6 +25247,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;
@@ -25542,6 +25554,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Выполненные задачи за период: цифры, по неделям, сотрудникам и категориям, список (до 5000; больше — 409) */
+        get: {
+            parameters: {
+                query: {
+                    from: string;
+                    to: string;
+                    assigneeId?: string;
+                    categoryId?: string;
+                    late?: "true" | "false";
+                    archived?: "true" | "false";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            summary: {
+                                done: number;
+                                onTime: number;
+                                late: number;
+                                avgLateDays: number | null;
+                                avgLeadDays: number | null;
+                            };
+                            weeks: {
+                                week: string;
+                                onTime: number;
+                                late: number;
+                            }[];
+                            byAssignee: {
+                                id: string | null;
+                                fullName: string;
+                                done: number;
+                                onTime: number;
+                                late: number;
+                                avgLeadDays: number | null;
+                            }[];
+                            byCategory: {
+                                id: string;
+                                value: string;
+                                color: string | null;
+                                done: number;
+                            }[];
+                            items: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                category: {
+                                    id: string;
+                                    value: string;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                createdAt: string;
+                                startedAt: string | null;
+                                completedAt: string;
+                                dueDate: string | null;
+                                lateDays: number | null;
+                                leadDays: number;
+                                closedBy: {
+                                    /** @enum {string} */
+                                    how: "accepted" | "self" | "system" | "override";
+                                    fullName: string | null;
+                                };
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/mail-draft": {
         parameters: {
             query?: never;
@@ -25742,6 +25934,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;
@@ -25958,6 +26154,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;
@@ -26151,6 +26351,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;
@@ -26349,6 +26553,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;
@@ -26544,6 +26752,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;
@@ -26739,6 +26951,10 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                             } | null;
+                            candidates: {
+                                id: string;
+                                fullName: string;
+                            }[];
                             reviewer: {
                                 id: string;
                                 fullName: string;

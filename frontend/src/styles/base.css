@@ -812,3 +812,57 @@ body.mon-idle .mon{cursor:none}
 .notif-empty{padding:18px 10px;text-align:center}
 .notif-more{justify-self:center;margin-top:4px}
 @media (max-width:900px){.notif-pop{left:16px;top:72px}}
+
+/* Общая задача (1.6.4): «могут взять» на карточке — коротко, полный список в подсказке. */
+.chip.cand{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+
+/* «Как загружать отчёты KSC» (1.6.4). */
+.ksc-guide{max-width:620px}
+.ksc-steps{margin:0;padding-left:20px;display:grid;gap:10px}
+.ksc-steps li{display:grid;gap:2px}
+.ksc-steps span{color:var(--muted);font-size:13px}
+.ksc-guide .note ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px;font-size:13px}
+
+/* Отчёт по выполненным задачам (1.6.4): «в срок» — акцент, «с опозданием» — критичный (пара проверена на дальтонизм). */
+.st-filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:12px}
+.st-filters select.inp,.st-filters input[type="date"]{width:auto;max-width:220px}
+.st-f{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.st-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.st-kpi{background:var(--sheen),var(--glass);border:1px solid var(--glass-line);border-radius:14px;padding:12px 14px;display:grid;gap:2px}
+.st-kpi-l{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.st-kpi.ontime .st-kpi-l::before,.st-kpi.late .st-kpi-l::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.st-kpi.late .st-kpi-l::before{background:var(--crit)}
+.st-kpi-v{font-size:26px;font-weight:600;letter-spacing:-.01em;color:var(--fg)}
+.st-grid2{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;margin-bottom:12px}
+.st-panel{margin-bottom:12px}
+.st-sub{margin:0 16px}
+.st-chart{position:relative;padding:8px 16px 14px}
+.st-svg{width:100%;height:auto;display:block}
+.st-grid{stroke:var(--line);stroke-width:1}
+.st-base{stroke:var(--line-2);stroke-width:1}
+.st-axis{fill:var(--muted);font-size:10.5px}
+.st-hit{fill:transparent}
+g:hover>.st-hit,g:focus-visible>.st-hit{fill:var(--hover)}
+g:focus{outline:none}
+.st-ontime{fill:var(--accent);background:var(--accent)}
+.st-late{fill:var(--crit);background:var(--crit)}
+.st-cat{background:var(--info)}
+.st-legend{display:flex;gap:12px;font-size:12px;color:var(--muted)}
+.st-legend span{display:inline-flex;align-items:center;gap:5px}
+.st-sw{width:10px;height:10px;border-radius:3px;display:inline-block;background:var(--accent)}
+.st-sw.late{background:var(--crit)}
+.st-rows{display:grid;gap:2px}
+.st-row{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:10px;align-items:center;padding:5px 6px;border:0;background:none;border-radius:8px;text-align:left;font:inherit;color:var(--fg);cursor:default}
+button.st-row:not(:disabled){cursor:pointer}
+.st-row:hover,.st-row:focus-visible{background:var(--hover);outline:none}
+.st-name{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-val{font-size:12.5px;min-width:56px;text-align:right}
+.st-track{display:flex;gap:2px;height:12px;align-items:stretch}
+.st-seg{display:block;min-width:2px}
+.st-seg:last-child{border-radius:0 4px 4px 0}
+.st-tip{position:absolute;transform:translate(-50%,calc(-100% - 8px));pointer-events:none;z-index:5;background:var(--bg);border:1px solid var(--line-2);border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.45;box-shadow:0 6px 20px rgba(0,0,0,.12);white-space:nowrap}
+.st-tbl th{white-space:nowrap}
+.st-sort{border:0;background:none;padding:0;font:inherit;font-weight:600;color:inherit;cursor:pointer}
+.st-tbl td.mono{white-space:nowrap}
+@media (max-width:900px){.st-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.st-grid2{grid-template-columns:1fr}}
+@media (max-width:560px){.st-kpis{grid-template-columns:1fr}.st-row{grid-template-columns:minmax(80px,40%) 1fr auto}}

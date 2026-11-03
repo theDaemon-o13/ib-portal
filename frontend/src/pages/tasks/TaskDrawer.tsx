@@ -8,7 +8,7 @@ import { Overlay } from '../../components/Overlay';
 import { useMe } from '../../auth/useMe';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
-import { ACTION_LABEL, actionNeedsComment, initials, needsComment, processHint, type ProcessAction } from './logic';
+import { ACTION_LABEL, actionNeedsComment, candidatesLabel, initials, needsComment, processHint, type ProcessAction } from './logic';
 
 interface Draft {
   title: string;
@@ -343,6 +343,11 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                 <Link to={`/documents?doc=${t.document.id}`}>Документ #{t.document.number}</Link>
                 {' · '}{DOC_REASON[t.document.reason].label}
               </div>
+              {t.candidates.length > 0 && (
+                <div className="hint" data-testid="task-candidates">
+                  {t.recipientLabel ? `${t.recipientLabel}. ` : ''}Могут взять: {candidatesLabel(t.candidates, 30)}{t.assignee ? `. Взял(а): ${t.assignee.fullName}` : ''}
+                </div>
+              )}
               <div className="hint">{DOC_REASON[t.document.reason].hint}</div>
             </div>
           )}

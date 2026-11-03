@@ -1,16 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError, type Me } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type Task } from '../../api/tasks';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
-import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, workload, workloadOpen, WORKLOAD_KEY, type ProcessAction } from './logic';
+import { actionNeedsComment, candidatesLabel, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen } from './logic';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
-import { TaskReportDialog } from './TaskReportDialog';
 
 /** Сдвиг указателя, после которого нажатие на карточку — перетаскивание, а не щелчок. */
 const DRAG_PX = 5;
@@ -78,7 +77,9 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
       <div className="meta">
         {t.assignee
           ? <span className="row nowrap gap6"><span className="av">{initials(t.assignee.fullName)}</span>{t.assignee.fullName}</span>
-          : <span className="chip high" title={t.recipientLabel ? `Получатели: ${t.recipientLabel}` : undefined}>не назначен</span>}
+          : t.candidates.length
+            ? <span className="chip acc cand" data-testid="task-candidates" title={`Могут взять: ${candidatesLabel(t.candidates, t.candidates.length)}`}>могут взять: {candidatesLabel(t.candidates)}</span>
+            : <span className="chip high" title={t.recipientLabel ? `Получатели: ${t.recipientLabel}` : undefined}>не назначен</span>}
         <span className="row nowrap gap6">
           {t.commentCount > 0 && (
             <span className="clip" title="Комментарии">
@@ -126,7 +127,6 @@ export function TasksPage() {
   // ?overdue=1 — ссылка с дашборда «Просроченные задачи».
   const overdue = params.get('overdue') === '1' && !archived;
   const [mailOpen, setMailOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
   // «Загрузка сотрудников» сворачивается, чтобы пять колонок помещались на 1366–1440 px без прокрутки.
   const [showWorkload, setShowWorkload] = useState(loadWorkloadOpen);
   const toggleWorkload = () => setShowWorkload((v) => { saveWorkloadOpen(!v); return !v; });
@@ -286,7 +286,7 @@ export function TasksPage() {
             </select>
           )}
           <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
-          {me.permissions.includes('tasks.report') && <button type="button" className="btn" onClick={() => setReportOpen(true)}>Отчёт</button>}
+          {me.permissions.includes('tasks.report') && <Link className="btn" to="/tasks/report">Отчёт</Link>}
           {!showWorkload && <button type="button" className="btn" aria-expanded={false} onClick={toggleWorkload}>Загрузка сотрудников</button>}
         </div>
       </div>
@@ -373,7 +373,6 @@ export function TasksPage() {
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}
       {mailOpen && <MailDrawer meId={me.id} canAssign={canAssign} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}
-      {reportOpen && <TaskReportDialog onClose={() => setReportOpen(false)} />}
       {pendingMove && (
         <Overlay>
           <div className="backdrop" role="presentation">

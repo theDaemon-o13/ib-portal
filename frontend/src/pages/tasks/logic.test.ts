@@ -5,7 +5,7 @@ import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsCo
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
   status: { id: 's', value: 'Backlog', color: null, systemKey: 'new' }, priority: { id: 'p', value: 'Обычный', color: null, systemKey: 'normal' },
-  category: { id: 'c', value: 'Проект', color: 'accent', systemKey: null }, assignee: null, reviewer: null, record: null, automationId: null, recipientLabel: null, document: null, evidence: null,
+  category: { id: 'c', value: 'Проект', color: 'accent', systemKey: null }, assignee: null, candidates: [], reviewer: null, record: null, automationId: null, recipientLabel: null, document: null, evidence: null,
   completedAt: null, createdBy: null, createdAt: '', updatedAt: '', archived: false, commentCount: 0, version: 1, actions: [], ...extra,
 });
 

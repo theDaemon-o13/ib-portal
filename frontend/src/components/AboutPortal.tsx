@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BUILD, buildDateText } from '../build-info';
+import { BUILD } from '../build-info';
 import { Overlay } from './Overlay';
 
 /** Подпись внизу меню и страницы входа: «Портал ИБ 1.0.1 · Разработал: …»; щелчок по версии — окно «О портале». */
@@ -31,13 +31,10 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
     <Overlay>
       <div className="backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="modal panel about" role="dialog" aria-modal="true" aria-labelledby="about-title">
-          <h2 id="about-title">О портале</h2>
+          <h2 id="about-title">{BUILD.name}</h2>
           <dl className="about-kv">
-            <dt>Название</dt><dd>{BUILD.name}</dd>
             <dt>Версия</dt><dd className="mono">{BUILD.version}</dd>
-            <dt>Коммит сборки</dt><dd className="mono">{BUILD.commit}</dd>
-            <dt>Дата сборки</dt><dd className="mono">{buildDateText(BUILD.date)}</dd>
-            <dt>Автор</dt><dd>{BUILD.author}</dd>
+            <dt>Разработал</dt><dd>{BUILD.author}</dd>
           </dl>
           <div className="row end">
             <button ref={closeRef} className="btn primary" type="button" onClick={onClose}>Закрыть</button>

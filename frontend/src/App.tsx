@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { SearchPage } from './pages/search/SearchPage';
 import { HomeRedirect, MonitorRoute, ProtectedShell, RequireUser, Section } from './components/guards';
@@ -14,6 +15,7 @@ import { RegistersPage } from './pages/registers/RegistersPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { StubPage } from './pages/stub/StubPage';
 import { TasksPage } from './pages/tasks/TasksPage';
+import { TaskStatsPage } from './pages/tasks/TaskStatsPage';
 import { VulnsPage } from './pages/vulns/VulnsPage';
 
 export function App() {
@@ -31,7 +33,11 @@ export function App() {
           ) : item.path === '/settings' ? (
             <Route key={item.path} path="/settings/:tab?" element={<Section item={item}><SettingsPage /></Section>} />
           ) : item.path === '/tasks' ? (
-            <Route key={item.path} path="/tasks" element={<Section item={item}><TasksPage /></Section>} />
+            <Fragment key={item.path}>
+              <Route path="/tasks" element={<Section item={item}><TasksPage /></Section>} />
+              {/* Отчёт по выполненным задачам (1.6.4): право «Задачи: отчёт» проверяет страница и backend. */}
+              <Route path="/tasks/report" element={<Section item={item}><TaskStatsPage /></Section>} />
+            </Fragment>
           ) : item.path === '/documents' ? (
             <Route key={item.path} path="/documents" element={<Section item={item}><DocumentsPage /></Section>} />
           ) : item.path === '/evidence' ? (

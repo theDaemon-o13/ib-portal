@@ -114,3 +114,9 @@ export function workloadOpen(stored: string | null, viewportWidth: number): bool
   if (stored === '0') return false;
   return viewportWidth >= WORKLOAD_OPEN_FROM;
 }
+
+/** Общая задача (1.6.4): «Могут взять: Иванов И., Петров П. и ещё 3» — на карточке коротко, полный список — в подсказке. */
+export function candidatesLabel(list: readonly { fullName: string }[], max = 2): string {
+  const names = list.map((c) => c.fullName);
+  return names.length > max ? `${names.slice(0, max).join(', ')} и ещё ${names.length - max}` : names.join(', ');
+}

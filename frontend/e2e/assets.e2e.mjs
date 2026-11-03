@@ -147,6 +147,21 @@ describe('Активы', () => {
   it('отчёт о развёртывании KSC → хосты; обрезанный отчёт не принимается', async () => {
     await ui.goto(`/registers/${registers.hosts}/records?n=${++navSeq}`);
     await ui.waitFor(`!!${$.button('Импорт отчёта KSC')}`, 'кнопка адаптера');
+    // 1.6.4: перед выбором файла — «Как загружать отчёты KSC» с порядком отчётов; «Больше не показывать» запоминается.
+    await ui.evaluate(`localStorage.removeItem('ksc.guide.hidden')`);
+    await ui.click($.button('Импорт отчёта KSC'));
+    const guide = `document.querySelector('[data-testid=ksc-guide]')`;
+    await ui.waitFor(`!!${guide}`, 'окно «Как загружать отчёты KSC»');
+    const steps = await ui.evaluate(`[...${guide}.querySelectorAll('.ksc-steps b')].map((b) => b.textContent)`);
+    assert.deepEqual(steps, ['Отчёт о развёртывании защиты', 'Отчёт о статусе антивирусных баз', 'Отчёт о версиях программ «Лаборатории Касперского»']);
+    assert.ok((await ui.text(guide)).includes('1000 строк'), 'про лимит записей в KSC');
+    await ui.click(`${guide}.querySelector('label.check input')`, '«Больше не показывать»');
+    await ui.click($.button('Закрыть', guide));
+    assert.equal(await ui.evaluate(`localStorage.getItem('ksc.guide.hidden')`), '1');
+    await ui.click($.button('Как загружать'));
+    await ui.waitFor(`!!${guide}`, 'окно открывается ссылкой «Как загружать»');
+    await ui.press('Escape');
+    await ui.waitFor(`!${guide}`, 'окно закрыто');
     await ui.setFiles('input[aria-label="Файл отчёта KSC"]', [deployment([`${RUN}-PC01NB`, `${RUN}-PC02NB`, `${RUN}-PC03NB`], 4)]);
     await ui.waitFor(`[...document.querySelectorAll('.toast, [role=status], [role=alert]')].some((t) => t.textContent.includes('Отчёт обрезан: в сводке 4 устройств, в таблице 3'))`, 'обрезанный отчёт — ошибка');
     assert.equal(await ui.evaluate(`!!document.querySelector('[role=dialog]')`), false);

@@ -9,6 +9,7 @@ import { useToast } from '../../components/Toast';
 import { BulkDialog, type BulkMode } from './BulkDialog';
 import { isPicked, NOTHING, pickedCount, pickPage, selectionBody, togglePicked, type Picked } from './bulk';
 import { ImportDialog } from './ImportDialog';
+import { KscGuide, kscGuideHidden } from './KscGuide';
 import { BASIS_TONES, deadlineChip, deadlineFieldOf, describeFilter, filterFromParams, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
 import { ExportZipDialog } from './ExportZipDialog';
 import { rkeys } from './keys';
@@ -143,6 +144,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   // Файл импорта — для «Сравнения» (тот же файл, что в предпросмотре).
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [kscGuide, setKscGuide] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
   const hasFiles = reg.fields.some((f) => f.type === 'file' && !f.archived);
   const [busy, setBusy] = useState(false);
@@ -271,12 +273,14 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
               <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => void onFile(e)} aria-label="Файл импорта" />
               {adapter && (
                 <>
-                  <button className="btn" type="button" onClick={() => adapterRef.current?.click()} disabled={busy}
+                  <button className="btn" type="button" disabled={busy}
+                    onClick={() => (adapter === 'ksc' && !kscGuideHidden() ? setKscGuide(true) : adapterRef.current?.click())}
                     title={adapter === 'ksc' ? 'Отчёт о развёртывании защиты, о статусе антивирусных баз или о версиях программ — .xls из KSC как есть или .xlsx' : 'Форма реестра сервисов, лист «Список активов»'}>
                     {adapter === 'ksc' ? 'Импорт отчёта KSC' : 'Импорт реестра сервисов'}
                   </button>
                   <input ref={adapterRef} type="file" accept=".xls,.xml,.xlsx" hidden onChange={(e) => void onAdapterFile(e)}
                     aria-label={adapter === 'ksc' ? 'Файл отчёта KSC' : 'Файл реестра сервисов'} />
+                  {adapter === 'ksc' && <button className="btn sm ghost" type="button" onClick={() => setKscGuide(true)}>Как загружать</button>}
                 </>
               )}
             </>
@@ -393,6 +397,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
         <div className="panel-b"><button className="btn sm" type="button" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>Показать ещё</button></div>
       )}
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
+      {kscGuide && <KscGuide onPick={() => adapterRef.current?.click()} onClose={() => setKscGuide(false)} />}
       {preview && <ImportDialog reg={reg} preview={preview} file={importFile} onClose={() => setPreview(null)} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
       {bulk && <BulkDialog reg={reg} mode={bulk.mode} selection={bulk.selection} onClose={() => setBulk(null)} onDone={() => { setBulk(null); setPicked(NOTHING); }} />}

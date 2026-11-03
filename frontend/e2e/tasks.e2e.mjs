@@ -351,10 +351,53 @@ describe('Процесс по кнопкам', () => {
 });
 
 describe('Отчёт по задачам', () => {
-  it('окно фильтров → «Выгрузить в Excel»: запрос с фильтрами, файл', async () => {
-    await makeTask('в отчёт', { dueDate: '2020-01-10' });
+  it('«Отчёт» → страница выполненных задач: цифры, иллюстрации, список; щелчок по сотруднику — фильтр; Excel за период', async () => {
+    const t = await makeTask('выполнена для отчёта', { dueDate: '2020-01-10' });
+    let cur = await api('POST', `/api/v1/tasks/${t.id}/actions/start`, { version: t.version });
+    cur = await api('POST', `/api/v1/tasks/${t.id}/actions/complete`, { version: cur.version, comment: 'сделано' }).catch(async () => {
+      // У администратора прогона есть руководитель — через проверку не идём: свободная смена статуса.
+      const done = statuses.find((s) => s.systemKey === 'done');
+      return api('PATCH', `/api/v1/tasks/${t.id}`, { version: cur.version, statusId: done.id, comment: 'сделано' });
+    });
     await openBoard();
-    await ui.click($.button('Отчёт'));
+    await ui.click(`[...document.querySelectorAll('a.btn')].find((a) => a.textContent === 'Отчёт')`, '«Отчёт»');
+    await ui.waitFor(`location.pathname === '/tasks/report' && !!document.querySelector('[data-testid=stats-kpis]')`, 'страница отчёта с цифрами');
+    const title = `${RUN} выполнена для отчёта`;
+    const row = `[...document.querySelectorAll('[data-testid=stats-table] tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(title)}))`;
+    await ui.waitFor(`!!${row}`, 'задача в списке выполненных');
+    assert.match(await ui.text(`${row}.querySelector('.chip')`), /^\+\d+ (день|дня|дней)$/, 'опоздание в днях');
+    assert.equal(await ui.evaluate(`document.querySelectorAll('.st-svg rect.st-hit').length > 0`), true, 'столбцы по неделям');
+    // Подсказка при наведении на неделю.
+    await ui.evaluate(`document.querySelector('.st-svg g[tabindex]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))`);
+    await ui.evaluate(`document.querySelector('.st-svg g[tabindex]').focus()`);
+    await ui.waitFor(`document.querySelector('.st-tip')?.textContent.startsWith('Неделя с')`, 'подсказка недели');
+    // Щелчок по сотруднику — отчёт по нему (фильтр в адресе).
+    await ui.click(`[...document.querySelectorAll('button.st-row')].find((b) => !b.disabled)`, 'строка сотрудника');
+    await ui.waitFor(`new URLSearchParams(location.search).has('assignee')`, 'фильтр по сотруднику');
+    // Excel — выполненные за выбранный период.
+    const m0 = ui.mark();
+    await ui.click($.button('Выгрузить в Excel'));
+    const x = await ui.request(m0, 'GET', '/api/v1/tasks/report');
+    assert.equal(x.status, 200);
+    assert.equal(new URL(x.url, BASE).searchParams.get('period'), 'completed');
+    // Снимки для просмотра глазами (светлая и чёрная тема) — в каталог E2E_SHOTS, если задан.
+    if (process.env.E2E_SHOTS) {
+      const fs = await import('node:fs');
+      await ui.goto('/tasks/report');
+      await ui.waitFor(`!!document.querySelector('[data-testid=stats-table]')`, 'отчёт для снимка');
+      await ui.evaluate(`document.documentElement.dataset.theme = 'light'`);
+      fs.writeFileSync(`${process.env.E2E_SHOTS}/report-light.png`, await ui.screenshot());
+      await ui.evaluate(`document.documentElement.dataset.theme = 'dark'`);
+      fs.writeFileSync(`${process.env.E2E_SHOTS}/report-dark.png`, await ui.screenshot());
+      await ui.evaluate(`delete document.documentElement.dataset.theme`);
+    }
+  });
+
+  it('«Расширенная выгрузка» → окно фильтров → «Выгрузить в Excel»: запрос с фильтрами, файл', async () => {
+    await makeTask('в отчёт', { dueDate: '2020-01-10' });
+    await ui.goto('/tasks/report');
+    await ui.waitFor(`!!${$.button('Расширенная выгрузка')}`, 'страница отчёта');
+    await ui.click($.button('Расширенная выгрузка'));
     const dlg = `document.querySelector('form[aria-labelledby="tr-title"]')`;
     await ui.waitFor(`!!${dlg}`, 'окно «Отчёт по задачам»');
     await ui.select(label('Период', dlg), 'due');

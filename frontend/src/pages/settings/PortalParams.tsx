@@ -125,6 +125,15 @@ function ParamPanel({ param, options }: { param: PortalParam; options: PortalPar
         {param.form === 'vulns' && <VulnsForm value={draft as Vulns} onChange={setDraft} options={options} />}
         {param.form === 'assets' && <AssetsForm value={draft as Assets} onChange={setDraft} options={options} />}
         {param.form === 'stageDays' && <StageDaysForm value={draft as StageDays} onChange={setDraft} />}
+        {param.form === 'reviewRole' && (
+          <label className="fd-label">Роль
+            <select className="inp" aria-label="Роль проверки сотрудниками" value={(draft as { roleId: string | null }).roleId ?? ''}
+              onChange={(e) => setDraft({ roleId: e.target.value || null })}>
+              <option value="">— все сотрудники ИБ</option>
+              {options.roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+            </select>
+          </label>
+        )}
         {param.form === 'text' && <input className="inp" aria-label={param.title} value={String(draft)} onChange={(e) => setDraft(e.target.value)} />}
         {(param.form === 'lines' || param.form === 'json') && <textarea className="inp mono" rows={param.form === 'json' ? 8 : 4} aria-label={param.title} value={String(draft)} onChange={(e) => setDraft(e.target.value)} />}
         <details><summary className="hint">Значение по умолчанию</summary><pre className="hint">{shownDefault(param)}</pre></details>
