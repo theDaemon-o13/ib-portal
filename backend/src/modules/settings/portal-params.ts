@@ -10,6 +10,7 @@ import { ASSET_SETTINGS_KEY } from '../assets/definition.js';
 import { DEFAULT_SCAN_MAX_AGE_DAYS, VULN_SETTINGS_KEY } from '../vulns/profiles.js';
 import { SYSTEM_TYPES_CATALOG } from '../vulns/groups.service.js';
 import { auditSettings, type Actor } from './common.js';
+import { DEFAULT_STAGE_DAYS, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
 
 const text = (what: string, max = 200) => z.string().trim().min(1, `${what}: пустое значение`).max(max, `${what}: не длиннее ${max} символов`);
 const uuid = (what: string) => z.string().uuid(`${what}: неверный идентификатор`);
@@ -32,6 +33,9 @@ const AssetsSchema = z.strictObject({
   dlpRegisterId: uuid('Реестр DLP').nullable(),
 });
 const MapSchema = z.record(text('Значение'), text('Значение'));
+const days = (stage: string) => z.number({ error: `Этап ${stage}: нужно число рабочих дней` }).int(`Этап ${stage}: целое число дней`)
+  .min(1, `Этап ${stage}: не меньше 1 дня`).max(60, `Этап ${stage}: не больше 60 дней`);
+const StageDaysSchema = z.strictObject({ '11': days('11'), '12': days('12'), '13': days('13'), '15': days('15'), '16': days('16') });
 const HostTypeSchema = z.strictObject({
   server: z.strictObject({ products: z.array(text('Продукт')).max(50), groups: z.array(text('Группа KSC')).max(50), namePatterns: patterns }),
   workstation: z.strictObject({ namePatterns: patterns }),
@@ -48,7 +52,7 @@ const HOST_TYPE_RULES = {
   workstation: { namePatterns: ['(NB|PC|MAC)\\d*$'] },
 };
 
-export type ParamForm = 'vulns' | 'assets' | 'lines' | 'text' | 'json';
+export type ParamForm = 'vulns' | 'assets' | 'lines' | 'text' | 'json' | 'stageDays';
 
 interface ParamDef {
   key: string;
@@ -112,6 +116,11 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
     description: 'Например, 12.5. Пусто — проверка показывает «Нет данных».',
     schema: z.string().trim().max(50).regex(/^(\d+(\.\d+)*)?$/, 'Версия — числа через точку, например 12.5'),
     defaults: async () => '',
+  },
+  {
+    key: DOC_STAGE_DAYS_KEY, title: 'Документы: сроки этапов', form: 'stageDays',
+    description: 'Срок задачи этапа маршрута в рабочих днях от дня, когда документ пришёл на этап. Этап 14 — ближайший срок ответственного лица, перевод — срок языка (задаются в карточке документа). Новое значение — для новых задач.',
+    schema: StageDaysSchema, defaults: async () => ({ ...DEFAULT_STAGE_DAYS }),
   },
 ];
 

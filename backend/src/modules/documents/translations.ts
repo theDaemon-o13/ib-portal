@@ -11,7 +11,7 @@ import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDeadlineChanged } from './notify.js';
-import { cleanComment, forbiddenWith, inPickOrder, notifyWaiting, rolesOf, routeContext } from './service.js';
+import { cleanComment, forbiddenWith, inPickOrder, notifyWaiting, rolesOf, routeContext, syncStageTasks } from './service.js';
 import { stageName } from './status.js';
 
 export const LANGUAGE_MAX = 100;
@@ -85,6 +85,7 @@ export async function addTranslation(db: Db, actor: Actor, id: string, input: St
       summary: `Документ #${d.number} «${w.title}»: перевод на ${language}${translatorName ? ` — ${translatorName}` : ''}, срок ${formatDateRu(iso(due))}`,
       after: { translationId: t.id, language, translatorName, dueDate: iso(due) },
     });
+    await syncStageTasks(tx, id);
     // Язык добавили уже на этапе 15 — «ждёт вас» по stageHolders (один раз на состояние).
     if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
@@ -130,6 +131,7 @@ export async function updateTranslation(db: Db, actor: Actor, id: string, transl
       summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${changes.map((c) => `«${c.label}»`).join(', ')}`,
       after: { translationId, changes, comment: input.comment?.trim() ?? '' },
     });
+    await syncStageTasks(tx, id);
   });
 }
 
@@ -147,6 +149,7 @@ export async function removeTranslation(db: Db, actor: Actor, id: string, transl
       summary: `Документ #${d.number} «${w.title}»: снят перевод на ${t.language}`,
       after: { translationId },
     });
+    await syncStageTasks(tx, id);
     if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
@@ -173,6 +176,7 @@ export async function addTranslationFiles(db: Db, actor: Actor, id: string, tran
       summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
       after: { translationId, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
     });
+    await syncStageTasks(tx, id);
     await notifyWaiting(tx, id, actor.id);
   });
 }
@@ -189,5 +193,6 @@ export async function removeTranslationFile(db: Db, actor: Actor, id: string, tr
       summary: `Документ #${d.number} «${w.title}»: снят файл перевода на ${t.language} «${link.file.originalName}»`,
       after: { translationId, fileId: link.fileId },
     });
+    await syncStageTasks(tx, id);
   });
 }

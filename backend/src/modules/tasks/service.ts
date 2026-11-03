@@ -66,7 +66,7 @@ export function toTaskDto(t: TaskRow, today: string) {
     automationId: t.automationId,
     recipientLabel: t.recipientLabel,
     /** Задача по документу (этап 6): пересмотр или доработка. */
-    document: t.document ? { ...t.document, reason: t.documentReason as 'review' | 'returned' } : null,
+    document: t.document ? { ...t.document, reason: t.documentReason as 'review' | 'returned' | 'stage' } : null,
     evidence: t.evidence ? { ...t.evidence, reason: t.evidenceReason as 'rejected' | 'expiring' } : null,
     completedAt: t.completedAt?.toISOString() ?? null,
     createdBy: t.creator,

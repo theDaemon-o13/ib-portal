@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addMonthsIso, allowedActions, checkDocUrlPrefix, compareTypes, docComparator, docStatus, dueMatches, isDocUrl, ROUTE_FROM_LEGACY, stageHolders, stageName, type DocRole, type HolderCtx } from './status.js';
+import { addMonthsIso, allowedActions, checkDocUrlPrefix, compareTypes, docComparator, docStatus, dueMatches, stageState, stageTaskDescription, stageTaskText, isDocUrl, ROUTE_FROM_LEGACY, stageHolders, stageName, type DocRole, type HolderCtx } from './status.js';
 
 describe('статус документа', () => {
   const today = '2026-10-27';
@@ -128,5 +128,24 @@ describe('реестр: срок пересмотра и порядок', () => 
     expect([...docs].sort(docComparator('type')).map((x) => x.number)).toEqual([4, 5, 2, 1, 3]);
     expect([...docs].sort(docComparator('title')).map((x) => x.number)).toEqual([3, 4, 5, 2, 1]);
     expect(compareTypes('Аудит', 'Политика')).toBeGreaterThan(0);
+  });
+});
+
+describe('задачи этапов маршрута (1.6.3)', () => {
+  const x = { label: '#7 «Политика ИБ»', versionNo: 3, languages: ['Английский', 'Таджикский'] };
+  it('название и «что требуется» по этапу, фазе перевода и роли', () => {
+    expect(stageTaskText(13, null, 'holder', x)).toEqual({ title: 'Согласовать: документ #7 «Политика ИБ»', requirement: 'согласовать версию 3 или вернуть документ на доработку с комментарием.' });
+    expect(stageTaskText(12, null, 'reviewer', x).title).toBe('Проверить: документ #7 «Политика ИБ»');
+    expect(stageTaskText(12, null, 'holder', x).title).toBe('Учесть комментарии: документ #7 «Политика ИБ»');
+    expect(stageTaskText(15, 'translate', 'holder', x).requirement).toBe('приложить файлы перевода: Английский, Таджикский.');
+    expect(stageTaskText(15, 'ready', 'holder', x).title).toBe('Отправить на подписание: документ #7 «Политика ИБ»');
+    expect(stageTaskText(16, null, 'holder', x).requirement).toBe('загрузить подписанный PDF и указать дату подписания.');
+  });
+  it('описание: документ, тип, этап с номером, что требуется; состояние — версия, круг, этап, фаза', () => {
+    expect(stageTaskDescription({ label: x.label, type: 'Политика', stage: 14, versionNo: 3, requirement: 'отметить согласование.' }).split('\n').slice(0, 4)).toEqual([
+      'Документ: #7 «Политика ИБ»', 'Тип: Политика', 'Этап: Согласование с ответственными лицами (4 из 6), версия 3', 'Что требуется: отметить согласование.',
+    ]);
+    expect(stageState({ id: 'v', round: 2, stage: 15 }, 'ready')).toBe('v:2:15:ready');
+    expect(stageState({ id: 'v', round: 1, stage: 13 }, null)).toBe('v:1:13');
   });
 });

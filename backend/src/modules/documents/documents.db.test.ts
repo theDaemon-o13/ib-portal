@@ -13,6 +13,10 @@ import { notifyPartyDeadlines } from './notify.js';
 import { listNotifications } from '../notifications/service.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
+import { setIbHead } from '../users/service.js';
+import { updatePortalParam } from '../settings/portal-params.js';
+import { loadFullWorkCalendar } from '../calendar/service.js';
+import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
 import { addMonthsIso, FIXED_FILE, type DocAction } from './status.js';
 
 const URL1 = 'https://office.example.local/products/files/doceditor.aspx?fileid=101';
@@ -552,6 +556,123 @@ describe('документы: фильтры и порядок реестра', 
       expect(page.facets.owners.map((o) => o.id)).toEqual(expect.arrayContaining([x.owner.id, x.staff.id]));
       const reader = await svc.listDocuments(tx, await svc.accessOf(tx, x.legal.id), { archived: false, limit: 500 });
       expect(reader.facets.owners.some((o) => o.id === x.staff.id)).toBe(false);
+    }));
+});
+
+describe('документы: задачи этапов маршрута (1.6.3)', () => {
+  const stageTasks = (tx: Tx, id: string, open = true) => tx.task.findMany({
+    where: { documentId: id, documentReason: 'stage', ...(open ? { completedAt: null } : {}) },
+    include: { assignee: { select: { fullName: true } } }, orderBy: { number: 'asc' },
+  });
+  const who = async (tx: Tx, id: string) => (await stageTasks(tx, id)).map((t) => t.assignee?.fullName ?? `— ${t.recipientLabel}`).sort();
+  const workdays = async (tx: Tx, n: number) => isoDate(addWorkingDays(parseIsoDate(todayIso()), n, await loadFullWorkCalendar(tx)));
+  const dueOf = (t: { dueDate: Date | null }) => t.dueDate?.toISOString().slice(0, 10) ?? null;
+
+  it('каждый этап — задача тому, кто действует; смена этапа закрывает прежние; текст — документ, тип, этап, что требуется', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Политика паролей');
+      const num = (await tx.document.findUniqueOrThrow({ where: { id } })).number;
+
+      // 11: документ завёл администратор за владельца — владельцу «Подготовить драфт», 5 рабочих дней.
+      const [t11] = await stageTasks(tx, id);
+      expect(t11).toMatchObject({ assigneeId: x.owner.id, title: `Подготовить драфт: документ #${num} «Политика паролей»`, source: 'document' });
+      expect(dueOf(must(t11))).toBe(await workdays(tx, 5));
+      expect(must(t11).description).toContain(`Тип: ${x.type.value}`);
+      expect(must(t11).description).toContain('Этап: Драфт (1 из 6), версия 1');
+      // Уведомления «назначена задача» нет — о событии и так сообщает «ждёт вас».
+      expect(await tx.notification.count({ where: { taskId: must(t11).id } })).toBe(0);
+
+      // 12: автору — «Учесть комментарии», всем сотрудникам ИБ кроме автора — «Проверить» (3 рабочих дня); читателю — нет.
+      await move(tx, x.owner, id, 'to_review');
+      expect((await tx.task.findUniqueOrThrow({ where: { id: must(t11).id } })).completedAt).not.toBeNull();
+      const t12 = await stageTasks(tx, id);
+      expect(t12.find((t) => t.assigneeId === x.owner.id)?.title).toMatch(/^Учесть комментарии/);
+      const reviewers = t12.filter((t) => t.title.startsWith('Проверить')).map((t) => t.assigneeId);
+      expect(reviewers).toEqual(expect.arrayContaining([x.staff.id, x.head.id, x.chief.id, x.admin.id]));
+      expect(reviewers).not.toContain(x.owner.id);
+      expect(reviewers).not.toContain(x.legal.id);
+      for (const t of t12) expect(dueOf(t)).toBe(await workdays(tx, 3));
+
+      // 13: начальнику ИБ «Согласовать», задачи этапа 12 закрыты с комментарием.
+      await move(tx, x.owner, id, 'to_head');
+      expect(await who(tx, id)).toEqual(['Начальник ИБ']);
+      const [t13] = await stageTasks(tx, id);
+      expect(must(t13).description).toContain('Этап: Согласование начальника ИБ (3 из 6), версия 1');
+      expect(must(t13).description).toContain('Что требуется: согласовать версию 1 или вернуть документ на доработку с комментарием.');
+      const closedComment = await tx.taskComment.findFirst({ where: { taskId: must(t12[0]).id }, orderBy: { createdAt: 'desc' } });
+      expect(closedComment?.body).toMatch(/Документ на этапе «Согласование начальника ИБ»/);
+
+      // 14: срок — ближайший срок несогласовавшего лица; меняется вместе со сроком лица.
+      await move(tx, x.head, id, 'approve');
+      const [first14] = await stageTasks(tx, id);
+      expect(must(first14).title).toMatch(/^Согласовать с ответственными лицами/);
+      expect(dueOf(must(first14))).toBeNull();
+      const t14id = must(first14).id;
+      const p = await addParty(tx, x.head, id, { dueDate: '2026-12-10' });
+      await addParty(tx, x.head, id, { fullName: 'Иванов И. И.', dueDate: '2026-12-20' });
+      expect(dueOf(await tx.task.findUniqueOrThrow({ where: { id: t14id } }))).toBe('2026-12-10');
+      await parties.updateParty(tx, await x.as(x.head), id, p.id, { ...(await cur(tx, id)), dueDate: '2026-12-15', comment: 'Попросили отсрочку' });
+      expect(dueOf(await tx.task.findUniqueOrThrow({ where: { id: t14id } }))).toBe('2026-12-15');
+      expect((await tx.taskComment.findFirst({ where: { taskId: t14id }, orderBy: { createdAt: 'desc' } }))?.body).toBe('Срок изменён: 10.12.2026 → 15.12.2026 (сроки ответственных лиц)');
+      await parties.approveParty(tx, await x.as(x.head), id, p.id, await cur(tx, id));
+      expect(dueOf(await tx.task.findUniqueOrThrow({ where: { id: t14id } }))).toBe('2026-12-20');
+
+      // 15 без переводов — «Отправить на подписание» начальнику ИБ и старшему над автором; 16 — автору; подписание закрывает всё.
+      await moveTo(tx, x, id, 15);
+      expect(await who(tx, id)).toEqual(['Начальник ИБ', 'Руководитель автора']);
+      expect((await stageTasks(tx, id))[0]?.title).toMatch(/^Отправить на подписание/);
+      await moveTo(tx, x, id, 16);
+      expect(await who(tx, id)).toEqual(['Автор Документа']);
+      await sign(tx, x.owner, id);
+      expect(await stageTasks(tx, id)).toEqual([]);
+      // Повторов одного состояния нет: на каждого — по одной задаче каждого этапа.
+      const all = await stageTasks(tx, id, false);
+      expect(new Set(all.map((t) => `${t.documentState}|${t.assigneeId}`)).size).toBe(all.length);
+    }));
+
+  it('возврат — задачи этапа закрыты, у автора «Доработать»; перевод — автору со сроком языка; срок по умолчанию — из параметров портала', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      await updatePortalParam(tx, await x.as(x.admin), 'documents.stageDays', { value: { '11': 5, '12': 3, '13': 7, '15': 3, '16': 5 }, version: 0 });
+      const id = await x.create();
+      await moveTo(tx, x, id, 13);
+      expect(dueOf(must((await stageTasks(tx, id))[0]))).toBe(await workdays(tx, 7));
+      await move(tx, x.head, id, 'return', { comment: 'Нет раздела 4' });
+      expect(await stageTasks(tx, id)).toEqual([]);
+      expect(await tx.task.count({ where: { documentId: id, documentReason: 'returned', completedAt: null } })).toBe(1);
+
+      await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), language: 'Английский', dueDate: '2026-12-05' });
+      await moveTo(tx, x, id, 15);
+      const [tt] = await stageTasks(tx, id);
+      expect(tt).toMatchObject({ assigneeId: x.owner.id, title: expect.stringMatching(/^Приложить переводы/) });
+      expect(must(tt).description).toContain('приложить файлы перевода: Английский.');
+      expect(dueOf(must(tt))).toBe('2026-12-05');
+      const t = await tx.documentTranslation.findFirstOrThrow({ where: { documentId: id } });
+      await tr.addTranslationFiles(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.owner.id, { name: 'en.docx', mime: MIME_BY_EXT.docx })).id] });
+      expect(await who(tx, id)).toEqual(['Начальник ИБ', 'Руководитель автора']);
+    }));
+
+  it('отметку начальника ИБ передали или сняли — задача переходит или остаётся без ответственного; закрытую вручную не возвращаем', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, 13);
+      const head = await tx.user.findUniqueOrThrow({ where: { id: x.head.id } });
+      await setIbHead(tx, await x.as(x.admin), x.staff.id, { version: (await tx.user.findUniqueOrThrow({ where: { id: x.staff.id } })).version, value: true, transfer: true });
+      expect(await who(tx, id)).toEqual(['Сотрудник ИБ']);
+      await setIbHead(tx, await x.as(x.admin), x.staff.id, { version: (await tx.user.findUniqueOrThrow({ where: { id: x.staff.id } })).version, value: false });
+      expect(await who(tx, id)).toEqual([`— ${svc.NO_HEAD_LABEL}`]);
+      // Вернули отметку прежнему — задача снова у него: системное закрытие повтор не запрещает.
+      await setIbHead(tx, await x.as(x.admin), x.head.id, { version: (await tx.user.findUniqueOrThrow({ where: { id: head.id } })).version, value: true });
+      expect(await who(tx, id)).toEqual(['Начальник ИБ']);
+
+      // Начальник ИБ закрыл задачу на доске сам — по тому же этапу она не появляется снова.
+      const [t] = await stageTasks(tx, id);
+      await tx.task.update({ where: { id: must(t).id }, data: { completedAt: new Date() } });
+      await tx.taskTransition.create({ data: { taskId: must(t).id, fromStatusId: must(t).statusId, toStatusId: must(t).statusId, actorId: x.head.id, kind: 'override' } });
+      await svc.syncStageTasks(tx, id);
+      expect(await stageTasks(tx, id)).toEqual([]);
     }));
 });
 

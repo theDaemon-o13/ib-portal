@@ -214,3 +214,60 @@ export function compareTypes(a: string, b: string): number {
 export function docComparator(sort: DocSort): (x: Sortable, y: Sortable) => number {
   return sort === 'type' ? (x, y) => compareTypes(x.type.value, y.type.value) || byTitle(x, y) : byTitle;
 }
+
+// ---------------------------------------------------------------- задачи по этапам маршрута (1.6.3)
+
+/**
+ * Состояние маршрута для задачи этапа: версия, круг, этап и фаза этапа 15. Другое состояние — задача прежнего этапа
+ * закрывается, новая создаётся; то же состояние — повтора нет (как dedupe_key у «ждёт вас»).
+ */
+export function stageState(v: { id: string; round: number; stage: number }, phase: StagePhase | null): string {
+  return `${v.id}:${v.round}:${v.stage}${phase ? `:${phase}` : ''}`;
+}
+
+/** Фаза этапа 15: не хватает файлов перевода — у автора; переводы готовы — у начальника ИБ и старших. */
+export type StagePhase = 'translate' | 'ready';
+/** Чья задача на этапе: тот, кто продвигает документ («Сейчас у»), или проверяющий сотрудник на этапе 12. */
+export type StageTaskRole = 'holder' | 'reviewer';
+
+/** Сроки задач этапов по умолчанию, рабочие дни (решение владельца 03.11.2026); «Параметры портала». */
+export const DOC_STAGE_DAYS_KEY = 'documents.stageDays';
+export const DEFAULT_STAGE_DAYS = { '11': 5, '12': 3, '13': 3, '15': 3, '16': 5 } as const;
+export type StageDays = Record<keyof typeof DEFAULT_STAGE_DAYS, number>;
+
+export interface StageTaskText {
+  title: string;
+  requirement: string;
+}
+
+/** Название и «что требуется» задачи этапа. label — «#12 «Политика ИБ»», languages — языки без файла (этап 15). */
+export function stageTaskText(
+  stage: number, phase: StagePhase | null, role: StageTaskRole, x: { label: string; versionNo: number; languages: readonly string[] },
+): StageTaskText {
+  const t = (verb: string, requirement: string) => ({ title: `${verb}: документ ${x.label}`, requirement });
+  if (role === 'reviewer') return t('Проверить', 'прочитать документ и оставить комментарии в его карточке, пока он на проверке сотрудниками.');
+  switch (stage) {
+    case 11: return t('Подготовить драфт', 'приложить файл документа (pdf или docx) и отправить его на проверку сотрудникам.');
+    case 12: return t('Учесть комментарии', 'учесть комментарии сотрудников, при необходимости заменить файл и отправить документ на согласование начальнику ИБ.');
+    case 13: return t('Согласовать', `согласовать версию ${x.versionNo} или вернуть документ на доработку с комментарием.`);
+    case 14: return t('Согласовать с ответственными лицами', 'добавить ответственных лиц, если их ещё нет, отметить их согласование и принять финальную версию.');
+    case 15: return phase === 'translate'
+      ? t('Приложить переводы', `приложить файлы перевода${x.languages.length ? `: ${x.languages.join(', ')}` : ''}.`)
+      : t('Отправить на подписание', 'переводы готовы — отправить документ на подписание.');
+    case SIGN_STAGE: return t('Загрузить подписанный документ', 'загрузить подписанный PDF и указать дату подписания.');
+    default: return t('Документ', 'продвинуть документ по маршруту.');
+  }
+}
+
+/** Описание задачи этапа: документ, тип, этап, что требуется. */
+export function stageTaskDescription(x: { label: string; type: string; stage: number; versionNo: number; requirement: string }): string {
+  const pos = ROUTE.findIndex((s) => s.stage === x.stage);
+  return [
+    `Документ: ${x.label}`,
+    `Тип: ${x.type}`,
+    `Этап: ${stageName(x.stage)}${pos >= 0 ? ` (${pos + 1} из ${ROUTE.length})` : ''}, версия ${x.versionNo}`,
+    `Что требуется: ${x.requirement}`,
+    '',
+    'Действие выполняется в карточке документа («Документы»). Задача закроется сама, когда документ перейдёт на следующий этап.',
+  ].join('\n');
+}

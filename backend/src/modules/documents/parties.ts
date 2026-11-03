@@ -12,7 +12,7 @@ import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDeadlineChanged, notifyPartiesDone } from './notify.js';
-import { cleanComment, forbiddenWith, inPickOrder, rolesOf, routeContext } from './service.js';
+import { cleanComment, forbiddenWith, inPickOrder, rolesOf, routeContext, syncStageTasks } from './service.js';
 import { stageName } from './status.js';
 
 export const NAME_MAX = 300;
@@ -85,6 +85,7 @@ export async function addParty(db: Db, actor: Actor, id: string, input: Stage & 
       summary: `Документ #${d.number} «${w.title}»: ответственное лицо ${fullName}${department ? ` (${department})` : ''}, срок ${formatDateRu(iso(due))}`,
       after: { partyId: p.id, fullName, department, dueDate: iso(due) },
     });
+    await syncStageTasks(tx, id);
   });
 }
 
@@ -126,6 +127,7 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
       summary: `Документ #${d.number} «${w.title}»: ${p.fullName} — ${changes.map((c) => `«${c.label}»`).join(', ')}`,
       after: { partyId, changes, comment: input.comment?.trim() ?? '' },
     });
+    await syncStageTasks(tx, id);
   });
 }
 
@@ -141,6 +143,7 @@ export async function removeParty(db: Db, actor: Actor, id: string, partyId: str
       summary: `Документ #${d.number} «${w.title}»: ${p.fullName} снят(а) из ответственных лиц`,
       after: { partyId },
     });
+    await syncStageTasks(tx, id);
   });
 }
 
@@ -162,6 +165,7 @@ export async function approveParty(db: Db, actor: Actor, id: string, partyId: st
       summary: `Документ #${d.number} «${w.title}»: ${p.fullName} согласовал(а)${files.length ? `, ответ — ${files.map((f) => `«${f.originalName}»`).join(', ')}` : ''}`,
       after: { partyId, comment, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
     });
+    await syncStageTasks(tx, id);
     await notifyPartiesDone(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, w.id, actor.id);
   });
 }

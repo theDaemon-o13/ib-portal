@@ -4744,7 +4744,8 @@
                               "assets",
                               "lines",
                               "text",
-                              "json"
+                              "json",
+                              "stageDays"
                             ]
                           },
                           "value": {},
@@ -5110,7 +5111,8 @@
                         "assets",
                         "lines",
                         "text",
-                        "json"
+                        "json",
+                        "stageDays"
                       ]
                     },
                     "value": {},
@@ -5398,7 +5400,8 @@
                         "assets",
                         "lines",
                         "text",
-                        "json"
+                        "json",
+                        "stageDays"
                       ]
                     },
                     "value": {},
@@ -68944,7 +68947,8 @@
                                     "type": "string",
                                     "enum": [
                                       "review",
-                                      "returned"
+                                      "returned",
+                                      "stage"
                                     ]
                                   }
                                 },
@@ -69671,7 +69675,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },
@@ -70967,7 +70972,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },
@@ -71724,7 +71730,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },
@@ -72363,7 +72370,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },
@@ -72992,7 +73000,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },
@@ -73611,7 +73620,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },
@@ -74230,7 +74240,8 @@
                               "type": "string",
                               "enum": [
                                 "review",
-                                "returned"
+                                "returned",
+                                "stage"
                               ]
                             }
                           },

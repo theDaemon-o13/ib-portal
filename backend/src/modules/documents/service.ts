@@ -19,11 +19,14 @@ import { todayIso } from '../../lib/today.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDocComment, notifyReturned } from './notify.js';
 import { notify } from '../notifications/service.js';
-import { closeDocumentTasks, documentTask } from './tasks.js';
+import { closeDocumentTasks, closeTasks, createStageTask, documentTask, moveStageTaskDue, OWNER_LABEL } from './tasks.js';
+import { readPortalParam } from '../settings/portal-params.js';
+import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
+import { loadFullWorkCalendar } from '../calendar/service.js';
 import {
-  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, docComparator, docStatus, dueMatches, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
+  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, DOC_STAGE_DAYS_KEY, docComparator, docStatus, dueMatches, stageState, stageTaskDescription, stageTaskText, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
   ROUTE, SIGN_STAGE, stageHolders, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
-  type DocDueFilter, type DocSort, type HolderCtx, type Holders, type Person,
+  type DocDueFilter, type DocSort, type HolderCtx, type Holders, type Person, type StageDays, type StagePhase, type StageTaskRole,
 } from './status.js';
 
 export const TITLE_MAX = 300;
@@ -103,10 +106,15 @@ export interface RouteFacts {
   /** Этап 15 (Г4): языки перевода и сколько из них без файла. */
   translations: number;
   missingTranslations: number;
+  /** Языки без файла и ближайший срок среди них (YYYY-MM-DD) — задача автору на этапе 15 (1.6.3). */
+  missingLanguages: string[];
+  translationDue: string | null;
   /** Файлы автора (драфт, pdf или docx, не сняты) — нужны на 12 → 13 и для согласования 13 → 14 (1.4.0). */
   authorFiles: number;
 }
-const NO_FACTS: RouteFacts = { parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, authorFiles: 0 };
+const NO_FACTS: RouteFacts = {
+  parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, missingLanguages: [], translationDue: null, authorFiles: 0,
+};
 
 async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<string, RouteFacts>> {
   const map = new Map<string, RouteFacts>();
@@ -120,10 +128,10 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
     db.$queryRaw<{ version_id: string; open: bigint }[]>`
       SELECT version_id::text, count(*) AS open FROM document_blockers
       WHERE version_id = ANY(${ids}::uuid[]) AND resolved_at IS NULL GROUP BY version_id`,
-    db.$queryRaw<{ version_id: string; has_file: boolean }[]>`
-      SELECT t.version_id::text,
+    db.$queryRaw<{ version_id: string; has_file: boolean; language: string; due: Date }[]>`
+      SELECT t.version_id::text, t.language, t.due_date AS due,
              EXISTS (SELECT 1 FROM document_files f WHERE f.translation_id = t.id AND f.removed_at IS NULL) AS has_file
-      FROM document_translations t WHERE t.version_id = ANY(${ids}::uuid[]) AND t.removed_at IS NULL`,
+      FROM document_translations t WHERE t.version_id = ANY(${ids}::uuid[]) AND t.removed_at IS NULL ORDER BY t.added_at, t.id`,
     db.$queryRaw<{ version_id: string; n: bigint }[]>`
       SELECT version_id::text, count(*) AS n FROM document_files
       WHERE version_id = ANY(${ids}::uuid[]) AND kind = 'draft' AND removed_at IS NULL GROUP BY version_id`,
@@ -134,10 +142,15 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
   for (const x of drafts) map.set(x.version_id, { ...get(x.version_id), authorFiles: Number(x.n) });
   for (const t of translations) {
     const f = get(t.version_id);
+    const due = t.due.toISOString().slice(0, 10);
     map.set(t.version_id, {
       ...f,
       translations: f.translations + 1,
       missingTranslations: f.missingTranslations + (t.has_file ? 0 : 1),
+      ...(t.has_file ? {} : {
+        missingLanguages: [...f.missingLanguages, t.language],
+        translationDue: f.translationDue === null || due < f.translationDue ? due : f.translationDue,
+      }),
     });
   }
   return map;
@@ -386,6 +399,101 @@ export async function notifyWaiting(db: Db, docId: string, actorId: string | nul
     kind: 'doc_waiting', to: people.map((p) => p.id), documentId: d.id, actorId,
     title: title(`#${d.number} «${v.title}»`), dedupeKey: `doc_waiting:${v.id}:${v.round}:${key}`,
   });
+}
+
+// ---------------------------------------------------------------- задачи этапов маршрута (1.6.3)
+
+/** Метка задачи этапа без ответственного, когда отметка «Является начальником ИБ» никому не поставлена. */
+export const NO_HEAD_LABEL = 'Начальник ИБ (не назначен)';
+
+interface StageTarget { assigneeId: string | null; label: string | null; role: StageTaskRole }
+
+/**
+ * Кому задача на текущем этапе: «Сейчас у» (stageHolders — та же функция, что «ждёт вас»), на этапе 12 — ещё все
+ * активные сотрудники ИБ, кроме владельца, «Проверить документ». Этап 11 — только первый драфт, заведённый за другого
+ * владельца (после возврата у автора задача «Доработать документ»). Без ib.work или отключённый — задача без
+ * ответственного с меткой, кому предназначалась (одна на документ — индекс tasks_doc_open_uq).
+ */
+async function stageTargets(db: Db, d: DocRow, v: VersionRow, f: RouteFacts): Promise<StageTarget[]> {
+  if (v.stage === FIRST_STAGE && !(v.no === 1 && v.round === 1 && d.createdBy !== d.ownerId)) return [];
+  const h = (await holdersOf(db, [d], new Map([[v.id, f]]), false)).holders.get(d.id) ?? { people: [], missingHead: false };
+  const staff = await db.user.findMany({ where: { isActive: true, ...IB_WORK }, select: { id: true }, orderBy: { fullName: 'asc' } });
+  const ib = new Set(staff.map((u) => u.id));
+  const out: StageTarget[] = [];
+  const push = (t: StageTarget) => {
+    if (out.some((x) => x.assigneeId === t.assigneeId)) return;
+    out.push(t);
+  };
+  for (const p of h.people) push(ib.has(p.id) ? { assigneeId: p.id, label: null, role: 'holder' } : { assigneeId: null, label: p.id === d.ownerId ? OWNER_LABEL : p.fullName, role: 'holder' });
+  if (h.missingHead) push({ assigneeId: null, label: NO_HEAD_LABEL, role: 'holder' });
+  if (v.stage === 12) for (const u of staff) if (u.id !== d.ownerId) push({ assigneeId: u.id, label: null, role: 'reviewer' });
+  return out;
+}
+
+/** Срок задачи этапа: этап 14 — ближайший срок лица, этап 15 (переводы) — ближайший срок языка без файла, иначе — N рабочих дней. */
+async function stageDue(db: Db, stage: number, phase: StagePhase | null, f: RouteFacts): Promise<{ due: string | null; derived: string | null }> {
+  if (stage === 14) return { due: f.nearestDue, derived: 'сроки ответственных лиц' };
+  if (stage === 15 && phase === 'translate') return { due: f.translationDue, derived: 'сроки переводов' };
+  const days = (await readPortalParam<StageDays>(db, DOC_STAGE_DAYS_KEY))[String(stage) as keyof StageDays];
+  if (!days) return { due: null, derived: null };
+  return { due: isoDate(addWorkingDays(parseIsoDate(todayIso()), days, await loadFullWorkCalendar(db))), derived: null };
+}
+
+/**
+ * Задачи этапа приводятся к текущему состоянию маршрута: прежние (другой этап, круг, фаза; ответственный сменился)
+ * закрываются системой, недостающие создаются. Закрытая вручную задача того же состояния повторно не создаётся.
+ * Вызывается в транзакции каждого действия, которое меняет этап, ответственных, лиц или переводы. closing — комментарий,
+ * когда рабочей версии нет (подписан, удалён, в архиве, пересмотр отменён).
+ */
+export async function syncStageTasks(db: Db, docId: string, closing = 'Маршрут документа завершён'): Promise<void> {
+  const d = await db.document.findUnique({ where: { id: docId }, include: docInclude });
+  const open = await db.task.findMany({
+    where: { documentId: docId, documentReason: 'stage', completedAt: null, archivedAt: null, deletedAt: null },
+    select: { id: true, number: true, statusId: true, assigneeId: true, documentState: true, dueDate: true },
+  });
+  const v = d && !d.deletedAt ? activeWorking(d) : null;
+  if (!d || !v) {
+    await closeTasks(db, open, closing);
+    return;
+  }
+  const f = (await routeFacts(db, [v.id])).get(v.id) ?? NO_FACTS;
+  const phase: StagePhase | null = v.stage === 15 ? (f.missingTranslations > 0 ? 'translate' : 'ready') : null;
+  const state = stageState(v, phase);
+  const targets = await stageTargets(db, d, v, f);
+  const moved = open.filter((t) => t.documentState !== state);
+  const replaced = open.filter((t) => t.documentState === state && !targets.some((x) => x.assigneeId === t.assigneeId));
+  await closeTasks(db, moved, `Документ на этапе «${stageName(v.stage)}»`);
+  await closeTasks(db, replaced, 'Ответственный по этапу сменился');
+  const kept = open.filter((t) => t.documentState === state && targets.some((x) => x.assigneeId === t.assigneeId));
+  const { due, derived } = await stageDue(db, v.stage, phase, f);
+  // Срок из сроков лиц или переводов идёт за ними; срок «N рабочих дней» после создания не трогается — его правят в задаче.
+  if (derived) {
+    for (const t of kept) {
+      const was = t.dueDate?.toISOString().slice(0, 10) ?? null;
+      if (was !== due) await moveStageTaskDue(db, t, was, due, derived);
+    }
+  }
+  const label = `#${d.number} «${v.title}»`;
+  for (const x of targets) {
+    if (kept.some((t) => t.assigneeId === x.assigneeId)) continue;
+    // Задачу того же состояния закрыли вручную (или удалили) — не возвращаем; закрытую системой (сменился ответственный и вернулся) — создаём снова.
+    const before = await db.task.findFirst({
+      where: { documentId: docId, documentReason: 'stage', documentState: state, assigneeId: x.assigneeId, transitions: { none: { kind: 'system', fromStatusId: { not: null } } } },
+      select: { id: true },
+    });
+    if (before) continue;
+    const text = stageTaskText(v.stage, phase, x.role, { label, versionNo: v.no, languages: f.missingLanguages });
+    await createStageTask(db, {
+      documentId: docId, state, assigneeId: x.assigneeId, recipientLabel: x.label, title: text.title, due,
+      description: stageTaskDescription({ label, type: d.type.value, stage: v.stage, versionNo: v.no, requirement: text.requirement }),
+    }, d.number);
+  }
+}
+
+/** Отметка начальника ИБ передана или снята, пользователь отключён: задачи этапов всех документов в работе. */
+export async function syncAllStageTasks(db: Db): Promise<void> {
+  const docs = await db.document.findMany({ where: { deletedAt: null, archivedAt: null, workingVersionId: { not: null } }, select: { id: true } });
+  for (const d of docs) await syncStageTasks(db, d.id);
 }
 
 // ---------------------------------------------------------------- реестр
@@ -814,6 +922,7 @@ export async function createDocument(db: Db, actor: Actor, input: NewDocumentInp
       summary: `Документ #${doc.number} «${title}» создан (версия 1)`,
       after: { title, typeId: input.typeId, ownerId: input.ownerId, reviewMonths, onlyofficeUrl, edition },
     });
+    await syncStageTasks(tx, id);
     return id;
   });
 }
@@ -902,6 +1011,8 @@ export async function updateDocument(db: Db, actor: Actor, id: string, input: Do
         summary: `Документ #${d.number}: ${changes.map((c) => `«${c.label}»`).join(', ')}`,
         after: { changes },
       });
+      // Сменился владелец — задачи этапа переходят к новому.
+      if (docData.ownerId) await syncStageTasks(tx, id);
     }
   });
 }
@@ -1037,6 +1148,7 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
     const ref = { id, number: d.number, title: w.title, ownerId: d.ownerId };
     if (back) await notifyReturned(tx, ref, actor.id, stageName(w.stage), comment);
     else await notifyWaiting(tx, id, actor.id);
+    await syncStageTasks(tx, id);
 
     const self = selfApproved ? ' — согласовано автором (начальник ИБ), без независимого согласования' : '';
     await auditSettings(tx, actor, {
@@ -1084,6 +1196,7 @@ export async function signDocument(db: Db, actor: Actor, id: string, input: Sign
       comment: `Подписан ${formatDateRu(input.signedOn)}`, actorId: actor.id, pdfSha256: f.sha256,
     });
     await closeDocumentTasks(tx, id, 'review', `Версия ${w.no} подписана, следующий пересмотр — до ${formatDateRu(due)}`);
+    await syncStageTasks(tx, id, `Версия ${w.no} подписана`);
     await auditSettings(tx, actor, {
       action: 'document.signed', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) подписан ${formatDateRu(input.signedOn)}, пересмотр до ${formatDateRu(due)}`,
@@ -1111,6 +1224,7 @@ export async function cancelRevision(db: Db, actor: Actor, id: string, input: { 
     await tx.documentVersion.update({ where: { id: w.id }, data: { cancelledAt: new Date() } });
     await addDecision(tx, { documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, decision: 'cancelled', comment, actorId: actor.id });
     await closeDocumentTasks(tx, id, 'returned', `Пересмотр отменён (версия ${w.no})`);
+    await syncStageTasks(tx, id, `Пересмотр отменён (версия ${w.no})`);
     await auditSettings(tx, actor, {
       action: 'document.revision_cancelled', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}»: пересмотр отменён, версия ${w.no} — в истории; действующая — ${d.approvedVersion.no}`,
@@ -1204,6 +1318,7 @@ export async function deleteDocument(db: Db, actor: Actor, id: string, input: { 
     if (res.count === 0) throw versionConflict();
     const title = (d.workingVersion ?? d.approvedVersion)?.title ?? '';
     await closeDocumentTasks(tx, id, 'returned', 'Документ удалён');
+    await syncStageTasks(tx, id, 'Документ удалён');
     await auditSettings(tx, actor, {
       action: 'document.deleted', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${title}» удалён${comment ? `: ${comment}` : ''}`,
@@ -1255,6 +1370,7 @@ export async function reviseDocument(db: Db, actor: Actor, id: string, input: Re
       summary: `Документ #${d.number} «${v.title}»: создана версия ${no} (действующая — ${base.no})`,
       after: { versionNo: no, baseVersionNo: base.no },
     });
+    await syncStageTasks(tx, id);
   });
 }
 
@@ -1271,5 +1387,6 @@ export async function setDocumentArchived(db: Db, actor: Actor, id: string, vers
       action: archived ? 'document.archived' : 'document.restored', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${title}» ${archived ? 'отправлен в архив' : 'возвращён из архива'}`,
     });
+    await syncStageTasks(tx, id, 'Документ отправлен в архив');
   });
 }

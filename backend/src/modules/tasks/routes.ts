@@ -42,7 +42,7 @@ export const Task = z.object({
   /** Метки получателей задачи автоматизации («Руководитель ДИКТ», «Владелец системы»…). */
   recipientLabel: z.string().nullable(),
   /** Задача по документу (этап 6): пересмотр (review) или доработка после возврата (returned). */
-  document: z.object({ id: z.string(), number: z.number().int(), reason: z.enum(['review', 'returned']) }).nullable(),
+  document: z.object({ id: z.string(), number: z.number().int(), reason: z.enum(['review', 'returned', 'stage']) }).nullable(),
   /** Задача по доказательству (этап 7): отклонено или истекает срок действия. */
   evidence: z.object({ id: z.string(), number: z.number().int(), reason: z.enum(['rejected', 'expiring']) }).nullable(),
   completedAt: z.string().nullable(),

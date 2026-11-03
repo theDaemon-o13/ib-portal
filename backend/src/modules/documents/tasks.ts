@@ -1,4 +1,5 @@
-// Задачи по документам (этап 6): владельцу — «Пересмотреть документ» и «Доработать документ».
+// Задачи по документам (этап 6): владельцу — «Пересмотреть документ» и «Доработать документ»;
+// задачи этапов маршрута (1.6.3) — тем, кто действует на этапе, синхронизирует syncStageTasks (service.ts).
 // Одна открытая задача на (документ, причина, ответственный) — индекс tasks_doc_open_uq; повтор — комментарий в ней.
 // Пользователям без ib.work задачи не ставятся: владелец без доступа к ИБ — задача без ответственного.
 import type { Prisma } from '../../generated/prisma/client.js';
@@ -89,6 +90,11 @@ export async function closeDocumentTasks(tx: Db, documentId: string, reason: Doc
     where: { documentId, documentReason: reason, completedAt: null, archivedAt: null, deletedAt: null },
     select: { id: true, number: true, statusId: true },
   });
+  return closeTasks(tx, open, comment);
+}
+
+/** Закрыть задачи системой: «Выполнено» без проверки, комментарий перехода, запись в журнал. */
+export async function closeTasks(tx: Db, open: readonly { id: string; number: number; statusId: string }[], comment: string): Promise<number> {
   if (!open.length) return 0;
   const done = await statusIdOf(tx, 'done');
   const now = new Date();
@@ -104,4 +110,65 @@ export async function closeDocumentTasks(tx: Db, documentId: string, reason: Doc
     });
   }
   return open.length;
+}
+
+export interface StageTaskInput {
+  documentId: string;
+  /** Состояние маршрута (stageState). */
+  state: string;
+  assigneeId: string | null;
+  /** Кому предназначалась задача без ответственного: «Начальник ИБ», «Владелец документа». */
+  recipientLabel: string | null;
+  title: string;
+  description: string;
+  due: string | null;
+}
+
+/**
+ * Задача этапа маршрута (1.6.3). Уведомления «назначена задача» нет: о том же событии приходит «ждёт вас» (notifyWaiting),
+ * два уведомления на одно действие не нужны.
+ */
+export async function createStageTask(tx: Db, input: StageTaskInput, docNumber: number): Promise<string> {
+  const task = await tx.task.create({
+    data: {
+      title: input.title.slice(0, TITLE_MAX),
+      description: input.description.slice(0, 20_000),
+      statusId: await initialStatusId(tx, input.assigneeId),
+      priorityId: await systemItemId(tx, 'task_priorities', 'normal'),
+      categoryId: await systemItemId(tx, 'task_categories', 'documents'),
+      assigneeId: input.assigneeId,
+      dueDate: input.due ? new Date(`${input.due}T00:00:00Z`) : null,
+      source: 'document',
+      documentId: input.documentId,
+      documentReason: 'stage',
+      documentState: input.state,
+      recipientLabel: input.assigneeId ? null : input.recipientLabel,
+    },
+    select: { id: true, number: true, statusId: true },
+  });
+  await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
+  await tx.auditLog.create({
+    data: {
+      userId: null, action: 'task.created', entity: 'task', entityId: task.id,
+      diff: {
+        summary: `Задача #${task.number} создана по этапу документа #${docNumber}${input.assigneeId ? '' : ` (ответственный не назначен: ${input.recipientLabel ?? '—'})`}`,
+        after: { source: 'document', documentId: input.documentId, reason: 'stage', state: input.state, dueDate: input.due },
+      } as Prisma.InputJsonValue,
+    },
+  });
+  return task.id;
+}
+
+/** Срок задачи этапа пересчитан (сроки ответственных лиц или переводов): комментарий в ленте и запись в журнал. */
+export async function moveStageTaskDue(tx: Db, t: { id: string; number: number }, from: string | null, to: string | null, why: string): Promise<void> {
+  await tx.task.update({ where: { id: t.id }, data: { dueDate: to ? new Date(`${to}T00:00:00Z`) : null, version: { increment: 1 } } });
+  const show = (d: string | null) => (d ? d.split('-').reverse().join('.') : 'без срока');
+  const body = `Срок изменён: ${show(from)} → ${show(to)} (${why})`;
+  await tx.taskComment.create({ data: { taskId: t.id, body } });
+  await tx.auditLog.create({
+    data: {
+      userId: null, action: 'task.updated', entity: 'task', entityId: t.id,
+      diff: { summary: `Задача #${t.number}: ${body}`, after: { changes: [{ label: 'Срок', from: show(from), to: show(to) }] } } as Prisma.InputJsonValue,
+    },
+  });
 }

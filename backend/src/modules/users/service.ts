@@ -14,6 +14,7 @@ import { recomputeSearchForUser } from '../registers/definition.js';
 import { assertIbHeadValid, assertKioskExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { reassignReviewsOf } from '../tasks/reviewer.js';
+import { syncAllStageTasks } from '../documents/service.js';
 
 const include = {
   roles: { include: { role: { select: { id: true, name: true } } } },
@@ -256,6 +257,8 @@ export async function updateUser(
         ...(managerChanged ? { manager: nextManager ? who(nextManager) : null } : {}),
       },
     });
+    // Сменились роли (доступ к разделам ИБ) — задачи этапов документов (1.6.3).
+    if (afterRoles !== beforeRoles) await syncAllStageTasks(tx);
     return toDto(await getUser(tx, id));
   });
 }
@@ -287,6 +290,8 @@ export async function setActive(db: Db, actor: Actor, id: string, version: numbe
       entityId: id,
       summary: `Пользователи: ${active ? 'включён' : 'отключён'} ${u.fullName} (${u.login})`,
     });
+    // Задачи этапов документов: отключённому не ставятся (его — без ответственного), включённому — снова (1.6.3).
+    await syncAllStageTasks(tx);
     return toDto(await getUser(tx, id));
   });
 }
@@ -313,6 +318,8 @@ export async function setIbHead(db: Db, actor: Actor, id: string, input: { versi
     if (!input.value) {
       await tx.user.update({ where: { id }, data: { isIbHead: false, version: { increment: 1 } } });
       await auditIbHead(tx, actor, u, 'cleared', `Пользователи: снята отметка «Начальник ИБ» — ${who(u)}; этап «Начальник ИБ» без исполнителя`);
+      // Задачи этапов начальника ИБ — без ответственного, с меткой «Начальник ИБ (не назначен)».
+      await syncAllStageTasks(tx);
       return toDto(await getUser(tx, id));
     }
     // Себе отметку не ставит никто (разделение полномочий); снять свою или передать другому — можно.
@@ -330,6 +337,8 @@ export async function setIbHead(db: Db, actor: Actor, id: string, input: { versi
     } else {
       await auditIbHead(tx, actor, u, 'set', `Пользователи: ${who(u)} — отмечен «Начальник ИБ»`);
     }
+    // Задачи этапов начальника ИБ переходят к новому (1.6.3).
+    await syncAllStageTasks(tx);
     return toDto(await getUser(tx, id));
   });
 }
