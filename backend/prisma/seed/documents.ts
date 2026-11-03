@@ -5,6 +5,7 @@
 // История не переписывается: в document_approvals добавляется решение migrated (откуда → куда).
 import type { Prisma } from '../../src/generated/prisma/client.js';
 import { LEGACY_STAGE_NAMES, ROUTE_FROM_LEGACY, stageName } from '../../src/modules/documents/status.js';
+import { syncAllStageTasks } from '../../src/modules/documents/service.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -34,4 +35,17 @@ export async function seedDocumentRoute(tx: Tx): Promise<void> {
     data: { userId: null, action: 'document.route_migrated', entity: 'document', entityId: null, diff: { summary, moved: working.length } as Prisma.InputJsonValue },
   });
   console.log(summary);
+}
+
+/**
+ * Задачи этапов маршрута (1.6.3, ADR-0034) для документов, которые уже в работе: без этого шага задача появилась бы
+ * только при следующем действии с документом. Каждый запуск — идемпотентно: syncStageTasks не дублирует задачи и не
+ * возвращает закрытые вручную; после отката на 1.6.2 и повторной выкладки задачи создаются снова.
+ */
+export async function seedDocumentStageTasks(tx: Tx): Promise<void> {
+  const before = await tx.task.count({ where: { documentReason: 'stage' } });
+  const docs = await tx.document.count({ where: { deletedAt: null, archivedAt: null, workingVersionId: { not: null } } });
+  await syncAllStageTasks(tx);
+  const created = (await tx.task.count({ where: { documentReason: 'stage' } })) - before;
+  if (created) console.log(`Документы: задачи этапов маршрута — документов в работе ${docs}, создано задач ${created}`);
 }

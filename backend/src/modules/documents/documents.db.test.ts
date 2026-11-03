@@ -1,6 +1,6 @@
 import type { User } from '../../generated/prisma/client.js';
 import { describe, expect, it } from 'vitest';
-import { seedDocumentRoute } from '../../../prisma/seed/documents.js';
+import { seedDocumentRoute, seedDocumentStageTasks } from '../../../prisma/seed/documents.js';
 import { testDbConfig } from '../../../scripts/test-db.js';
 import { createPrisma } from '../../lib/db.js';
 import { MIME_BY_EXT } from '../../lib/file-type.js';
@@ -651,6 +651,21 @@ describe('документы: задачи этапов маршрута (1.6.3)
       const t = await tx.documentTranslation.findFirstOrThrow({ where: { documentId: id } });
       await tr.addTranslationFiles(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), fileIds: [(await makeFileRow(tx, x.owner.id, { name: 'en.docx', mime: MIME_BY_EXT.docx })).id] });
       expect(await who(tx, id)).toEqual(['Начальник ИБ', 'Руководитель автора']);
+    }));
+
+  it('seed: документы в работе получают задачи этапа; повторный запуск ничего не меняет; запрос отката — задачи становятся «доработкой»', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, 13);
+      // Как после отката на 1.6.2 (RELEASE.md) — задачи этапов переведены в «доработку», CHECK это принимает.
+      await tx.$executeRaw`UPDATE tasks SET document_reason = 'returned', document_state = NULL WHERE document_reason = 'stage' AND document_id = ${id}::uuid`;
+      expect(await stageTasks(tx, id)).toEqual([]);
+      await seedDocumentStageTasks(tx);
+      expect(await who(tx, id)).toEqual(['Начальник ИБ']);
+      const n = await tx.task.count({ where: { documentReason: 'stage' } });
+      await seedDocumentStageTasks(tx);
+      expect(await tx.task.count({ where: { documentReason: 'stage' } })).toBe(n);
     }));
 
   it('отметку начальника ИБ передали или сняли — задача переходит или остаётся без ответственного; закрытую вручную не возвращаем', () =>
