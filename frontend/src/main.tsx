@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ApiError } from './api/client';
+import { BUILD } from './build-info';
 import { nkeys } from './api/notifications';
 import { App } from './App';
 import { installInputTracking, markExpired } from './auth/session';
@@ -16,6 +17,9 @@ import './styles/assessment.css';
 
 initTheme();
 installInputTracking();
+// Сборка — служебным атрибутом страницы (1.6.4: в окне версии — только версия и подпись): по нему разбор обращений
+// и проверка образа релиза (make-release.sh ищет коммит в сборке).
+document.documentElement.dataset.build = [BUILD.version, BUILD.commit, BUILD.date].filter(Boolean).join(' ');
 
 // Сессия истекла (30 минут без действий) — любой 401 возвращает на страницу входа.
 const onApiError = (error: unknown) => {
