@@ -34,8 +34,8 @@ export type ChainPatch = Body<'/api/v1/task-chains/{id}', 'patch'>;
 export type TaskRef = { id: string; version: number };
 
 export const tasksApi = {
-  list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean }) =>
-    request<TaskPage>('GET', `/api/v1/tasks?archived=${q.archived}${q.categoryId ? `&categoryId=${q.categoryId}` : ''}${q.automationId ? `&automationId=${q.automationId}` : ''}${q.overdue ? '&overdue=true' : ''}`),
+  list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean; chainId?: string }) =>
+    request<TaskPage>('GET', `/api/v1/tasks?archived=${q.archived}${q.categoryId ? `&categoryId=${q.categoryId}` : ''}${q.automationId ? `&automationId=${q.automationId}` : ''}${q.overdue ? '&overdue=true' : ''}${q.chainId ? `&chainId=${q.chainId}` : ''}`),
   // Выбранные на доске (релиз 1.1.0): архив — ib.work, удаление — tasks.delete.
   bulkPreview: (action: 'archive' | 'delete', ids: string[]) => request<TaskBulkPreview>('POST', `/api/v1/tasks/bulk-${action}/preview`, { ids }),
   bulkApply: (action: 'archive' | 'delete', ids: string[], expected: { total: number; affected: number }) =>
@@ -97,7 +97,7 @@ export const chainsApi = {
 
 export const tkeys = {
   all: ['tasks'] as const,
-  list: (archived: boolean, categoryId: string, overdue = false, automationId = '') => ['tasks', 'list', archived, categoryId, overdue, automationId] as const,
+  list: (archived: boolean, categoryId: string, overdue = false, automationId = '', chainId = '') => ['tasks', 'list', archived, categoryId, overdue, automationId, chainId] as const,
   detail: (id: string) => ['tasks', 'detail', id] as const,
   comments: (id: string) => ['tasks', 'comments', id] as const,
   history: (id: string) => ['tasks', 'history', id] as const,

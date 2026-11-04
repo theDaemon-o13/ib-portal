@@ -16,6 +16,7 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 import { StubPage } from './pages/stub/StubPage';
 import { TasksPage } from './pages/tasks/TasksPage';
 import { TaskStatsPage } from './pages/tasks/TaskStatsPage';
+import { TaskChainsPage } from './pages/tasks/TaskChainsPage';
 import { VulnsPage } from './pages/vulns/VulnsPage';
 
 export function App() {
@@ -37,6 +38,8 @@ export function App() {
               <Route path="/tasks" element={<Section item={item}><TasksPage /></Section>} />
               {/* Отчёт по выполненным задачам (1.6.4): право «Задачи: отчёт» проверяет страница и backend. */}
               <Route path="/tasks/report" element={<Section item={item}><TaskStatsPage /></Section>} />
+              {/* Цепочки задач (1.7.0): список и панель цепочки. */}
+              <Route path="/tasks/chains" element={<Section item={item}><TaskChainsPage /></Section>} />
             </Fragment>
           ) : item.path === '/documents' ? (
             <Route key={item.path} path="/documents" element={<Section item={item}><DocumentsPage /></Section>} />

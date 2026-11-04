@@ -23,7 +23,7 @@ export const searchRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db 
     preHandler: searchers,
     schema: {
       tags: ['search'],
-      summary: 'Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF). Без kind — первая страница каждого раздела',
+      summary: 'Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF), цепочки задач. Без kind — первая страница каждого раздела',
       querystring: z.object({
         q: z.string().trim().min(Q_MIN).max(Q_MAX),
         kind: z.enum(SEARCH_KINDS).optional(),
@@ -32,7 +32,7 @@ export const searchRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db 
       }),
       response: {
         200: z.object({
-          q: z.string(), records: Section, files: Section, evidence: Section,
+          q: z.string(), records: Section, files: Section, evidence: Section, chains: Section,
           noTextFiles: z.number().int(), pendingFiles: z.number().int(),
         }),
         ...errors,

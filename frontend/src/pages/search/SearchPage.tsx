@@ -7,6 +7,7 @@ const SECTIONS: { kind: SearchKind; title: string }[] = [
   { kind: 'records', title: 'Записи реестров' },
   { kind: 'files', title: 'Файлы' },
   { kind: 'evidence', title: 'Доказательства' },
+  { kind: 'chains', title: 'Цепочки задач' },
 ];
 
 function Snippet({ s }: { s: string }) {
@@ -48,7 +49,7 @@ export function SearchPage() {
     if (v.length >= 2) setParams({ q: v });
   };
   const sections = kind ? SECTIONS.filter((s) => s.kind === kind) : SECTIONS;
-  const total = first ? first.records.total + first.files.total + first.evidence.total : 0;
+  const total = first ? first.records.total + first.files.total + first.evidence.total + first.chains.total : 0;
 
   return (
     <>

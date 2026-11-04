@@ -165,3 +165,42 @@ export const SUGGEST_NOTE: Record<'open_exact' | 'closed_unfinished' | 'open_sim
   open_similar: 'похожая тема',
   closed_recent: 'закрыта',
 };
+
+export const GROUP_CHAINS_KEY = 'ibportal.tasks.groupChains';
+
+/** Поиск над доской: номер («#12» или «12»), название задачи, название её цепочки — без регистра, «ё» = «е». */
+export function matchTask(t: Pick<Task, 'number' | 'title' | 'chain'>, q: string): boolean {
+  const norm = (s: string) => s.toLocaleLowerCase('ru').replace(/ё/g, 'е');
+  const s = norm(q.trim());
+  if (!s) return true;
+  if (/^#?\d+$/.test(s) && String(t.number) === s.replace('#', '')) return true;
+  return norm(t.title).includes(s) || (!!t.chain && norm(t.chain.title).includes(s));
+}
+
+export type ColumnEntry =
+  | { kind: 'task'; t: Task }
+  | { kind: 'chain'; chain: NonNullable<Task['chain']>; tasks: Task[] };
+
+/**
+ * Колонка доски с группировкой по цепочкам: задачи одной цепочки — одна свёрнутая карточка на месте первой из них
+ * (в каждой колонке, где у цепочки есть задачи). Без группировки — задачи как есть.
+ */
+export function columnEntries(items: readonly Task[], group: boolean): ColumnEntry[] {
+  if (!group) return items.map((t) => ({ kind: 'task', t }));
+  const out: ColumnEntry[] = [];
+  const byChain = new Map<string, Extract<ColumnEntry, { kind: 'chain' }>>();
+  for (const t of items) {
+    if (!t.chain) {
+      out.push({ kind: 'task', t });
+      continue;
+    }
+    const g = byChain.get(t.chain.id);
+    if (g) g.tasks.push(t);
+    else {
+      const e = { kind: 'chain' as const, chain: t.chain, tasks: [t] };
+      byChain.set(t.chain.id, e);
+      out.push(e);
+    }
+  }
+  return out;
+}

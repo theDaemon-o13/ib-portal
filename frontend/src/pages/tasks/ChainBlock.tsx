@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { chainsApi, tkeys, type TaskDetail } from '../../api/tasks';
 import { useToast } from '../../components/Toast';
@@ -84,7 +85,7 @@ export function ChainBlock({ task, title, onOpenTask, onChanged }: {
     <div className="chain-block" aria-label="Цепочка" data-testid="chain-block">
       <div className="eyebrow">Цепочка</div>
       <div className="row">
-        <b>{task.chain.title}</b>
+        <Link to={`/tasks/chains?chain=${task.chain.id}`}><b>{task.chain.title}</b></Link>
         {c && <span className="hint">{chainCounts(c.counts)}</span>}
         {task.chain.status === 'closed' && <span className="chip">закрыта</span>}
       </div>

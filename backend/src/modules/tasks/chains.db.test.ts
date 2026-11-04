@@ -10,6 +10,7 @@ import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { attentionOf } from '../attention/service.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
+import { search } from '../search/service.js';
 import * as chains from './chains.js';
 import { statusIdOf } from './flow.js';
 import * as svc from './service.js';
@@ -197,6 +198,20 @@ describe('цепочки задач (1.7.0)', () => {
       const review = await statusIdOf(tx, 'review');
       await expectCode(svc.updateTask(tx, x.a.head, t1.id, { version: (await ref(tx, t1.id)).version, statusId: done, comment: 'Закрываю' }), 'REVIEW_REQUIRED');
       await expectCode(svc.updateTask(tx, x.a.head, t2.id, { version: (await ref(tx, t2.id)).version, statusId: review, comment: 'На проверку' }), 'NO_REVIEWER');
+    }));
+
+  it('глобальный поиск: цепочки по названию и номеру — сотруднику ИБ; без ib.work и без видимых задач — нет', () =>
+    inTx(async (tx) => {
+      const x = await setup(tx);
+      const tag = `кси${Math.random().toString(36).slice(2, 8)}`;
+      const t = await x.task(`Тестовая тема ${tag}`);
+      const c = await chains.createChain(tx, x.a.author, { title: `Тестовая тема ${tag}`, tasks: [await ref(tx, t.id)] });
+      const found = await search(tx, x.other.id, { q: tag, limit: 10 });
+      expect(found.chains.items.map((h) => [h.id, h.link])).toEqual([[c.id, `/tasks/chains?chain=${c.id}`]]);
+      expect((await search(tx, x.other.id, { q: `#${c.number}`, kind: 'chains', limit: 10 })).chains.items.map((h) => h.id)).toContain(c.id);
+      expect((await search(tx, x.reader.id, { q: tag, limit: 10 })).chains.total).toBe(0);
+      await svc.deleteTask(tx, x.a.head, t.id, (await ref(tx, t.id)).version);
+      expect((await search(tx, x.other.id, { q: tag, limit: 10 })).chains.total).toBe(0);
     }));
 
   it('по HTTP: маршруты цепочек — только ib.work (403 без права); создание и чтение', () =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { actionNeedsComment, candidatesChip, cardStep, chainCounts, chainTitleOf, plural, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
+import { actionNeedsComment, candidatesChip, cardStep, chainCounts, chainTitleOf, columnEntries, matchTask, plural, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -100,5 +100,24 @@ describe('цепочки задач (1.7.0)', () => {
     expect(chainCounts({ total: 21, done: 2 })).toBe('21 задача, 2 выполнены');
     expect(plural(12, 'задача', 'задачи', 'задач')).toBe('задач');
     expect(plural(111, 'задача', 'задачи', 'задач')).toBe('задач');
+  });
+});
+
+describe('доска: группировка по цепочкам и поиск (1.7.0)', () => {
+  const ch = (id: string, title: string) => ({ id, number: 1, title, status: 'open' as const });
+  it('задачи одной цепочки — одна карточка на месте первой; без группировки — как есть', () => {
+    const list = [task(1), task(2, { chain: ch('a', 'Тема А') }), task(3), task(4, { chain: ch('a', 'Тема А') }), task(5, { chain: ch('b', 'Тема Б') })];
+    expect(columnEntries(list, true).map((e) => (e.kind === 'task' ? e.t.number : `${e.chain.id}:${e.tasks.map((t) => t.number).join(',')}`)))
+      .toEqual([1, 'a:2,4', 3, 'b:5']);
+    expect(columnEntries(list, false)).toHaveLength(5);
+  });
+  it('поиск: номер, название задачи, название цепочки; ё = е', () => {
+    const t = task(42, { title: 'Проверка доступа', chain: ch('a', 'Ёлочная тема') });
+    expect(matchTask(t, '#42')).toBe(true);
+    expect(matchTask(t, '42')).toBe(true);
+    expect(matchTask(t, 'ДОСТУП')).toBe(true);
+    expect(matchTask(t, 'елочная')).toBe(true);
+    expect(matchTask(t, 'другое')).toBe(false);
+    expect(matchTask(t, '  ')).toBe(true);
   });
 });

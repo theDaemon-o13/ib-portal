@@ -47410,12 +47410,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF). Без kind — первая страница каждого раздела */
+        /** Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF), цепочки задач. Без kind — первая страница каждого раздела */
         get: {
             parameters: {
                 query: {
                     q: string;
-                    kind?: "records" | "files" | "evidence";
+                    kind?: "records" | "files" | "evidence" | "chains";
                     limit?: number;
                     cursor?: string;
                 };
@@ -47436,7 +47436,7 @@ export interface paths {
                             records: {
                                 items: {
                                     /** @enum {string} */
-                                    kind: "records" | "files" | "evidence";
+                                    kind: "records" | "files" | "evidence" | "chains";
                                     id: string;
                                     title: string;
                                     context: string;
@@ -47450,7 +47450,7 @@ export interface paths {
                             files: {
                                 items: {
                                     /** @enum {string} */
-                                    kind: "records" | "files" | "evidence";
+                                    kind: "records" | "files" | "evidence" | "chains";
                                     id: string;
                                     title: string;
                                     context: string;
@@ -47464,7 +47464,21 @@ export interface paths {
                             evidence: {
                                 items: {
                                     /** @enum {string} */
-                                    kind: "records" | "files" | "evidence";
+                                    kind: "records" | "files" | "evidence" | "chains";
+                                    id: string;
+                                    title: string;
+                                    context: string;
+                                    snippet: string;
+                                    link: string;
+                                    archived: boolean;
+                                }[];
+                                total: number;
+                                nextCursor: string | null;
+                            };
+                            chains: {
+                                items: {
+                                    /** @enum {string} */
+                                    kind: "records" | "files" | "evidence" | "chains";
                                     id: string;
                                     title: string;
                                     context: string;

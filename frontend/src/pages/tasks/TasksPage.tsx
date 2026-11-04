@@ -3,11 +3,15 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerE
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError, type Me } from '../../api/client';
 import { settingsApi } from '../../api/settings';
-import { tasksApi, tkeys, type Task } from '../../api/tasks';
+import { chainsApi, tasksApi, tkeys, type Task } from '../../api/tasks';
 import { ChipScroller } from '../../components/ChipScroller';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
-import { actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen } from './logic';
+import {
+  actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, chainCounts, columnEntries, dueLabel, GROUP_CHAINS_KEY, initials, matchTask, needsComment,
+  sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen,
+} from './logic';
+import { ChainPanel } from './ChainPanel';
 import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
@@ -44,6 +48,21 @@ function loadWorkloadOpen(): boolean {
     return workloadOpen(null, window.innerWidth);
   }
 }
+/** «Группировать по цепочкам» (1.7.0): по умолчанию включено, выбор запоминается. */
+function loadGroupChains(): boolean {
+  try {
+    return window.localStorage.getItem(GROUP_CHAINS_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+function saveGroupChains(on: boolean) {
+  try {
+    window.localStorage.setItem(GROUP_CHAINS_KEY, on ? '1' : '0');
+  } catch {
+    // хранилище недоступно — выбор просто не запомнится
+  }
+}
 function saveWorkloadOpen(open: boolean) {
   try {
     window.localStorage.setItem(WORKLOAD_KEY, open ? '1' : '0');
@@ -52,8 +71,10 @@ function saveWorkloadOpen(open: boolean) {
   }
 }
 
-function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick, selected = false, ghost = false }: {
+function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick, selected = false, ghost = false, showChain = false }: {
   t: Task; today: string; archived: boolean; drag: Drag | null;
+  /** Без группировки по цепочкам — метка цепочки на карточке (1.7.0). */
+  showChain?: boolean;
   /** Карточка открыта справа — подсвечена на доске. */
   selected?: boolean;
   /** Копия под указателем при перетаскивании: без обработчиков и data-task. */
@@ -117,6 +138,7 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
         </span>
       </div>
       {t.reviewer && <div className="meta reviewer" data-testid="card-reviewer">Проверяет: {t.reviewer.fullName}</div>}
+      {showChain && t.chain && <div className="meta"><span className="chip acc card-chain" title={`Цепочка «${t.chain.title}»`}>Цепочка: {t.chain.title}</span></div>}
       {step && (
         <div className="card-step">
           <button className="btn sm" type="button" onPointerDown={(e) => e.stopPropagation()}
@@ -137,11 +159,18 @@ export function TasksPage() {
   const categoryId = params.get('category') ?? '';
   // ?automation=<id> — задачи, созданные правилом автоматизации (релиз 1.1.0).
   const automationId = params.get('automation') ?? '';
+  // Цепочки (1.7.0): ?chainId= — только задачи цепочки, ?chain= — открыта панель цепочки.
+  const chainId = params.get('chainId') ?? '';
+  const openChain = params.get('chain');
+  const [group, setGroup] = useState(loadGroupChains);
+  const toggleGroup = () => setGroup((v) => { saveGroupChains(!v); return !v; });
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [bulk, setBulk] = useState<{ action: 'archive' | 'delete'; ids: string[] } | null>(null);
   // Сменился фильтр — выбор сбрасывается: действие не должно задеть невидимые задачи.
-  useEffect(() => setPicked(new Set()), [archived, categoryId, automationId]);
+  useEffect(() => setPicked(new Set()), [archived, categoryId, automationId, chainId]);
   const togglePick = useCallback((id: string) => setPicked((s) => {
     const n = new Set(s);
     if (n.has(id)) n.delete(id);
@@ -166,9 +195,12 @@ export function TasksPage() {
   const categories = useQuery({ queryKey: tkeys.categories, queryFn: () => settingsApi.items('task_categories', false) });
   const people = useQuery({ queryKey: ['settings', 'userOptions'], queryFn: settingsApi.userOptions });
   const tasks = useQuery({
-    queryKey: tkeys.list(archived, categoryId, overdue, automationId),
-    queryFn: () => tasksApi.list({ archived, categoryId: categoryId || undefined, automationId: automationId || undefined, overdue }),
+    queryKey: tkeys.list(archived, categoryId, overdue, automationId, chainId),
+    queryFn: () => tasksApi.list({ archived, categoryId: categoryId || undefined, automationId: automationId || undefined, overdue, chainId: chainId || undefined }),
   });
+  // Счётчики цепочек (все задачи цепочки, а не только колонки): для свёрнутых карточек и фильтра.
+  const chainList = useQuery({ queryKey: tkeys.chainList({ board: true }), queryFn: () => chainsApi.list({}) });
+  const chainInfo = new Map((chainList.data?.items ?? []).map((c) => [c.id, c]));
   const all = useQuery({ queryKey: tkeys.list(archived, ''), queryFn: () => tasksApi.list({ archived }), enabled: !!categoryId || !!automationId });
 
   const setParam = useCallback((patch: Record<string, string | null>) => {
@@ -285,7 +317,8 @@ export function TasksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag !== null]);
 
-  const list = tasks.data?.items ?? [];
+  const boardAll = tasks.data?.items ?? [];
+  const list = search.trim() ? boardAll.filter((t) => matchTask(t, search)) : boardAll;
   const counts = (categoryId ? all.data : tasks.data)?.categories ?? [];
   const totalCount = counts.reduce((s, c) => s + c.count, 0);
   const submitQuick = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
@@ -306,6 +339,7 @@ export function TasksPage() {
           </p>
         </div>
         <div className="row">
+          <Link className="btn" to="/tasks/chains">Цепочки</Link>
           {me.permissions.includes('tasks.report') && <Link className="btn" to="/tasks/report">Отчёт</Link>}
           <button className="btn primary" type="button" onClick={() => setMailOpen(true)}>Задача из письма</button>
         </div>
@@ -329,6 +363,15 @@ export function TasksPage() {
           </select>
         )}
         <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
+      </div>
+      <div className="toolbar board-find" aria-label="Поиск и цепочки">
+        <input className="inp grow" type="search" placeholder="Поиск: номер, название задачи или цепочки" aria-label="Поиск по доске" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select className="inp" aria-label="Цепочка" value={chainId} onChange={(e) => setParam({ chainId: e.target.value || null })}>
+          <option value="">Все цепочки</option>
+          {chainId && !chainInfo.has(chainId) && <option value={chainId}>Выбранная цепочка</option>}
+          {(chainList.data?.items ?? []).filter((c) => c.status === 'open' || c.id === chainId).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+        <button type="button" className="btn" aria-pressed={group} onClick={toggleGroup}>Группировать по цепочкам</button>
         {!showWorkload && <button type="button" className="btn" aria-expanded={false} onClick={toggleWorkload}>Загрузка сотрудников</button>}
       </div>
       {picking && (
@@ -378,10 +421,32 @@ export function TasksPage() {
             return (
               <div key={c.id} className={`col${drag?.moving && drag.over === c.id && drag.task.status.id !== c.id ? ' over' : ''}`} data-status={c.id} aria-label={`Колонка «${c.value}»`}>
                 <div className="col-h"><span>{c.value}</span><span className="mono">{items.length}</span></div>
-                {items.map((t) => (
-                  <Card key={t.id} t={t} today={today} archived={archived} drag={drag} canDrag={canOverride} onPointerDown={onPointerDown} onOpen={openTask}
-                    onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} selected={openId === t.id} />
-                ))}
+                {columnEntries(items, group).map((e) => {
+                  const card = (t: Task) => (
+                    <Card key={t.id} t={t} today={today} archived={archived} drag={drag} canDrag={canOverride} onPointerDown={onPointerDown} onOpen={openTask}
+                      onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} selected={openId === t.id} showChain={!group} />
+                  );
+                  if (e.kind === 'task') return card(e.t);
+                  const key = `${e.chain.id}:${c.id}`;
+                  const isOpen = expanded.has(key) || e.tasks.some((t) => t.id === openId);
+                  const info = chainInfo.get(e.chain.id);
+                  return (
+                    <div key={key} className={`chain-group${isOpen ? ' open' : ''}`} data-chain={e.chain.title}>
+                      <div className="chain-card">
+                        <button type="button" className="cc-toggle" aria-expanded={isOpen}
+                          aria-label={`Цепочка «${e.chain.title}»: ${isOpen ? 'свернуть' : 'показать задачи'} (${e.tasks.length} в колонке)`}
+                          onClick={() => setExpanded((s0) => { const n = new Set(s0); if (n.has(key)) n.delete(key); else n.add(key); return n; })}>
+                          <span className="cc-t">{e.chain.title}</span>
+                        </button>
+                        <div className="cc-row">
+                          <span className="cc-m">{info ? `${chainCounts(info.counts)} · ` : ''}здесь {e.tasks.length}</span>
+                          <button type="button" className="btn ghost sm" onClick={() => setParam({ chain: e.chain.id })}>Цепочка</button>
+                        </div>
+                      </div>
+                      {isOpen && e.tasks.map(card)}
+                    </div>
+                  );
+                })}
                 {tasks.isSuccess && items.length === 0 && (
                   <div className="col-empty">{archived ? 'В архиве таких задач нет' : canOverride ? 'Перетащите сюда карточку' : 'Задач в этой колонке нет'}</div>
                 )}
@@ -398,8 +463,8 @@ export function TasksPage() {
             <div className="panel-b hint wl-sub">открытые задачи</div>
             <div className="panel-b">
               <div className="bars">
-                {workload(list).map((w) => {
-                  const max = Math.max(1, ...workload(list).map((x) => x.count));
+                {workload(boardAll).map((w) => {
+                  const max = Math.max(1, ...workload(boardAll).map((x) => x.count));
                   return (
                     <div key={w.name} className="bar">
                       <span className="t" title={w.name}>{w.name}</span>
@@ -408,7 +473,7 @@ export function TasksPage() {
                     </div>
                   );
                 })}
-                {tasks.isSuccess && workload(list).length === 0 && <div className="hint">Открытых задач нет</div>}
+                {tasks.isSuccess && workload(boardAll).length === 0 && <div className="hint">Открытых задач нет</div>}
               </div>
             </div>
           </section>
@@ -421,6 +486,9 @@ export function TasksPage() {
               onStep={() => undefined} picking={false} picked={false} onPick={() => undefined} ghost />
           </div>
         </Overlay>
+      )}
+      {openChain && !openId && (
+        <ChainPanel key={openChain} id={openChain} onClose={() => setParam({ chain: null })} onOpenTask={(id) => setParam({ chain: null, task: id })} />
       )}
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} onOpenTask={openTask} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}

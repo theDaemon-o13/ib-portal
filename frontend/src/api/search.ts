@@ -1,9 +1,9 @@
-// Глобальный поиск (этап 8б): записи реестров, доказательства и файлы, в том числе текст PDF. Результаты — по правам.
+// Глобальный поиск (этап 8б): записи реестров, доказательства и файлы, в том числе текст PDF; цепочки задач (1.7.0). Результаты — по правам.
 import { request, type JsonOf } from './client';
 import type { paths } from './generated/schema';
 
 export type SearchResult = JsonOf<paths['/api/v1/search']['get']['responses'][200]>;
-export type SearchKind = 'records' | 'files' | 'evidence';
+export type SearchKind = 'records' | 'files' | 'evidence' | 'chains';
 export type SearchHit = SearchResult['records']['items'][number];
 
 export const searchApi = {

@@ -147851,7 +147851,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "summary": "Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF). Без kind — первая страница каждого раздела",
+        "summary": "Глобальный поиск: записи реестров, доказательства, файлы (имя и текст PDF), цепочки задач. Без kind — первая страница каждого раздела",
         "tags": [
           "search"
         ],
@@ -147872,7 +147872,8 @@
               "enum": [
                 "records",
                 "files",
-                "evidence"
+                "evidence",
+                "chains"
               ]
             },
             "in": "query",
@@ -147924,7 +147925,8 @@
                                 "enum": [
                                   "records",
                                   "files",
-                                  "evidence"
+                                  "evidence",
+                                  "chains"
                                 ]
                               },
                               "id": {
@@ -147990,7 +147992,8 @@
                                 "enum": [
                                   "records",
                                   "files",
-                                  "evidence"
+                                  "evidence",
+                                  "chains"
                                 ]
                               },
                               "id": {
@@ -148056,7 +148059,75 @@
                                 "enum": [
                                   "records",
                                   "files",
-                                  "evidence"
+                                  "evidence",
+                                  "chains"
+                                ]
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "context": {
+                                "type": "string"
+                              },
+                              "snippet": {
+                                "type": "string"
+                              },
+                              "link": {
+                                "type": "string"
+                              },
+                              "archived": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "id",
+                              "title",
+                              "context",
+                              "snippet",
+                              "link",
+                              "archived"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "total",
+                        "nextCursor"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "chains": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "records",
+                                  "files",
+                                  "evidence",
+                                  "chains"
                                 ]
                               },
                               "id": {
@@ -148125,6 +148196,7 @@
                     "records",
                     "files",
                     "evidence",
+                    "chains",
                     "noTextFiles",
                     "pendingFiles"
                   ],

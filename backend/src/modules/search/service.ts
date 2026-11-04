@@ -6,8 +6,9 @@
 import { Prisma } from '../../generated/prisma/client.js';
 import type { Db } from '../../lib/db.js';
 import { accessOf, versionVisible } from '../documents/service.js';
+import { visibleTasksWhere } from '../tasks/chains.js';
 
-export const SEARCH_KINDS = ['records', 'files', 'evidence'] as const;
+export const SEARCH_KINDS = ['records', 'files', 'evidence', 'chains'] as const;
 export type SearchKind = (typeof SEARCH_KINDS)[number];
 export const Q_MIN = 2;
 export const Q_MAX = 200;
@@ -43,6 +44,8 @@ export interface SearchResult {
   records: Section;
   files: Section;
   evidence: Section;
+  /** Цепочки задач (1.7.0): по названию и номеру, только с видимыми задачами. */
+  chains: Section;
   /** Файлы без текстового слоя (сканы) среди доступных: по ним поиск только по имени и полям записи. */
   noTextFiles: number;
   /** Файлы, текст которых ещё извлекается. */
@@ -162,17 +165,40 @@ async function textCounters(db: Db, ibWork: boolean): Promise<{ noTextFiles: num
   return { noTextFiles: n('no_text'), pendingFiles: n('pending') };
 }
 
+/** Цепочки задач (1.7.0, ADR-0035): название (подстрока) или номер; только цепочки с видимыми задачами. */
+async function searchChains(db: Db, q: string, limit: number, offset: number): Promise<Section> {
+  const num = /^#?\d+$/.test(q) ? Number(q.replace('#', '')) : null;
+  const where = {
+    deletedAt: null,
+    tasks: { some: visibleTasksWhere({ perms: new Set(['ib.work']) }) },
+    OR: [{ title: { contains: q, mode: 'insensitive' as const } }, ...(num !== null && Number.isSafeInteger(num) ? [{ number: num }] : [])],
+  };
+  const [rows, total] = await Promise.all([
+    db.taskChain.findMany({ where, select: { id: true, number: true, title: true, status: true }, orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }], skip: offset, take: limit }),
+    db.taskChain.count({ where }),
+  ]);
+  return {
+    items: rows.map((r) => ({
+      kind: 'chains' as const, id: r.id, title: `#${r.number} ${r.title}`, context: r.status === 'closed' ? 'Цепочка задач, закрыта' : 'Цепочка задач',
+      snippet: '', link: `/tasks/chains?chain=${r.id}`, archived: r.status === 'closed',
+    })),
+    total,
+    nextCursor: offset + rows.length < total ? String(offset + rows.length) : null,
+  };
+}
+
 export async function search(db: Db, userId: string, input: { q: string; kind?: SearchKind; limit: number; cursor?: string }): Promise<SearchResult> {
   const q = input.q.trim().replace(/\s+/g, ' ');
   const offset = input.cursor && /^\d+$/.test(input.cursor) ? Number(input.cursor) : 0;
   const access = await accessOf(db, userId);
   const want = (k: SearchKind) => !input.kind || input.kind === k;
   const docVersions = access.ibWork ? null : (versionId: string) => versionVisible(db, access, versionId);
-  const [records, files, evidence, counters] = await Promise.all([
+  const [records, files, evidence, chains, counters] = await Promise.all([
     access.ibWork && want('records') ? searchRecords(db, q, input.limit, offset) : empty(),
     want('files') ? searchFiles(db, q, input.limit, offset, docVersions) : empty(),
     access.ibWork && want('evidence') ? searchEvidence(db, q, input.limit, offset) : empty(),
+    access.ibWork && want('chains') ? searchChains(db, q, input.limit, offset) : empty(),
     textCounters(db, access.ibWork),
   ]);
-  return { q, records, files, evidence, ...counters };
+  return { q, records, files, evidence, chains, ...counters };
 }
