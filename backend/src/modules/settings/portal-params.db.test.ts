@@ -20,7 +20,7 @@ describe('параметры портала', () => {
   it('значение по умолчанию каждого ключа проходит его схему', () =>
     inTx(async (tx) => {
       for (const def of PORTAL_PARAMS) expect(def.schema.safeParse(await def.defaults(tx)).success, def.key).toBe(true);
-      expect(PORTAL_PARAMS.map((p) => p.key)).toEqual(['vulns', 'assets', 'assets.teamProducts', 'assets.osNormalization', 'assets.unsupportedOs', 'assets.hostTypeRules', 'assets.minProtectionVersion', 'documents.stageDays', 'documents.reviewRole', 'tasks.chainSuggest']);
+      expect(PORTAL_PARAMS.map((p) => p.key)).toEqual(['vulns', 'assets', 'assets.teamProducts', 'assets.osNormalization', 'assets.unsupportedOs', 'assets.hostTypeRules', 'assets.minProtectionVersion', 'documents.stageDays', 'documents.reviewRole', 'tasks.chainSuggest', 'awareness.grades']);
     }));
 
   it('ключа нет — видно значение по умолчанию; изменение — журнал было → стало; сброс удаляет строку', () =>
