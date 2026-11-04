@@ -110,7 +110,7 @@ function Basis({ w }: { w: WidgetData }) {
   );
 }
 
-const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3', basis: 'w6' };
+const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3', basis: 'w6', list: 'w6' };
 
 /** Виджет: свой запрос к серверу (кэш там же, 1 минута), обновление раз в минуту. */
 export function WidgetPanel({ w, bare = false }: { w: WidgetRef; bare?: boolean }) {

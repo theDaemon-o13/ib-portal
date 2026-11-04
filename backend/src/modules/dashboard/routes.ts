@@ -26,7 +26,7 @@ export const Kpi = z.object({
   source: z.string(),
   link: z.string().nullable(),
 });
-const WidgetKind = z.enum(['distribution', 'metric', 'timeline', 'deadline', 'tile', 'bars', 'basis']);
+const WidgetKind = z.enum(['distribution', 'metric', 'timeline', 'deadline', 'tile', 'bars', 'basis', 'list']);
 const WidgetRef = z.object({ key: z.string(), title: z.string(), kind: WidgetKind, source: z.string(), registerId: z.string().nullable() });
 export const WidgetData = WidgetRef.extend({
   link: z.string().nullable(),

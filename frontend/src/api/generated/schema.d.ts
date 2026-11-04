@@ -48669,7 +48669,7 @@ export interface paths {
                                 key: string;
                                 title: string;
                                 /** @enum {string} */
-                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis" | "list";
                                 source: string;
                                 registerId: string | null;
                             }[];
@@ -48677,7 +48677,7 @@ export interface paths {
                                 key: string;
                                 title: string;
                                 /** @enum {string} */
-                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                                kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis" | "list";
                                 source: string;
                                 registerId: string | null;
                             }[];
@@ -49740,7 +49740,7 @@ export interface paths {
                             key: string;
                             title: string;
                             /** @enum {string} */
-                            kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                            kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis" | "list";
                             source: string;
                             registerId: string | null;
                             link: string | null;
@@ -50543,7 +50543,7 @@ export interface paths {
                                         key: string;
                                         title: string;
                                         /** @enum {string} */
-                                        kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                                        kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis" | "list";
                                         source: string;
                                         registerId: string | null;
                                         link: string | null;
@@ -51218,7 +51218,7 @@ export interface paths {
                                     key: string;
                                     title: string;
                                     /** @enum {string} */
-                                    kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis";
+                                    kind: "distribution" | "metric" | "timeline" | "deadline" | "tile" | "bars" | "basis" | "list";
                                     source: string;
                                     registerId: string | null;
                                     link: string | null;

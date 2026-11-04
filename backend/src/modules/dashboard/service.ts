@@ -29,6 +29,8 @@ import { RISK_REGISTER_KEY } from '../risks/definition.js';
 import { overdueTaskWhere } from '../tasks/service.js';
 import { VULN_REGISTER_KEY } from '../vulns/definition.js';
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from './incidents.js';
+import { AWARENESS_DEPT_WIDGET, AWARENESS_RETAKE_WIDGET, deptAverages, retakeWidget } from './awareness-widgets.js';
+import { AWARENESS_RESULTS_KEY } from '../awareness/definition.js';
 
 // ---------------------------------------------------------------- KPI
 
@@ -110,7 +112,8 @@ export const DASHBOARD_KPIS: readonly KpiKey[] = KPI_KEYS.filter((k) => k !== 'v
 
 // ---------------------------------------------------------------- виджеты
 
-export type WidgetKind = 'distribution' | 'metric' | 'timeline' | 'deadline' | 'tile' | 'bars' | 'basis';
+/** list (1.8.0) — главное число со ссылкой и список записей («На пересдачу»). */
+export type WidgetKind = 'distribution' | 'metric' | 'timeline' | 'deadline' | 'tile' | 'bars' | 'basis' | 'list';
 
 export interface WidgetRef {
   key: string;
@@ -185,7 +188,13 @@ export async function listWidgets(db: Db): Promise<WidgetRef[]> {
     WHERE f.deleted_at IS NULL AND f.archived_at IS NULL AND g.archived_at IS NULL AND g.deleted_at IS NULL AND f.calc_rule ->> 'kind' = 'link_basis'
     ORDER BY g.created_at`;
   const basis = basisRegs.map((r) => ({ key: `basis:${r.id}`, title: 'Доступ без основания', kind: 'basis' as const, source: r.name, registerId: r.id }));
-  return [...basis, ...fromFields, ...FIXED];
+  // «Осведомлённость» (1.8.0): системные виджеты реестра «Результаты INDIGO», если он есть и не в архиве.
+  const results = await db.register.findFirst({ where: { systemKey: AWARENESS_RESULTS_KEY, archivedAt: null, deletedAt: null }, select: { id: true, name: true } });
+  const awareness: WidgetRef[] = results ? [
+    { key: AWARENESS_RETAKE_WIDGET, title: 'На пересдачу', kind: 'list', source: results.name, registerId: results.id },
+    { key: AWARENESS_DEPT_WIDGET, title: 'Средний результат по подразделениям', kind: 'bars', source: results.name, registerId: results.id },
+  ] : [];
+  return [...basis, ...fromFields, ...awareness, ...FIXED];
 }
 
 /** Нет действующего основания: канал открыт, а разрешения нет или оно истекло. */
@@ -387,11 +396,29 @@ export async function widgetData(db: Db, key: string): Promise<WidgetData> {
   if (fieldId) return fieldWidget(db, fieldId);
   const basisReg = /^basis:([0-9a-f-]{36})$/i.exec(key)?.[1];
   if (basisReg) return basisWidget(db, basisReg);
+  if (key === AWARENESS_RETAKE_WIDGET || key === AWARENESS_DEPT_WIDGET) return awarenessWidget(db, key);
   const fixed = FIXED.find((w) => w.key === key);
   if (!fixed) throw notFound('Виджет');
   const rows = key === 'tasks.categories' ? await tasksByCategory(db) : key === 'documents.status' ? await documentsByStatus(db) : await evidenceByState(db);
   const link = key === 'tasks.categories' ? '/tasks' : key === 'documents.status' ? '/documents' : '/evidence';
   return { ...fixed, link, total: rows.reduce((s, r) => s + r.count, 0), rows, stats: [], items: [] };
+}
+
+async function awarenessWidget(db: Db, key: string): Promise<WidgetData> {
+  const reg = await systemRegister(db, AWARENESS_RESULTS_KEY);
+  if (!reg) throw notFound('Виджет');
+  if (key === AWARENESS_RETAKE_WIDGET) {
+    const w = await retakeWidget(db, reg);
+    return {
+      key, title: 'На пересдачу', kind: 'list', source: reg.name, registerId: reg.id,
+      link: w.link, total: w.total, rows: [], stats: [{ label: 'На пересдачу', value: w.total, tone: w.total ? 'high' : null, link: w.link }], items: w.items,
+    };
+  }
+  const d = await deptAverages(db, reg);
+  return {
+    key, title: 'Средний результат по подразделениям', kind: 'bars', source: reg.name, registerId: reg.id,
+    link: registerLink(reg.id), total: d.total, rows: d.rows, stats: [{ label: 'Средний', value: d.average, tone: null, link: null }], items: [],
+  };
 }
 
 /** Дни до даты (для мониторинга): отрицательные — просрочка. */
