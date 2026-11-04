@@ -243,7 +243,7 @@ describe('Документы: маршрут 1.2.0', () => {
     const created = await ui.request(m, 'POST', '/api/v1/documents');
     assert.equal(created.status, 201, created.body);
     const id = (await ui.response(created)).document.id;
-    await ui.waitFor(`${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(title)}`, 'карточка нового документа');
+    await ui.waitFor(`${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(title)}`, 'карточка нового документа');
     assert.equal(await ui.text(`${panel}.querySelector('.panel-h .chip')`), 'Черновик');
     assert.equal(await ui.evaluate(`${stepState('Драфт')}`), 'step cur');
 
@@ -367,7 +367,7 @@ describe('Документы: маршрут 1.2.0', () => {
     const note = `[...document.querySelectorAll('.notif-pop .notif')].find((n) => n.textContent.includes(${JSON.stringify(`«${title}» ждёт подписанного PDF`)}))`;
     await ui.waitFor(`!!${note}`, 'уведомление о подписании');
     await ui.click(note);
-    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(title)}`, 'переход к документу из уведомления');
+    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(title)}`, 'переход к документу из уведомления');
     await ui.click($.button('Загрузить подписанный PDF', panel));
     await pickInForm('Подписание', 'Подписан.pdf');
     req = await act('Подписан', 'POST', `/api/v1/documents/${id}/sign`);
@@ -464,7 +464,7 @@ describe('Документы: возврат на доработку', () => {
     const drawer = await openTask(taskTitle, users.owner);
     await ui.waitFor(`${drawer}?.textContent.includes(${JSON.stringify(comment)})`, 'замечание в описании задачи');
     await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
-    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(`${RUN} Регламент доступа`)}`, 'переход к документу из задачи');
+    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(`${RUN} Регламент доступа`)}`, 'переход к документу из задачи');
     assert.match(await ui.text(`${panel}.querySelector('[data-testid=doc-returned]')`), new RegExp(`с этапа «Согласование начальника ИБ».*${comment}`));
 
     // Автор правит драфт и отправляет снова — задача доработки закрывается сама.
@@ -516,7 +516,7 @@ describe('Документы: новая версия, отмена пересм
     const doc = await makeDoc('Лишний драфт');
     await loginAs(users.owner);
     await openDocs(doc.id);
-    await ui.waitFor(`!!${panel}?.querySelector('.panel-h h3')`, 'карточка');
+    await ui.waitFor(`!!${panel}?.querySelector('.dr-title')`, 'карточка');
     assert.equal(await ui.evaluate(`!!${$.button('Удалить', panel)}`), false, 'без docs.delete кнопки нет');
     await loginAs(users.head);
     await openDocs(doc.id);
@@ -715,7 +715,7 @@ describe('Документы: задачи этапов маршрута (1.6.3)
       assert.ok(text.includes(part), `в задаче: ${part}`);
     }
     await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
-    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.panel-h h3')?.textContent === ${JSON.stringify(`${RUN} Положение о задачах этапов`)}`, 'переход к документу из задачи');
+    await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(`${RUN} Положение о задачах этапов`)}`, 'переход к документу из задачи');
 
     // Этап 12 прошёл: задачи «Проверить» закрыты; согласование — задача этапа 13 закрыта, у начальника ИБ — этап 14.
     await routeStep(users.head, doc.id, 'approve');

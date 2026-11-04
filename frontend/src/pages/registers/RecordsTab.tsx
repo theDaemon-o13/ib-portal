@@ -127,19 +127,14 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
     const search = next.toString();
     navigate({ pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }, { replace: true });
   };
-  const [open, setOpenState] = useState<string | null>(() => params.get('record'));
-  // Переход по ссылке на запись этого же реестра (связь, обратная связь, поиск) — открыть её карточку.
-  const linked = params.get('record');
-  useEffect(() => {
-    if (linked) setOpenState(linked);
-  }, [linked]);
-  const setOpen = (id: string | null) => {
-    setOpenState(id);
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('record')) {
-      url.searchParams.delete('record');
-      window.history.replaceState(window.history.state, '', url);
-    }
+  // Открытая карточка — в адресе (?record=<id>, 1.6.5): ссылкой можно поделиться, «Назад» закрывает карточку.
+  // Переход по ссылке на запись этого же реестра (связь, обратная связь, поиск) открывает её карточку.
+  const open = params.get('record');
+  const setOpen = (id: string | null, replace = false) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set('record', id); else next.delete('record');
+    const search = next.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash }, { replace, preventScrollReset: true });
   };
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   // Файл импорта — для «Сравнения» (тот же файл, что в предпросмотре).
@@ -377,7 +372,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
               <tr><td colSpan={cols.length + 1} className="hint">{archiveView ? 'В архиве записей нет' : q || withTasks || filterParts.length ? 'Ничего не найдено' : 'Записей пока нет'}</td></tr>
             )}
             {rows.map((rec) => (
-              <tr key={rec.id} className={`rec-row${rec.closed ? ' closed' : ''}${rec.archived ? ' archived' : ''}`} tabIndex={0}
+              <tr key={rec.id} className={`rec-row${rec.closed ? ' closed' : ''}${rec.archived ? ' archived' : ''}${open === rec.id ? ' sel' : ''}`} tabIndex={0} aria-current={open === rec.id || undefined}
                 title="Открыть карточку записи" onClick={() => setOpen(rec.id)}
                 onKeyDown={(e) => { if (e.key === 'Enter') setOpen(rec.id); }}>
                 {selectable && (
@@ -396,7 +391,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       {query.hasNextPage && (
         <div className="panel-b"><button className="btn sm" type="button" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>Показать ещё</button></div>
       )}
-      {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id)} />}
+      {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id, true)} />}
       {kscGuide && <KscGuide onPick={() => adapterRef.current?.click()} onClose={() => setKscGuide(false)} />}
       {preview && <ImportDialog reg={reg} preview={preview} file={importFile} onClose={() => setPreview(null)} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}

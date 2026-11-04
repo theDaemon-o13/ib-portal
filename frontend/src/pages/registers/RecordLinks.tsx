@@ -172,7 +172,7 @@ export function Backlinks({ recordId }: { recordId: string }) {
     <div>
       {groups.map((g) => (
         <div key={g.fieldId} className="grid-gap">
-          <div className="eyebrow">{g.registerName} · ссылаются полем «{g.fieldLabel}»</div>
+          <div className="eyebrow">{g.registerName}: ссылаются полем «{g.fieldLabel}»</div>
           <div className="hist">
             {g.items.map((r) => {
               const chip = deadlineChip(r.deadline);

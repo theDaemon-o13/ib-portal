@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type MailDraft } from '../../api/tasks';
-import { Overlay } from '../../components/Overlay';
+import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 
 const EXAMPLE = 'От: Отдел кадров <hr@example.tj>\nОтправлено: 23.10.2026 10:15\nТема: Блокировка учётных записей\n\nПросим до 27.10 заблокировать…';
@@ -21,11 +21,6 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
   const [parsed, setParsed] = useState<MailDraft | null>(null);
   const [form, setForm] = useState({ title: '', assigneeId: '', dueDate: '', priorityId: '', description: '' });
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const parse = useMutation({
     mutationFn: () => tasksApi.mailDraft(raw),
@@ -52,14 +47,7 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
   const submitCreate = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
 
   return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Задача из письма">
-        <div className="dr-h">
-          <div><div className="eyebrow">Почта → задача</div><b className="dr-title">Задача из письма</b></div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
-        </div>
-        <div className="dr-b">
+    <DetailPanel label="Задача из письма" onClose={onClose} eyebrow="Портал разберёт отправителя, тему и срок" title="Задача из письма">
           <form className="grid-gap" onSubmit={submitParse}>
             <label className="fd-label">Текст письма. Скопируйте письмо целиком вместе со строками «От», «Тема», «Отправлено»
               <textarea className="inp mail-raw" required placeholder={EXAMPLE} value={raw} onChange={(e) => setRaw(e.target.value)} aria-label="Текст письма" />
@@ -68,7 +56,7 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
           </form>
           {parsed && (
             <form className="task-form mail-draft" onSubmit={submitCreate} aria-label="Черновик задачи">
-              <div className="eyebrow">Черновик задачи · проверьте перед созданием</div>
+              <div className="eyebrow">Черновик задачи: проверьте перед созданием</div>
               <label>Название<input className="inp" required maxLength={300} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
               <div className="fgrid">
                 <label>Ответственный
@@ -102,8 +90,6 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
               </div>
             </form>
           )}
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

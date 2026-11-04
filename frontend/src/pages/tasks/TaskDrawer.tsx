@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type TaskDetail, type TaskPatch } from '../../api/tasks';
-import { Overlay } from '../../components/Overlay';
+import { DetailPanel } from '../../components/DetailPanel';
 import { useMe } from '../../auth/useMe';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
@@ -89,11 +89,6 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
       setLoaded(t.version);
     }
   }, [t, loaded]);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const refresh = () => Promise.all([
     qc.invalidateQueries({ queryKey: tkeys.all }),
@@ -196,24 +191,55 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
   const canSwap = canOverride && !readOnly && t?.status.systemKey === 'review';
   const swapOptions = people0.filter((p) => p.id !== t?.assignee?.id && p.id !== t?.reviewer?.id);
 
-  return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Задача">
-        <div className="dr-h">
-          <div className="min0">
-            <div className="eyebrow">Задача #{t?.number ?? ''} · {t ? `${t.category.value}, ${SOURCE[t.source]}` : ''}</div>
-            <b className="dr-title">{t?.title ?? 'Загрузка…'}</b>
-            <div className="row nowrap mt6">
-              {t?.urgent && <span className="chip crit">срочно</span>}
-              {t?.overdue && <span className="chip crit">просрочено</span>}
-              {t?.archived && <span className="chip">В архиве</span>}
-              {t && !t.assignee && <span className="chip high">не назначен</span>}
+  const formId = useId();
+  const canStep = !!t && !readOnly && (t.actions.length > 0 || !!hint);
+  // Подвал карточки (1.6.5): шаг процесса и «Сохранить» всегда на виду, как бы ни была длинна история.
+  const footer = t && (canStep || !readOnly) ? (
+    <>
+      {canStep && (
+        <div className="process" aria-label="Шаг процесса">
+          {!stepping && (
+            <div className="row">
+              <span className="process-now">Сейчас: <b>{t.status.value}</b></span>
+              {t.actions.map((a) => (
+                <button key={a} className={`btn sm${a === 'return' ? '' : ' primary'}`} type="button" disabled={step.isPending || conflict} onClick={() => runStep(a)}>
+                  {ACTION_LABEL[a]}
+                </button>
+              ))}
             </div>
-          </div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
+          )}
+          {stepping && (
+            <form className="grid-gap" onSubmit={(e) => { e.preventDefault(); step.mutate({ action: stepping, comment: stepComment }); }}>
+              <textarea className="inp" required maxLength={4000} autoFocus aria-label="Комментарий к шагу" value={stepComment} onChange={(e) => setStepComment(e.target.value)}
+                placeholder={stepping === 'submit' || stepping === 'complete' ? 'Что сделано, где результат' : stepping === 'return' ? 'Что доделать' : 'Комментарий: что проверено'} />
+              <div className="row">
+                <button className="btn sm primary" type="submit" disabled={step.isPending || !stepComment.trim()}>{ACTION_LABEL[stepping]}</button>
+                <button className="btn sm" type="button" onClick={() => setStepping(null)}>Отмена</button>
+              </div>
+            </form>
+          )}
+          {hint && <div className="hint">{hint}</div>}
         </div>
-        <div className="dr-b">
+      )}
+      {!readOnly && draft && !stepping && (
+        <div className="row dp-f-save">
+          <button className="btn" form={formId} type="submit" disabled={save.isPending || conflict || (statusNeedsComment && !moveComment.trim())}>Сохранить</button>
+        </div>
+      )}
+    </>
+  ) : undefined;
+
+  return (
+    <DetailPanel label="Задача" onClose={onClose} scrollKey={id}
+      eyebrow={t ? <>Задача #{t.number}. {t.category.value}, {SOURCE[t.source]}</> : 'Задача'}
+      title={t?.title ?? 'Загрузка…'}
+      badges={t && (t.urgent || t.overdue || t.archived || !t.assignee) ? <>
+        {t.urgent && <span className="chip crit">срочно</span>}
+        {t.overdue && <span className="chip crit">просрочено</span>}
+        {t.archived && <span className="chip">В архиве</span>}
+        {!t.assignee && <span className="chip high">не назначен</span>}
+      </> : undefined}
+      footer={footer}>
           {task.isError && <div className="form-error">{task.error.message}</div>}
           {conflict && (
             <div className="note conflict" role="alert">
@@ -222,7 +248,7 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
             </div>
           )}
           {t && draft && (
-            <form className="task-form" onSubmit={submit}>
+            <form className="task-form" id={formId} onSubmit={submit}>
               <label>Название<input className="inp" required maxLength={300} value={draft.title} disabled={readOnly} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
               <label>Описание<textarea className="inp" placeholder="Что нужно сделать, критерий готовности" value={draft.description} disabled={readOnly} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
               <div className="fgrid">
@@ -265,43 +291,12 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                     placeholder="Для этой колонки комментарий обязателен" />
                 </label>
               )}
-              {!readOnly && (
-                <div className="row">
-                  <button className="btn primary" type="submit" disabled={save.isPending || conflict || (statusNeedsComment && !moveComment.trim())}>Сохранить</button>
-                </div>
-              )}
             </form>
-          )}
-
-          {t && !readOnly && (t.actions.length > 0 || hint) && (
-            <div className="process" aria-label="Шаг процесса">
-              <div className="eyebrow">Шаг процесса · {t.status.value}</div>
-              {!stepping && (
-                <div className="row">
-                  {t.actions.map((a) => (
-                    <button key={a} className={`btn sm${a === 'return' ? '' : ' primary'}`} type="button" disabled={step.isPending || conflict} onClick={() => runStep(a)}>
-                      {ACTION_LABEL[a]}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {stepping && (
-                <form className="grid-gap" onSubmit={(e) => { e.preventDefault(); step.mutate({ action: stepping, comment: stepComment }); }}>
-                  <textarea className="inp" required maxLength={4000} autoFocus aria-label="Комментарий к шагу" value={stepComment} onChange={(e) => setStepComment(e.target.value)}
-                    placeholder={stepping === 'submit' || stepping === 'complete' ? 'Что сделано, где результат' : stepping === 'return' ? 'Что доделать' : 'Комментарий: что проверено'} />
-                  <div className="row">
-                    <button className="btn sm primary" type="submit" disabled={step.isPending || !stepComment.trim()}>{ACTION_LABEL[stepping]}</button>
-                    <button className="btn sm" type="button" onClick={() => setStepping(null)}>Отмена</button>
-                  </div>
-                </form>
-              )}
-              {hint && <div className="hint">{hint}</div>}
-            </div>
           )}
 
           {canSwap && t && (
             <div className="process" aria-label="Проверяющий">
-              <div className="eyebrow">Проверяющий · {t.reviewer?.fullName ?? 'не назначен (правила до 1.4.0)'}</div>
+              <div className="eyebrow">Проверяющий: {t.reviewer?.fullName ?? 'не назначен (правила до 1.4.0)'}</div>
               {!swap && (
                 <div className="row">
                   <button className="btn sm" type="button" disabled={conflict} onClick={() => setSwap({ reviewerId: '', comment: '' })}>Заменить проверяющего</button>
@@ -387,14 +382,14 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
           )}
 
           <div>
-            <div className="eyebrow">Комментарии · {comments.data?.items.length ?? 0}</div>
+            <div className="eyebrow">Комментарии <span className="count">{comments.data?.items.length ?? 0}</span></div>
             {comments.data?.items.length === 0 && <div className="hint">Комментариев пока нет</div>}
             {comments.data?.items.map((c) => (
               <div key={c.id} className="cmt">
                 <span className="av" aria-hidden="true">{c.author ? initials(c.author.fullName) : 'А'}</span>
                 <div>
                   <div className="who">
-                    {c.author?.fullName ?? (c.automatic ? 'Автоматизация' : 'Система')} · {formatDateTime(c.createdAt)}
+                    <b>{c.author?.fullName ?? (c.automatic ? 'Автоматизация' : 'Система')}</b> <time>{formatDateTime(c.createdAt)}</time>
                     {c.transition && <span className="chip tr-chip">{c.transition.from ? `${c.transition.from} → ` : ''}{c.transition.to}{c.transition.reviewer ? ` → ${c.transition.reviewer}` : ''}</span>}
                   </div>
                   <div className="tx">{c.body}</div>
@@ -416,7 +411,7 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
               <div className="hist">
                 {history.data?.items.map((h) => (
                   <div key={h.id} className="hist-item">
-                    <div>{formatDateTime(h.at)} · {h.actor?.fullName ?? 'Система'}</div>
+                    <div className="hist-meta"><b>{h.actor?.fullName ?? 'Система'}</b><time>{formatDateTime(h.at)}</time></div>
                     <div className="m">{h.summary}</div>
                     {h.changes.map((c, i) => <div key={i} className="m">«{c.label}»: {c.from} → {c.to}</div>)}
                   </div>
@@ -442,8 +437,6 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
               </div>
             </div>
           )}
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

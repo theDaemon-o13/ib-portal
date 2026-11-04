@@ -6,6 +6,7 @@ import type { FileInfo } from '../../api/files';
 import { settingsApi } from '../../api/settings';
 import { useFileViewer } from '../../components/files/FileViewer';
 import { FileUpload } from '../../components/files/FileUpload';
+import { DetailPanel } from '../../components/DetailPanel';
 import { LockIcon } from '../../components/LockIcon';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
@@ -45,7 +46,8 @@ function ContentFields({ draft, setDraft, noteLabel }: { draft: ContentDraft; se
   );
 }
 
-export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }) {
+/** Карточка документа справа от реестра (1.6.5): прилипает к верху окна, действия — в подвале; на узком окне — выезжающая панель. */
+export function DocumentPanel({ id, onGone, onClose, className }: { id: string; onGone: () => void; onClose?: () => void; className?: string }) {
   const qc = useQueryClient();
   const toast = useToast();
   const doc = useQuery({ queryKey: dkeys.detail(id), queryFn: () => docsApi.get(id), retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2 });
@@ -136,10 +138,15 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
   });
   const busy = [act, sign, cancel, remove, addFiles, removeFile, say, save, revise, saveSettings, archive].some((m) => m.isPending);
 
+  const shell = { label: 'Документ', variant: 'inline' as const, onClose, className, scrollKey: id };
   if (doc.isError) {
-    return <div className="panel-b form-error">{doc.error instanceof ApiError && doc.error.status === 404 ? 'Документ не найден или вам не виден' : doc.error.message}</div>;
+    return (
+      <DetailPanel {...shell} title="Документ недоступен">
+        <div className="form-error">{doc.error instanceof ApiError && doc.error.status === 404 ? 'Документ не найден или вам не виден' : doc.error.message}</div>
+      </DetailPanel>
+    );
   }
-  if (!d) return <div className="panel-b hint">Загрузка…</div>;
+  if (!d) return <DetailPanel {...shell} title="Загрузка…"><div className="hint">Загружаем карточку документа</div></DetailPanel>;
 
   const open = (m: Mode) => {
     setComment('');
@@ -165,13 +172,24 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
   const action = d.can.actions.find((a) => a === mode);
   const cancelBtn = <button className="btn" type="button" onClick={() => setMode('view')}>Отмена</button>;
 
+  // Подвал: главные действия этапа и файл документа — на виду при любой длине маршрута и истории.
+  const footer = mode === 'view' ? (
+    <div className="row">
+      {d.can.actions.filter((a) => a !== 'return').map((a) => (
+        <button key={a} className="btn primary" type="button" disabled={busy} onClick={() => open(a)}>{ACTION_LABEL[a]}</button>
+      ))}
+      {d.can.sign && <button className="btn primary" type="button" disabled={busy} onClick={() => open('sign')}>Загрузить подписанный PDF</button>}
+      {d.can.draftFiles && <button type="button" className="btn" onClick={() => open('files')}>Приложить файл документа</button>}
+      {d.can.actions.includes('return') && <button className="btn" type="button" disabled={busy} onClick={() => open('return')}>{ACTION_LABEL.return}</button>}
+      {d.can.edit && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('edit')}>Изменить драфт</button>}
+      {d.can.revise && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('revise')}>Новая версия</button>}
+      <a className="btn" href={d.current.onlyofficeUrl} target="_blank" rel="noopener noreferrer">Открыть в OnlyOffice</a>
+    </div>
+  ) : undefined;
+
   return (
-    <>
-      <div className="panel-h">
-        <h3>{d.title}</h3>
-        <span className={`chip ${STATUS_TONE[d.status]}`}>{d.statusName}</span>
-      </div>
-      <div className="panel-b doc-detail">
+    <DetailPanel {...shell} eyebrow={d.type.value} title={d.title} footer={footer}
+      badges={<span className={`chip ${STATUS_TONE[d.status]}`}>{d.statusName}</span>}>
         {stale && (
           <div className="note conflict" role="alert">
             {stale}
@@ -194,12 +212,18 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
         )}
 
         <div>
-          <div className="eyebrow">Маршрут{d.current.round > 1 ? ` · круг ${d.current.round}` : ''}</div>
+          <div className="eyebrow">Маршрут согласования{d.current.round > 1 ? `, круг ${d.current.round}` : ''}</div>
           {d.holders && !d.archived && <HoldersLine holders={d.holders} testId="doc-now-at" className="now-at" />}
           <div className="vsteps">
-            {d.route.map((r) => (
-              <div key={r.stage} className="vstep" data-stage={r.stage}>
-                <span className={`step${r.state === 'done' ? ' done' : r.state === 'current' ? ' cur' : ''}`} />
+            {d.route.map((r, i) => (
+              <div key={r.stage} className={`vstep is-${r.state === 'done' ? 'done' : r.state === 'current' ? 'cur' : 'next'}${r.skipped ? ' is-skipped' : ''}`} data-stage={r.stage}
+                aria-current={r.state === 'current' ? 'step' : undefined}>
+                {/* Номер — настоящий порядок этапов; пройденный — галочка, текущий — кольцо: различимы не только цветом. */}
+                <span className={`step${r.state === 'done' ? ' done' : r.state === 'current' ? ' cur' : ''}`} aria-hidden="true">
+                  {r.state === 'done'
+                    ? <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 8.5l3 3 6-7" /></svg>
+                    : i + 1}
+                </span>
                 <div>
                   <b>{r.name}</b>
                   {/* Кто действует на этапе — та же функция, что «Сейчас у»; у пройденного справа — кто и когда. */}
@@ -230,7 +254,6 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
               </div>
             ))}
             {d.files.length === 0 && <div className="hint">Файла документа нет. Приложите .docx или .pdf: без него документ не уйдёт начальнику ИБ.</div>}
-            {d.can.draftFiles && mode === 'view' && <div className="row"><button type="button" className="btn sm" onClick={() => open('files')}>Приложить файл документа</button></div>}
           </div>
         )}
         {mode === 'files' && (
@@ -240,24 +263,12 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           </form>
         )}
 
-        {mode === 'view' && (
-          <div className="row">
-            {d.can.actions.filter((a) => a !== 'return').map((a) => (
-              <button key={a} className="btn primary" type="button" disabled={busy} onClick={() => open(a)}>{ACTION_LABEL[a]}</button>
-            ))}
-            {d.can.sign && <button className="btn primary" type="button" disabled={busy} onClick={() => open('sign')}>Загрузить подписанный PDF</button>}
-            {d.can.actions.includes('return') && <button className="btn" type="button" disabled={busy} onClick={() => open('return')}>{ACTION_LABEL.return}</button>}
-            {d.can.edit && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('edit')}>Изменить драфт</button>}
-            {d.can.revise && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('revise')}>Новая версия</button>}
-            <a className="btn" href={d.current.onlyofficeUrl} target="_blank" rel="noopener noreferrer">Открыть в OnlyOffice</a>
-          </div>
-        )}
         {mode === 'view' && d.blockedReason && (
           <div className="note ro"><LockIcon /><span>{d.blockedReason}</span></div>
         )}
         {mode === 'view' && d.returned && (
           <div className="note conflict" data-testid="doc-returned">
-            Возвращён на доработку с этапа «{d.returned.stageName}» · {d.returned.actor}, {formatDateTime(d.returned.at)}: {d.returned.comment}
+            Возвращён на доработку с этапа «{d.returned.stageName}». {d.returned.actor}, {formatDateTime(d.returned.at)}: {d.returned.comment}
             {d.returned.file && (
               <div className="row mt6">
                 <span className="hint">Записка:</span>
@@ -317,7 +328,7 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           <div aria-label="Комментарии сотрудников">
             <div className="eyebrow">Комментарии сотрудников</div>
             <div className="hist">
-              {d.comments.map((c) => <div key={c.id} className="hist-item">{formatDateTime(c.at)} · {c.author}: {c.body}</div>)}
+              {d.comments.map((c) => <div key={c.id} className="hist-item"><div className="hist-meta"><b>{c.author}</b><time>{formatDateTime(c.at)}</time></div><div>{c.body}</div></div>)}
             </div>
             {d.can.comment && (
               <form className="task-form" onSubmit={(e) => { e.preventDefault(); say.mutate(); }}>
@@ -415,8 +426,8 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
             <div className="hist">
               {d.history.map((h) => (
                 <div key={h.id} className={`hist-item${h.decision === 'returned' || h.decision === 'cancelled' ? ' returned' : ''}`}>
-                  {formatDateTime(h.at)} · {h.actor}: {historyText(h)}
-                  {h.pdfSha256 && <span className="hint mono" title={h.pdfSha256}> · файл {shaShort(h.pdfSha256)}</span>}
+                  <div className="hist-meta"><b>{h.actor}</b><time>{formatDateTime(h.at)}</time></div>
+                  <div>{historyText(h)}{h.pdfSha256 && <span className="hint mono" title={h.pdfSha256}>, файл {shaShort(h.pdfSha256)}</span>}</div>
                 </div>
               ))}
             </div>
@@ -436,7 +447,6 @@ export function DocumentPanel({ id, onGone }: { id: string; onGone: () => void }
           </div>
         )}
         <div className="hint">За 30 дней до даты пересмотра владельцу ставится задача «Пересмотреть документ».</div>
-      </div>
-    </>
+    </DetailPanel>
   );
 }

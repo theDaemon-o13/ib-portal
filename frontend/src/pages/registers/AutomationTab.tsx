@@ -283,7 +283,7 @@ function RunLog({ reg, canManage }: { reg: RegisterDetail; canManage: boolean })
   const total = runs.data?.pages[0]?.total ?? 0;
   return (
     <details className="grid-gap run-log">
-      <summary className="eyebrow">Журнал запусков · {total}</summary>
+      <summary className="eyebrow">Журнал запусков <span className="count">{total}</span></summary>
       {canManage && (
         <div className="row">
           <select className="inp sm-inp" value={older} onChange={(e) => { setOlder(e.target.value); setConfirming(false); }} aria-label="Что очистить">

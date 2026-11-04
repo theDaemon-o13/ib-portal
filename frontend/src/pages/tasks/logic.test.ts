@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { actionNeedsComment, cardStep, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
+import { actionNeedsComment, candidatesChip, cardStep, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -77,5 +77,10 @@ describe('панель «Загрузка сотрудников»', () => {
   it('запомненный выбор главнее ширины; без выбора — открыта с 1600 px', () => {
     expect([workloadOpen(null, 1366), workloadOpen(null, 1440), workloadOpen(null, 1920)]).toEqual([false, false, true]);
     expect([workloadOpen('1', 1366), workloadOpen('0', 1920), workloadOpen('x', 1366)]).toEqual([true, false, false]);
+  });
+  it('«Могут взять» на карточке: первое имя и «+N» (1.6.5)', () => {
+    expect(candidatesChip([])).toEqual({ first: '', more: 0 });
+    expect(candidatesChip([{ fullName: 'Мусоев Раджаб' }])).toEqual({ first: 'Мусоев Раджаб', more: 0 });
+    expect(candidatesChip([{ fullName: 'Мусоев Раджаб' }, { fullName: 'Баротов Шавкат' }, { fullName: 'Иванов И.' }])).toEqual({ first: 'Мусоев Раджаб', more: 2 });
   });
 });

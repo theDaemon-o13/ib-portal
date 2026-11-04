@@ -159,6 +159,8 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await ui.waitFor(`!!(${expr})`, what);
       await evaluate(`(() => { const el = ${expr}; const r = el.getBoundingClientRect();
         if (r.top < 0 || r.bottom > innerHeight || r.left < 0 || r.right > innerWidth) el.scrollIntoView({ block: 'center' });
+        // Элемент внутри прокручиваемого ряда (чипы фильтров, колонка доски, 1.6.5) — докрутить сам ряд, страница не сдвигается.
+        el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         window.__e2eClickRect = null; })()`);
       const box = await ui.waitFor(`(() => { const el = ${expr}; if (!el) return null;
         // Центр видимой части: строка широкой таблицы может выходить за край окна.

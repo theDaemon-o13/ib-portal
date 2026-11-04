@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { docsApi, dkeys } from '../../api/documents';
 import { settingsApi } from '../../api/settings';
-import { Overlay } from '../../components/Overlay';
+import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 
 export function NewDocumentDrawer({ meId, onClose, onCreated }: { meId: string; onClose: () => void; onCreated: (id: string) => void }) {
@@ -13,11 +13,6 @@ export function NewDocumentDrawer({ meId, onClose, onCreated }: { meId: string; 
   const [form, setForm] = useState({ title: '', typeId: '', ownerId: meId, onlyofficeUrl: '', edition: '', reviewMonths: 12 });
   const typeId = form.typeId || types.data?.items[0]?.id || '';
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const create = useMutation({
     mutationFn: () => docsApi.create({ ...form, typeId }),
@@ -32,17 +27,7 @@ export function NewDocumentDrawer({ meId, onClose, onCreated }: { meId: string; 
   const submit = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
 
   return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Новый документ">
-        <div className="dr-h">
-          <div className="min0">
-            <div className="eyebrow">Документы</div>
-            <b className="dr-title">Новый документ</b>
-          </div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
-        </div>
-        <div className="dr-b">
+    <DetailPanel label="Новый документ" onClose={onClose} eyebrow="Документ начнёт маршрут с драфта" title="Новый документ">
           <form className="task-form" onSubmit={submit}>
             <label>Название<input className="inp" required maxLength={300} placeholder="например, Политика информационной безопасности" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
             <div className="fgrid">
@@ -70,8 +55,6 @@ export function NewDocumentDrawer({ meId, onClose, onCreated }: { meId: string; 
               <button className="btn" type="button" onClick={onClose}>Отмена</button>
             </div>
           </form>
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

@@ -3,6 +3,8 @@ import { Fragment, useCallback, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import type { Me } from '../../api/client';
 import { docsApi, dkeys, type DocItem, type DocQuery, type DocSort, type DocStatus } from '../../api/documents';
+import { ChipScroller } from '../../components/ChipScroller';
+import { DETAIL_NARROW_QUERY, DetailPanel, useMediaQuery } from '../../components/DetailPanel';
 import { formatDate } from '../registers/logic';
 import { DocumentPanel } from './DocumentPanel';
 import { HoldersLine } from './Holders';
@@ -89,7 +91,10 @@ export function DocumentsPage() {
   const summary = useQuery({ queryKey: dkeys.summary, queryFn: docsApi.summary });
   const items = docs.data?.items ?? [];
   const facets = docs.data?.facets ?? { owners: [], types: [] };
-  const selected = params.get('doc') ?? items[0]?.id ?? null;
+  // На широком окне карточка всегда рядом (по умолчанию — первый документ); на узком выезжает только по выбору.
+  const narrow = useMediaQuery(DETAIL_NARROW_QUERY);
+  const picked = params.get('doc');
+  const selected = picked ?? (narrow ? null : items[0]?.id ?? null);
 
   const setParam = useCallback((patch: Record<string, string | null>) => {
     setParams((p) => {
@@ -98,7 +103,14 @@ export function DocumentsPage() {
       return n;
     }, { replace: true });
   }, [setParams]);
-  const select = (id: string | null) => setParam({ doc: id });
+  // Выбор документа — шаг истории: «Назад» возвращает к прежнему. Страница и реестр при этом не прокручиваются.
+  const select = useCallback((id: string | null) => {
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      if (id === null) n.delete('doc'); else n.set('doc', id);
+      return n;
+    }, { preventScrollReset: true });
+  }, [setParams]);
   const setSort = (s: DocSort) => { setSortState(s); saveSort(s); };
   const toggleType = (id: string) => setCollapsed((c) => {
     const n = new Set(c);
@@ -144,7 +156,7 @@ export function DocumentsPage() {
       </div>
 
       <div className="row docs-bar">
-        <div className="filters" role="group" aria-label="Фильтр документов">
+        <ChipScroller label="Фильтр документов" className="toolbar-grow">
           <button type="button" aria-pressed={!filter} onClick={() => setParam({ filter: null, doc: null })}>Все</button>
           <button type="button" aria-pressed={filter === 'waiting'} onClick={() => setParam({ filter: 'waiting', doc: null })}>
             Ждут вас <span className="mono">{summary.data?.waitingForMe ?? 0}</span>
@@ -164,7 +176,7 @@ export function DocumentsPage() {
               Архив <span className="mono">{docs.data?.archivedTotal ?? 0}</span>
             </button>
           )}
-        </div>
+        </ChipScroller>
         <input className="inp docs-search" type="search" placeholder="Поиск по названию" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Поиск по названию" />
       </div>
 
@@ -199,8 +211,8 @@ export function DocumentsPage() {
       </div>
 
       {docs.isError && <div className="form-error">{docs.error.message}</div>}
-      <div className="dash">
-        <section className="panel w8">
+      <div className="dash ld">
+        <section className="panel w8 ld-list">
           <div className="tbl-wrap">
             <table className="docs-tbl">
               <thead>
@@ -233,11 +245,13 @@ export function DocumentsPage() {
             </table>
           </div>
         </section>
-        <section className="panel w4">
-          {selected
-            ? <DocumentPanel key={selected} id={selected} onGone={() => select(null)} />
-            : <div className="panel-b hint">Выберите документ в реестре</div>}
-        </section>
+        {selected
+          ? <DocumentPanel id={selected} className="w4" onGone={() => select(null)} onClose={picked ? () => select(null) : undefined} key={selected} />
+          : !narrow && (
+            <DetailPanel label="Документ" variant="inline" className="w4" title="Документ не выбран">
+              <div className="hint">{items.length ? 'Нажмите строку в реестре — карточка с маршрутом откроется здесь.' : 'Когда в реестре появятся документы, карточка выбранного откроется здесь.'}</div>
+            </DetailPanel>
+          )}
       </div>
       {newOpen && <NewDocumentDrawer meId={me.id} onClose={() => setNewOpen(false)} onCreated={(id) => { setNewOpen(false); setParam({ filter: null, doc: id }); }} />}
     </>

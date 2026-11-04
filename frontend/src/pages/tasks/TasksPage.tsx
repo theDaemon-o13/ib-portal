@@ -4,9 +4,10 @@ import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError, type Me } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type Task } from '../../api/tasks';
+import { ChipScroller } from '../../components/ChipScroller';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
-import { actionNeedsComment, candidatesLabel, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen } from './logic';
+import { actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen } from './logic';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
@@ -22,7 +23,12 @@ interface Drag {
   dy: number;
   moving: boolean;
   over: string | null;
+  /** Где была карточка при нажатии: копия под указателем рисуется поверх страницы, колонка с прокруткой её не обрезает. */
+  rect: { left: number; top: number; width: number };
 }
+
+/** Ширина полосы у края доски, в которой перетаскивание прокручивает доску (колонки за краем окна). */
+const EDGE_PX = 56;
 
 function plusDays(n: number): string {
   const d = new Date();
@@ -45,8 +51,12 @@ function saveWorkloadOpen(open: boolean) {
   }
 }
 
-function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick }: {
+function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick, selected = false, ghost = false }: {
   t: Task; today: string; archived: boolean; drag: Drag | null;
+  /** Карточка открыта справа — подсвечена на доске. */
+  selected?: boolean;
+  /** Копия под указателем при перетаскивании: без обработчиков и data-task. */
+  ghost?: boolean;
   /** Перетаскивание — только с правом «Задачи: свободная смена статуса» (релиз 1.2.0); без него щелчок открывает карточку. */
   canDrag: boolean;
   onPointerDown: (e: ReactPointerEvent<HTMLElement>, t: Task) => void; onOpen: (id: string) => void;
@@ -56,13 +66,21 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
   picking: boolean; picked: boolean; onPick: (id: string) => void;
 }) {
   const due = dueLabel(t, today);
-  const dragging = drag?.moving && drag.task.id === t.id;
-  const draggable = canDrag && !archived && !picking;
-  const step = archived || picking ? null : cardStep(t);
+  const dragging = !ghost && drag?.moving && drag.task.id === t.id;
+  const draggable = canDrag && !archived && !picking && !ghost;
+  const step = archived || picking || ghost ? null : cardStep(t);
+  const cand = candidatesChip(t.candidates);
+  if (ghost) {
+    return (
+      <article className="card ghost" aria-hidden="true">
+        <div className="card-t">{t.urgent && <span className="chip crit">срочно</span>}{t.title}</div>
+        <div className="meta"><span className={`tag ${categoryTone(t.category)}`}>{t.category.value}</span></div>
+      </article>
+    );
+  }
   return (
-    <article className={`card${archived ? ' arch' : ''}${draggable ? '' : ' static'}${dragging ? ' dragging' : ''}${t.overdue ? ' late' : ''}${picked ? ' picked' : ''}`} tabIndex={0}
-      aria-label={picking ? `Выбрать задачу ${t.title}` : `Открыть задачу ${t.title}`} aria-pressed={picking ? picked : undefined} data-task={t.id}
-      style={dragging ? { transform: `translate(${drag.dx}px, ${drag.dy}px)` } : undefined}
+    <article className={`card${archived ? ' arch' : ''}${draggable ? '' : ' static'}${dragging ? ' dragging' : ''}${t.overdue ? ' late' : ''}${picked ? ' picked' : ''}${selected ? ' sel' : ''}`} tabIndex={0}
+      aria-label={picking ? `Выбрать задачу ${t.title}` : `Открыть задачу ${t.title}`} aria-pressed={picking ? picked : undefined} aria-current={selected || undefined} data-task={t.id}
       onPointerDown={draggable ? (e) => onPointerDown(e, t) : undefined}
       onClick={picking ? () => onPick(t.id) : draggable ? undefined : () => onOpen(t.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') (picking ? onPick : onOpen)(t.id); }}>
@@ -71,14 +89,19 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
         {t.urgent && <span className="chip crit">срочно</span>}{t.title}
       </div>
       <div className="meta">
-        <span className={categoryTone(t.category)}>● {t.category.value}</span>
+        <span className={`tag ${categoryTone(t.category)}`}>{t.category.value}</span>
         <span className={`mono${due.late ? ' late-t' : ''}`}>{due.text}</span>
       </div>
       <div className="meta">
         {t.assignee
           ? <span className="row nowrap gap6"><span className="av">{initials(t.assignee.fullName)}</span>{t.assignee.fullName}</span>
           : t.candidates.length
-            ? <span className="chip acc cand" data-testid="task-candidates" title={`Могут взять: ${candidatesLabel(t.candidates, t.candidates.length)}`}>могут взять: {candidatesLabel(t.candidates)}</span>
+            ? (
+              <span className="chip acc cand" data-testid="task-candidates" title={`Могут взять: ${candidatesLabel(t.candidates, t.candidates.length)}`}
+                aria-label={`Могут взять: ${candidatesLabel(t.candidates, t.candidates.length)}`}>
+                <span className="cand-k">Могут взять</span><span className="cand-n">{cand.first}</span>{cand.more > 0 && <span className="cand-more">+{cand.more}</span>}
+              </span>
+            )
             : <span className="chip high" title={t.recipientLabel ? `Получатели: ${t.recipientLabel}` : undefined}>не назначен</span>}
         <span className="row nowrap gap6">
           {t.commentCount > 0 && (
@@ -86,10 +109,10 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>{t.commentCount}
             </span>
           )}
-          {t.source === 'automation' && <span className="chip crit" title="Задача из автоматизации реестра">авто</span>}
-          {t.source === 'mail' && <span className="chip info" title="Задача из письма">письмо</span>}
-          {t.source === 'document' && <span className="chip acc" title="Задача по документу">документ</span>}
-          {t.source === 'evidence' && <span className="chip acc" title="Задача по доказательству">доказательство</span>}
+          {t.source === 'automation' && <span className="chip src" title="Задача из автоматизации реестра">авто</span>}
+          {t.source === 'mail' && <span className="chip src" title="Задача из письма">письмо</span>}
+          {t.source === 'document' && <span className="chip src" title="Задача по документу">документ</span>}
+          {t.source === 'evidence' && <span className="chip src" title="Задача по доказательству">доказательство</span>}
         </span>
       </div>
       {t.reviewer && <div className="meta reviewer" data-testid="card-reviewer">Проверяет: {t.reviewer.fullName}</div>}
@@ -134,6 +157,7 @@ export function TasksPage() {
   // Перетаскивание в колонку, где нужен комментарий: окно «Комментарий к переходу».
   const [pendingMove, setPendingMove] = useState<{ t: Task; statusId: string; comment: string } | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
   const today = todayLocal();
 
   const statuses = useQuery({ queryKey: tkeys.statuses, queryFn: () => settingsApi.items('task_statuses', false) });
@@ -203,7 +227,8 @@ export function TasksPage() {
   // Без сдвига это щелчок — открывается карточка.
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>, t: Task) => {
     if (e.button !== 0) return;
-    const d: Drag = { task: t, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0, moving: false, over: null };
+    const r = e.currentTarget.getBoundingClientRect();
+    const d: Drag = { task: t, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0, moving: false, over: null, rect: { left: r.left, top: r.top, width: r.width } };
     dragRef.current = d;
     setDrag(d);
   };
@@ -216,6 +241,13 @@ export function TasksPage() {
       const dy = e.clientY - d.y0;
       const moving = d.moving || Math.hypot(dx, dy) > DRAG_PX;
       const col = moving ? (document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.classList.contains('col')) as HTMLElement | undefined) : undefined;
+      // У края доски — прокрутить её: колонки за краем окна тоже принимают карточку.
+      const board = boardRef.current;
+      if (moving && board) {
+        const b = board.getBoundingClientRect();
+        if (e.clientX < b.left + EDGE_PX) board.scrollLeft -= 14;
+        else if (e.clientX > b.right - EDGE_PX) board.scrollLeft += 14;
+      }
       const next = { ...d, dx, dy, moving, over: col?.dataset.status ?? null };
       dragRef.current = next;
       setDrag(next);
@@ -262,33 +294,35 @@ export function TasksPage() {
         <div>
           <h1>Задачи</h1>
           <p>
-            Почта, проекты, оперплан и автоматизации реестров попадают на одну доску. Нажмите на карточку, чтобы изменить её или прокомментировать.
-            {canOverride ? ' Перетащите карточку, чтобы сменить статус.' : ' Статус меняется кнопками в карточке. Перетаскивание — у пользователей с правом «Задачи: свободная смена статуса».'}
+            Почта, проекты, оперплан и автоматизации реестров — на одной доске. Нажмите карточку, чтобы открыть её.
+            {canOverride ? ' Перетащите карточку в другую колонку, чтобы сменить статус.' : ' Статус меняется кнопками в карточке.'}
           </p>
         </div>
         <div className="row">
-          <button className="btn primary" type="button" onClick={() => setMailOpen(true)}>Задача из письма</button>
-          <div className="filters" role="group" aria-label="Фильтр по категории">
-            <button type="button" aria-pressed={!categoryId} onClick={() => setParam({ category: null })}>Все <span className="mono">{totalCount}</span></button>
-            {filterCats.map((c) => (
-              <button key={c.id} type="button" aria-pressed={categoryId === c.id} onClick={() => setParam({ category: c.id })}>
-                {c.value} <span className="mono">{counts.find((x) => x.categoryId === c.id)?.count ?? 0}</span>
-              </button>
-            ))}
-            <button type="button" className="arch-btn" aria-pressed={archived} onClick={() => setParam({ archive: archived ? null : '1', category: null })}>
-              Архив <span className="mono">{tasks.data?.archivedTotal ?? 0}</span>
-            </button>
-          </div>
-          {(automations.length > 0 || automationId) && (
-            <select className="inp auto-filter" value={automationId} aria-label="Создано автоматизацией" onChange={(e) => setParam({ automation: e.target.value || null })}>
-              <option value="">Все источники</option>
-              {automations.map((a) => <option key={a.automationId} value={a.automationId}>Автоматизация: {a.label} · {a.count}</option>)}
-            </select>
-          )}
-          <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
           {me.permissions.includes('tasks.report') && <Link className="btn" to="/tasks/report">Отчёт</Link>}
-          {!showWorkload && <button type="button" className="btn" aria-expanded={false} onClick={toggleWorkload}>Загрузка сотрудников</button>}
+          <button className="btn primary" type="button" onClick={() => setMailOpen(true)}>Задача из письма</button>
         </div>
+      </div>
+      <div className="toolbar" aria-label="Фильтры доски">
+        <ChipScroller label="Фильтр по категории" className="toolbar-grow">
+          <button type="button" aria-pressed={!categoryId} onClick={() => setParam({ category: null })}>Все <span className="mono">{totalCount}</span></button>
+          {filterCats.map((c) => (
+            <button key={c.id} type="button" aria-pressed={categoryId === c.id} onClick={() => setParam({ category: c.id })}>
+              {c.value} <span className="mono">{counts.find((x) => x.categoryId === c.id)?.count ?? 0}</span>
+            </button>
+          ))}
+          <button type="button" className="arch-btn" aria-pressed={archived} onClick={() => setParam({ archive: archived ? null : '1', category: null })}>
+            Архив <span className="mono">{tasks.data?.archivedTotal ?? 0}</span>
+          </button>
+        </ChipScroller>
+        {(automations.length > 0 || automationId) && (
+          <select className="inp auto-filter" value={automationId} aria-label="Создано автоматизацией" onChange={(e) => setParam({ automation: e.target.value || null })}>
+            <option value="">Все источники</option>
+            {automations.map((a) => <option key={a.automationId} value={a.automationId}>Автоматизация «{a.label}»: {a.count}</option>)}
+          </select>
+        )}
+        <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
+        {!showWorkload && <button type="button" className="btn" aria-expanded={false} onClick={toggleWorkload}>Загрузка сотрудников</button>}
       </div>
       {picking && (
         <div className="bulk-bar tasks-bulk" role="toolbar" aria-label="Действия с выбранными задачами">
@@ -330,7 +364,7 @@ export function TasksPage() {
       )}
       {tasks.isError && <div className="form-error">{tasks.error.message}</div>}
       <div className={`tasks-grid${showWorkload ? '' : ' wide'}`}>
-        <div className={`board${drag?.moving ? ' is-dragging' : ''}`}>
+        <div ref={boardRef} className={`board${drag?.moving ? ' is-dragging' : ''}`}>
           {cols.map((c) => {
             const items = sortColumn(list.filter((t) => t.status.id === c.id));
             return (
@@ -338,9 +372,11 @@ export function TasksPage() {
                 <div className="col-h"><span>{c.value}</span><span className="mono">{items.length}</span></div>
                 {items.map((t) => (
                   <Card key={t.id} t={t} today={today} archived={archived} drag={drag} canDrag={canOverride} onPointerDown={onPointerDown} onOpen={openTask}
-                    onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} />
+                    onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} selected={openId === t.id} />
                 ))}
-                {tasks.isSuccess && items.length === 0 && <div className="hint col-empty">{archived || !canOverride ? 'Пусто' : 'Перетащите сюда карточку'}</div>}
+                {tasks.isSuccess && items.length === 0 && (
+                  <div className="col-empty">{archived ? 'В архиве таких задач нет' : canOverride ? 'Перетащите сюда карточку' : 'Задач в этой колонке нет'}</div>
+                )}
               </div>
             );
           })}
@@ -370,6 +406,14 @@ export function TasksPage() {
           </section>
         </div>}
       </div>
+      {drag?.moving && (
+        <Overlay>
+          <div className="drag-ghost" style={{ left: drag.rect.left, top: drag.rect.top, width: drag.rect.width, transform: `translate(${drag.dx}px, ${drag.dy}px) rotate(1.5deg)` }}>
+            <Card t={drag.task} today={today} archived={false} drag={null} canDrag={false} onPointerDown={() => undefined} onOpen={() => undefined}
+              onStep={() => undefined} picking={false} picked={false} onPick={() => undefined} ghost />
+          </div>
+        </Overlay>
+      )}
       {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}
       {mailOpen && <MailDrawer meId={me.id} canAssign={canAssign} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}

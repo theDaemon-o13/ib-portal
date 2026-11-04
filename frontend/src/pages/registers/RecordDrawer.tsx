@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AutoTextarea } from '../../components/AutoTextarea';
-import { Overlay } from '../../components/Overlay';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { DetailPanel } from '../../components/DetailPanel';
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../../api/client';
 import { registersApi, VULN_REGISTER_KEY, type RegisterDetail, type RegisterField, type RegisterRecord } from '../../api/registers';
 import { EMPTY_REASON, reasonReady, toReason, type ReasonDraft } from '../../api/trash';
@@ -175,6 +175,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const qc = useQueryClient();
   const toast = useToast();
   const isNew = recordId === null;
+  const formId = useId();
   const rec = useQuery({ queryKey: rkeys.record(recordId ?? 'new'), queryFn: () => registersApi.record(recordId ?? ''), enabled: !isNew });
   // История — по праву «История в карточках» (ADR-0021).
   const canHistory = !!useMe().data?.permissions.includes('history.view');
@@ -203,11 +204,6 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
     }
   }, [record, loadedVersion, reg]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const refresh = async () => {
     await Promise.all([
@@ -315,22 +311,20 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
   const title = isNew ? 'Новая запись' : (record?.display[titleField?.id ?? ''] || 'Без названия');
 
   return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer wide" role="dialog" aria-modal="true" aria-label="Запись реестра">
-        <div className="dr-h">
-          <div className="min0">
-            <div className="eyebrow">{reg.name} · {isNew ? 'новая запись' : `запись #${record?.number ?? ''}`}</div>
-            <b className="dr-title">{title}</b>
-            {record?.closed && <div><span className="chip">Закрыта</span></div>}
-            {record && !record.closed && deadlineChip(record.deadline) && (
-              <div><span className={`chip ${deadlineChip(record.deadline)?.cls ?? ''}`}>{deadlineChip(record.deadline)?.text}</span></div>
-            )}
-            {record?.archived && <div><span className="chip">В архиве</span></div>}
-          </div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
+    <DetailPanel label="Запись реестра" wide onClose={onClose} scrollKey={recordId ?? 'new'}
+      eyebrow={<>{reg.name}, {isNew ? 'новая запись' : `запись #${record?.number ?? ''}`}</>}
+      title={title}
+      badges={record && (record.closed || record.archived || deadlineChip(record.deadline)) ? <>
+        {record.closed && <span className="chip">Закрыта</span>}
+        {!record.closed && deadlineChip(record.deadline) && <span className={`chip ${deadlineChip(record.deadline)?.cls ?? ''}`}>{deadlineChip(record.deadline)?.text}</span>}
+        {record.archived && <span className="chip">В архиве</span>}
+      </> : undefined}
+      footer={isNew || !rec.isPending ? (
+        <div className="row">
+          {!readOnly && <button className="btn primary" form={formId} type="submit" disabled={save.isPending || conflict}>{isNew ? 'Создать запись' : 'Сохранить'}</button>}
+          <button className="btn" type="button" onClick={onClose}>{readOnly ? 'Закрыть' : 'Отмена'}</button>
         </div>
-        <div className="dr-b">
+      ) : undefined}>
           {conflict && (
             <div className="note conflict" role="alert">
               Запись изменил другой пользователь — ваши изменения не сохранены.
@@ -341,7 +335,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
             </div>
           )}
           {!isNew && rec.isPending ? <div className="hint">Загрузка…</div> : (
-            <form className="recform" onSubmit={submit}>
+            <form className="recform" id={formId} onSubmit={submit}>
               {fields.map((f) => (
                 <FieldControl key={f.id} reg={reg} f={f} rec={record} draft={draft} setDraft={setDraft} disabled={readOnly}
                   onResetAuto={(id) => resetAuto.mutate(id)} resetting={resetAuto.isPending}
@@ -354,11 +348,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
                   <small>Причина попадёт в историю записи и журнал.</small>
                 </label>
               )}
-              <div className="wide row">
-                {!readOnly && <button className="btn primary" type="submit" disabled={save.isPending || conflict}>{isNew ? 'Создать запись' : 'Сохранить'}</button>}
-                <button className="btn" type="button" onClick={onClose}>{readOnly ? 'Закрыть' : 'Отмена'}</button>
-                <span className="hint">Поля формы берутся из конструктора: новое поле реестра сразу появляется здесь.</span>
-              </div>
+              <span className="wide field-hint">Поля формы берутся из конструктора: новое поле реестра сразу появляется здесь.</span>
             </form>
           )}
           {!isNew && record && (canEdit || canDelete) && (
@@ -410,7 +400,7 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
               <div className="hist">
                 {history.data?.items.map((h) => (
                   <div key={h.id} className="hist-item">
-                    <div>{formatDateTime(h.at)} · {h.actor?.fullName ?? 'Система'}{(h.via && VIA[h.via]) ?? ''}</div>
+                    <div className="hist-meta"><b>{h.actor?.fullName ?? 'Система'}{(h.via && VIA[h.via]) ?? ''}</b><time>{formatDateTime(h.at)}</time></div>
                     {h.changes.length > 0 ? (
                       <ul>{h.changes.map((c, i) => <li key={i}>«{c.label}»: {c.from || '—'} → {c.to || '—'}</li>)}</ul>
                     ) : <div className="m">{h.summary}</div>}
@@ -420,8 +410,6 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
               </div>
             </div>
           )}
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

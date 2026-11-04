@@ -8,6 +8,7 @@ import type { FileInfo } from '../../api/files';
 import { registersApi } from '../../api/registers';
 import { settingsApi } from '../../api/settings';
 import { FileUpload } from '../../components/files/FileUpload';
+import { ChipScroller } from '../../components/ChipScroller';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { EvidenceDrawer } from './EvidenceDrawer';
@@ -214,6 +215,12 @@ export function EvidencePage() {
       return n;
     }, { replace: true });
   }, [setParams]);
+  // Открытая карточка — шаг истории (1.6.5): «Назад» закрывает её, список не прокручивается.
+  const openEv = useCallback((id: string | null) => setParams((p) => {
+    const n = new URLSearchParams(p);
+    if (id) n.set('ev', id); else n.delete('ev');
+    return n;
+  }, { preventScrollReset: true }), [setParams]);
 
   return (
     <>
@@ -224,7 +231,7 @@ export function EvidencePage() {
         </div>
       </div>
       <div className="row docs-bar">
-        <div className="filters" role="group" aria-label="Фильтр доказательств">
+        <ChipScroller label="Фильтр доказательств" className="toolbar-grow">
           <button type="button" aria-pressed={!filter} onClick={() => setParam({ filter: null })}>Все <span className="mono">{all.data?.total ?? 0}</span></button>
           {STATE_FILTERS.map((s) => (
             <button key={s.key} type="button" aria-pressed={filter === s.key} onClick={() => setParam({ filter: s.key })}>
@@ -232,7 +239,7 @@ export function EvidencePage() {
             </button>
           ))}
           <button type="button" className="arch-btn" aria-pressed={archived} onClick={() => setParam({ filter: archived ? null : 'archive' })}>Архив</button>
-        </div>
+        </ChipScroller>
         <input className="inp docs-search" type="search" placeholder="Поиск: объект, название, файл" aria-label="Поиск доказательств" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       {list.isError && <div className="form-error">{list.error.message}</div>}
@@ -244,8 +251,8 @@ export function EvidencePage() {
               <thead><tr><th>Объект</th><th>Тип</th><th>Файл</th><th>Загрузил</th><th>Дата</th><th>Действует до</th><th>Результат</th><th>Проверка ИБ</th></tr></thead>
               <tbody>
                 {items.map((e) => (
-                  <tr key={e.id} data-ev={e.number} className="click" tabIndex={0} title="Открыть карточку"
-                    onClick={() => setParam({ ev: e.id })} onKeyDown={(k) => { if (k.key === 'Enter') setParam({ ev: e.id }); }}>
+                  <tr key={e.id} data-ev={e.number} className={`click${open === e.id ? ' sel' : ''}`} aria-current={open === e.id || undefined} tabIndex={0} title="Открыть карточку"
+                    onClick={() => openEv(e.id)} onKeyDown={(k) => { if (k.key === 'Enter') openEv(e.id); }}>
                     <td><div className="w500">{e.title}</div><div className="hint">{e.object.label}{e.confirmedBy ? ` · подтвердил: ${e.confirmedBy}` : ''}</div></td>
                     <td>{e.kindName}</td>
                     <td><span className="clip">{e.files[0]?.name ?? '—'}{e.files.length > 1 ? ` +${e.files.length - 1}` : ''}</span></td>
@@ -263,7 +270,7 @@ export function EvidencePage() {
         </section>
         <UploadPanel meId={me.id} onCreated={(id) => setParam({ ev: id, filter: null })} />
       </div>
-      {open && <EvidenceDrawer key={open} id={open} onClose={() => setParam({ ev: null })} />}
+      {open && <EvidenceDrawer key={open} id={open} onClose={() => openEv(null)} />}
     </>
   );
 }

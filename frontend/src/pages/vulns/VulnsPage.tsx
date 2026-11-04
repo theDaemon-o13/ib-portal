@@ -2,7 +2,7 @@
 // Дерево «группа → тип систем → сканы», экраны: все группы, группа, узел, скан. Адрес: /vulns/<вид>/<id>.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import type { Me } from '../../api/client';
 import { registersApi, type RegisterDetail } from '../../api/registers';
 import { vkeys, vulnsApi, type NodeRecord, type NodeStats, type ScanBrief, type VulnGroup, type VulnNode, type VulnOverview } from '../../api/vulns';
@@ -30,7 +30,7 @@ function Tree({ groups, stats, view, go, canManage, onNewGroup }: { groups: Vuln
   return (
     <nav className="panel v-tree" aria-label="Группы и реестры">
       <div className="v-tree-h">
-        <b>ГРУППЫ</b>
+        <b>Группы</b>
         {canManage && <button className="btn sm" type="button" onClick={onNewGroup}>+ Группа</button>}
       </div>
       <button type="button" className="tn g" aria-current={cur('root')} onClick={() => go({ kind: 'root' })}>
@@ -228,8 +228,8 @@ function fieldId(reg: RegisterDetail, key: string): string {
   return reg.fields.find((f) => f.systemKey === key)?.id ?? '';
 }
 
-function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canEdit, pickable }: {
-  reg: RegisterDetail; r: NodeRecord; legacy: boolean; picked: boolean; today: string; canEdit: boolean; pickable: boolean;
+function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canEdit, pickable, selected }: {
+  reg: RegisterDetail; r: NodeRecord; legacy: boolean; picked: boolean; today: string; canEdit: boolean; pickable: boolean; selected: boolean;
   onPick: (id: string) => void; onOpen: (id: string) => void; onMove: (id: string) => void;
 }) {
   const f = (k: string) => fieldId(reg, k);
@@ -242,7 +242,7 @@ function RecordRow({ reg, r, legacy, picked, today, onPick, onOpen, onMove, canE
   const h = dueHint(dueIso, today, typeof r.values[f('extDays')] === 'number');
   const score = r.calc[f('score')];
   return (
-    <tr onClick={() => onOpen(r.id)}>
+    <tr onClick={() => onOpen(r.id)} className={selected ? 'sel' : undefined} aria-current={selected || undefined}>
       {pickable && (
         <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={`Выбрать #${r.number}`} checked={picked} onChange={() => onPick(r.id)} /></td>
       )}
@@ -279,7 +279,14 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
   const [state, setState] = useState<(typeof STATE_FILTERS)[number][0]>('open');
   const [cursor, setCursor] = useState<string | undefined>();
   const [dialog, setDialog] = useState<'import' | 'extend' | 'type' | 'delete' | 'delete-records' | null>(null);
-  const [opened, setOpened] = useState<string | null>(null);
+  // Открытая запись — в адресе (?record=<id>, 1.6.5): «Назад» закрывает карточку, список не прокручивается.
+  const [sp, setSp] = useSearchParams();
+  const opened = sp.get('record');
+  const setOpened = useCallback((id: string | null) => setSp((p) => {
+    const n = new URLSearchParams(p);
+    if (id) n.set('record', id); else n.delete('record');
+    return n;
+  }, { preventScrollReset: true }), [setSp]);
   const [picked, setPicked] = useState<string[]>([]);
   const [moving, setMoving] = useState<string[] | null>(null);
   const canEdit = me.permissions.includes('records.edit');
@@ -347,7 +354,7 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
                 </tr>
               </thead>
               <tbody>
-                {page?.items.map((r) => <RecordRow key={r.id} reg={reg} r={r} legacy={legacy} canEdit={canEdit} pickable={pickable} picked={picked.includes(r.id)} today={today} onPick={togglePick} onOpen={setOpened} onMove={(id) => setMoving([id])} />)}
+                {page?.items.map((r) => <RecordRow key={r.id} reg={reg} r={r} legacy={legacy} canEdit={canEdit} pickable={pickable} picked={picked.includes(r.id)} today={today} onPick={togglePick} onOpen={setOpened} onMove={(id) => setMoving([id])} selected={opened === r.id} />)}
                 {page && !page.items.length && <tr><td colSpan={12} className="hint">Записей нет.</td></tr>}
               </tbody>
             </table>

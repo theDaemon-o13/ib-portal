@@ -1,4 +1,4 @@
-import { Overlay } from '../../components/Overlay';
+import { DetailPanel } from '../../components/DetailPanel';
 import { useEffect, useState } from 'react';
 import { registersApi, type BasisRule, type DueRule, type FieldType, type RegisterDetail, type RegisterField, type TypePreview } from '../../api/registers';
 import { useAction } from '../settings/useAction';
@@ -80,11 +80,6 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
   const [basis, setBasis] = useState<BasisRule | null>(field && isBasisRule(field.calcRule) ? field.calcRule : null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const invalidate = [rkeys.detail(reg.id), rkeys.records(reg.id), rkeys.list, rkeys.analytics(reg.id)];
   const patch = useAction(({ body, ok }: { body: Omit<Parameters<typeof registersApi.updateField>[1], 'version'>; ok: string }) =>
@@ -103,25 +98,17 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
   const canDetach = !field.isTitle && !field.isStatus && !field.isImportKey && !system;
 
   return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Настройки поля">
-        <div className="dr-h">
-          <div className="min0">
-            <div className="eyebrow">{reg.name} · настройки поля</div>
-            <b className="dr-title">{field.label}</b>
-            <div className="cover mt6">
-              <span className="type">{TYPE_NAMES[field.type]}</span>
-              {field.isTitle && <span className="chip acc">Заголовок</span>}
-              {field.isStatus && <span className="chip info">Статус</span>}
-              {field.isImportKey && <span className="chip acc" title="Импорт Excel без колонки ID сопоставляет строки по этому полю">Ключ импорта</span>}
-              {field.archived && <span className="chip">В архиве</span>}
-              {system && <span className="chip" title="Не удаляется, не архивируется, тип не меняется">Системное</span>}
-            </div>
-          </div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
-        </div>
-        <div className="dr-b">
+    <DetailPanel label="Настройки поля" onClose={onClose} scrollKey={fieldId}
+      eyebrow={<>Поле реестра «{reg.name}»</>}
+      title={field.label}
+      badges={<>
+        <span className="type">{TYPE_NAMES[field.type]}</span>
+        {field.isTitle && <span className="chip acc">Заголовок</span>}
+        {field.isStatus && <span className="chip info">Статус</span>}
+        {field.isImportKey && <span className="chip acc" title="Импорт Excel без колонки ID сопоставляет строки по этому полю">Ключ импорта</span>}
+        {field.archived && <span className="chip">В архиве</span>}
+        {system && <span className="chip" title="Не удаляется, не архивируется, тип не меняется">Системное</span>}
+      </>}>
           <form className="fd-section" onSubmit={(e) => {
             e.preventDefault();
             if (label.trim() !== field.label) patch.mutate({ body: { label }, ok: `Поле переименовано: «${label.trim()}». Данные записей не изменились` });
@@ -262,8 +249,6 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
               <div className="hint">{system ? 'Системное поле нельзя отправить в архив или удалить: на нём держатся формулы, импорт сканера и автоматизации.' : 'Поле-заголовок и поле статуса нельзя отправить в архив или удалить.'}</div>
             )}
           </section>
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

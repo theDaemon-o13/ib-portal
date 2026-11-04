@@ -145,7 +145,7 @@ export function DocumentBlockers({ d, at, onDone, onError }: Omit<Props, 'onPrev
 
   return (
     <div aria-label="Блокеры">
-      <div className="eyebrow">Блокеры{open.length ? ` · открыто ${open.length}` : ''}</div>
+      <div className="eyebrow">Блокеры{open.length ? <span className="count crit">открыто {open.length}</span> : null}</div>
       <div className="hist">
         {d.blockers.map((b) => (
           <div key={b.id} className={`hist-item${b.resolvedAt ? '' : ' returned'}`} data-blocker={b.resolvedAt ? 'resolved' : 'open'}>

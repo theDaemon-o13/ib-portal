@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { dashboardApi, dashkeys, type Tile } from '../../api/dashboard';
 import { registersApi } from '../../api/registers';
-import { Overlay } from '../../components/Overlay';
+import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 
 const TILE_TYPES = new Set(['select', 'catalog']);
@@ -22,11 +22,6 @@ export function TilesDrawer({ onClose }: { onClose: () => void }) {
   // Закрытые статусы плитка не считает — их и не предлагаем.
   const options = (field?.options ?? []).filter((o) => !o.archived && !(field?.isStatus && o.isClosed));
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const refresh = () => qc.invalidateQueries({ queryKey: dashkeys.all });
   const fail = (e: unknown) => toast(e instanceof Error ? e.message : 'Не удалось сохранить', 'error');
@@ -64,17 +59,7 @@ export function TilesDrawer({ onClose }: { onClose: () => void }) {
   const list = tiles.data?.items ?? [];
 
   return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label="Плитки дашборда">
-        <div className="dr-h">
-          <div className="min0">
-            <div className="eyebrow">Дашборд</div>
-            <b className="dr-title">Плитки-счётчики</b>
-          </div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
-        </div>
-        <div className="dr-b">
+    <DetailPanel label="Плитки дашборда" onClose={onClose} eyebrow="Свои счётчики на дашборде" title="Плитки-счётчики">
           <p className="hint">Плитка считает записи реестра, где поле принимает выбранные значения. Закрытые записи и архив не считаются.</p>
           <div className="list">
             {list.length === 0 && <div className="hint">Плиток пока нет</div>}
@@ -124,8 +109,6 @@ export function TilesDrawer({ onClose }: { onClose: () => void }) {
               {editing && <button className="btn" type="button" onClick={() => { setEditing(null); setForm(empty); }}>Отмена</button>}
             </div>
           </form>
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

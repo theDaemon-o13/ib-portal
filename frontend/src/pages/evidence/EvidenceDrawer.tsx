@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { evidenceApi, ekeys, type EvidenceDetail } from '../../api/evidence';
@@ -7,7 +7,7 @@ import type { FileInfo } from '../../api/files';
 import { FilePreview } from '../../components/files/FilePreview';
 import { FileUpload } from '../../components/files/FileUpload';
 import { LockIcon } from '../../components/LockIcon';
-import { Overlay } from '../../components/Overlay';
+import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
@@ -32,11 +32,6 @@ export function EvidenceDrawer({ id, onClose }: { id: string; onClose: () => voi
   const [stale, setStale] = useState(false);
   const e = ev.data;
 
-  useEffect(() => {
-    const onKey = (k: KeyboardEvent) => { if (k.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const done = async (r: EvidenceDetail, text: string) => {
     qc.setQueryData(ekeys.detail(id), r);
@@ -68,18 +63,10 @@ export function EvidenceDrawer({ id, onClose }: { id: string; onClose: () => voi
   const link = e ? objectLink(e) : null;
 
   return (
-    <Overlay>
-      <div className="backdrop drawer-backdrop" role="presentation" onClick={onClose} />
-      <aside className="drawer wide" role="dialog" aria-modal="true" aria-label="Доказательство">
-        <div className="dr-h">
-          <div className="min0">
-            <div className="eyebrow">{e ? `${e.kindName} · #${e.number}` : 'Доказательство'}</div>
-            <b className="dr-title">{e?.title ?? 'Загрузка…'}</b>
-            {e && <div className="mt6"><span className={`chip ${STATE_TONE[e.state]}`}>{e.stateName}</span>{e.archived && <span className="chip">в архиве</span>}</div>}
-          </div>
-          <button className="btn sm" type="button" onClick={onClose}>Закрыть</button>
-        </div>
-        <div className="dr-b">
+    <DetailPanel label="Доказательство" wide onClose={onClose} scrollKey={id}
+      eyebrow={e ? <>{e.kindName}, #{e.number}</> : 'Доказательство'}
+      title={e?.title ?? 'Загрузка…'}
+      badges={e ? <><span className={`chip ${STATE_TONE[e.state]}`}>{e.stateName}</span>{e.archived && <span className="chip">в архиве</span>}</> : undefined}>
           {ev.isError && <div className="form-error">{ev.error.message}</div>}
           {stale && (
             <div className="note conflict" role="alert">
@@ -154,7 +141,7 @@ export function EvidenceDrawer({ id, onClose }: { id: string; onClose: () => voi
 
               <div>
                 <div className="row sb mb6">
-                  <span className="eyebrow">Файлы · {e.fileList.length}</span>
+                  <span className="eyebrow">Файлы <span className="count">{e.fileList.length}</span></span>
                   {e.can.addFiles && mode === 'view' && <button className="btn sm" type="button" onClick={() => setMode('add')}>Добавить файл</button>}
                 </div>
                 {mode === 'add' && (
@@ -185,7 +172,7 @@ export function EvidenceDrawer({ id, onClose }: { id: string; onClose: () => voi
                 <div>
                   <div className="eyebrow">История</div>
                   <div className="hist">
-                    {e.history.map((h) => <div key={h.id}>{formatDateTime(h.at)} · {h.actor}: {h.summary}</div>)}
+                    {e.history.map((h) => <div key={h.id} className="hist-item"><div className="hist-meta"><b>{h.actor}</b><time>{formatDateTime(h.at)}</time></div><div>{h.summary}</div></div>)}
                   </div>
                 </div>
               )}
@@ -196,8 +183,6 @@ export function EvidenceDrawer({ id, onClose }: { id: string; onClose: () => voi
               )}
             </>
           )}
-        </div>
-      </aside>
-    </Overlay>
+    </DetailPanel>
   );
 }

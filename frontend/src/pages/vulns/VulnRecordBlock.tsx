@@ -17,7 +17,7 @@ export function VulnRecordBlock({ recordId, go }: { recordId: string; go: (v: Vu
   const base = d.deadline;
   return (
     <div className="grid-gap" data-testid="vuln-block">
-      <div className="eyebrow">Срок · {d.node.label}{d.cycle > 1 ? ` · цикл ${d.cycle}` : ''}</div>
+      <div className="eyebrow">Срок в узле «{d.node.label}»{d.cycle > 1 ? `, цикл ${d.cycle}` : ''}</div>
       <div className="v-dlbox">
         <div className="ln">
           <span>Базовый срок {base.source === 'legacy' ? '(из прежнего реестра)' : base.source === 'procedure' ? `(передача ИКТ + ${base.days ?? '?'} дн.)` : ''}</span>
@@ -45,7 +45,7 @@ export function VulnRecordBlock({ recordId, go }: { recordId: string; go: (v: Vu
       </div>
       {d.scans.length > 0 && (
         <>
-          <div className="eyebrow">Сканы{d.firstScanDate ? ` · впервые ${formatDate(d.firstScanDate)}` : ''}{d.lastScanDate ? ` · последний раз ${formatDate(d.lastScanDate)}` : ''}</div>
+          <div className="eyebrow">Сканы{d.firstScanDate ? `: впервые ${formatDate(d.firstScanDate)}` : ''}{d.lastScanDate ? `${d.firstScanDate ? ',' : ':'} последний раз ${formatDate(d.lastScanDate)}` : ''}</div>
           <div className="v-seen">
             {d.scans.map((s) => (
               <div key={s.id} className="row v-between">

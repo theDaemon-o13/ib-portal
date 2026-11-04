@@ -116,6 +116,11 @@ export function workloadOpen(stored: string | null, viewportWidth: number): bool
 }
 
 /** Общая задача (1.6.4): «Могут взять: Иванов И., Петров П. и ещё 3» — на карточке коротко, полный список — в подсказке. */
+/** Чип «Могут взять» на карточке (1.6.5): первое имя усекается, остальные — числом «+N»; полный список — в подсказке. */
+export function candidatesChip(list: readonly { fullName: string }[]): { first: string; more: number } {
+  return { first: list[0]?.fullName ?? '', more: Math.max(0, list.length - 1) };
+}
+
 export function candidatesLabel(list: readonly { fullName: string }[], max = 2): string {
   const names = list.map((c) => c.fullName);
   return names.length > max ? `${names.slice(0, max).join(', ')} и ещё ${names.length - max}` : names.join(', ');

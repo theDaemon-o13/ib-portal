@@ -162,7 +162,7 @@ describe('Доска задач', () => {
     await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent.startsWith(${JSON.stringify(category.value)}))`);
     const filtered = await ui.request(m2, 'GET', `categoryId=${category.id}`);
     assert.equal(filtered.status, 200);
-    await ui.waitFor(`document.querySelectorAll('article.card').length > 0 && [...document.querySelectorAll('article.card > .meta:nth-child(2) > span:first-child')].every((s) => s.textContent === ${JSON.stringify(`● ${category.value}`)})`, 'только выбранная категория');
+    await ui.waitFor(`document.querySelectorAll('article.card').length > 0 && [...document.querySelectorAll('article.card > .meta:nth-child(2) > span:first-child')].every((s) => s.textContent === ${JSON.stringify(category.value)})`, 'только выбранная категория');
   });
 });
 
@@ -478,7 +478,7 @@ describe('Задача из письма', () => {
     assert.equal(created.status, 201, created.body);
     assert.equal(created.json.mail.raw, raw, 'письмо уходит целиком');
     await ui.waitFor(`!${mailDrawer} && ${drawer}?.querySelector('.mailbox')?.textContent.includes('Исходное письмо')`, 'карточка новой задачи с письмом');
-    assert.match(await ui.text(`${drawer}.querySelector('.eyebrow')`), /Почта, из письма/);
+    assert.match(await ui.text(`${drawer}.querySelector('.dp-eyebrow')`), /Почта, из письма/);
     assert.match(await ui.text(`${drawer}.querySelector('.mailbox')`), /hr@example\.tj/);
   });
 });
