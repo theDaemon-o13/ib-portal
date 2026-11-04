@@ -4,7 +4,7 @@
 import { notifyServiceAction } from '../notifications/service.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { workUsersWhere } from '../../lib/work-users.js';
-import { withTx, type Db } from '../../lib/db.js';
+import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { toPage } from '../../lib/pagination.js';
@@ -146,6 +146,8 @@ export async function createUser(
     if (await tx.user.findUnique({ where: { login } })) throw conflict('DUPLICATE', `Логин ${login} уже занят`);
     const roles = await resolveRoles(tx, input.roleIds);
     const manager = input.managerId ? await checkManager(tx, null, input.managerId) : null;
+    // Ранняя проверка выше даёт понятное сообщение в обычном случае; одновременное создание с тем же логином
+    // проходит её у обоих — тогда второго останавливает уникальный индекс users_login_key: тоже 409, а не 500.
     const created = await tx.user.create({
       data: {
         login,
@@ -158,6 +160,9 @@ export async function createUser(
         roles: { create: roles.map((r) => ({ roleId: r.id, assignedBy: actor.id })) },
         ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
       },
+    }).catch((err: unknown) => {
+      if (isUniqueViolation(err)) throw conflict('DUPLICATE', `Логин ${login} уже занят`);
+      throw err;
     });
     await assertKioskExclusive(tx);
     await assertServiceExclusive(tx);

@@ -39,6 +39,21 @@ describe('создание пользователя', () => {
       await expectCode(users.createUser(tx, actor, argon2Hasher, { ...base, login: 'Иван' }), 'BAD_LOGIN');
       await expectCode(users.createUser(tx, actor, argon2Hasher, { ...base, login: 'ok.login', roleIds: ['00000000-0000-0000-0000-000000000000'] }), 'UNKNOWN_ROLE');
     }));
+
+  it('одновременное создание с тем же логином: второму — 409 DUPLICATE от уникального индекса, а не 500', () =>
+    inTx(async (tx) => {
+      const { admin, actor } = await setup(tx);
+      // Гонка: ранняя проверка «логин свободен» прошла, а строку с этим логином уже вставил конкурент.
+      // Подменяем только эту проверку — вставка упирается в настоящий индекс users_login_key.
+      const userRepo = new Proxy(tx.user, {
+        get: (target, key) => (key === 'findUnique' ? async () => null : Reflect.get(target, key)),
+      });
+      const racy = new Proxy(tx, { get: (target, key) => (key === 'user' ? userRepo : Reflect.get(target, key)) });
+      const base = { fullName: 'Х', position: '', department: '', roleIds: [] };
+      await expectCode(users.createUser(racy, actor, argon2Hasher, { ...base, login: admin.login }), 'DUPLICATE');
+      // Ошибка откатилась к точке сохранения: транзакция жива, второго пользователя с этим логином нет.
+      expect(await tx.user.count({ where: { login: admin.login } })).toBe(1);
+    }));
 });
 
 describe('сброс пароля, разблокировка, отключение', () => {
