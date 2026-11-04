@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
-import { cellString, isSpreadsheetML, parseSpreadsheetML, readSheets } from './spreadsheetml.js';
+import { cellString, isOle, isSpreadsheetML, isZip, parseSpreadsheetML, readSheets } from './spreadsheetml.js';
 
 const book = (body: string, prolog = '') => Buffer.from(
   `\uFEFF<?xml version="1.0"?>${prolog}<?mso-application progid="Excel.Sheet"?>`
@@ -54,5 +54,24 @@ describe('SpreadsheetML', () => {
     expect(sheets[0]?.rows[1]?.[0]).toBe('TEST-PC01NB');
     expect(cellString(sheets[0]?.rows[1]?.[1])).toBe('2026-10-01');
     await expect(readSheets(Buffer.from('просто текст'), 100)).rejects.toThrow(/Формат не распознан/);
+  });
+});
+
+describe('тип файла по содержимому (1.8.0)', () => {
+  const ole = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0]);
+  const zip = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0]);
+  it('OLE (двоичный .xls) — по сигнатуре, не по расширению', () => {
+    expect(isOle(ole)).toBe(true);
+    expect(isZip(ole)).toBe(false);
+    expect(isSpreadsheetML(ole)).toBe(false);
+  });
+  it('ZIP (.xlsx) — не OLE', () => {
+    expect(isZip(zip)).toBe(true);
+    expect(isOle(zip)).toBe(false);
+  });
+  it('короткий или пустой файл, начало сигнатуры — не OLE', () => {
+    expect(isOle(Buffer.alloc(0))).toBe(false);
+    expect(isOle(ole.subarray(0, 7))).toBe(false);
+    expect(isOle(book(''))).toBe(false);
   });
 });

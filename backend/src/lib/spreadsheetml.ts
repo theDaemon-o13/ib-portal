@@ -21,6 +21,15 @@ export function isSpreadsheetML(buf: Buffer): boolean {
   return head.startsWith('<?xml') && head.includes(SS_NS);
 }
 
+/**
+ * Двоичный Excel 97–2003 (BIFF8) — контейнер OLE: сигнатура D0 CF 11 E0 A1 B1 1A E1. Такие файлы портал не читает
+ * (релиз 1.8.0, решение владельца: SheetJS не подключаем) — адаптер отказывает понятным сообщением.
+ */
+const OLE_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+export function isOle(buf: Buffer): boolean {
+  return buf.length >= OLE_SIGNATURE.length && OLE_SIGNATURE.every((b, i) => buf[i] === b);
+}
+
 /** .xlsx — zip: сигнатура PK. */
 export function isZip(buf: Buffer): boolean {
   return buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b;
