@@ -202,7 +202,8 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
             <div className="row">
               <span className="process-now">Сейчас: <b>{t.status.value}</b></span>
               {t.actions.map((a) => (
-                <button key={a} className={`btn sm${a === 'return' ? '' : ' primary'}`} type="button" disabled={step.isPending || conflict} onClick={() => runStep(a)}>
+                // Пока не загружены колонки, неизвестно, нужен ли комментарий к шагу: без этого шаг ушёл бы без комментария.
+                <button key={a} className={`btn sm${a === 'return' ? '' : ' primary'}`} type="button" disabled={step.isPending || conflict || !statuses.isSuccess} onClick={() => runStep(a)}>
                   {ACTION_LABEL[a]}
                 </button>
               ))}

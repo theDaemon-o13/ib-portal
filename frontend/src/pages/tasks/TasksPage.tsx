@@ -219,7 +219,8 @@ export function TasksPage() {
   });
   // Шаг с карточки: без комментария — сразу; с обязательным комментарием и «Проверить» — открыть карточку.
   const onStep = (t: Task, a: ProcessAction | 'review') => {
-    if (a === 'review' || actionNeedsComment(cols, t, a)) openTask(t.id);
+    // Колонки ещё не загружены — неизвестно, нужен ли комментарий: открыть карточку, а не отправлять шаг без комментария.
+    if (a === 'review' || !statuses.isSuccess || actionNeedsComment(cols, t, a)) openTask(t.id);
     else step.mutate({ t, action: a });
   };
 

@@ -36,8 +36,10 @@ a{color:var(--accent-ink)}
 .nav a{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:11px;text-decoration:none;color:var(--fg);font-weight:500;font-size:13.5px;transition:background .18s}
 .nav a svg{color:var(--accent);width:18px;height:18px;flex:none}
 .nav a:hover{background:var(--hover)}
-.nav a[aria-current="page"]{background:var(--accent);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 14px var(--accent-soft)}
+/* Выбранный пункт меню, нажатый фильтр, главная кнопка монитора — заливка --accent-btn (1.6.6): белый текст 4,7:1 в обеих темах; наведение — темнее. */
+.nav a[aria-current="page"]{background:var(--accent-btn);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 14px var(--accent-soft)}
 .nav a[aria-current="page"] svg{color:currentColor}
+.nav a[aria-current="page"]:hover{background:var(--accent-btn);filter:brightness(.93)}
 .rail-foot{margin-top:auto;font-size:12px;color:var(--muted);padding:0 8px;display:grid;gap:8px}
 
 .me{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--fill-2)}
@@ -212,7 +214,8 @@ select.inp{appearance:auto}
 .filters{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
 .filters button{border:0;background:var(--fill);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:500;color:var(--fg);white-space:nowrap;flex:none;transition:background var(--dur-1)}
 .filters button:hover{background:var(--fill-2)}
-.filters button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.filters button[aria-pressed="true"]{background:var(--accent-btn);color:var(--accent-fg)}
+.filters button[aria-pressed="true"]:hover{background:var(--accent-btn);filter:brightness(.93)}
 .filters button:disabled{opacity:.75}
 
 .field-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;align-items:end;padding:14px 18px;border-top:1px solid var(--line);background:var(--fill-2);border-radius:0 0 var(--r-lg) var(--r-lg)}
@@ -461,7 +464,8 @@ table.recs tr.archived td{color:var(--faint)}
 
 /* ---------- этап 5: задачи ---------- */
 .nav-n{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--crit);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
-.nav a[aria-current="page"] .nav-n{background:#fff;color:var(--crit)}
+/* Бейдж на выбранном пункте: белый фон, красный текст — #D70015 в обеих темах (5,4:1; #FF453A на белом — 3,4:1). */
+.nav a[aria-current="page"] .nav-n{background:#fff;color:#D70015}
 .tasks-grid{display:grid;grid-template-columns:minmax(0,1fr) clamp(240px,22vw,304px);gap:12px;align-items:start}
 .tasks-grid > .grid-gap{position:sticky;top:var(--sticky-top)}
 .tasks-grid.wide{grid-template-columns:minmax(0,1fr)}
@@ -566,7 +570,7 @@ textarea.mail-raw{min-height:150px}
 .tone-accent{color:var(--accent-ink)}.w600{font-weight:600}
 .hist-item.returned{color:var(--fg)}
 .nav-n.acc{background:var(--accent)}
-.nav a[aria-current="page"] .nav-n.acc{color:var(--accent)}
+.nav a[aria-current="page"] .nav-n.acc{color:var(--accent-btn)}
 .nav-n + .nav-n{margin-left:4px}
 @media (max-width:1180px){.w4,.w8{grid-column:span 12}}
 @media (max-width:560px){.docs-search{max-width:none}}
@@ -759,8 +763,8 @@ a.btn svg{width:16px;height:16px}
 .mon-ctl button:hover{background:var(--hover)}
 .mon-ctl button:active{transform:scale(.92)}
 .mon-ctl button svg{width:20px;height:20px}
-.mon-ctl button.main{background:var(--accent);color:var(--accent-fg);box-shadow:0 4px 14px var(--accent-soft)}
-.mon-ctl button.main:hover{filter:brightness(1.08);background:var(--accent)}
+.mon-ctl button.main{background:var(--accent-btn);color:var(--accent-fg);box-shadow:0 4px 14px var(--accent-soft)}
+.mon-ctl button.main:hover{filter:brightness(.93);background:var(--accent-btn)}
 .mon-ctl button.x:hover{background:var(--crit-soft);color:var(--crit)}
 .mon-ctl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mon-pg{display:grid;gap:5px;justify-items:center;padding:0 10px;font-size:12px;color:var(--muted)}
@@ -917,16 +921,20 @@ button.st-row:not(:disabled){cursor:pointer}
 .chip-scroll.fade-start{--fade-l:28px}
 .chip-scroll.fade-end{--fade-r:28px}
 .filters button .mono{color:var(--muted);margin-left:2px}
-.filters button[aria-pressed="true"] .mono{color:inherit;opacity:.8}
+.filters button[aria-pressed="true"] .mono{color:inherit}
 
 /* «Список + детали»: список слева, карточка справа фиксированной гибкой ширины; ниже 1180 px — карточка выезжает (DetailPanel). */
 .ld{grid-template-columns:minmax(0,1fr) var(--detail-w)}
 .ld > .w8,.ld > .w4{grid-column:auto}
 .ld-list{container-type:inline-size}
 @media (max-width:1180px){.ld{grid-template-columns:minmax(0,1fr)}}
-/* Узкий реестр документов: владелец и дата утверждения — в карточке справа. */
-@container (max-width:700px){
-  .docs-tbl th:nth-child(2),.docs-tbl td:nth-child(2),.docs-tbl th:nth-child(4),.docs-tbl td:nth-child(4){display:none}
+/* Узкий реестр документов (≤760 px: 1024–1440 px окна): владелец, версия и дата утверждения — в карточке документа;
+   «Статус» остаётся колонкой и виден без прокрутки таблицы вбок (1.6.6, вариант B). На ≤1180 px карточка открывается выбором строки. */
+@container (max-width:760px){
+  .docs-tbl th:nth-child(2),.docs-tbl td:nth-child(2),.docs-tbl th:nth-child(3),.docs-tbl td:nth-child(3),.docs-tbl th:nth-child(4),.docs-tbl td:nth-child(4){display:none}
+  .docs-tbl th,.docs-tbl td{padding-inline:10px}
+  .docs-tbl td:nth-child(6){max-width:15ch}
+  .docs-tbl .route .link{width:6px}
 }
 /* Переносятся слова, а не буквы: длинное слово без пробелов (имя файла, логин) — с переносом по символам. */
 .docs-tbl td{overflow-wrap:break-word}
