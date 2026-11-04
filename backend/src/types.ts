@@ -13,6 +13,8 @@ export interface AuthUser {
   roleNames: readonly string[];
   /** Учётная запись настенного монитора (право monitor.kiosk): только маршруты с config.kiosk. */
   kiosk: boolean;
+  /** Служебная учётная запись «Администратор портала» (1.8.0, ADR-0036): только маршруты с config.service. */
+  service: boolean;
 }
 
 declare module 'fastify' {
@@ -23,6 +25,8 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     /** Маршрут доступен без входа. Ставится явно и только для health, login и openapi. */
     public?: boolean;
+    /** Маршрут открыт служебной учётной записи (ADR-0036): вход, настройки, пользователи и роли, справочники. */
+    service?: boolean;
     /** Маршрут доступен настенному монитору (право monitor.kiosk). Остальные маршруты отвечают ему 403. */
     kiosk?: boolean;
   }

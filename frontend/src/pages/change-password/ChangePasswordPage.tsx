@@ -30,7 +30,7 @@ export function ChangePasswordPage({ me }: { me: Me }) {
     mutationFn: authApi.changePassword,
     onSuccess: ({ user }) => {
       setMe(user);
-      navigate(homePath(user.permissions), { replace: true });
+      navigate(homePath(user.permissions, user.service), { replace: true });
     },
   });
   const logout = useMutation({

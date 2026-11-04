@@ -1,6 +1,7 @@
 // Иерархия пользователей (релиз 1.2.0, ADR-0020): у пользователя один руководитель (users.manager_id),
 // «старшие» — вся цепочка руководителей выше. Цикл запрещён триггером users_manager_no_cycle и проверкой в users.
 import type { Db } from './db.js';
+import { workUsersWhere } from './work-users.js';
 
 /** Предел глубины, как в триггере: защищает запрос, даже если данные повреждены. */
 const MAX_DEPTH = 100;
@@ -46,7 +47,7 @@ export async function reviewerFor(db: Db, assigneeId: string): Promise<{ id: str
   const seniors = await seniorIdsOf(db, assigneeId);
   if (!seniors.length) return null;
   const ok = await db.user.findMany({
-    where: { id: { in: seniors }, isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
+    where: { id: { in: seniors }, ...workUsersWhere() },
     select: { id: true, fullName: true },
   });
   for (const id of seniors) {

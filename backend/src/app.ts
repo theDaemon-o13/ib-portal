@@ -103,17 +103,25 @@ export async function buildApp(deps: AppDeps) {
   installAuth(base, auth, deps.portalUrl);
 
   await app.register(healthRoutes, { prefix: '/api', ping: () => deps.repo.ping() });
-  await app.register(authRoutes, { prefix: '/api/v1/auth', auth });
-  await app.register(catalogRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(notificationRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(attentionRoutes, { prefix: '/api/v1', db: deps.db });
+  // Модули, открытые служебной учётной записи «Администратор портала» (1.8.0, ADR-0036): их маршруты получают
+  // config.service; всё остальное ей закрыто (403 SERVICE_ACCOUNT, plugins/rbac.ts). Права внутри — как у всех.
+  await app.register(async (open) => {
+    open.addHook('onRoute', (route) => {
+      route.config = { ...(route.config ?? {}), service: true } as typeof route.config;
+    });
+    await open.register(authRoutes, { prefix: '/api/v1/auth', auth });
+    await open.register(catalogRoutes, { prefix: '/api/v1', db: deps.db });
+    await open.register(notificationRoutes, { prefix: '/api/v1', db: deps.db });
+    await open.register(attentionRoutes, { prefix: '/api/v1', db: deps.db });
+    await open.register(calendarRoutes, { prefix: '/api/v1', db: deps.db });
+    await open.register(formTemplateRoutes, { prefix: '/api/v1', db: deps.db });
+    await open.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });
+    await open.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
+    await open.register(presentationRoutes, { prefix: '/api/v1', db: deps.db });
+  });
   await app.register(assetRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(portalParamRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(partyDirectoryRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(calendarRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(formTemplateRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });
-  await app.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(journalRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(auditRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(registerRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
@@ -123,7 +131,6 @@ export async function buildApp(deps: AppDeps) {
   await app.register(chainRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db, docUrlPrefix: deps.docUrlPrefix ?? '' });
   await app.register(assessmentRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(presentationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(fileRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(searchRoutes, { prefix: '/api/v1', db: deps.db });

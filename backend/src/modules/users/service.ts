@@ -1,7 +1,9 @@
 // Пользователи портала (docs/concept.md, раздел 9): создание, роли, отключение, сброс пароля.
 // Временный пароль генерируется системой, возвращается администратору один раз и нигде
 // не хранится в открытом виде: ни в БД, ни в журнале аудита, ни в логах.
+import { notifyServiceAction } from '../notifications/service.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { seniorIdsOf } from '../../lib/hierarchy.js';
@@ -11,7 +13,7 @@ import { isRetiredRole } from '../../lib/permissions.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
-import { assertIbHeadValid, assertKioskExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
+import { assertIbHeadValid, assertKioskExclusive, assertServiceExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { reassignReviewsOf } from '../tasks/reviewer.js';
 import { syncAllStageTasks } from '../documents/service.js';
@@ -73,7 +75,8 @@ export async function listUsers(db: Db, q: { limit: number; cursor?: string; sea
 }
 
 /** Для списков выбора ответственного: активные сотрудники ИБ. */
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 /**
  * Активные пользователи для выбора. scope 'ib' — сотрудники ИБ (ответственные, участники меток);
@@ -81,8 +84,8 @@ const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode
  */
 export async function userOptions(db: Db, scope: 'ib' | 'all' = 'ib') {
   const [users, ib] = await Promise.all([
-    db.user.findMany({ where: { isActive: true, ...(scope === 'ib' ? IB_WORK : {}) }, select: { id: true, login: true, fullName: true }, orderBy: { fullName: 'asc' } }),
-    scope === 'ib' ? Promise.resolve(null) : db.user.findMany({ where: { isActive: true, ...IB_WORK }, select: { id: true } }),
+    db.user.findMany({ where: workUsersWhere({ ibWork: scope === 'ib' }), select: { id: true, login: true, fullName: true }, orderBy: { fullName: 'asc' } }),
+    scope === 'ib' ? Promise.resolve(null) : db.user.findMany({ where: WORK_USER, select: { id: true } }),
   ]);
   const ibIds = ib ? new Set(ib.map((u) => u.id)) : null;
   return users.map((u) => ({ ...u, ibWork: ibIds ? ibIds.has(u.id) : true }));
@@ -99,8 +102,9 @@ async function resolveRoles(db: Db, roleIds: readonly string[]) {
 
 const roleList = (roles: { name: string }[]) => (roles.length ? roles.map((r) => `«${r.name}»`).join(', ') : 'нет');
 
+/** Роль сотрудника ИБ (не служебный, с ib.work) — без условия «активный»: правка отключённого не снимает его руководителя. */
 async function hasIbWork(db: Db, userId: string): Promise<boolean> {
-  return (await db.user.count({ where: { id: userId, ...IB_WORK } })) > 0;
+  return (await db.user.count({ where: { id: userId, ...workUsersWhere({ active: false }) } })) > 0;
 }
 
 const who = (u: { fullName: string; login: string } | null) => (u ? `${u.fullName} (${u.login})` : '—');
@@ -156,6 +160,7 @@ export async function createUser(
       },
     });
     await assertKioskExclusive(tx);
+    await assertServiceExclusive(tx);
     if (manager && !(await hasIbWork(tx, created.id))) {
       throw conflict('SUBORDINATE_NOT_IB', 'Руководителя можно указать только сотруднику с доступом к разделам ИБ');
     }
@@ -169,6 +174,8 @@ export async function createUser(
         manager: manager ? who(manager) : null,
       },
     });
+    // Служебный администратор выдал роли новому пользователю — держателям «Журнала действий» (ADR-0036).
+    if (roles.length) await notifyServiceAction(tx, actor.id, `заведён ${fullName} (${login}) с ролями ${roleList(roles)}`);
     return getUser(tx, created.id);
   });
   return { user: toDto(user), temporaryPassword };
@@ -242,6 +249,7 @@ export async function updateUser(
     // Снятие роли не должно лишить себя или всех пользователей права users.manage.
     await assertUsersManageKept(tx, actor.id);
     await assertKioskExclusive(tx);
+    await assertServiceExclusive(tx);
     await assertIbHeadValid(tx);
     await auditSettings(tx, actor, {
       action: 'user.updated',
@@ -259,6 +267,8 @@ export async function updateUser(
     });
     // Сменились роли (доступ к разделам ИБ) — задачи этапов документов (1.6.3).
     if (afterRoles !== beforeRoles) await syncAllStageTasks(tx);
+    // Служебный администратор назначил или снял роль — держателям «Журнала действий» (ADR-0036).
+    if (afterRoles !== beforeRoles) await notifyServiceAction(tx, actor.id, `роли ${u.fullName} (${u.login}): ${roleList(beforeRoles)} → ${roleList(afterRoles)}`);
     return toDto(await getUser(tx, id));
   });
 }
@@ -374,6 +384,8 @@ export async function resetPassword(db: Db, actor: Actor, hasher: PasswordHasher
       entityId: id,
       summary: `Пользователи: сброшен пароль ${u.fullName} (${u.login}), при входе потребуется смена`,
     });
+    // Сброс пароля служебным администратором — возможность войти под чужой учётной записью (ADR-0036).
+    await notifyServiceAction(tx, actor.id, `сброшен пароль ${u.fullName} (${u.login})`);
     return getUser(tx, id);
   });
   return { user: toDto(user), temporaryPassword };

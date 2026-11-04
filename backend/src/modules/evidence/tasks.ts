@@ -3,6 +3,7 @@
 // Одна открытая задача на (доказательство, причина, ответственный) — индекс tasks_evidence_open_uq; повтор — комментарий.
 // Пользователям без ib.work задачи не ставятся: тогда задача без ответственного.
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import type { Db } from '../../lib/db.js';
 import { notifyAssignee } from '../notifications/service.js';
 import { initialStatusId, recordTransition, statusIdOf } from '../tasks/flow.js';
@@ -10,7 +11,8 @@ import { systemItemId, TITLE_MAX } from '../tasks/service.js';
 
 export type EvidenceTaskReason = 'rejected' | 'expiring';
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 export interface EvidenceTaskInput {
   evidenceId: string;
@@ -28,7 +30,7 @@ export interface EvidenceTaskInput {
 
 export async function evidenceTask(tx: Db, input: EvidenceTaskInput): Promise<{ taskId: string; action: 'created' | 'commented' }> {
   const ev = await tx.evidence.findUniqueOrThrow({ where: { id: input.evidenceId }, select: { number: true } });
-  const user = await tx.user.findFirst({ where: { id: input.userId, isActive: true, ...IB_WORK }, select: { id: true } });
+  const user = await tx.user.findFirst({ where: { id: input.userId, ...WORK_USER }, select: { id: true } });
   const assigneeId = user?.id ?? null;
   const open = await tx.task.findFirst({
     where: { evidenceId: input.evidenceId, evidenceReason: input.reason, assigneeId, completedAt: null, archivedAt: null, deletedAt: null },

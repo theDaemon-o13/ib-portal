@@ -23,6 +23,8 @@ export const Me = z.object({
   permissions: z.array(z.enum(PERMISSION_CODES as [PermissionCode, ...PermissionCode[]])),
   /** Настенный монитор: интерфейс показывает только /monitor. */
   kiosk: z.boolean(),
+  /** Служебная учётная запись «Администратор портала» (ADR-0036): интерфейс показывает только «Настройки». */
+  service: z.boolean(),
 });
 
 export const MeResponse = z.object({ user: Me });
@@ -37,5 +39,6 @@ export function toMe(user: AuthUser): z.infer<typeof Me> {
     roles: [...user.roleNames],
     permissions: [...user.permissions],
     kiosk: user.kiosk,
+    service: user.service,
   };
 }

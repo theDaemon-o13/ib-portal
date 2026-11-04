@@ -43,7 +43,7 @@ export function MonitorRoute() {
     <RequireUser>
       {(me) => (me.mustChangePassword ? <Navigate to="/change-password" replace />
         : canSee(MONITOR, me.permissions) ? <MonitorPage me={me} />
-          : <Navigate to={homePath(me.permissions)} replace />)}
+          : <Navigate to={homePath(me.permissions, me.service)} replace />)}
     </RequireUser>
   );
 }
@@ -51,11 +51,11 @@ export function MonitorRoute() {
 /** Раздел без нужного права не открывается и по прямой ссылке. Решает всё равно backend. */
 export function Section({ item, children }: { item: NavItem; children: ReactNode }) {
   const me = useOutletContext<Me>();
-  if (!canSee(item, me.permissions)) return <Navigate to={homePath(me.permissions)} replace />;
+  if (!canSee(item, me.permissions, me.service)) return <Navigate to={homePath(me.permissions, me.service)} replace />;
   return <>{children}</>;
 }
 
 export function HomeRedirect() {
   const me = useOutletContext<Me>();
-  return <Navigate to={homePath(me.permissions)} replace />;
+  return <Navigate to={homePath(me.permissions, me.service)} replace />;
 }

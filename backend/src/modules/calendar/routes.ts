@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -21,7 +21,7 @@ const IdParams = z.object({ id: z.string().uuid() });
 
 export const calendarRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get('/calendar/week', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'settings.manage']),  // служебный администратор (ADR-0036)
     schema: { tags, summary: 'Выходные дни недели', response: { 200: WorkWeek, ...errors } },
   }, async () => svc.getWorkWeek(db));
 
@@ -36,7 +36,7 @@ export const calendarRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
   }, async (request) => svc.setWorkWeek(db, actorOf(request), request.body));
 
   app.get('/calendar/days', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'settings.manage']),  // служебный администратор (ADR-0036)
     schema: {
       tags,
       summary: 'Праздники и переносы за год',

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { TONES } from '../../lib/tones.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
+import { requireAllPerms, requireAnyPerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import type { DashboardCache } from '../dashboard/cache.js';
 import { Kpi, WidgetData } from '../dashboard/routes.js';
@@ -71,7 +71,8 @@ export const monitorRoutes: FastifyPluginAsyncZod<{ db: Db; cache: DashboardCach
   });
 
   // ------------------------------------------------------------ настройка слайдов (settings.manage, ADR-0019)
-  const manage = requirePerm('settings.manage');
+  // Слайды ссылаются на реестры, поля и KPI — данные банка: settings.manage и ib.work (1.8.0, ADR-0036).
+  const manage = requireAllPerms(['settings.manage', 'ib.work']);
   // Правка слайдов — экран видит её при следующем обновлении (кэш сбрасывается сразу).
   const changed = <T>(v: T): T => {
     cache.invalidate('monitor');

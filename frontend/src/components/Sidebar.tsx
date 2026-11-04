@@ -22,6 +22,8 @@ export function Sidebar({ me }: { me: Me }) {
   const attention = useAttention(!isKiosk(me.permissions));
   const reviewing = attention.data?.tasks ?? 0;
   const waiting = attention.data?.documents ?? 0;
+  // Действия служебного администратора с доступом (1.8.0, ADR-0036) — держателям «Журнала действий».
+  const serviceActions = attention.data?.audit ?? 0;
   // Доказательства на проверке — тем, кто их проверяет.
   const ev = useQuery({ queryKey: ekeys.summary, queryFn: evidenceApi.summary, enabled: me.permissions.includes('evidence.review'), refetchInterval: 60_000 });
   const pendingEvidence = ev.data?.pending ?? 0;
@@ -39,8 +41,8 @@ export function Sidebar({ me }: { me: Me }) {
         <Brand />
         {!isKiosk(me.permissions) && <NotificationBell />}
       </div>
-      {/* Поиск — всем, кроме монитора (1.2.0): что видно, решает backend. */}
-      {!isKiosk(me.permissions) && (
+      {/* Поиск — всем, кроме монитора (1.2.0) и служебной учётной записи (ADR-0036): что видно, решает backend. */}
+      {!isKiosk(me.permissions) && !me.service && (
         <form className="rail-search" role="search" onSubmit={(e) => {
           e.preventDefault();
           const q = new FormData(e.currentTarget).get('q')?.toString().trim() ?? '';
@@ -50,7 +52,7 @@ export function Sidebar({ me }: { me: Me }) {
         </form>
       )}
       <nav className="nav" aria-label="Разделы">
-        {visibleNav(me.permissions).map((item) => (
+        {visibleNav(me.permissions, me.service).map((item) => (
           <NavLink key={item.path} to={item.path}>
             <Icon name={item.icon} />
             <span>{item.title}</span>
@@ -59,6 +61,10 @@ export function Sidebar({ me }: { me: Me }) {
             )}
             {item.path === '/documents' && waiting > 0 && (
               <span className="nav-n acc" data-testid="nav-docs-n" title={`Ждут вас: ${waiting}`} aria-label={`ждут вас: ${waiting}`}>{waiting}</span>
+            )}
+            {item.path === '/audit' && serviceActions > 0 && (
+              <span className="nav-n acc" data-testid="nav-audit-n" title={`Действия служебного администратора с доступом: ${serviceActions}`}
+                aria-label={`действия служебного администратора: ${serviceActions}`}>{serviceActions}</span>
             )}
             {item.path === '/evidence' && pendingEvidence > 0 && (
               <span className="nav-n acc" title={`На проверке: ${pendingEvidence}`} aria-label={`доказательств на проверке: ${pendingEvidence}`}>{pendingEvidence}</span>

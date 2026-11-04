@@ -4,6 +4,7 @@
 import type { Db } from '../../lib/db.js';
 import { AppError } from '../../lib/errors.js';
 import { addDaysIso, todayIso } from '../../lib/today.js';
+import { isServiceUser } from '../../lib/work-users.js';
 
 export const NOTIFICATION_KINDS = [
   'task_assigned', 'task_unassigned', 'task_submitted', 'task_returned', 'task_accepted', 'task_completed', 'task_moved', 'task_commented',
@@ -12,6 +13,9 @@ export const NOTIFICATION_KINDS = [
   'doc_waiting', 'doc_translation', 'doc_returned', 'doc_commented', 'doc_deadline_changed', 'doc_party_due_tomorrow', 'doc_party_overdue',
   // Самооценка (этап Д, правило 11): «Пора провести самооценку»; ссылка — по виду уведомления.
   'assessment_reminder',
+  // Служебный администратор (1.8.0, ADR-0036) назначил или снял роль, изменил права роли, сбросил пароль — держателям
+  // audit.view; ссылка — журнал по этому пользователю; считается в индикаторе /me/attention.
+  'service_admin_action',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -49,6 +53,28 @@ export async function notify(db: Db, n: NotifyInput): Promise<number> {
     skipDuplicates: true,
   });
   return res.count;
+}
+
+// ---------------------------------------------------------------- служебная учётная запись (ADR-0036)
+
+/**
+ * Действие служебной учётной записи с доступом (роль назначена или снята, права роли изменены, пароль сброшен):
+ * запретом это не закрыть — только видимостью. Держатели audit.view получают уведомление со ссылкой на журнал,
+ * оно считается в индикаторе. Действие обычного пользователя — ничего. В той же транзакции, что и действие.
+ */
+export async function notifyServiceAction(db: Db, actorId: string, title: string, body = ''): Promise<number> {
+  if (!(await isServiceUser(db, actorId))) return 0;
+  const auditors = await db.user.findMany({
+    where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'audit.view' } } } } } },
+    select: { id: true },
+  });
+  const who = await nameOf(db, actorId);
+  return notify(db, { kind: 'service_admin_action', to: auditors.map((u) => u.id), actorId, title: `Служебный администратор ${who}: ${title}`, body });
+}
+
+/** Непрочитанные записи о действиях служебного администратора — для индикатора держателя audit.view. */
+export async function serviceActionsUnread(db: Db, userId: string): Promise<number> {
+  return db.notification.count({ where: { userId, kind: 'service_admin_action', readAt: null } });
 }
 
 // ---------------------------------------------------------------- события задач
@@ -237,6 +263,7 @@ export async function listNotifications(db: Db, userId: string, q: { unread?: bo
       /** Куда ведёт щелчок: задача (если не удалена) или доска с фильтром «просрочено» у сводного. */
       link: n.kind === 'task_overdue_summary' ? OVERDUE_BOARD_LINK
         : n.kind === 'assessment_reminder' ? ASSESSMENT_LINK
+        : n.kind === 'service_admin_action' ? (n.actorId ? `/audit?userId=${n.actorId}` : '/audit')
         : n.task && !n.task.deletedAt ? `/tasks?task=${n.task.id}`
           : n.document && !n.document.deletedAt ? `/documents?doc=${n.document.id}` : null,
     })),

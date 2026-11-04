@@ -3,6 +3,7 @@
 // Проверяется после изменения внутри той же транзакции: при нарушении изменение откатывается.
 // Одно правило на все пути: снятие права у роли, снятие роли у пользователя,
 // отключение пользователя, удаление роли.
+import { SERVICE_ROLE_CODE } from '../../lib/work-users.js';
 import type { Db } from '../../lib/db.js';
 import { conflict } from '../../lib/errors.js';
 import { KIOSK_PERMISSION } from '../../lib/permissions.js';
@@ -59,6 +60,26 @@ export async function assertKioskExclusive(tx: Db): Promise<void> {
     throw conflict(
       'KIOSK_EXCLUSIVE',
       `Учётная запись настенного монитора не получает других ролей (${mixedUsers[0]?.full_name}). Для работы в портале заведите отдельного пользователя`,
+    );
+  }
+}
+
+/** Служебная роль «Администратор портала» не меняется: название, описание и права фиксированы (ADR-0036). */
+export const serviceRoleLocked = () => conflict('SERVICE_ROLE_LOCKED', 'Служебная роль «Администратор портала» не меняется: её название и права фиксированы');
+
+/**
+ * Служебная учётная запись не получает других ролей, и наоборот (ADR-0036). Проверяется после изменения ролей
+ * пользователя, в той же транзакции.
+ */
+export async function assertServiceExclusive(tx: Db): Promise<void> {
+  const mixed = await tx.$queryRaw<{ full_name: string }[]>`
+    SELECT u.full_name FROM users u JOIN user_roles ur ON ur.user_id = u.id
+    GROUP BY u.id, u.full_name
+    HAVING count(*) > 1 AND bool_or(EXISTS (SELECT 1 FROM roles r WHERE r.id = ur.role_id AND r.code = ${SERVICE_ROLE_CODE}))`;
+  if (mixed.length) {
+    throw conflict(
+      'SERVICE_ROLE_EXCLUSIVE',
+      `Служебная учётная запись не получает других ролей (${mixed[0]?.full_name}). Для работы в портале заведите отдельного пользователя`,
     );
   }
 }

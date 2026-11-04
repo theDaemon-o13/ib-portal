@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { TONES } from '../../lib/tones.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAllPerms, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import type { DashboardCache } from './cache.js';
 import * as layout from './layout.service.js';
@@ -83,7 +83,8 @@ export const dashboardRoutes: FastifyPluginAsyncZod<{ db: Db; cache: DashboardCa
   });
   const RoleLayout = z.object({ role: z.object({ id: z.string(), name: z.string() }), version: z.number().int(), custom: z.boolean(), items: z.array(Item) });
   const LayoutIn = z.object({ version: z.number().int().min(0), items: z.array(Item).max(500) });
-  const settingsManage = requirePerm('settings.manage');
+  // Раскладки ролей показывают виджеты реестров — данные банка: settings.manage и ib.work (1.8.0, ADR-0036).
+  const settingsManage = requireAllPerms(['settings.manage', 'ib.work']);
   const permsOf = (request: { user?: { permissions: ReadonlySet<string> } | null }) => request.user?.permissions ?? new Set<string>();
 
   app.get('/dashboard/layout', {

@@ -1,11 +1,13 @@
 // Роли и матрица «право × роль» (CLAUDE.md, раздел 5).
+import { notifyServiceAction } from '../notifications/service.js';
+import { SERVICE_ROLE_CODE } from '../../lib/work-users.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import {
   APPROVAL_PERMISSIONS, ASSESSMENT_PERMISSION, ASSESSMENT_ROLE, KIOSK_PERMISSION, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
 } from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
-import { assertIbHeadValid, assertKioskExclusive, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
+import { assertIbHeadValid, assertKioskExclusive, assertServiceExclusive, serviceRoleLocked, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
 
 /** Коды прав из кода; строки прав до 1.2.0 (юрист, правление) остаются в БД до 1.3.0, в матрице их нет. */
 export async function listPermissions(db: Db) {
@@ -30,12 +32,17 @@ function toDto(r: {
     version: r.version,
     permissions: r.permissions.map((p) => p.permissionCode).filter(isPermissionCode),
     /** Права, которые у этой роли снять нельзя. */
-    lockedPermissions: r.code === 'super_admin' ? [...SUPER_ADMIN_LOCKED] : r.code === ASSESSMENT_ROLE ? [ASSESSMENT_PERMISSION] : [],
+    lockedPermissions: r.code === 'super_admin' ? [...SUPER_ADMIN_LOCKED] : r.code === ASSESSMENT_ROLE ? [ASSESSMENT_PERMISSION]
+      : r.code === SERVICE_ROLE_CODE ? r.permissions.map((p) => p.permissionCode).filter(isPermissionCode) : [],
     /** Права, которые этой роли выдать нельзя: согласование — супер-администратору; самооценка — никому, кроме своей роли. */
     forbiddenPermissions: [
       ...(r.code === 'super_admin' ? APPROVAL_PERMISSIONS : []),
       ...(r.code === ASSESSMENT_ROLE ? [] : [ASSESSMENT_PERMISSION]),
+      // Служебная роль (ADR-0036): состав прав фиксирован — выдать ей ничего нельзя.
+      ...(r.code === SERVICE_ROLE_CODE ? PERMISSION_CODES.filter((c) => !r.permissions.some((p) => p.permissionCode === c)) : []),
     ],
+    /** Служебная роль: не совмещается с другими, не меняется (ADR-0036). */
+    service: r.code === SERVICE_ROLE_CODE,
     activeUserCount: r.users.filter((u) => u.user.isActive).length,
     userCount: r.users.length,
   };
@@ -88,6 +95,7 @@ export async function updateRole(db: Db, actor: Actor, id: string, input: { vers
     const name = input.name !== undefined ? trimmed(input.name) : r.name;
     const description = input.description !== undefined ? trimmed(input.description) : r.description;
     if (!name) throw badRequest('EMPTY_NAME', 'Укажите название роли');
+    if (r.code === SERVICE_ROLE_CODE && (name !== r.name || description !== r.description)) throw serviceRoleLocked();
     if (name === r.name && description === r.description) {
       if (input.version !== r.version) throw versionConflict();
       return toDto(r);
@@ -139,6 +147,8 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     const r = await getRole(tx, roleId);
     const has = r.permissions.some((p) => p.permissionCode === perm);
     if (has === granted) return toDto(r);
+    // Служебная роль (ADR-0036): состав прав фиксирован — иначе, например, ib.work открыл бы ей данные банка.
+    if (r.code === SERVICE_ROLE_CODE) throw serviceRoleLocked();
     if (r.code === 'super_admin' && !granted && SUPER_ADMIN_LOCKED.includes(perm)) {
       throw conflict('LOCKED_PERMISSION', 'У роли «Супер-администратор» это право не снимается');
     }
@@ -160,6 +170,7 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     await tx.role.update({ where: { id: roleId }, data: { version: { increment: 1 } } });
     if (!granted) await assertUsersManageKept(tx, actor.id);
     if (granted) await assertKioskExclusive(tx);
+    await assertServiceExclusive(tx);
     await assertIbHeadValid(tx);
     // Сняли право «Настенный монитор» с роли — 7-суточные сессии её пользователей закрываются (ADR-0012).
     let closed = 0;
@@ -175,6 +186,8 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
       summary: `Роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»${closed ? `, закрыто сессий монитора: ${closed}` : ''}`,
       after: { permission: perm, granted, ...(closed ? { sessionsClosed: closed } : {}) },
     });
+    // Служебный администратор изменил права роли — держателям «Журнала действий» (ADR-0036).
+    await notifyServiceAction(tx, actor.id, `роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»`);
     return toDto(await getRole(tx, roleId));
   });
 }

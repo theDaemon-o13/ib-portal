@@ -7,6 +7,7 @@
 import type { Db } from '../../lib/db.js';
 import { todayIso } from '../../lib/today.js';
 import { accessOf, documentSummary } from '../documents/service.js';
+import { serviceActionsUnread } from '../notifications/service.js';
 import type { TaskActor } from '../tasks/flow.js';
 import { withActions } from '../tasks/process.js';
 import { taskInclude, toTaskDto } from '../tasks/service.js';
@@ -27,6 +28,11 @@ export async function tasksWaiting(db: Db, actor: TaskActor): Promise<number> {
 }
 
 export async function attentionOf(db: Db, actor: TaskActor) {
-  const [tasks, docs] = await Promise.all([tasksWaiting(db, actor), documentSummary(db, await accessOf(db, actor.id))]);
-  return { tasks, documents: docs.waitingForMe, total: tasks + docs.waitingForMe };
+  const [tasks, docs, audit] = await Promise.all([
+    tasksWaiting(db, actor),
+    documentSummary(db, await accessOf(db, actor.id)),
+    // Действия служебного администратора с доступом (ADR-0036) — только держателям audit.view.
+    actor.perms.has('audit.view') ? serviceActionsUnread(db, actor.id) : Promise.resolve(0),
+  ]);
+  return { tasks, documents: docs.waitingForMe, audit, total: tasks + docs.waitingForMe + audit };
 }

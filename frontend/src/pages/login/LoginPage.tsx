@@ -46,13 +46,13 @@ export function LoginPage() {
       saveRememberedLogin(storage(), user.login, remember);
       setMe(user);
       if (user.mustChangePassword) navigate('/change-password', { replace: true });
-      else navigate(safeReturnPath(from) ?? homePath(user.permissions), { replace: true });
+      else navigate(safeReturnPath(from) ?? homePath(user.permissions, user.service), { replace: true });
     },
     onError: () => setPassword(''),
   });
 
   if (me && !mutation.isPending) {
-    return <Navigate to={me.mustChangePassword ? '/change-password' : safeReturnPath(from) ?? homePath(me.permissions)} replace />;
+    return <Navigate to={me.mustChangePassword ? '/change-password' : safeReturnPath(from) ?? homePath(me.permissions, me.service)} replace />;
   }
 
   const submit = (e: FormEvent) => {

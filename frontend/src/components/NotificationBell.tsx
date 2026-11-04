@@ -77,7 +77,7 @@ export function NotificationBell() {
     <div className="bell-wrap" ref={box}>
       <button type="button" className={`bell${waiting ? ' has' : ''}`} aria-haspopup="dialog" aria-expanded={open}
         aria-label={waiting ? `Уведомления; ждут вашего действия: ${waiting}` : 'Уведомления'}
-        title={attention.data && waiting ? `Ждут вашего действия: задачи на проверке — ${attention.data.tasks}, документы — ${attention.data.documents}` : undefined}
+        title={attention.data && waiting ? `Ждут вашего действия: задачи на проверке — ${attention.data.tasks}, документы — ${attention.data.documents}${attention.data.audit ? `, действия служебного администратора — ${attention.data.audit}` : ''}` : undefined}
         onClick={() => setOpen((v) => !v)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
           <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" />

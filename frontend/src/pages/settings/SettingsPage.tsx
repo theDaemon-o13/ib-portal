@@ -18,7 +18,8 @@ const TABS = [
   { key: 'catalogs', title: 'Справочники' },
   { key: 'users', title: 'Пользователи и роли' },
   // Слайды настенных мониторов (релиз 1.1.0): видно и правится по праву «Настройки».
-  { key: 'monitor', title: 'Экран мониторинга', perm: 'settings.manage' },
+  // С 1.8.0 (ADR-0036) ещё и ib.work: слайды ссылаются на реестры и KPI — данные банка.
+  { key: 'monitor', title: 'Экран мониторинга', perms: ['settings.manage', 'ib.work'] },
   // Подпись в презентации самооценки (этап Д5): только право «Настройки».
   { key: 'presentation', title: 'Презентация', perm: 'settings.manage' },
   // Параметры портала (релиз 1.6.0): роль, а не право; решает backend.
@@ -30,17 +31,17 @@ const TABS = [
 /** Особые разделы в списке справочников: устроены иначе, чем «значение и цвет». */
 const CALENDAR = 'work_calendar';
 const TEMPLATES = 'form_templates';
-/** Справочник «Ответственные лица» (1.6.7): только settings.manage — без права пункта нет. */
+/** Справочник «Ответственные лица» (1.6.7): settings.manage и (с 1.8.0, ADR-0036) ib.work — реальные ФИО; без прав пункта нет. */
 const PARTIES = 'document_parties';
 
-function CatalogsTab({ canEdit }: { canEdit: boolean }) {
-  // Без settings.manage справочник ответственных лиц не показывается и по прямой ссылке (?c=document_parties).
+function CatalogsTab({ canEdit, canParties }: { canEdit: boolean; canParties: boolean }) {
+  // Без settings.manage и ib.work справочник ответственных лиц не показывается и по прямой ссылке (?c=document_parties).
   const catalogs = useQuery({ queryKey: keys.catalogs, queryFn: settingsApi.catalogs });
   const templates = useQuery({ queryKey: keys.templates, queryFn: () => settingsApi.templates(true) });
   const [params, setParams] = useSearchParams();
   const list = catalogs.data?.items ?? [];
   const asked = params.get('c');
-  const sel = (asked === PARTIES && !canEdit ? null : asked) ?? list[0]?.code ?? '';
+  const sel = (asked === PARTIES && !canParties ? null : asked) ?? list[0]?.code ?? '';
   const catalog = list.find((c) => c.code === sel);
   const pick = (c: string) => setParams({ c }, { replace: true });
 
@@ -65,7 +66,7 @@ function CatalogsTab({ canEdit }: { canEdit: boolean }) {
             <b>Шаблоны форм подтверждения</b>
             <small>{templates.data ? `${templates.data.items.length} шабл.` : ''}</small>
           </button>
-          {canEdit && (
+          {canParties && (
             <button type="button" aria-pressed={sel === PARTIES} onClick={() => pick(PARTIES)}>
               <b>Ответственные лица</b>
               <small>для согласования документов</small>
@@ -75,7 +76,7 @@ function CatalogsTab({ canEdit }: { canEdit: boolean }) {
       </div>
       {sel === CALENDAR && <CalendarEditor canEdit={canEdit} />}
       {sel === TEMPLATES && <FormTemplatesEditor canEdit={canEdit} />}
-      {sel === PARTIES && canEdit && <PartyDirectory />}
+      {sel === PARTIES && canParties && <PartyDirectory />}
       {catalog && <CatalogValues key={catalog.code} catalog={catalog} canEdit={canEdit} />}
       {catalogs.isError && <div className="panel panel-b form-error">{catalogs.error.message}</div>}
     </div>
@@ -86,7 +87,9 @@ export function SettingsPage() {
   const me = useOutletContext<Me>();
   const { tab } = useParams();
   const canCatalogs = me.permissions.includes('settings.manage');
-  const tabs = TABS.filter((t) => ('perm' in t ? me.permissions.includes(t.perm) : 'role' in t ? me.roles.includes(t.role) : true));
+  const tabs = TABS.filter((t) => ('perm' in t ? me.permissions.includes(t.perm)
+    : 'perms' in t ? t.perms.every((p) => me.permissions.includes(p))
+      : 'role' in t ? me.roles.includes(t.role) : true));
   // Журнал изменений настроек переехал в раздел «Журнал» (релиз 1.2.0): старые ссылки ведут туда.
   if (tab === 'journal') return <Navigate to={me.permissions.includes('audit.view') ? '/audit' : '/settings/catalogs'} replace />;
   if (!tabs.some((t) => t.key === tab)) return <Navigate to="/settings/catalogs" replace />;
@@ -110,7 +113,7 @@ export function SettingsPage() {
           </NavLink>
         ))}
       </div>
-      {tab === 'catalogs' && <CatalogsTab canEdit={canCatalogs} />}
+      {tab === 'catalogs' && <CatalogsTab canEdit={canCatalogs} canParties={canCatalogs && me.permissions.includes('ib.work')} />}
       {tab === 'users' && (
         <div className="stack">
           <RolesMatrix canEdit={canUsers} />

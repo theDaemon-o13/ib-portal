@@ -25,12 +25,13 @@ export function prismaAuthRepository(prisma: Db): AuthRepository {
     async getAccess(userId) {
       const links = await prisma.userRole.findMany({
         where: { userId },
-        select: { role: { select: { name: true, permissions: { select: { permissionCode: true } } } } },
+        select: { role: { select: { name: true, code: true, permissions: { select: { permissionCode: true } } } } },
         orderBy: { role: { name: 'asc' } },
       });
       return {
         permissions: collectPermissions(links.map((l) => ({ permissions: l.role.permissions.map((p) => p.permissionCode) }))),
         roleNames: links.map((l) => l.role.name),
+        roleCodes: links.map((l) => l.role.code),
       };
     },
 

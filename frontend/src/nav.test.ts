@@ -43,3 +43,16 @@ describe('возврат после входа', () => {
     }
   });
 });
+
+describe('служебная учётная запись (1.8.0, ADR-0036)', () => {
+  it('видит только «Настройки», стартовая — /settings', () => {
+    const perms = ['settings.manage', 'users.manage'];
+    expect(visibleNav(perms, true).map((i) => i.title)).toEqual(['Настройки']);
+    expect(homePath(perms, true)).toBe('/settings');
+  });
+  it('«Настройки» видны и без ib.work — тем, кто ведёт настройки или пользователей; «Документы» — всем, кроме служебной', () => {
+    expect(visibleNav(['settings.manage']).map((i) => i.title)).toEqual(['Документы', 'Настройки']);
+    expect(visibleNav(['users.manage']).map((i) => i.title)).toContain('Настройки');
+    expect(visibleNav([]).map((i) => i.title)).toEqual(['Документы']);
+  });
+});

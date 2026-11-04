@@ -7,11 +7,15 @@ export interface NavItem {
   path: string;
   title: string;
   icon: IconName;
-  /** Право, без которого пункт скрыт. undefined — виден всем вошедшим. */
-  perm?: 'ib.work' | 'audit.view' | 'assessment.manage';
+  /** Право (или любое из прав), без которого пункт скрыт. undefined — виден всем вошедшим. */
+  perm?: NavPerm | readonly NavPerm[];
   /** Доступен учётной записи настенного монитора (monitor.kiosk). */
   kiosk?: boolean;
+  /** Доступен служебной учётной записи «Администратор портала» (1.8.0, ADR-0036). */
+  service?: boolean;
 }
+
+type NavPerm = 'ib.work' | 'audit.view' | 'assessment.manage' | 'settings.manage' | 'users.manage';
 
 /** Право настенного монитора: видит только /monitor (ADR-0012). */
 export const KIOSK_PERMISSION = 'monitor.kiosk';
@@ -30,16 +34,21 @@ export const NAV: NavItem[] = [
   { path: '/audit', title: 'Журнал', icon: 'journal', perm: 'audit.view' },
   // Самооценка (этап Д, ADR-0026): личный раздел, только по праву «Самооценка», ib.work не нужен.
   { path: '/assessment', title: 'Самооценка', icon: 'assess', perm: 'assessment.manage' },
-  { path: '/settings', title: 'Настройки', icon: 'settings', perm: 'ib.work' },
+  // Настройки: сотрудники ИБ и те, кто ведёт настройки или пользователей (служебный администратор, ADR-0036).
+  { path: '/settings', title: 'Настройки', icon: 'settings', perm: ['ib.work', 'settings.manage', 'users.manage'], service: true },
 ];
 
-export function canSee(item: NavItem, permissions: readonly string[]): boolean {
+/** service — служебная учётная запись (/auth/me): видит только пункты с service (backend закрывает остальное). */
+export function canSee(item: NavItem, permissions: readonly string[], service = false): boolean {
   if (isKiosk(permissions)) return item.kiosk === true;
-  return item.perm === undefined || permissions.includes(item.perm);
+  if (service) return item.service === true;
+  if (item.perm === undefined) return true;
+  const any = typeof item.perm === 'string' ? [item.perm] : item.perm;
+  return any.some((p) => permissions.includes(p));
 }
 
-export function visibleNav(permissions: readonly string[]): NavItem[] {
-  return NAV.filter((item) => canSee(item, permissions));
+export function visibleNav(permissions: readonly string[], service = false): NavItem[] {
+  return NAV.filter((item) => canSee(item, permissions, service));
 }
 
 /**
@@ -53,6 +62,6 @@ export function safeReturnPath(from: unknown): string | null {
 }
 
 /** Куда вести после входа: первый доступный раздел. */
-export function homePath(permissions: readonly string[]): string {
-  return visibleNav(permissions)[0]?.path ?? '/documents';
+export function homePath(permissions: readonly string[], service = false): string {
+  return visibleNav(permissions, service)[0]?.path ?? (service ? '/settings' : '/documents');
 }

@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -39,7 +39,7 @@ const manage = requirePerm('settings.manage');
 
 export const formTemplateRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get('/form-templates', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'settings.manage']),  // служебный администратор (ADR-0036)
     schema: {
       tags,
       summary: 'Шаблоны форм подтверждения',

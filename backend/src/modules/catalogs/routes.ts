@@ -68,7 +68,8 @@ export const catalogRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
     },
   }, async (request) => {
     const includeArchived = request.query.includeArchived === 'true';
-    if (includeArchived && !request.user?.permissions.has('ib.work')) throw forbidden();
+    // Архивные значения — сотрудникам ИБ и тем, кто ведёт справочники (служебный администратор, ADR-0036).
+    if (includeArchived && !request.user?.permissions.has('ib.work') && !request.user?.permissions.has('settings.manage')) throw forbidden();
     return { items: (await svc.listItems(db, request.params.code, { includeArchived })) as z.infer<typeof CatalogItem>[] };
   });
 

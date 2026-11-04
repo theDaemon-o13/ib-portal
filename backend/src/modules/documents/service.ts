@@ -6,6 +6,7 @@
 // Без ib.work видны только подписанные документы, «ждёт вас» и те, где вы действовали в текущем круге.
 // Текст фиксируется файлами: 13 → 14 — версия, одобренная начальником ИБ, 14 → 15 — финальная, 16 — подписанный PDF.
 import { randomUUID } from 'node:crypto';
+import { workUsersWhere } from '../../lib/work-users.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { DOCUMENT_TYPES_CATALOG } from '../../lib/catalogs.js';
 import { withTx, isUniqueViolation, type Db } from '../../lib/db.js';
@@ -36,7 +37,8 @@ export const COMMENT_MAX = 4000;
 export const URL_MAX = 2000;
 export const LIST_LIMIT = 500;
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 // ---------------------------------------------------------------- кто что может
 
@@ -426,7 +428,7 @@ interface StageTarget {
 async function reviewCandidates(db: Db, ownerId: string): Promise<string[]> {
   const { roleId } = await readPortalParam<{ roleId: string | null }>(db, DOC_REVIEW_ROLE_KEY);
   const rows = await db.user.findMany({
-    where: { isActive: true, id: { not: ownerId }, AND: [IB_WORK, ...(roleId ? [{ roles: { some: { roleId } } }] : [])] },
+    where: { isActive: true, id: { not: ownerId }, AND: [WORK_USER, ...(roleId ? [{ roles: { some: { roleId } } }] : [])] },
     select: { id: true }, orderBy: { fullName: 'asc' },
   });
   return rows.map((u) => u.id);
@@ -443,7 +445,7 @@ async function stageTargets(db: Db, d: DocRow, v: VersionRow, f: RouteFacts, sta
   if (v.stage === FIRST_STAGE && !(v.no === 1 && v.round === 1 && d.createdBy !== d.ownerId)) return [];
   const h = (await holdersOf(db, [d], new Map([[v.id, f]]), false)).holders.get(d.id) ?? { people: [], missingHead: false };
   const ids = h.people.map((p) => p.id);
-  const ib = new Set((await db.user.findMany({ where: { id: { in: ids }, isActive: true, ...IB_WORK }, select: { id: true } })).map((u) => u.id));
+  const ib = new Set((await db.user.findMany({ where: { id: { in: ids }, ...WORK_USER }, select: { id: true } })).map((u) => u.id));
   const people = h.people.filter((p) => ib.has(p.id));
   const out: StageTarget[] = [];
   if (people.length > 1) {
@@ -936,7 +938,7 @@ async function checkType(db: Db, id: string, current?: string) {
 /** Владелец — активный пользователь с ib.work: ему ставятся задачи пересмотра и доработки. */
 async function checkOwner(db: Db, id: string, current?: string) {
   if (id === current) return;
-  const u = await db.user.findFirst({ where: { id, isActive: true, ...IB_WORK }, select: { id: true } });
+  const u = await db.user.findFirst({ where: { id, ...WORK_USER }, select: { id: true } });
   if (!u) throw badRequest('BAD_OWNER', 'Владельцем документа может быть только активный сотрудник с доступом к разделам ИБ');
 }
 

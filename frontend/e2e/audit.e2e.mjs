@@ -53,7 +53,8 @@ async function loginAs(login, password) {
   return password;
 }
 
-const navTitles = () => ui.evaluate(`[...document.querySelectorAll('nav.nav a')].map((a) => a.textContent.trim())`);
+// Название пункта — без счётчика (.nav-n): у «Журнала» бывает цифра действий служебного администратора (1.8.0).
+const navTitles = () => ui.evaluate(`[...document.querySelectorAll('nav.nav a span:not(.nav-n)')].map((s) => s.textContent.trim())`);
 const auditRow = (text) => `[...document.querySelectorAll('.audit-tbl tbody tr[data-audit]')].find((tr) => tr.textContent.includes(${JSON.stringify(text)}))`;
 
 before(async () => {
@@ -87,7 +88,7 @@ describe('Журнал', () => {
   it('с правом: пункт меню, поиск своего действия, подробности, переход к задаче', async () => {
     await ui.goto('/dashboard');
     assert.ok((await navTitles()).includes('Журнал'), 'пункт «Журнал» в меню');
-    await ui.click(`[...document.querySelectorAll('nav.nav a')].find((a) => a.textContent.trim() === 'Журнал')`, 'пункт «Журнал»');
+    await ui.click(`[...document.querySelectorAll('nav.nav a')].find((a) => a.querySelector('span:not(.nav-n)')?.textContent.trim() === 'Журнал')`, 'пункт «Журнал»');
     await ui.waitFor(`location.pathname === '/audit' && !!document.querySelector('.audit-tbl')`, 'раздел «Журнал»');
 
     // Поиск по названию задачи из прогона: запись «Задача создана».

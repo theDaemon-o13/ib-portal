@@ -294,7 +294,7 @@ describe('индикаторы и уведомления по HTTP (1.4.0)', () 
       expect((await get(R, '/api/v1/notifications/count')).json()).toEqual({ unread: 1 });
       const leadItems = (await get(L, '/api/v1/notifications')).json() as { items: { id: string }[] };
       expect((await app.inject({ method: 'POST', url: `/api/v1/notifications/${leadItems.items[0]?.id}/read`, headers: { cookie: R } })).statusCode).toBe(404);
-      expect((await get(R, '/api/v1/me/attention')).json()).toEqual({ tasks: 0, documents: 0, total: 0 });
+      expect((await get(R, '/api/v1/me/attention')).json()).toEqual({ tasks: 0, documents: 0, audit: 0, total: 0 });
 
       const lead = (await get(L, '/api/v1/me/attention')).json() as { tasks: number; documents: number; total: number };
       const boss = (await get(B, '/api/v1/me/attention')).json() as { tasks: number; documents: number; total: number };

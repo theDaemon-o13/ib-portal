@@ -131,6 +131,14 @@ export const SYSTEM_ROLES = [
     description: 'Только экран мониторинга; вход с разрешённых адресов',
     permissions: ['monitor.kiosk'],
   },
+  {
+    // Служебная роль (1.8.0, ADR-0036): настраивает портал, в работе не участвует, данных банка не видит.
+    // Не совмещается с другими ролями, не переименовывается, состав прав не меняется (lib/work-users.ts).
+    code: 'portal_admin',
+    name: 'Администратор портала',
+    description: 'Служебная учётная запись: пользователи, роли, справочники. Не участвует в работе и не видит данных банка',
+    permissions: ['settings.manage', 'users.manage'],
+  },
 ] as const satisfies readonly {
   code: string;
   name: string;

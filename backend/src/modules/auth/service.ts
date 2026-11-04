@@ -9,7 +9,11 @@ import {
 } from '../../lib/password-policy.js';
 import type { IpList } from '../../lib/ip-list.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
-import { ADMIN_PERMISSIONS, KIOSK_PERMISSION } from '../../lib/permissions.js';
+import { ADMIN_PERMISSIONS, KIOSK_PERMISSION, type PermissionCode } from '../../lib/permissions.js';
+import { hasServiceRole } from '../../lib/work-users.js';
+
+/** Права служебной роли «Администратор портала» (ADR-0036). */
+const SERVICE_PERMISSIONS: readonly PermissionCode[] = ['settings.manage', 'users.manage'];
 import {
   SESSION_IDLE_MS,
   KIOSK_SESSION_MAX_AGE_MS,
@@ -64,6 +68,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
 
   async function toAuthUser(user: UserRecord): Promise<AuthUser> {
     const access = await repo.getAccess(user.id);
+    const service = hasServiceRole(access.roleCodes ?? []);
     const passwordExpired = isPasswordExpired(user.passwordChangedAt, now());
     return {
       id: user.id,
@@ -71,9 +76,11 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       fullName: user.fullName,
       mustChangePassword: user.mustChangePassword || passwordExpired,
       passwordExpired,
-      permissions: new Set(access.permissions),
+      // Служебная учётная запись (ADR-0036): только права настройки, даже если состав ролей нарушен.
+      permissions: new Set(service ? access.permissions.filter((p) => SERVICE_PERMISSIONS.includes(p)) : access.permissions),
       roleNames: access.roleNames,
       kiosk: access.permissions.includes(KIOSK_PERMISSION),
+      service,
     };
   }
 

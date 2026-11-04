@@ -3,6 +3,7 @@
 // Одна открытая задача на (документ, причина, ответственный) — индекс tasks_doc_open_uq; повтор — комментарий в ней.
 // Пользователям без ib.work задачи не ставятся: владелец без доступа к ИБ — задача без ответственного.
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import type { Db } from '../../lib/db.js';
 import { todayIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
@@ -16,7 +17,8 @@ export type DocTaskReason = 'review' | 'returned';
 /** Метка задачи без ответственного: сотрудник ИБ видит, кому она предназначалась. */
 export const OWNER_LABEL = 'Владелец документа';
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 export interface DocTaskInput {
   documentId: string;
@@ -36,7 +38,7 @@ export interface DocTaskInput {
 /** Создать задачу владельцу документа или дописать комментарий в открытую. Пишется в журнал (автор — система). */
 export async function documentTask(tx: Db, input: DocTaskInput): Promise<{ taskId: string; action: 'created' | 'commented' }> {
   const doc = await tx.document.findUniqueOrThrow({ where: { id: input.documentId }, select: { number: true, ownerId: true } });
-  const owner = await tx.user.findFirst({ where: { id: doc.ownerId, isActive: true, ...IB_WORK }, select: { id: true } });
+  const owner = await tx.user.findFirst({ where: { id: doc.ownerId, ...WORK_USER }, select: { id: true } });
   const assigneeId = owner?.id ?? null;
   const open = await tx.task.findFirst({
     where: { documentId: input.documentId, documentReason: input.reason, assigneeId, completedAt: null, archivedAt: null, deletedAt: null },

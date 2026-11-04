@@ -33,8 +33,8 @@ export interface NewSession {
 export interface AuthRepository {
   findUserByLogin(login: string): Promise<UserRecord | null>;
   findUserById(id: string): Promise<UserRecord | null>;
-  /** Сумма прав всех ролей пользователя и названия ролей. */
-  getAccess(userId: string): Promise<{ permissions: PermissionCode[]; roleNames: string[] }>;
+  /** Сумма прав всех ролей пользователя, названия и системные коды ролей. */
+  getAccess(userId: string): Promise<{ permissions: PermissionCode[]; roleNames: string[]; roleCodes?: (string | null)[] }>;
 
   saveLockout(userId: string, state: { failedLoginCount: number; lockedUntil: Date | null }): Promise<void>;
   recordSuccessfulLogin(userId: string, at: Date): Promise<void>;

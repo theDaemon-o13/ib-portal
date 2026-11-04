@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requireAuth, requirePerm } from '../../plugins/rbac.js';
+import { requireAllPerms, requireAuth } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -22,7 +22,8 @@ const Items = z.object({ items: z.array(Person) });
 const ItemParams = z.object({ itemId: z.string().uuid() });
 
 export const partyDirectoryRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
-  const manage = requirePerm('settings.manage');
+  // Справочник с реальными ФИО и должностями — данные банка: settings.manage и ib.work (1.8.0, ADR-0036).
+  const manage = requireAllPerms(['settings.manage', 'ib.work']);
 
   app.get('/settings/party-directory', {
     preHandler: manage,

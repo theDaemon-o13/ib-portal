@@ -1,6 +1,7 @@
 // Справочники (CLAUDE.md, разделы 6 и 7, п. 10; docs/concept.md, раздел 9).
 // Сущности ссылаются на значения по id, поэтому переименование ничего не ломает.
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import { RECIPIENTS_CATALOG, SYSTEM_OWNER_KEY, SYSTEMS_CATALOG, systemItemWhy } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
@@ -128,17 +129,18 @@ async function assertUnique(db: Db, code: string, value: string, exceptId?: stri
   if (clash) throw conflict('DUPLICATE', `«${value}» уже есть в справочнике`);
 }
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 /** Ответственный по правилу почты — активный сотрудник ИБ. */
 async function assertMailOwner(db: Db, userId: string) {
-  const user = await db.user.findFirst({ where: { id: userId, isActive: true, ...IB_WORK }, select: { id: true } });
+  const user = await db.user.findFirst({ where: { id: userId, ...WORK_USER }, select: { id: true } });
   if (!user) throw badRequest('BAD_OWNER', 'Ответственным может быть только активный сотрудник ИБ');
 }
 
-/** Владелец системы — любой активный пользователь портала; без ib.work задачи ему не назначаются. */
+/** Владелец системы — любой активный пользователь портала, кроме служебного (ADR-0036); без ib.work задачи ему не назначаются. */
 async function assertSystemOwner(db: Db, userId: string) {
-  const user = await db.user.findFirst({ where: { id: userId, isActive: true }, select: { id: true } });
+  const user = await db.user.findFirst({ where: { id: userId, ...workUsersWhere({ ibWork: false }) }, select: { id: true } });
   if (!user) throw badRequest('BAD_OWNER', 'Владелец системы — активный пользователь портала');
 }
 
@@ -163,7 +165,7 @@ async function checkMembers(db: Db, ids: readonly string[]): Promise<string[]> {
   const unique = [...new Set(ids)];
   if (unique.length > MAX_MEMBERS) throw badRequest('TOO_MANY', `Не больше ${MAX_MEMBERS} участников`);
   const users = await db.user.findMany({ where: { id: { in: unique } }, select: { id: true, fullName: true, isActive: true } });
-  const ok = new Set((await db.user.findMany({ where: { id: { in: unique }, isActive: true, ...IB_WORK }, select: { id: true } })).map((u) => u.id));
+  const ok = new Set((await db.user.findMany({ where: { id: { in: unique }, ...WORK_USER }, select: { id: true } })).map((u) => u.id));
   const bad = unique.filter((id) => !ok.has(id));
   if (bad.length) {
     const names = bad.map((id) => users.find((u) => u.id === id)?.fullName ?? 'пользователь не найден');

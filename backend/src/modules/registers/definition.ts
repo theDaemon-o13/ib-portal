@@ -1,5 +1,6 @@
 // Описание реестра и общие операции модуля: загрузка полей, «есть ли данные», поиск, сборка записи.
 import { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import type { Db } from '../../lib/db.js';
 import { ASSET_MANAGED_FIELDS } from '../assets/definition.js';
 import { conflict, notFound } from '../../lib/errors.js';
@@ -252,7 +253,7 @@ export async function loadUsers(db: Db, ids?: Iterable<string>): Promise<Map<str
 /** Кому можно назначить запись: активные сотрудники ИБ. */
 export async function assignableUsers(db: Db): Promise<Map<string, UserRef>> {
   const rows = await db.user.findMany({
-    where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
+    where: { ...workUsersWhere() },
     select: { id: true, login: true, fullName: true, isActive: true },
     orderBy: { fullName: 'asc' },
   });

@@ -15,7 +15,8 @@ export function TaskChainsPage() {
   const me = useOutletContext<Me>();
   const [discover, setDiscover] = useState(false);
   // «Найти цепочки среди старых задач» — «Задачи: постановка другим» или «Настройки» (решение владельца 04.11.2026).
-  const canDiscover = me.permissions.includes('tasks.assign') || me.permissions.includes('settings.manage');
+  // ib.work обязателен (1.8.0, ADR-0036): поиск показывает задачи — служебный администратор его не видит.
+  const canDiscover = me.permissions.includes('ib.work') && (me.permissions.includes('tasks.assign') || me.permissions.includes('settings.manage'));
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const raw = params.get('status');

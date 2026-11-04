@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { PERMISSION_CODES, type PermissionCode } from '../../lib/permissions.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -21,6 +21,8 @@ export const Role = z.object({
   permissions: z.array(Perm),
   lockedPermissions: z.array(Perm),
   forbiddenPermissions: z.array(Perm),
+  /** Служебная роль «Администратор портала» (ADR-0036): не совмещается с другими ролями, не меняется. */
+  service: z.boolean(),
   activeUserCount: z.number().int(),
   userCount: z.number().int(),
 });
@@ -30,12 +32,12 @@ const manage = requirePerm('users.manage');
 
 export const roleRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get('/permissions', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'users.manage']),  // служебный администратор (ADR-0036)
     schema: { tags, summary: 'Коды прав', response: { 200: z.object({ items: z.array(Permission) }), ...errors } },
   }, async () => ({ items: await svc.listPermissions(db) }));
 
   app.get('/roles', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'users.manage']),  // служебный администратор (ADR-0036)
     schema: { tags, summary: 'Роли и их права', response: { 200: z.object({ items: z.array(Role) }), ...errors } },
   }, async () => ({ items: await svc.listRoles(db) }));
 

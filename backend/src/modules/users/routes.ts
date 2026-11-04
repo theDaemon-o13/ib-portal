@@ -4,7 +4,7 @@ import type { Db } from '../../lib/db.js';
 import { PageQuery, pageSchema } from '../../lib/pagination.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as svc from './service.js';
 
@@ -41,7 +41,7 @@ const manage = requirePerm('users.manage');
 
 export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher }> = async (app, { db, hasher }) => {
   app.get('/users', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'users.manage']),  // служебный администратор (ADR-0036)
     schema: {
       tags, summary: 'Пользователи портала',
       querystring: PageQuery.extend({ q: z.string().max(100).optional() }),
@@ -50,7 +50,7 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher 
   }, async (request) => svc.listUsers(db, { ...request.query, search: request.query.q }));
 
   app.get('/users/options', {
-    preHandler: requirePerm('ib.work'),
+    preHandler: requireAnyPerm(['ib.work', 'users.manage', 'settings.manage']),  // служебный администратор (ADR-0036)
     schema: {
       tags, summary: 'Активные сотрудники ИБ для выбора ответственного; scope=all — все активные (владелец системы)',
       querystring: z.object({ scope: z.enum(['ib', 'all']).optional() }),

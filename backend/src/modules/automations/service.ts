@@ -1,5 +1,6 @@
 // Правила автоматизации реестров и их события (право registers.manage на правила, records.edit — отметить событие).
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { basisOf, isBasisRule } from '../../lib/link-basis.js';
@@ -66,7 +67,7 @@ export async function recipientChoices(db: Db): Promise<RecipientChoices> {
   const [labels, users] = await Promise.all([
     db.catalogItem.findMany({ where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null }, select: { id: true, value: true, archivedAt: true } }),
     db.user.findMany({
-      where: { isActive: true, roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } },
+      where: { ...workUsersWhere() },
       select: { id: true, fullName: true },
     }),
   ]);

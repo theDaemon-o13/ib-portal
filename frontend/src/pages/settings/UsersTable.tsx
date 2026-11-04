@@ -20,17 +20,29 @@ interface Draft {
 }
 const empty: Draft = { fullName: '', login: '', position: '', department: '', roleIds: [], managerId: '' };
 
+/**
+ * Роли пользователя. Служебная роль «Администратор портала» (ADR-0036) не совмещается с другими: выбрали её —
+ * остальные снимаются и недоступны; выбрана другая роль — служебная недоступна. Backend проверяет то же (409).
+ */
 function RoleChecks({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const roles = useQuery({ queryKey: keys.roles, queryFn: settingsApi.roles });
+  const items = roles.data?.items ?? [];
+  const serviceId = items.find((r) => r.service)?.id;
+  const serviceOn = !!serviceId && value.includes(serviceId);
+  const othersOn = value.some((id) => id !== serviceId);
   return (
     <div className="role-checks">
-      {roles.data?.items.map((r) => (
-        <label key={r.id}>
-          <input type="checkbox" checked={value.includes(r.id)}
-            onChange={(e) => onChange(e.target.checked ? [...value, r.id] : value.filter((id) => id !== r.id))} />
-          {r.name}
-        </label>
-      ))}
+      {items.map((r) => {
+        const blocked = r.service ? othersOn && !serviceOn : serviceOn;
+        return (
+          <label key={r.id} title={blocked ? 'Служебная учётная запись не получает других ролей. Для работы в портале заведите отдельного пользователя' : undefined}>
+            <input type="checkbox" checked={value.includes(r.id)} disabled={blocked}
+              onChange={(e) => onChange(e.target.checked ? (r.service ? [r.id] : [...value, r.id]) : value.filter((id) => id !== r.id))} />
+            {r.name}{r.service && <span className="hint"> · служебная</span>}
+          </label>
+        );
+      })}
+      {(serviceOn || othersOn) && serviceId && <span className="hint role-service-hint">«Администратор портала» — служебная роль: не совмещается с другими и не участвует в работе</span>}
     </div>
   );
 }

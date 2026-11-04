@@ -4,6 +4,7 @@
 // проверяющий не принимает то, что загрузил сам (или к чему сам приложил файл).
 // Новый файл возвращает доказательство на проверку; отвязать файл можно только у доказательства на проверке.
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import { SYSTEMS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
@@ -26,7 +27,8 @@ export const LIST_LIMIT = 500;
 /** Срок задачи «Исправить и загрузить заново» (как в прототипе). */
 export const REJECT_TASK_DAYS = 7;
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 export type ObjectType = 'record' | 'document' | 'system';
 export interface ObjectRef { type: ObjectType; id: string }
@@ -281,7 +283,7 @@ function cleanTitle(v: string): string {
 }
 
 async function checkOwner(db: Db, id: string): Promise<void> {
-  const u = await db.user.findFirst({ where: { id, isActive: true, ...IB_WORK }, select: { id: true } });
+  const u = await db.user.findFirst({ where: { id, ...WORK_USER }, select: { id: true } });
   if (!u) throw badRequest('BAD_OWNER', 'Ответственным может быть только активный сотрудник с доступом к разделам ИБ');
 }
 

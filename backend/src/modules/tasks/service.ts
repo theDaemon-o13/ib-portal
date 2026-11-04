@@ -3,6 +3,7 @@
 // Процесс (релиз 1.2.0, ADR-0022): назначить другого — tasks.assign, статус в обход кнопок — tasks.status.override (здесь);
 // кнопки процесса — process.ts. Проверяющий (релиз 1.4.0, ADR-0028) — reviewer.ts.
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
@@ -26,7 +27,8 @@ export const BOARD_LIMIT = 500;
 
 export type TaskSource = 'manual' | 'mail' | 'automation' | 'document' | 'evidence';
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 const itemBrief = { select: { id: true, value: true, color: true, systemKey: true } } as const;
 const userBrief = { select: { id: true, fullName: true } } as const;
@@ -105,7 +107,7 @@ async function catalogItem(db: Db, catalogCode: string, id: string, what: string
 /** Ответственный — активный пользователь с ib.work. */
 export async function assertAssignee(db: Db, userId: string, current?: string | null) {
   if (userId === current) return;
-  const u = await db.user.findFirst({ where: { id: userId, isActive: true, ...IB_WORK }, select: { id: true } });
+  const u = await db.user.findFirst({ where: { id: userId, ...WORK_USER }, select: { id: true } });
   if (!u) throw badRequest('BAD_ASSIGNEE', 'Ответственным может быть только активный сотрудник с доступом к разделам ИБ');
 }
 
@@ -336,7 +338,7 @@ export async function mailDraft(db: Db, raw: string) {
   const p = await parseWithRules(db, raw);
   // Ответственный правила — только если он по-прежнему сотрудник ИБ.
   const owner = p.rule?.ownerUserId
-    ? await db.user.findFirst({ where: { id: p.rule.ownerUserId, isActive: true, ...IB_WORK }, select: { id: true, fullName: true } })
+    ? await db.user.findFirst({ where: { id: p.rule.ownerUserId, ...WORK_USER }, select: { id: true, fullName: true } })
     : null;
   return {
     from: p.from, subject: p.subject, sent: p.sent, body: p.body, title: p.title,

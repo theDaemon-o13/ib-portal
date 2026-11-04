@@ -3,14 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { collectPermissions, type PermissionCode } from '../lib/permissions.js';
 import type { AuthUser } from '../types.js';
 import { installErrorHandler } from './errors.js';
-import { installRouteAccessCheck, requireAuth, requirePerm } from './rbac.js';
+import { installRouteAccessCheck, requireAllPerms, requireAuth, requirePerm } from './rbac.js';
 import '../types.js';
 
 const users: Record<string, AuthUser> = {
-  staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['ib.work']) },
-  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>() },
-  kiosk: { id: '4', login: 'wall', fullName: 'Монитор', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: true, permissions: new Set<PermissionCode>(['monitor.kiosk']) },
-  fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, passwordExpired: false, roleNames: [], kiosk: false, permissions: new Set<PermissionCode>(['ib.work']) },
+  staff: { id: '1', login: 'staff', fullName: 'Staff', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, service: false, permissions: new Set<PermissionCode>(['ib.work']) },
+  legal: { id: '2', login: 'legal', fullName: 'Legal', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, service: false, permissions: new Set<PermissionCode>() },
+  kiosk: { id: '4', login: 'wall', fullName: 'Монитор', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: true, service: false, permissions: new Set<PermissionCode>(['monitor.kiosk']) },
+  admin: { id: '5', login: 'padmin', fullName: 'Администратор портала', mustChangePassword: false, passwordExpired: false, roleNames: [], kiosk: false, service: true, permissions: new Set<PermissionCode>(['settings.manage', 'users.manage']) },
+  fresh: { id: '3', login: 'fresh', fullName: 'Fresh', mustChangePassword: true, passwordExpired: false, roleNames: [], kiosk: false, service: false, permissions: new Set<PermissionCode>(['ib.work']) },
 };
 
 async function testApp() {
@@ -26,6 +27,9 @@ async function testApp() {
   app.get('/api/v1/any', { preHandler: requireAuth() }, async () => ({ ok: true }));
   app.get('/api/v1/me', { preHandler: requireAuth({ allowDuringPasswordChange: true }) }, async () => ({ ok: true }));
   app.get('/api/v1/wall', { preHandler: requireAuth(), config: { kiosk: true } }, async () => ({ ok: true }));
+  app.get('/api/v1/settings-x', { preHandler: requirePerm('settings.manage'), config: { service: true } }, async () => ({ ok: true }));
+  app.get('/api/v1/settings-bank', { preHandler: requirePerm('settings.manage') }, async () => ({ ok: true }));
+  app.get('/api/v1/both', { preHandler: requireAllPerms(['settings.manage', 'ib.work']), config: { service: true } }, async () => ({ ok: true }));
   await app.ready();
   return app;
 }
@@ -106,5 +110,24 @@ describe('сумма прав ролей', () => {
       { permissions: ['unknown.code'] },
     ]);
     expect(perms).toEqual(['ib.work', 'records.edit', 'docs.approve.head']);
+  });
+});
+
+describe('служебная учётная запись (ADR-0036)', () => {
+  it('только маршруты с config.service; остальное — 403 SERVICE_ACCOUNT, даже с нужным правом', async () => {
+    const app = await testApp();
+    const h = { 'x-test-user': 'admin' };
+    expect((await app.inject({ url: '/api/v1/settings-x', headers: h })).statusCode).toBe(200);
+    for (const url of ['/api/v1/settings-bank', '/api/v1/any', '/api/v1/ib']) {
+      const res = await app.inject({ url, headers: h });
+      expect(res.statusCode, url).toBe(403);
+      expect(res.json().error.code, url).toBe('SERVICE_ACCOUNT');
+    }
+  });
+
+  it('requireAllPerms: настройка с данными банка — settings.manage и ib.work', async () => {
+    const app = await testApp();
+    expect((await app.inject({ url: '/api/v1/both', headers: { 'x-test-user': 'admin' } })).statusCode).toBe(403);
+    expect((await app.inject({ url: '/api/v1/both', headers: { 'x-test-user': 'staff' } })).statusCode).toBe(403);
   });
 });

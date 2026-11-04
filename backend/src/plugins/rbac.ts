@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
-import { forbidden, passwordChangeRequired, unauthorized } from '../lib/errors.js';
+import { AppError, forbidden, passwordChangeRequired, unauthorized } from '../lib/errors.js';
 import type { PermissionCode } from '../lib/permissions.js';
 
 const GUARD = Symbol('accessGuard');
@@ -21,6 +21,11 @@ function authenticated(request: FastifyRequest, allowDuringPasswordChange: boole
   // Настенный монитор — только маршруты, явно открытые для него (config.kiosk): /monitor, вход и выход.
   // Правило общее, поэтому новый маршрут не откроется киоску незаметно, даже с requireAuth.
   if (user.kiosk && request.routeOptions.config?.kiosk !== true) throw forbidden();
+  // Служебная учётная запись (ADR-0036) — только маршруты с config.service: настройки, пользователи и роли, справочники.
+  // Белый список, а не запрет: новый маршрут с данными банка не откроется ей незаметно.
+  if (user.service && request.routeOptions.config?.service !== true) {
+    throw new AppError(403, 'SERVICE_ACCOUNT', 'Служебная учётная запись: этот раздел недоступен. Для работы в портале войдите под своей учётной записью');
+  }
   return user;
 }
 
@@ -47,6 +52,14 @@ export function requireSuperAdmin(isSuperAdmin: (userId: string) => Promise<bool
   return markGuard(async (request) => {
     const user = authenticated(request, false);
     if (!(await isSuperAdmin(user.id))) throw forbidden();
+  });
+}
+
+/** Пользователь со всеми правами (настройка, которая показывает данные банка: settings.manage и ib.work, ADR-0036). */
+export function requireAllPerms(codes: readonly PermissionCode[]): Guard {
+  return markGuard(async (request) => {
+    const user = authenticated(request, false);
+    if (!codes.every((c) => user.permissions.has(c))) throw forbidden();
   });
 }
 

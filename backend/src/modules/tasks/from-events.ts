@@ -2,6 +2,7 @@
 // Вызывается внутри прогона автоматизаций, под его advisory-блокировкой и в той же транзакции:
 // событие становится «обработано» вместе с созданием задач, поэтому повторная обработка дублей не даёт.
 import type { Prisma } from '../../generated/prisma/client.js';
+import { workUsersWhere } from '../../lib/work-users.js';
 import { RECIPIENTS_CATALOG, SYSTEM_OWNER_KEY, SYSTEMS_CATALOG } from '../../lib/catalogs.js';
 import type { Db } from '../../lib/db.js';
 import { formatDateRu, isIsoDate, type Values } from '../../lib/register-values.js';
@@ -31,7 +32,8 @@ export interface EventTasksResult {
   commented: number;
 }
 
-const IB_WORK = { roles: { some: { role: { permissions: { some: { permissionCode: 'ib.work' } } } } } } as const;
+/** Участвующие в работе (ADR-0036): активные сотрудники ИБ, без служебных учётных записей. */
+const WORK_USER = workUsersWhere();
 
 /** Поле «Система» записи: первое неархивное поле «Значение справочника» из справочника «Системы». */
 function systemFieldOf(reg: RegisterDef) {
@@ -71,7 +73,7 @@ export async function tasksFromEvents(
     systemItemId(tx, 'task_priorities', 'high'),
   ]);
   // Кому можно поставить задачу: активные пользователи с ib.work (проверяется в момент обработки).
-  const ibUsers = new Set((await tx.user.findMany({ where: { isActive: true, ...IB_WORK }, select: { id: true } })).map((u) => u.id));
+  const ibUsers = new Set((await tx.user.findMany({ where: { ...WORK_USER }, select: { id: true } })).map((u) => u.id));
   const labels = await tx.catalogItem.findMany({
     where: { catalogCode: RECIPIENTS_CATALOG, deletedAt: null },
     select: { id: true, value: true, systemKey: true, members: { select: { userId: true } } },
