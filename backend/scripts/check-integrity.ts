@@ -17,6 +17,9 @@ import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../src/modules/dashboa
 import { personKey } from '../src/lib/person-key.js';
 import { titleKey } from '../src/lib/title-key.js';
 import { DirectorySchema, PARTY_DIRECTORY_KEY } from '../src/modules/party-directory/service.js';
+import { AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY, EMPLOYEE_FIELDS, RESULT_FIELDS } from '../src/modules/awareness/definition.js';
+import { AWARENESS_GRADES_KEY, GradesSchema } from '../src/modules/awareness/grades.js';
+import { SERVICE_ROLE_CODE } from '../src/lib/work-users.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -401,6 +404,9 @@ async function main() {
   const inDeleted = await prisma.task.count({ where: { chain: { deletedAt: { not: null } } } });
   check(inDeleted === 0, 'задачи не ссылаются на удалённые цепочки', `задач: ${inDeleted} — удаление цепочки должно было их отвязать`);
 
+  await checkAwareness();
+  await checkServiceRole();
+
   const admins = await prisma.user.count({
     where: {
       isActive: true,
@@ -408,6 +414,54 @@ async function main() {
     },
   });
   check(admins > 0, 'есть активный пользователь с users.manage', 'создайте администратора: create-admin');
+}
+
+/**
+ * «Осведомлённость» (1.8.0, docs/specs/awareness.md, раздел 8): системные поля на месте; ключи попыток уникальны;
+ * пороги проходят проверку; «Сопоставление» согласовано со связью («Точно» и «Вручную» — со связью, «Не сопоставлен» — без).
+ */
+async function checkAwareness() {
+  const regs = await prisma.register.findMany({
+    where: { systemKey: { in: [AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY] } },
+    select: { id: true, name: true, systemKey: true, fields: { where: { deletedAt: null }, select: { id: true, systemKey: true, options: { where: { deletedAt: null }, select: { id: true, systemKey: true } } } } },
+  });
+  for (const [key, specs] of [[AWARENESS_EMPLOYEES_KEY, EMPLOYEE_FIELDS], [AWARENESS_RESULTS_KEY, RESULT_FIELDS]] as const) {
+    const reg = regs.find((r) => r.systemKey === key);
+    const missing = specs.map((f) => f.key).filter((k) => !reg?.fields.some((f) => f.systemKey === k));
+    check(!!reg && missing.length === 0, `осведомлённость: системные поля реестра «${reg?.name ?? key}»`, reg ? `нет полей: ${missing.join(', ')}` : 'реестра нет — выполните migrate (seed awareness.v1)');
+  }
+  const grades = await prisma.appSetting.findUnique({ where: { key: AWARENESS_GRADES_KEY } });
+  const parsed = grades ? GradesSchema.safeParse(grades.value) : null;
+  check(!grades || parsed?.success === true, 'осведомлённость: пороги оценки проходят проверку', parsed && !parsed.success ? parsed.error.issues.map((i) => i.message).join('; ') : '');
+
+  const res = regs.find((r) => r.systemKey === AWARENESS_RESULTS_KEY);
+  if (!res) return;
+  const dupes = await prisma.$queryRaw<{ k: string; n: bigint }[]>`
+    SELECT import_key AS k, count(*) AS n FROM register_records
+    WHERE register_id = ${res.id}::uuid AND deleted_at IS NULL AND import_key IS NOT NULL GROUP BY 1 HAVING count(*) > 1 LIMIT 20`;
+  check(dupes.length === 0, 'осведомлённость: ключи попыток уникальны', `повторы: ${dupes.map((d) => `«${d.k}» ×${d.n}`).join(', ')}`);
+  const employee = res.fields.find((f) => f.systemKey === 'employee');
+  const match = res.fields.find((f) => f.systemKey === 'match');
+  const none = match?.options.find((o) => o.systemKey === 'none')?.id;
+  if (!employee || !match || !none) return;
+  const bad = await prisma.$queryRaw<{ number: number }[]>`
+    SELECT number FROM register_records r
+    WHERE r.register_id = ${res.id}::uuid AND r.deleted_at IS NULL
+      AND (r."values" ->> ${match.id} = ${none}) = (jsonb_typeof(r."values" -> ${employee.id}) = 'array' AND jsonb_array_length(r."values" -> ${employee.id}) > 0)
+    ORDER BY number LIMIT 20`;
+  check(bad.length === 0, 'осведомлённость: «Сопоставление» согласовано со связью «Сотрудник»', `записи ${bad.map((b) => `#${b.number}`).join(', ')} — исправьте «Сотрудника» в карточке`);
+}
+
+/** Служебная роль «Администратор портала» (1.8.0, ADR-0036): только settings.manage и users.manage, не совмещается с другими. */
+async function checkServiceRole() {
+  const role = await prisma.role.findUnique({ where: { code: SERVICE_ROLE_CODE }, select: { id: true, permissions: { select: { permissionCode: true } } } });
+  if (!role) return;
+  const perms = role.permissions.map((p) => p.permissionCode).sort();
+  check(perms.join() === 'settings.manage,users.manage', 'служебная роль «Администратор портала»: только settings.manage и users.manage', `права: ${perms.join(', ')}`);
+  const mixed = await prisma.$queryRaw<{ login: string }[]>`
+    SELECT u.login FROM users u JOIN user_roles ur ON ur.user_id = u.id
+    GROUP BY u.id, u.login HAVING count(*) > 1 AND bool_or(ur.role_id = ${role.id}::uuid) LIMIT 20`;
+  check(mixed.length === 0, 'служебная роль не совмещена с другими ролями', `пользователи: ${mixed.map((m) => m.login).join(', ')}`);
 }
 
 async function sha256Of(path: string): Promise<string> {
