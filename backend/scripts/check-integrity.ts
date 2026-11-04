@@ -14,6 +14,8 @@ import { APPROVAL_PERMISSIONS, LEGACY_PERMISSION_CODES, PERMISSIONS, RETIRED_ROL
 import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.js';
 import { RISK_FIELDS, RISK_REGISTER_KEY } from '../src/modules/risks/definition.js';
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../src/modules/dashboard/incidents.js';
+import { personKey } from '../src/lib/person-key.js';
+import { DirectorySchema, PARTY_DIRECTORY_KEY } from '../src/modules/party-directory/service.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -369,6 +371,22 @@ async function main() {
   check(badTypes === 0, 'тип узла — значение справочника «Типы систем»', 'проверьте vuln_nodes.system_type_id');
   const retiredUsers = await prisma.userRole.count({ where: { role: { code: { in: [...RETIRED_ROLE_CODES] } } } });
   check(retiredUsers === 0, 'в ролях «Юрист» и «Правление» нет пользователей (перенесены в «Читатель документов»)', 'выполните seed');
+  // Справочник «Ответственные лица» (1.6.7): значение app_settings по схеме, id уникальны. Нет строки — справочник пуст.
+  const dirRow = await prisma.appSetting.findUnique({ where: { key: PARTY_DIRECTORY_KEY } });
+  const dir = dirRow ? DirectorySchema.safeParse(dirRow.value) : null;
+  const dirIds = dir?.success ? dir.data.items.map((i) => i.id) : [];
+  check(!dir || (dir.success && new Set(dirIds).size === dirIds.length), `справочник «Ответственные лица»: ${dir?.success ? `${dirIds.length} записей, значение по схеме` : dir ? 'значение не по схеме' : 'пуст'}`,
+    dir && !dir.success ? `app_settings.${PARTY_DIRECTORY_KEY}: ${dir.error.issues.slice(0, 3).map((i) => `${i.path.join('.')} — ${i.message}`).join('; ')}` : `повторяются id записей в app_settings.${PARTY_DIRECTORY_KEY}`);
+  // Дубли лиц в одной версии документа (до 1.6.7 не запрещались) — только отчёт: старые записи не трогаем.
+  const partyRows = await prisma.documentParty.findMany({ where: { removedAt: null }, select: { versionId: true, fullName: true, department: true, document: { select: { number: true } } } });
+  const seenParty = new Map<string, number>();
+  const dupDocs = new Set<number>();
+  for (const r of partyRows) {
+    const k = `${r.versionId}\u0000${personKey(r.fullName, r.department)}`;
+    seenParty.set(k, (seenParty.get(k) ?? 0) + 1);
+    if ((seenParty.get(k) ?? 0) > 1) dupDocs.add(r.document.number);
+  }
+  console.log(`ℹ ответственные лица: дублей в одной версии документа — ${dupDocs.size ? `в документах ${[...dupDocs].sort((x, y) => x - y).map((n) => `#${n}`).join(', ')} (добавлены до 1.6.7, не исправляются)` : 'нет'}`);
 
   const admins = await prisma.user.count({
     where: {

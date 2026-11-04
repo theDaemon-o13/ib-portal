@@ -134,3 +134,39 @@ export function groupByType<T extends Pick<DocItem, 'type'>>(items: readonly T[]
   }
   return out;
 }
+
+/* ---------- Справочник «Ответственные лица» (1.6.7) ---------- */
+
+/** Текст для сравнения — как в backend (lib/person-key.ts): пробелы схлопнуты, регистр нижний. */
+export function normalizePersonText(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru');
+}
+
+/** «Тот же человек» в документе: совпали ФИО и подразделение или должность. Окончательно проверяет backend (409). */
+export function personKey(fullName: string, position: string): string {
+  return `${normalizePersonText(fullName)}\u0000${normalizePersonText(position)}`;
+}
+
+interface PersonLike {
+  fullName: string;
+  position: string;
+}
+
+/** Поиск по ФИО и должности: все слова запроса должны встретиться (в любом поле). */
+export function matchPerson(p: PersonLike, query: string): boolean {
+  const words = normalizePersonText(query).split(' ').filter(Boolean);
+  if (!words.length) return true;
+  const hay = `${normalizePersonText(p.fullName)} ${normalizePersonText(p.position)}`;
+  return words.every((w) => hay.includes(w));
+}
+
+/** По ФИО, затем по должности — по-русски. */
+export function byPersonName(a: PersonLike, b: PersonLike): number {
+  return a.fullName.localeCompare(b.fullName, 'ru') || a.position.localeCompare(b.position, 'ru');
+}
+
+/** Записи справочника с тем же ФИО (предупреждение об однофамильце; не запрет). */
+export function sameNamePeople<T extends PersonLike & { id: string }>(items: readonly T[], fullName: string, exceptId?: string): T[] {
+  const n = normalizePersonText(fullName);
+  return n ? items.filter((i) => i.id !== exceptId && normalizePersonText(i.fullName) === n) : [];
+}

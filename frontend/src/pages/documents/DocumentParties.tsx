@@ -1,12 +1,13 @@
 // Этапы 14 и 15 и блокеры документа (релиз 1.2.0, этапы Г3–Г4, ADR-0024): ответственные лица, переводы, блокеры.
 // Решает всегда backend: кнопки видны по d.can, ошибки — через onError карточки.
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
-import { docsApi, type At, type DocDetail, type DocResult } from '../../api/documents';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useId, useState, type KeyboardEvent } from 'react';
+import { dkeys, docsApi, type At, type DocDetail, type DocResult } from '../../api/documents';
 import type { FileInfo } from '../../api/files';
 import { FileUpload } from '../../components/files/FileUpload';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
+import { matchPerson, personKey } from './logic';
 
 type Party = DocDetail['parties'][number];
 type Done = (r: DocResult, text: string) => Promise<void>;
@@ -21,6 +22,72 @@ interface Props {
 }
 
 type PartyMode = { kind: 'add' } | { kind: 'approve' | 'due'; party: Party } | null;
+type Person = { id: string; fullName: string; position: string };
+
+/** Сколько подсказок показывать: дальше — уточнить ввод. */
+const PICK_MAX = 50;
+
+/**
+ * «ФИО» с выбором из справочника «Ответственные лица» (1.6.7): ввод фильтрует список по ФИО и должности, выбор
+ * заполняет ФИО и должность. «Ввести вручную» закрывает список — оба поля вводятся как раньше (разовые люди).
+ * Уже добавленные в документ — в списке с пометкой, не выбираются (окончательно — 409 PARTY_DUPLICATE на сервере).
+ */
+function PersonCombobox({ value, onChange, onPick, people, taken }: {
+  value: string; onChange: (v: string) => void; onPick: (p: Person) => void; people: Person[]; taken: ReadonlySet<string>;
+}) {
+  const listId = useId();
+  const [open, setOpen] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [active, setActive] = useState(-1);
+  const found = people.filter((p) => matchPerson(p, value));
+  const shown = found.slice(0, PICK_MAX);
+  // Последний пункт — «Ввести вручную»; индекс shown.length.
+  const total = shown.length + 1;
+  const visible = open && !manual && people.length > 0;
+  const isTaken = (p: Person) => taken.has(personKey(p.fullName, p.position));
+  const choose = (i: number) => {
+    if (i === shown.length) { setManual(true); setOpen(false); return; }
+    const p = shown[i];
+    if (!p || isTaken(p)) return;
+    onPick(p);
+    setOpen(false);
+  };
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setManual(false); setActive((a) => (a + 1) % total); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setOpen(true); setManual(false); setActive((a) => (a <= 0 ? total - 1 : a - 1)); }
+    else if (e.key === 'Enter' && visible && active >= 0) { e.preventDefault(); choose(active); }
+    else if (e.key === 'Escape' && visible) { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+  };
+  return (
+    <span className="combo">
+      <input className="inp" required maxLength={300} value={value} role="combobox" aria-autocomplete="list" aria-expanded={visible} aria-controls={listId}
+        aria-activedescendant={visible && active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off"
+        onChange={(e) => { onChange(e.target.value); setActive(-1); if (!manual) setOpen(true); }}
+        onFocus={() => { if (!manual) setOpen(true); }} onBlur={() => setOpen(false)} onKeyDown={onKey} />
+      {visible && (
+        <ul className="combo-list" id={listId} role="listbox" aria-label="Ответственные лица из справочника">
+          {shown.length === 0 && <li className="combo-empty" role="presentation">В справочнике такого нет</li>}
+          {shown.map((p, i) => {
+            const off = isTaken(p);
+            return (
+              <li key={p.id} id={`${listId}-${i}`} role="option" aria-selected={active === i} aria-disabled={off || undefined} className="combo-opt"
+                onMouseDown={(e) => e.preventDefault()} onClick={() => choose(i)} onMouseEnter={() => setActive(i)} data-person={p.fullName}>
+                <span className="combo-name">{p.fullName}</span>
+                {p.position && <span className="combo-pos">{p.position}</span>}
+                {off && <span className="combo-pos">уже добавлен(а)</span>}
+              </li>
+            );
+          })}
+          {found.length > shown.length && <li className="combo-empty" role="presentation">Ещё {found.length - shown.length} — уточните ввод</li>}
+          <li id={`${listId}-${shown.length}`} role="option" aria-selected={active === shown.length} className="combo-opt combo-manual"
+            onMouseDown={(e) => e.preventDefault()} onClick={() => choose(shown.length)} onMouseEnter={() => setActive(shown.length)}>
+            Ввести вручную
+          </li>
+        </ul>
+      )}
+    </span>
+  );
+}
 
 // Ответственное лицо — внешний человек (1.4.0): ФИО, подразделение или должность, срок; ответ-файл — при согласовании.
 const empty = { fullName: '', department: '', dueDate: '' };
@@ -48,6 +115,10 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
   const remove = useMutation({ mutationFn: (p: Party) => docsApi.removeParty(d.id, p.id, at), onSuccess: (r) => done(r, 'Ответственное лицо снято'), onError });
   const removeFile = useMutation({ mutationFn: (linkId: string) => docsApi.removeResponse(d.id, linkId, at), onSuccess: (r) => done(r, 'Файл ответа снят'), onError });
   const busy = add.isPending || approve.isPending || due.isPending || remove.isPending || removeFile.isPending;
+  // Справочник «Ответственные лица» — только активные; запрашивается, когда открыта форма добавления (1.6.7).
+  const directory = useQuery({ queryKey: dkeys.partyDirectory(d.id), queryFn: () => docsApi.partyDirectory(d.id), enabled: mode?.kind === 'add', staleTime: 30_000 });
+  const people = directory.data?.items ?? [];
+  const taken = new Set(d.parties.map((p) => personKey(p.fullName, p.department)));
 
   if (!d.parties.length && !d.can.parties) return null;
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
@@ -93,11 +164,15 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
       {mode?.kind === 'add' && (
         <form className="task-form" aria-label="Ответственное лицо" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
           <div className="fgrid">
-            <label>ФИО<input className="inp" required maxLength={300} value={form.fullName} onChange={set('fullName')} /></label>
+            <label>ФИО<PersonCombobox value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} people={people} taken={taken}
+              onPick={(p) => setForm({ ...form, fullName: p.fullName, department: p.position })} /></label>
             <label>Подразделение или должность<input className="inp" maxLength={300} value={form.department} onChange={set('department')} /></label>
             <label>Срок ответа<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
           </div>
-          <div className="hint">Портал писем не отправляет: документ ответственному лицу отправьте по почте, ответ отметьте здесь.</div>
+          <div className="hint">
+            {people.length ? 'Начните вводить ФИО или должность и выберите из списка. Нет в списке — «Ввести вручную». ' : directory.isSuccess ? 'Справочник «Ответственные лица» пуст — введите ФИО и должность вручную. Список ведут в «Настройки → Справочники». ' : ''}
+            Портал писем не отправляет: документ ответственному лицу отправьте по почте, ответ отметьте здесь.
+          </div>
           <div className="row">
             <button className="btn primary" type="submit" disabled={busy || !form.fullName.trim() || !form.dueDate}>Добавить</button>
             <button className="btn" type="button" onClick={close}>Отмена</button>

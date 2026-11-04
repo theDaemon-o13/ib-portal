@@ -8,6 +8,7 @@ import type { Db } from '../../lib/db.js';
 import { withTx } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { MIME_BY_EXT } from '../../lib/file-type.js';
+import { personKey } from '../../lib/person-key.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
@@ -71,12 +72,26 @@ async function getParty(tx: Db, versionId: string, partyId: string) {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+/**
+ * Один человек — один раз среди неснятых лиц версии (1.6.7): совпали ФИО и подразделение или должность без учёта
+ * регистра и лишних пробелов (lib/person-key.ts). Одно правило для выбора из справочника и ручного ввода;
+ * уже добавленные раньше дубли не трогаются — проверяются только новое добавление и правка.
+ */
+async function assertNotDuplicate(tx: Db, versionId: string, fullName: string, department: string, exceptPartyId?: string) {
+  const key = personKey(fullName, department);
+  const rows = await tx.documentParty.findMany({ where: { versionId, removedAt: null }, select: { id: true, fullName: true, department: true } });
+  if (rows.some((r) => r.id !== exceptPartyId && personKey(r.fullName, r.department) === key)) {
+    throw conflict('PARTY_DUPLICATE', `${fullName}${department ? ` (${department})` : ''} уже есть среди ответственных лиц этого документа`);
+  }
+}
+
 export async function addParty(db: Db, actor: Actor, id: string, input: Stage & PartyInput) {
   return withTx(db, async (tx) => {
     const { d, w } = await partyContext(tx, actor, id, input);
     const fullName = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
     const department = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
     const due = cleanDate(input.dueDate, 'срок ответа');
+    await assertNotDuplicate(tx, w.id, fullName, department);
     const p = await tx.documentParty.create({
       data: { documentId: id, versionId: w.id, fullName, department, dueDate: due, addedBy: actor.id },
     });
@@ -121,6 +136,9 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
       }
     }
     if (!changes.length) return;
+    if (data.fullName !== undefined || data.department !== undefined) {
+      await assertNotDuplicate(tx, w.id, data.fullName ?? p.fullName, data.department ?? p.department, partyId);
+    }
     await tx.documentParty.update({ where: { id: partyId }, data });
     await auditSettings(tx, actor, {
       action: 'document.party_updated', entity: 'document', entityId: id,

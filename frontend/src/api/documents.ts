@@ -75,6 +75,8 @@ export const docsApi = {
   comment: (id: string, body: string) => request<DocResult>('POST', `/api/v1/documents/${id}/comments`, { body }),
   remove: (id: string, body: { version: number; comment?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/delete`, body),
   /** Этап 14: ответственные лица (внешние; e-mail — для справки). */
+  /** Активные записи справочника «Ответственные лица» — тем, кто ведёт лиц документа (1.6.7). */
+  partyDirectory: (id: string) => request<{ items: Res<'/api/v1/documents/{id}/party-directory', 'get'>['items'] }>('GET', `/api/v1/documents/${id}/party-directory`),
   addParty: (id: string, body: At & PartyFields) => request<DocResult>('POST', `/api/v1/documents/${id}/parties`, body),
   updateParty: (id: string, partyId: string, body: At & Partial<PartyFields> & { comment?: string }) => request<DocResult>('PATCH', `/api/v1/documents/${id}/parties/${partyId}`, body),
   removeParty: (id: string, partyId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/remove`, body),
@@ -98,6 +100,7 @@ export const dkeys = {
   all: ['documents'] as const,
   list: (q: DocQuery) => ['documents', 'list', q] as const,
   detail: (id: string) => ['documents', 'detail', id] as const,
+  partyDirectory: (id: string) => ['documents', 'party-directory', id] as const,
   summary: ['documents', 'summary'] as const,
   types: ['settings', 'items', 'document_types'] as const,
 };

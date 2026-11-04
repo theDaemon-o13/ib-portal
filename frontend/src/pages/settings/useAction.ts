@@ -45,6 +45,8 @@ export const keys = {
   week: ['settings', 'week'] as const,
   days: (year: number) => ['settings', 'days', year] as const,
   templates: ['settings', 'templates'] as const,
+  /** Справочник «Ответственные лица» (1.6.7). */
+  partyDirectory: ['settings', 'party-directory'] as const,
   users: ['settings', 'users'] as const,
   userOptions: ['settings', 'userOptions'] as const,
   allUserOptions: ['settings', 'userOptions', 'all'] as const,

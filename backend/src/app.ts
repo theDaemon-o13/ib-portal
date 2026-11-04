@@ -17,6 +17,7 @@ import { authRoutes } from './modules/auth/routes.js';
 import { automationRoutes } from './modules/automations/routes.js';
 import { assetRoutes } from './modules/assets/routes.js';
 import { portalParamRoutes } from './modules/settings/portal-params.routes.js';
+import { partyDirectoryRoutes } from './modules/party-directory/routes.js';
 import { attentionRoutes } from './modules/attention/routes.js';
 import { notificationRoutes } from './modules/notifications/routes.js';
 import { taskRoutes } from './modules/tasks/routes.js';
@@ -107,6 +108,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(attentionRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(assetRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(portalParamRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(partyDirectoryRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(calendarRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(formTemplateRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });

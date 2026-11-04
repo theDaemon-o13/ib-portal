@@ -6,6 +6,7 @@ import { CalendarEditor } from './CalendarEditor';
 import { CatalogValues } from './CatalogValues';
 import { FormTemplatesEditor } from './FormTemplatesEditor';
 import { MonitorSlides } from './MonitorSlides';
+import { PartyDirectory } from './PartyDirectory';
 import { PortalParams } from './PortalParams';
 import { PresentationSettings } from './PresentationSettings';
 import { RolesMatrix } from './RolesMatrix';
@@ -29,13 +30,17 @@ const TABS = [
 /** Особые разделы в списке справочников: устроены иначе, чем «значение и цвет». */
 const CALENDAR = 'work_calendar';
 const TEMPLATES = 'form_templates';
+/** Справочник «Ответственные лица» (1.6.7): только settings.manage — без права пункта нет. */
+const PARTIES = 'document_parties';
 
 function CatalogsTab({ canEdit }: { canEdit: boolean }) {
+  // Без settings.manage справочник ответственных лиц не показывается и по прямой ссылке (?c=document_parties).
   const catalogs = useQuery({ queryKey: keys.catalogs, queryFn: settingsApi.catalogs });
   const templates = useQuery({ queryKey: keys.templates, queryFn: () => settingsApi.templates(true) });
   const [params, setParams] = useSearchParams();
   const list = catalogs.data?.items ?? [];
-  const sel = params.get('c') ?? list[0]?.code ?? '';
+  const asked = params.get('c');
+  const sel = (asked === PARTIES && !canEdit ? null : asked) ?? list[0]?.code ?? '';
   const catalog = list.find((c) => c.code === sel);
   const pick = (c: string) => setParams({ c }, { replace: true });
 
@@ -60,10 +65,17 @@ function CatalogsTab({ canEdit }: { canEdit: boolean }) {
             <b>Шаблоны форм подтверждения</b>
             <small>{templates.data ? `${templates.data.items.length} шабл.` : ''}</small>
           </button>
+          {canEdit && (
+            <button type="button" aria-pressed={sel === PARTIES} onClick={() => pick(PARTIES)}>
+              <b>Ответственные лица</b>
+              <small>для согласования документов</small>
+            </button>
+          )}
         </div>
       </div>
       {sel === CALENDAR && <CalendarEditor canEdit={canEdit} />}
       {sel === TEMPLATES && <FormTemplatesEditor canEdit={canEdit} />}
+      {sel === PARTIES && canEdit && <PartyDirectory />}
       {catalog && <CatalogValues key={catalog.code} catalog={catalog} canEdit={canEdit} />}
       {catalogs.isError && <div className="panel panel-b form-error">{catalogs.error.message}</div>}
     </div>

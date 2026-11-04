@@ -23,6 +23,10 @@ export type CalendarDay = Res<'/api/v1/calendar/days', 'get'>['items'][number];
 export type FormTemplate = Res<'/api/v1/form-templates', 'get'>['items'][number];
 export type TemplateField = FormTemplate['fields'][number];
 export type CheckKind = TemplateField['checkKind'];
+/** Справочник «Ответственные лица» для этапа согласования документов (1.6.7). */
+export type DirectoryPerson = Res<'/api/v1/settings/party-directory', 'get'>['items'][number];
+export type NewDirectoryPerson = Body<'/api/v1/settings/party-directory', 'post'>;
+export type DirectoryPersonPatch = Body<'/api/v1/settings/party-directory/{itemId}', 'patch'>;
 export type AdminUser = Res<'/api/v1/users', 'get'>['items'][number];
 export type UserPage = Res<'/api/v1/users', 'get'>;
 export type UserOption = Res<'/api/v1/users/options', 'get'>['items'][number];
@@ -35,6 +39,10 @@ const enc = encodeURIComponent;
 export type PresentationSignature = Res<'/api/v1/settings/presentation', 'get'>;
 
 export const settingsApi = {
+  // Справочник «Ответственные лица» (1.6.7): settings.manage. Удаления нет — только отключение.
+  partyDirectory: () => request<{ items: DirectoryPerson[] }>('GET', '/api/v1/settings/party-directory'),
+  addDirectoryPerson: (body: NewDirectoryPerson) => request<{ item: DirectoryPerson; sameName: DirectoryPerson[] }>('POST', '/api/v1/settings/party-directory', body),
+  updateDirectoryPerson: (id: string, body: DirectoryPersonPatch) => request<{ item: DirectoryPerson }>('PATCH', `/api/v1/settings/party-directory/${id}`, body),
   // Подпись «Спроектировано» в презентации самооценки (этап Д5): право settings.manage.
   presentation: () => request<PresentationSignature>('GET', '/api/v1/settings/presentation'),
   setPresentation: (body: Body<'/api/v1/settings/presentation', 'put'>) => request<PresentationSignature>('PUT', '/api/v1/settings/presentation', body),

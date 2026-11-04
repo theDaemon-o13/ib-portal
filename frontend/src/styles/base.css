@@ -1021,3 +1021,19 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 /* Монитор: подписи читаются с расстояния. */
 .mk .src{font-size:.78em}
 .mon-foot{font-size:.82em}
+
+/* ---------- 1.6.7: справочник «Ответственные лица» ---------- */
+/* Поле «ФИО» с выбором: список под полем, непрозрачный (внутри стекла вложенное размытие не работает). */
+.combo{position:relative;display:block}
+.combo-list{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:25;margin:0;padding:4px;list-style:none;max-height:min(300px,45vh);overflow:auto;overscroll-behavior:contain;
+  background:var(--solid);border:1px solid var(--line-2);border-radius:var(--r-md);box-shadow:var(--shadow-lg);min-width:min(320px,80vw)}
+.combo-opt{display:grid;gap:1px;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--fg);font-size:13px;font-weight:400}
+.combo-opt[aria-selected="true"]{background:var(--accent-soft)}
+.combo-opt[aria-disabled="true"]{cursor:default;color:var(--muted)}
+.combo-name{overflow-wrap:anywhere}
+.combo-pos{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.combo-manual{border-top:1px solid var(--line);border-radius:0 0 var(--r-sm) var(--r-sm);margin-top:2px;color:var(--accent-ink);font-weight:500}
+.combo-empty{padding:7px 10px;font-size:12.5px;color:var(--muted)}
+.party-dir td{overflow-wrap:anywhere}
+.party-dir th:last-child{width:1%}
+.party-dir .act{flex-wrap:nowrap;justify-content:flex-end}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocDetail } from '../../api/documents';
-import { approversLabel, authorFiles, groupByType, historyText, holdersLabel, parseSort, reviewLabel, stageHint, versionLabel } from './logic';
+import { approversLabel, authorFiles, byPersonName, matchPerson, personKey, sameNamePeople, groupByType, historyText, holdersLabel, parseSort, reviewLabel, stageHint, versionLabel } from './logic';
 
 const h = (extra: Partial<DocDetail['history'][number]>): DocDetail['history'][number] => ({
   id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, toStage: null, toStageName: null, selfApproved: false, ...extra,
@@ -69,5 +69,28 @@ describe('документы: дерево по типам и порядок', (
   });
   it('по умолчанию — по типам', () => {
     expect([parseSort(null), parseSort('title'), parseSort('junk')]).toEqual(['type', 'title', 'type']);
+  });
+});
+
+describe('справочник «Ответственные лица» (1.6.7)', () => {
+  const p = (id: string, fullName: string, position: string) => ({ id, fullName, position });
+  it('тот же человек — ФИО и должность без учёта регистра и пробелов; однофамилец с другой должностью — другой', () => {
+    expect(personKey(' иванов  И.И.', 'ТЕХНИЧЕСКИЙ директор')).toBe(personKey('Иванов И.И.', 'Технический директор'));
+    expect(personKey('Иванов И.И.', 'Главный бухгалтер')).not.toBe(personKey('Иванов И.И.', 'Технический директор'));
+  });
+  it('поиск — по ФИО и должности, все слова запроса', () => {
+    const a = p('1', 'Иванов И.И.', 'Технический директор');
+    expect(matchPerson(a, 'иван')).toBe(true);
+    expect(matchPerson(a, 'технич')).toBe(true);
+    expect(matchPerson(a, 'иван директор')).toBe(true);
+    expect(matchPerson(a, 'петров')).toBe(false);
+    expect(matchPerson(a, '  ')).toBe(true);
+  });
+  it('сортировка по ФИО по-русски; однофамильцы — предупреждение', () => {
+    const list = [p('1', 'Сидорова С.С.', ''), p('2', 'Иванов И.И.', 'Технический директор'), p('3', 'Иванов И.И.', 'Главный бухгалтер')];
+    expect([...list].sort(byPersonName).map((x) => x.id)).toEqual(['3', '2', '1']);
+    expect(sameNamePeople(list, ' иванов и.и. ').map((x) => x.id)).toEqual(['2', '3']);
+    expect(sameNamePeople(list, 'Иванов И.И.', '2').map((x) => x.id)).toEqual(['3']);
+    expect(sameNamePeople(list, '')).toEqual([]);
   });
 });
