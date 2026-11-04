@@ -50,6 +50,8 @@ model User {
   processedEvents      AutomationEvent[]
   assignedTasks        Task[]               @relation("TaskAssignee")
   createdTasks         Task[]               @relation("TaskCreator")
+  ownedTaskChains      TaskChain[]          @relation("TaskChainOwner")
+  createdTaskChains    TaskChain[]          @relation("TaskChainCreator")
   taskComments         TaskComment[]
   taskTransitions      TaskTransition[]     @relation("TransitionActor")
   reviewTasks          Task[]               @relation("TaskReviewer")
@@ -969,6 +971,8 @@ model Task {
   /// Проверяющий (релиз 1.4.0, ADR-0028): фиксируется при отправке «На проверке» — ближний активный руководитель
   /// исполнителя. NULL — задача не на проверке или отправлена до 1.4.0 без цепочки (старые правила, tasks.review).
   reviewerId     String?   @map("reviewer_id") @db.Uuid
+  /// Цепочка задач (1.7.0, ADR-0035): группировка по теме; на процесс и проверку не влияет. Индекс — частичный, в SQL.
+  chainId        String?   @map("chain_id") @db.Uuid
   version        Int       @default(1)
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -985,6 +989,7 @@ model Task {
   automation    RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
   document      Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
   evidence      Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  chain         TaskChain?            @relation(fields: [chainId], references: [id], onDelete: Restrict)
   mail          TaskMailSource?
   comments      TaskComment[]
   events        AutomationEventTask[]
@@ -1003,6 +1008,36 @@ model Task {
   /// «Ждут моей проверки» (индикаторы, отключение проверяющего).
   @@index([reviewerId])
   @@map("tasks")
+}
+
+/// Цепочка задач (релиз 1.7.0, ADR-0035): задачи с одной темой («RE: тема»). Собирает человек, портал подсказывает.
+/// Статус цепочки от статусов задач не зависит. Удаление мягкое: задачи отвязываются, сами не меняются.
+model TaskChain {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// «Цепочка #12» в журнале и ссылках.
+  number    Int       @unique @default(autoincrement())
+  title     String
+  /// Нормализованный ключ заголовка (lib/title-key.ts); не уникален — дубли допустимы.
+  titleKey  String    @map("title_key")
+  ownerId   String?   @map("owner_id") @db.Uuid
+  /// open | closed (CHECK в миграции).
+  status    String    @default("open")
+  dueDate   DateTime? @map("due_date") @db.Date
+  summary   String    @default("")
+  createdBy String    @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closedAt  DateTime? @map("closed_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  version   Int       @default(1)
+
+  owner   User?  @relation("TaskChainOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  creator User   @relation("TaskChainCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  tasks   Task[]
+
+  /// Частичные индексы — в SQL миграции: по ключу открытых (подсказка), по ключу и дате закрытых, состав цепочки у tasks.
+  @@index([ownerId])
+  @@map("task_chains")
 }
 
 /// Исходное письмо задачи «Почта → задача».

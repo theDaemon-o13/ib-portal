@@ -30,6 +30,13 @@ describe('почта → задача: заголовки', () => {
     expect(parseMail('Проверьте права в АБС. Спасибо', ctx).title).toBe('Проверьте права в АБС');
     expect(parseMail('   ', ctx).title).toBe('Задача из письма');
   });
+
+  it('общее снятие префиксов (1.7.0): [EXT], Отв, ВО, Re[2]; исходная тема — как есть', () => {
+    const p = parseMail(mail('Текст.', '[EXT] Отв: ВО: Re[2]: Тестовая тема'), ctx);
+    expect(p.title).toBe('Тестовая тема');
+    expect(p.subject).toBe('[EXT] Отв: ВО: Re[2]: Тестовая тема');
+    expect(parseMail(mail('Текст.', 'RE: FW:'), ctx).title).toBe('Задача из письма');
+  });
 });
 
 describe('почта → задача: срок по производственному календарю', () => {

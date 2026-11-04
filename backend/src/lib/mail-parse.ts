@@ -2,6 +2,7 @@
 // Чистые функции без БД: правила разбора почты и производственный календарь передаются снаружи.
 import { addWorkingDays, isoDate, onOrNextWorkingDay, parseIsoDate, type WorkCalendar } from './working-days.js';
 import { addDays, isIsoDate } from './register-values.js';
+import { stripReplyPrefixes } from './title-key.js';
 
 export interface MailRule {
   id: string;
@@ -40,7 +41,6 @@ const HEADER = {
   sent: /^(?:отправлено|дата|date|sent)\s*:\s*(.+)$/im,
 };
 const HEADER_LINE = /^(?:от|from|отправитель|тема|subject|отправлено|дата|date|sent|кому|to|копия|cc)\s*:/i;
-const REPLY_PREFIX = /^(?:(?:re|fw|fwd|ответ|пересл\.?|переслать)\s*:\s*)+/i;
 /** Слово целиком: \b в JS не работает с кириллицей. */
 const word = (w: string) => new RegExp(`(?:^|[^а-яёa-z0-9])${w}(?:[^а-яёa-z0-9]|$)`, 'i');
 const URGENT = /(?:^|[^а-яё])(?:срочн\S*|немедленно|безотлагательно)|(?:^|[^a-z])(?:asap|urgent)(?:[^a-z]|$)/i;
@@ -79,7 +79,7 @@ export function parseMail(raw: string, ctx: MailContext): ParsedMail {
   const sent = header(text0, HEADER.sent);
   const body = text0.split('\n').filter((l) => !HEADER_LINE.test(l.trim())).join('\n').trim();
   const firstSentence = body.split(/[.!?\n]/).map((s) => s.trim()).find(Boolean) ?? '';
-  const title = ((subject || firstSentence).replace(REPLY_PREFIX, '').trim() || 'Задача из письма').slice(0, TITLE_MAX);
+  const title = (stripReplyPrefixes(subject || firstSentence) || 'Задача из письма').slice(0, TITLE_MAX);
 
   // Ключевые слова и сроки ищутся в теме и тексте; «ё» и «е» не различаются.
   const text = `${subject}\n${body}`.toLowerCase().replace(/ё/g, 'е');

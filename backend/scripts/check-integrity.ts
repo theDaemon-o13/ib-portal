@@ -15,6 +15,7 @@ import { VULN_FIELDS, VULN_REGISTER_KEY } from '../src/modules/vulns/definition.
 import { RISK_FIELDS, RISK_REGISTER_KEY } from '../src/modules/risks/definition.js';
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../src/modules/dashboard/incidents.js';
 import { personKey } from '../src/lib/person-key.js';
+import { titleKey } from '../src/lib/title-key.js';
 import { DirectorySchema, PARTY_DIRECTORY_KEY } from '../src/modules/party-directory/service.js';
 
 const prisma = createPrisma();
@@ -387,6 +388,18 @@ async function main() {
     if ((seenParty.get(k) ?? 0) > 1) dupDocs.add(r.document.number);
   }
   console.log(`ℹ ответственные лица: дублей в одной версии документа — ${dupDocs.size ? `в документах ${[...dupDocs].sort((x, y) => x - y).map((n) => `#${n}`).join(', ')} (добавлены до 1.6.7, не исправляются)` : 'нет'}`);
+
+  // Цепочки задач (1.7.0, ADR-0035): права роли приложения, ключ по названию, удалённая цепочка без задач.
+  const chainPrivs = await prisma.$queryRaw<{ ok: boolean; seq: boolean }[]>`
+    SELECT bool_and(has_table_privilege('ibportal_app', 'public.task_chains', p)) AS ok,
+           has_sequence_privilege('ibportal_app', pg_get_serial_sequence('public.task_chains', 'number'), 'USAGE') AS seq
+    FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE']) AS p`;
+  check(chainPrivs[0]?.ok === true && chainPrivs[0]?.seq === true, 'ibportal_app: SELECT, INSERT, UPDATE на task_chains и USAGE на их последовательность');
+  const chains = await prisma.taskChain.findMany({ where: { deletedAt: null }, select: { number: true, title: true, titleKey: true } });
+  const badKeys = chains.filter((c) => titleKey(c.title) !== c.titleKey).map((c) => `#${c.number}`);
+  check(badKeys.length === 0, `цепочки задач: ключ соответствует названию (${chains.length})`, `цепочки ${badKeys.slice(0, 20).join(', ')} — сохраните название в панели цепочки`);
+  const inDeleted = await prisma.task.count({ where: { chain: { deletedAt: { not: null } } } });
+  check(inDeleted === 0, 'задачи не ссылаются на удалённые цепочки', `задач: ${inDeleted} — удаление цепочки должно было их отвязать`);
 
   const admins = await prisma.user.count({
     where: {
