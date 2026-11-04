@@ -231,6 +231,13 @@ function assertRole(type: FieldType, role: string | null | undefined) {
   }
 }
 
+/** Измерение по тексту (1.8.0) — только однострочный текст: по многострочному группировать нечего. */
+function assertTextDimension(type: FieldType, role: string | null | undefined, settings: FieldSettings | null | undefined) {
+  if (type === 'text' && role === 'dimension' && settings?.text?.multiline) {
+    throw badRequest('BAD_ANALYTICS_ROLE', 'Многострочный текст не бывает измерением: снимите роль или признак «многострочный»');
+  }
+}
+
 /**
  * Правило вычисляемого поля: дата «от» + дни по варианту списка; переопределение — дата
  * (по желанию — только при заполненном поле-условии) и перенос срока на рабочий день.
@@ -442,6 +449,7 @@ export async function addField(db: Db, actor: Actor, registerId: string, input: 
       throw badRequest('NO_LINK_REGISTER', 'Реестр выбирается только у поля «Связь с записью»');
     }
     const settings = input.settings ? await validateSettings(tx, reg, { id: null, type: input.type }, input.settings) : null;
+    assertTextDimension(input.type, input.analyticsRole, settings);
     const options = [...new Set((input.options ?? []).map(trimmed).filter(Boolean))];
     if (options.length && input.type !== 'select' && input.type !== 'decision') {
       throw badRequest('NO_OPTIONS', 'Значения списка бывают только у списка и решения другого отдела');
@@ -562,6 +570,11 @@ export async function updateField(db: Db, actor: Actor, fieldId: string, input: 
       }
     }
     if (!changes.length) return reg;
+    assertTextDimension(
+      field.type,
+      data.analyticsRole !== undefined ? (data.analyticsRole as string | null) : field.analyticsRole,
+      settingsChanged ? (data.settings === Prisma.DbNull ? null : (data.settings as FieldSettings)) : field.settings,
+    );
     const res = await tx.registerField.updateMany({ where: { id: fieldId, version: input.version }, data: { ...data, version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.registerField.findFirst({ where: { id: fieldId, deletedAt: null } }), 'Поле');
     // Ключ импорта пересчитывает триггер (register_records_import_key) по новому полю-ключу.

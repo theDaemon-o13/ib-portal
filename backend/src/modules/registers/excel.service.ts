@@ -1,6 +1,7 @@
 // Экспорт реестра в Excel и импорт обратно с обновлением по колонке ID (CLAUDE.md, раздел 7, п. 7).
 // Импорт всегда в два шага: предпросмотр (ничего не меняет) → применение одной транзакцией.
 import { createHash } from 'node:crypto';
+import { awarenessImportWarnings, titleFromParts, type ImportRowView } from '../awareness/derive.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import ExcelJS from 'exceljs';
 import { withTx, type Db } from '../../lib/db.js';
@@ -35,7 +36,7 @@ import {
   type RegisterDef,
 } from './definition.js';
 import { baseSql, closedSql, filterSql, type RecordFilter } from './filter.js';
-import { linkIdsIn, linkLabels, loadLinkRefs } from './links.js';
+import { linkIdsIn, linkLabels, loadLinkRefs, withClosedLabel } from './links.js';
 import { applyDateDefaults, dateErrors, lockErrors } from './record-rules.js';
 import { nextNumbers } from './records.service.js';
 
@@ -76,6 +77,8 @@ export async function linkTargetsOf(db: Db, reg: RegisterDef): Promise<Map<strin
     if (!map) {
       const target = await loadRegister(db, targetId);
       const title = target.fields.find((x) => x.isTitle);
+      const status = target.fields.find((x) => x.isStatus);
+      const closedLabels = new Map((status?.options ?? []).filter((o) => o.isClosed).map((o) => [o.id, o.label.toLocaleLowerCase('ru')]));
       const rows = await db.registerRecord.findMany({ where: { registerId: targetId, deletedAt: null }, select: { id: true, number: true, values: true, importKey: true } });
       map = new Map<string, string[]>();
       const add = (k: string | null | undefined, id: string) => {
@@ -89,6 +92,9 @@ export async function linkTargetsOf(db: Db, reg: RegisterDef): Promise<Map<strin
         add(r.importKey, r.id);
         const t = title ? (r.values as Values)[title.id] : undefined;
         if (typeof t === 'string') add(t, r.id);
+        // Выгрузка подписывает закрытую запись меткой статуса — та же подпись находит её при обратном импорте.
+        const closed = status ? closedLabels.get(String((r.values as Values)[status.id] ?? '')) : undefined;
+        if (typeof t === 'string' && closed) add(withClosedLabel(t, closed), r.id);
       }
       cache.set(targetId, map);
     }
@@ -130,9 +136,10 @@ export async function exportRegister(db: Db, registerId: string, opts: ExportOpt
   const rows = await exportRows(db, reg, opts);
   const dtos = await toRecordDtos(db, reg, rows);
   const users = await loadUsers(db, userIdsIn(reg, rows.map((r) => r.values as Values)));
-  // Связь — заголовками связанных записей («WS-BUH-014»): по ним импорт найдёт записи обратно.
+  // Связь — заголовками связанных записей («WS-BUH-014»): по ним импорт найдёт записи обратно. У закрытой записи —
+  // с меткой статуса («Иванов И. И. (уволен)», 1.8.0); обратный импорт находит и такую подпись (linkTargetsOf).
   const refs = await loadLinkRefs(db, linkIdsIn(reg, rows.map((r) => r.values as Values)));
-  const linkTitles = new Map([...refs.values()].map((r) => [r.id, r.title || `#${r.number}`]));
+  const linkTitles = new Map([...refs.values()].map((r) => [r.id, withClosedLabel(r.title || `#${r.number}`, r.closedLabel)]));
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Портал ИБ';
@@ -292,6 +299,45 @@ export interface ImportSummary {
   source?: Record<string, unknown>;
   /** Блоки предпросмотра адаптера: что будет создано, дубли в источнике. optional — можно снять при применении. */
   blocks?: ImportBlock[];
+  /** Выбор связи для новых записей (1.8.0, docs/specs/awareness.md, 7.2): строки, кандидаты, откуда искать. */
+  choices?: ImportChoiceBlock;
+  /** После применения: сколько строк блока выбора получили запись. */
+  choicesApplied?: { chosen: number; left: number };
+}
+
+/** Строка блока выбора: что в файле и кого предложить. */
+export interface ImportChoiceRow {
+  row: number;
+  title: string;
+  detail: string;
+  /** Почему не выбрано автоматически («однофамильцы: 2», «не найден»…). */
+  reason: string;
+  candidates: { id: string; label: string }[];
+}
+
+/** Блок выбора в предпросмотре: только новые записи без ошибок; поиск — по реестру связи в области выбора. */
+export interface ImportChoiceBlock {
+  code: string;
+  title: string;
+  hint: string | null;
+  fieldId: string;
+  registerId: string;
+  /** Область выбора: записи со значением списка (для INDIGO — «Статус = Работает»); null — любые. */
+  scope: { fieldId: string; optionId: string } | null;
+  rows: ImportChoiceRow[];
+}
+
+/**
+ * Что делает выбор при применении (хранится в payload): связь [id], фиксированные значения (set) и копия полей
+ * выбранной записи (copy: поле строки ← поле выбранной записи; пустое не копируется).
+ */
+export interface ImportChoicePlan {
+  fieldId: string;
+  registerId: string;
+  scope: ImportChoiceBlock['scope'];
+  rows: number[];
+  set: Values;
+  copy: Record<string, string>;
 }
 
 export interface ImportBlock {
@@ -325,6 +371,8 @@ export interface ImportAdapter {
   source: Record<string, unknown>;
   warnings: string[];
   blocks: ImportBlock[];
+  /** Выбор связи для новых записей; без него применение работает как раньше. */
+  choices?: Omit<ImportChoiceBlock, 'rows'> & { rows: ImportChoiceRow[]; set: Values; copy: Record<string, string> };
 }
 
 export interface NewRecordGroup {
@@ -340,6 +388,7 @@ interface ImportPayload {
   fieldVersions: Record<string, number>;
   newOptions?: ImportAdapter['newOptions'];
   newRecords?: NewRecordGroup[];
+  choice?: ImportChoicePlan;
 }
 
 /** Токен записи или значения списка, которые создаст применение. */
@@ -568,6 +617,8 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
   };
   // Новый ключ → строка, которая его получит (повторы ключа среди изменений файла).
   const keyClaims = new Map<string, number>();
+  // Строки без ошибок — для предупреждений системных реестров (awareness/derive.ts).
+  const rowViews: ImportRowView[] = [];
 
   for (const [i, { row, rowNumber, values: parsed, cellErrors }] of dataRows.entries()) {
     const rowErrors: ImportIssue[] = [];
@@ -621,7 +672,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
         if (inFile !== (shownNow[c.field.id] ?? '')) readonlyChanged++;
       }
     }
-    if (!rec && rowErrors.length === 0 && requiredField && changes[requiredField.id] === undefined) {
+    if (!rec && rowErrors.length === 0 && requiredField && changes[requiredField.id] === undefined && !titleFromParts(reg, changes)) {
       rowErrors.push({ row: rowNumber, id: null, field: requiredField.label, message: `Для новой записи заполните «${requiredField.label}»` });
     }
     // Фиксация статусом (этап 8б): зафиксированное и «с причиной» импорт не меняет — только карточка записи.
@@ -656,6 +707,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
       continue;
     }
     for (const fid of Object.keys(changes)) fieldCounts.set(fid, (fieldCounts.get(fid) ?? 0) + 1);
+    rowViews.push({ row: rowNumber, current: rec ? current : null, merged: { ...current, ...changes } });
     if (rec) {
       if (Object.keys(changes).length === 0) {
         unchanged++;
@@ -697,6 +749,16 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     if (missingTotal > missing.length) warnings.push(`Нет в файле: показаны первые ${missing.length} из ${missingTotal}`);
   }
 
+  // Выбор связи — только у строк, которые станут новыми записями (ошибки и найденные записи из блока уходят).
+  let choices: ImportChoiceBlock | undefined;
+  if (adapter?.choices) {
+    const creating = new Set(payload.creates.map((c) => c.row));
+    const { set, copy, rows, ...block } = adapter.choices;
+    choices = { ...block, rows: rows.filter((r) => creating.has(r.row)) };
+    if (choices.rows.length) payload.choice = { fieldId: block.fieldId, registerId: block.registerId, scope: block.scope, rows: choices.rows.map((r) => r.row), set, copy };
+  }
+
+  warnings.push(...awarenessImportWarnings(reg, rowViews, new Set([...cols.values()].filter((c) => c.kind === 'value' && c.field).map((c) => (c.field as FieldMeta).id))));
   if (readonlyChanged) warnings.push(`В колонках «только для чтения» изменено значений: ${readonlyChanged}. Они не импортируются`);
   if (errorRows > errors.length) warnings.push(`Показаны первые ${errors.length} ошибок`);
 
@@ -716,6 +778,7 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     missing,
     missingTotal,
     ...(adapter ? { source: adapter.source, blocks: adapter.blocks } : {}),
+    ...(choices?.rows.length ? { choices } : {}),
   };
   const sha256 = createHash('sha256').update(buffer).digest('hex');
   const imp = await withTx(db, async (tx) => {
@@ -848,7 +911,48 @@ export function substituteTokens(values: Values, tokens: ReadonlyMap<string, str
 }
 
 /** Применение одной транзакцией. Если что-то изменилось после предпросмотра — ничего не применяется. */
-export async function applyImport(db: Db, actor: Actor, importId: string, opts: { skip?: string[] } = {}) {
+/**
+ * Выбор связи при применении (7.2): строка — из блока, запись — из реестра связи, не удалена и в области выбора;
+ * иначе ничего не применяется. Выбранное ставит связь, фиксированные значения и копии полей выбранной записи.
+ */
+async function applyChoices(tx: Db, payload: ImportPayload, choices: Readonly<Record<string, string | null>>): Promise<{ chosen: number; left: number }> {
+  const plan = payload.choice;
+  const picked = Object.entries(choices).filter((e): e is [string, string] => e[1] !== null);
+  if (!plan) {
+    if (picked.length) throw badRequest('BAD_CHOICES', 'У этого импорта нет выбора связей');
+    return { chosen: 0, left: 0 };
+  }
+  const allowed = new Set(plan.rows);
+  for (const row of Object.keys(choices)) {
+    if (!allowed.has(Number(row))) throw badRequest('BAD_CHOICES', `Строка ${row} не из блока выбора`);
+  }
+  const ids = [...new Set(picked.map(([, id]) => id))];
+  const found = ids.length
+    ? await tx.registerRecord.findMany({ where: { id: { in: ids } }, select: { id: true, number: true, registerId: true, deletedAt: true, values: true } })
+    : [];
+  const byId = new Map(found.map((r) => [r.id, r]));
+  for (const id of ids) {
+    const r = byId.get(id);
+    if (!r || r.registerId !== plan.registerId) throw badRequest('BAD_CHOICES', 'Выбрана запись не из того реестра');
+    const v = r.values as Values;
+    if (r.deletedAt || (plan.scope && v[plan.scope.fieldId] !== plan.scope.optionId)) {
+      throw conflict('IMPORT_STALE', `Выбранная запись #${r.number} удалена или больше не подходит (например, сотрудник уволен). Повторите предпросмотр`);
+    }
+  }
+  for (const [row, id] of picked) {
+    const c = payload.creates.find((x) => x.row === Number(row));
+    const r = byId.get(id);
+    if (!c || !r) continue;
+    const src = r.values as Values;
+    const copied = Object.fromEntries(Object.entries(plan.copy)
+      .map(([to, from]) => [to, src[from]] as const)
+      .filter((e): e is readonly [string, StoredValue] => e[1] !== undefined && e[1] !== ''));
+    c.values = { ...c.values, [plan.fieldId]: [id], ...plan.set, ...copied };
+  }
+  return { chosen: picked.length, left: plan.rows.length - picked.length };
+}
+
+export async function applyImport(db: Db, actor: Actor, importId: string, opts: { skip?: string[]; choices?: Record<string, string | null> } = {}) {
   return withTx(db, async (tx) => {
     // Блокировка строки импорта: повторное «Применить» не выполнится дважды.
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM register_imports WHERE id = ${importId}::uuid FOR UPDATE`;
@@ -880,6 +984,7 @@ export async function applyImport(db: Db, actor: Actor, importId: string, opts: 
       payload.updates = payload.updates.filter((u) => Object.keys(u.changes).length);
       reg = await loadRegister(tx, imp.registerId);
     }
+    const choicesApplied = payload.choice || opts.choices ? await applyChoices(tx, payload, opts.choices ?? {}) : null;
     const optionOk = (f: FieldMeta, v: StoredValue) => (f.type !== 'select' && f.type !== 'catalog') || f.options.some((o) => o.id === v);
     const usersNeeded = new Set<string>();
 
@@ -958,13 +1063,17 @@ export async function applyImport(db: Db, actor: Actor, importId: string, opts: 
 
     await insertRecords(tx, actor, reg, payload.creates.map((c) => c.values), summary.fileName, importId);
 
-    await tx.registerImport.update({ where: { id: importId }, data: { status: 'applied', appliedAt: new Date() } });
+    await tx.registerImport.update({
+      where: { id: importId },
+      data: { status: 'applied', appliedAt: new Date(), ...(choicesApplied ? { summary: { ...summary, choicesApplied } as unknown as Prisma.InputJsonValue } : {}) },
+    });
     await auditSettings(tx, actor, {
       action: 'register.import.applied', entity: 'register_import', entityId: importId,
       summary: `«${reg.name}»: применён импорт «${summary.fileName}» — добавлено ${payload.creates.length}, изменено ${payload.updates.length}, пропущено строк с ошибками ${summary.errorRows}`,
       after: {
         fileName: summary.fileName, sha256: imp.fileSha256, added: payload.creates.length, updated: payload.updates.length, errorRows: summary.errorRows,
         ...(summary.source ? { source: summary.source } : {}), ...(skip.size ? { skipped: [...skip] } : {}),
+        ...(choicesApplied ? { choices: choicesApplied } : {}),
       },
     });
     return { added: payload.creates.length, updated: payload.updates.length, skipped: summary.errorRows };

@@ -3,6 +3,8 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, unprocessable, versionConflict } from '../../lib/errors.js';
 import { isBasisRule } from '../../lib/link-basis.js';
+import { AWARENESS_RESULTS_KEY } from '../awareness/definition.js';
+import { titleFromParts } from '../awareness/derive.js';
 import {
   calcValue,
   displayValue,
@@ -253,9 +255,14 @@ function applyInput(
   if (errors.length) throw badRequest('INVALID_VALUES', errors.join('. '));
   // Служебные поля ставит только портал (передача ИКТ, перенос, продления — ADR-0030).
   const managed = changed.filter((f) => f.managed);
-  if (managed.length) throw conflict('VULN_SERVICE_FIELD', `${managed.map((f) => `«${f.label}»`).join(', ')} ставит портал — вручную не меняется`);
+  if (managed.length) {
+    const names = managed.map((f) => `«${f.label}»`).join(', ');
+    // Результат INDIGO — запись отчёта: исправляется загрузкой исправленного отчёта (1.8.0, docs/specs/awareness.md, раздел 3).
+    if (reg.systemKey === AWARENESS_RESULTS_KEY) throw conflict('AWARENESS_SERVICE_FIELD', `${names} ставит импорт отчёта INDIGO — вручную не меняется. Исправьте отчёт и загрузите его снова`);
+    throw conflict('VULN_SERVICE_FIELD', `${names} ставит портал — вручную не меняется`);
+  }
   const title = requiredTitleField(reg);
-  if (title && (values[title.id] === undefined || values[title.id] === '')) {
+  if (title && (values[title.id] === undefined || values[title.id] === '') && !titleFromParts(reg, values)) {
     throw badRequest('TITLE_REQUIRED', `Заполните «${title.label}»`);
   }
   return { values, changed };

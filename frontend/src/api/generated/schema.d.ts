@@ -13231,6 +13231,7 @@ export interface paths {
                     date?: string;
                     from?: string;
                     to?: string;
+                    lopen?: string;
                     q?: string;
                     sort?: string;
                     dir?: "asc" | "desc";
@@ -13319,6 +13320,7 @@ export interface paths {
                                         number: number;
                                         title: string;
                                         deleted: boolean;
+                                        closedLabel: string | null;
                                     }[];
                                 };
                                 basis: {
@@ -13543,6 +13545,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -13768,6 +13771,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -13995,6 +13999,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -14386,6 +14391,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -14620,6 +14626,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -15015,6 +15022,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -15248,6 +15256,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -15481,6 +15490,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -15875,6 +15885,7 @@ export interface paths {
                                     number: number;
                                     title: string;
                                     deleted: boolean;
+                                    closedLabel: string | null;
                                 }[];
                             };
                             basis: {
@@ -16192,6 +16203,8 @@ export interface paths {
                                 date?: string;
                                 from?: string;
                                 to?: string;
+                                /** Format: uuid */
+                                lopen?: string;
                                 q?: string;
                                 includeArchived?: boolean;
                                 /** @enum {string} */
@@ -16372,6 +16385,8 @@ export interface paths {
                                 date?: string;
                                 from?: string;
                                 to?: string;
+                                /** Format: uuid */
+                                lopen?: string;
                                 q?: string;
                                 includeArchived?: boolean;
                                 /** @enum {string} */
@@ -16555,6 +16570,8 @@ export interface paths {
                                 date?: string;
                                 from?: string;
                                 to?: string;
+                                /** Format: uuid */
+                                lopen?: string;
                                 q?: string;
                                 includeArchived?: boolean;
                                 /** @enum {string} */
@@ -16733,6 +16750,8 @@ export interface paths {
                                 date?: string;
                                 from?: string;
                                 to?: string;
+                                /** Format: uuid */
+                                lopen?: string;
                                 q?: string;
                                 includeArchived?: boolean;
                                 /** @enum {string} */
@@ -17912,6 +17931,31 @@ export interface paths {
                                     total: number;
                                     optional: boolean;
                                 }[];
+                                choices?: {
+                                    code: string;
+                                    title: string;
+                                    hint: string | null;
+                                    fieldId: string;
+                                    registerId: string;
+                                    scope: {
+                                        fieldId: string;
+                                        optionId: string;
+                                    } | null;
+                                    rows: {
+                                        row: number;
+                                        title: string;
+                                        detail: string;
+                                        reason: string;
+                                        candidates: {
+                                            id: string;
+                                            label: string;
+                                        }[];
+                                    }[];
+                                };
+                                choicesApplied?: {
+                                    chosen: number;
+                                    left: number;
+                                };
                             };
                         };
                     };
@@ -18105,6 +18149,31 @@ export interface paths {
                                     total: number;
                                     optional: boolean;
                                 }[];
+                                choices?: {
+                                    code: string;
+                                    title: string;
+                                    hint: string | null;
+                                    fieldId: string;
+                                    registerId: string;
+                                    scope: {
+                                        fieldId: string;
+                                        optionId: string;
+                                    } | null;
+                                    rows: {
+                                        row: number;
+                                        title: string;
+                                        detail: string;
+                                        reason: string;
+                                        candidates: {
+                                            id: string;
+                                            label: string;
+                                        }[];
+                                    }[];
+                                };
+                                choicesApplied?: {
+                                    chosen: number;
+                                    left: number;
+                                };
                             };
                             registerId: string;
                         };
@@ -18231,7 +18300,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать) */
+        /** Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать); choices — выбор связи: номер строки → id записи или null */
         post: {
             parameters: {
                 query?: never;
@@ -18245,6 +18314,9 @@ export interface paths {
                 content: {
                     "application/json": {
                         skip?: string[];
+                        choices?: {
+                            [key: string]: string | null;
+                        };
                     } | null;
                 };
             };
@@ -21801,6 +21873,7 @@ export interface paths {
                                         number: number;
                                         title: string;
                                         deleted: boolean;
+                                        closedLabel: string | null;
                                     }[];
                                 };
                                 basis: {
@@ -23407,6 +23480,31 @@ export interface paths {
                                         total: number;
                                         optional: boolean;
                                     }[];
+                                    choices?: {
+                                        code: string;
+                                        title: string;
+                                        hint: string | null;
+                                        fieldId: string;
+                                        registerId: string;
+                                        scope: {
+                                            fieldId: string;
+                                            optionId: string;
+                                        } | null;
+                                        rows: {
+                                            row: number;
+                                            title: string;
+                                            detail: string;
+                                            reason: string;
+                                            candidates: {
+                                                id: string;
+                                                label: string;
+                                            }[];
+                                        }[];
+                                    };
+                                    choicesApplied?: {
+                                        chosen: number;
+                                        left: number;
+                                    };
                                 };
                             };
                         };

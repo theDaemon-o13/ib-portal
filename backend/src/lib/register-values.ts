@@ -21,7 +21,8 @@ export type AnalyticsRole = (typeof ANALYTICS_ROLES)[number];
 
 /** Совместимость роли аналитики с типом — та же, что CHECK в БД. */
 export const ALLOWED_ROLES: Record<FieldType, readonly AnalyticsRole[]> = {
-  text: [],
+  // Текст — измерение с 1.8.0 (решение владельца 9, миграция text_dimension); многострочный — нет (structure.service).
+  text: ['dimension'],
   select: ['dimension'],
   decision: ['dimension'],
   user: ['dimension'],

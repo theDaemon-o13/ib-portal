@@ -5,6 +5,7 @@ import type { Db } from '../../lib/db.js';
 import { notFound } from '../../lib/errors.js';
 import { formatDateRu, type Values } from '../../lib/register-values.js';
 import { addDaysIso, daysBetween, todayIso } from '../../lib/today.js';
+import { textDimensionRows } from '../../lib/text-dimension.js';
 import type { Tone } from '../../lib/tones.js';
 import { DEPARTMENT_VIEW, listDocuments } from '../documents/service.js';
 import { DOC_STATUS_NAMES, type DocStatus } from '../documents/status.js';
@@ -243,12 +244,29 @@ async function distribution(db: Db, reg: RegisterDef, f: FieldMeta): Promise<Pic
     rows = f.options
       .filter((o) => !o.archived || byKey.has(o.id))
       .map((o) => ({ label: o.label, count: byKey.get(o.id) ?? 0, link: link(o.id), tone: (o.systemKey && CRIT_TONE[o.systemKey]) || null }));
+  } else if (f.type === 'text') {
+    return textDistribution(reg, f, counts);
   } else {
     rows = [];
   }
   const empty = byKey.get(null) ?? 0;
   if (empty) rows.push({ label: 'Не заполнено', count: empty, link: link(EMPTY_VALUE), tone: 'muted' });
   return { rows, total: counts.reduce((s, c) => s + Number(c.n), 0) };
+}
+
+/**
+ * Текстовое измерение (1.8.0, docs/specs/awareness.md, 7.1): 12 самых частых значений после нормализации, подпись — самое
+ * частое написание; затем «Остальные» и «Не заполнено». Полоса ведёт в список с фильтром f= по тексту — те же числа.
+ */
+function textDistribution(reg: RegisterDef, f: FieldMeta, counts: { key: string | null; n: bigint }[]): Pick<WidgetData, 'rows' | 'total'> {
+  const filled = counts.filter((c): c is { key: string; n: bigint } => c.key !== null).map((c) => ({ value: c.key, count: Number(c.n) }));
+  const { rows: top, others, othersValues } = textDimensionRows(filled);
+  const rows: WidgetRow[] = top.map((r) => ({ label: r.label, count: r.count, link: registerLink(reg.id, { text: { fieldId: f.id, value: r.key } }), tone: null }));
+  if (others) rows.push({ label: `Остальные: ${othersValues}`, count: others, link: null, tone: 'muted' });
+  const total = counts.reduce((s, c) => s + Number(c.n), 0);
+  const empty = total - top.reduce((s, r) => s + r.count, 0) - others;
+  if (empty) rows.push({ label: 'Не заполнено', count: empty, link: registerLink(reg.id, { text: { fieldId: f.id, value: null } }), tone: 'muted' });
+  return { rows, total };
 }
 
 async function metric(db: Db, reg: RegisterDef, f: FieldMeta): Promise<WidgetStat[]> {

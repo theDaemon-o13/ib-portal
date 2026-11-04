@@ -148,7 +148,11 @@ const FileOut = z.object({
   id: z.string(), name: z.string(), mime: z.string(), size: z.number().int(), sha256: z.string(), uploadedAt: z.string(),
   uploadedBy: z.object({ id: z.string(), fullName: z.string() }), deleted: z.boolean(),
 });
-const LinkRef = z.object({ id: z.string(), registerId: z.string(), number: z.number().int(), title: z.string(), deleted: z.boolean() });
+const LinkRef = z.object({
+  id: z.string(), registerId: z.string(), number: z.number().int(), title: z.string(), deleted: z.boolean(),
+  /** Метка закрывающего статуса связанной записи («уволен»), null — открыта или без статуса (1.8.0). */
+  closedLabel: z.string().nullable(),
+});
 export const RegisterRecord = z.object({
   id: z.string(),
   number: z.number().int(),
@@ -227,6 +231,17 @@ const ImportSummary = z.object({
   blocks: z.array(z.object({
     code: z.string(), title: z.string(), hint: z.string().nullable(), items: z.array(z.string()), total: z.number().int(), optional: z.boolean(),
   })).optional(),
+  /** Выбор связи для новых записей (1.8.0): строки без автоматического выбора, кандидаты, реестр и область поиска. */
+  choices: z.object({
+    code: z.string(), title: z.string(), hint: z.string().nullable(), fieldId: z.string(), registerId: z.string(),
+    scope: z.object({ fieldId: z.string(), optionId: z.string() }).nullable(),
+    rows: z.array(z.object({
+      row: z.number().int(), title: z.string(), detail: z.string(), reason: z.string(),
+      candidates: z.array(z.object({ id: z.string(), label: z.string() })),
+    })),
+  }).optional(),
+  /** После применения: сколько строк блока выбора получили запись. */
+  choicesApplied: z.object({ chosen: z.number().int(), left: z.number().int() }).optional(),
 });
 export const ImportPreview = z.object({ id: z.string(), status: z.string(), expiresAt: z.string(), summary: ImportSummary });
 const Label = z.string().trim().min(1).max(200);
@@ -871,11 +886,14 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
   app.post('/register-imports/:id/apply', {
     preHandler: edit,
     schema: {
-      tags: ['register-excel'], summary: 'Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать)', params: IdParams,
-      body: z.object({ skip: z.array(z.string().max(50)).max(10).optional() }).nullish(),
+      tags: ['register-excel'], summary: 'Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать); choices — выбор связи: номер строки → id записи или null', params: IdParams,
+      body: z.object({
+        skip: z.array(z.string().max(50)).max(10).optional(),
+        choices: z.record(z.string().regex(/^\d{1,6}$/), z.string().uuid().nullable()).optional(),
+      }).nullish(),
       response: { 200: z.object({ added: z.number().int(), updated: z.number().int(), skipped: z.number().int() }), ...errors },
     },
-  }, async (request) => excel.applyImport(db, actorOf(request), request.params.id, { skip: request.body?.skip }));
+  }, async (request) => excel.applyImport(db, actorOf(request), request.params.id, { skip: request.body?.skip, choices: request.body?.choices }));
 
   app.post('/register-imports/:id/cancel', {
     preHandler: edit,

@@ -35152,6 +35152,16 @@
           {
             "schema": {
               "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "lopen",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
               "maxLength": 200
             },
             "in": "query",
@@ -35541,6 +35551,12 @@
                                   },
                                   "deleted": {
                                     "type": "boolean"
+                                  },
+                                  "closedLabel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -35548,7 +35564,8 @@
                                   "registerId",
                                   "number",
                                   "title",
-                                  "deleted"
+                                  "deleted",
+                                  "closedLabel"
                                 ],
                                 "additionalProperties": false
                               }
@@ -36299,6 +36316,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -36306,7 +36329,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -36993,6 +37017,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -37000,7 +37030,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -37748,6 +37779,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -37755,7 +37792,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -38844,6 +38882,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -38851,7 +38895,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -39568,6 +39613,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -39575,7 +39626,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -40676,6 +40728,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -40683,7 +40741,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -41390,6 +41449,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -41397,7 +41462,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -42104,6 +42170,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -42111,7 +42183,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -42873,6 +42946,12 @@
                             },
                             "deleted": {
                               "type": "boolean"
+                            },
+                            "closedLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -42880,7 +42959,8 @@
                             "registerId",
                             "number",
                             "title",
-                            "deleted"
+                            "deleted",
+                            "closedLabel"
                           ],
                           "additionalProperties": false
                         }
@@ -44002,6 +44082,11 @@
                                 "type": "string",
                                 "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                               },
+                              "lopen": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
                               "q": {
                                 "type": "string",
                                 "maxLength": 200
@@ -44452,6 +44537,11 @@
                               "to": {
                                 "type": "string",
                                 "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                              },
+                              "lopen": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                               },
                               "q": {
                                 "type": "string",
@@ -44923,6 +45013,11 @@
                                 "type": "string",
                                 "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                               },
+                              "lopen": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
                               "q": {
                                 "type": "string",
                                 "maxLength": 200
@@ -45365,6 +45460,11 @@
                               "to": {
                                 "type": "string",
                                 "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                              },
+                              "lopen": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                               },
                               "q": {
                                 "type": "string",
@@ -48360,6 +48460,131 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "choices": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "hint": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "fieldId": {
+                              "type": "string"
+                            },
+                            "registerId": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "fieldId": {
+                                      "type": "string"
+                                    },
+                                    "optionId": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "fieldId",
+                                    "optionId"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "row": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "detail": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  },
+                                  "candidates": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "label"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "row",
+                                  "title",
+                                  "detail",
+                                  "reason",
+                                  "candidates"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "title",
+                            "hint",
+                            "fieldId",
+                            "registerId",
+                            "scope",
+                            "rows"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "choicesApplied": {
+                          "type": "object",
+                          "properties": {
+                            "chosen": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "left": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "chosen",
+                            "left"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -48918,6 +49143,131 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "choices": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "hint": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "fieldId": {
+                              "type": "string"
+                            },
+                            "registerId": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "fieldId": {
+                                      "type": "string"
+                                    },
+                                    "optionId": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "fieldId",
+                                    "optionId"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "row": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "detail": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  },
+                                  "candidates": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "label"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "row",
+                                  "title",
+                                  "detail",
+                                  "reason",
+                                  "candidates"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "title",
+                            "hint",
+                            "fieldId",
+                            "registerId",
+                            "scope",
+                            "rows"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "choicesApplied": {
+                          "type": "object",
+                          "properties": {
+                            "chosen": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "left": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "chosen",
+                            "left"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -49193,7 +49543,7 @@
     },
     "/api/v1/register-imports/{id}/apply": {
       "post": {
-        "summary": "Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать)",
+        "summary": "Импорт, шаг 2: применить одной транзакцией. skip — снятые блоки адаптера (не создавать); choices — выбор связи: номер строки → id записи или null",
         "tags": [
           "register-excel"
         ],
@@ -49211,6 +49561,25 @@
                         "items": {
                           "type": "string",
                           "maxLength": 50
+                        }
+                      },
+                      "choices": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "pattern": "^\\d{1,6}$"
+                        },
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     }
@@ -59544,6 +59913,12 @@
                                   },
                                   "deleted": {
                                     "type": "boolean"
+                                  },
+                                  "closedLabel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -59551,7 +59926,8 @@
                                   "registerId",
                                   "number",
                                   "title",
-                                  "deleted"
+                                  "deleted",
+                                  "closedLabel"
                                 ],
                                 "additionalProperties": false
                               }
@@ -63830,6 +64206,131 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "choices": {
+                              "type": "object",
+                              "properties": {
+                                "code": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "hint": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "fieldId": {
+                                  "type": "string"
+                                },
+                                "registerId": {
+                                  "type": "string"
+                                },
+                                "scope": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "fieldId": {
+                                          "type": "string"
+                                        },
+                                        "optionId": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "fieldId",
+                                        "optionId"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "rows": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "row": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "detail": {
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "type": "string"
+                                      },
+                                      "candidates": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string"
+                                            },
+                                            "label": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "label"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "row",
+                                      "title",
+                                      "detail",
+                                      "reason",
+                                      "candidates"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "code",
+                                "title",
+                                "hint",
+                                "fieldId",
+                                "registerId",
+                                "scope",
+                                "rows"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "choicesApplied": {
+                              "type": "object",
+                              "properties": {
+                                "chosen": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "left": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "chosen",
+                                "left"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [

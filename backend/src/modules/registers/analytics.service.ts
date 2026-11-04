@@ -1,6 +1,7 @@
 // Предпросмотр «Попадёт на дашборд»: виджеты по полям с ролью для аналитики (как в прототипе).
 // Считается в БД по неудалённым и неархивным записям.
 import type { Db } from '../../lib/db.js';
+import { textDimensionRows } from '../../lib/text-dimension.js';
 import { loadRegister } from './definition.js';
 
 export interface Widget {
@@ -43,7 +44,14 @@ export async function registerAnalytics(db: Db, registerId: string): Promise<Wid
       }
       const byKey = new Map(counts.map((c) => [c.key, Number(c.n)]));
       w.empty = byKey.get(null) ?? 0;
-      if (f.type === 'user') {
+      if (f.type === 'text') {
+        // Текстовое измерение (1.8.0): по нормализованному значению, 12 частых и «Остальные» — как на дашборде.
+        const filled = counts.filter((c): c is { key: string; n: bigint } => c.key !== null).map((c) => ({ value: c.key, count: Number(c.n) }));
+        const t = textDimensionRows(filled);
+        w.rows = t.rows.map((r) => ({ label: r.label, count: r.count }));
+        if (t.others) w.rows.push({ label: `Остальные: ${t.othersValues}`, count: t.others });
+        w.empty += filled.reduce((s, c) => s + c.count, 0) - t.rows.reduce((s, r) => s + r.count, 0) - t.others;
+      } else if (f.type === 'user') {
         const users = await db.user.findMany({
           where: { id: { in: counts.map((c) => c.key).filter((k): k is string => !!k) } },
           select: { id: true, fullName: true },

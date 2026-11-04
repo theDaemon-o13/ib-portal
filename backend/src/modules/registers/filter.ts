@@ -3,7 +3,11 @@
 //   state=open|closed            — открытые / закрытые (по значению статуса с признаком «закрывает запись»)
 //   deadline=overdue,soon,…      — контроль сроков (в памяти: срок может быть вычисляемым, календарь РТ)
 //   f=<id поля>:<v1>,<v2>        — значение списка, справочника, сотрудника или решения ∈ {…}; empty — не заполнено;
-//                                  у статуса основания (link_basis) — ok, none, expired, closed (в памяти)
+//                                  у статуса основания (link_basis) — ok, none, expired, closed (в памяти);
+//                                  у текстового измерения (1.8.0) — f=<id поля>:<текст> целиком (запятые — часть текста),
+//                                  совпадение после нормализации (регистр, пробелы, «ё»); empty — не заполнено
+//   lopen=<id поля связи>        — связь пустая или связанная запись не в закрывающем статусе (1.8.0): исключается
+//                                  только запись, у которой связанная запись жива и закрыта («(уволен)»)
 //   date=<id поля>&from=&to=     — дата поля в интервале (включительно), ГГГГ-ММ-ДД
 import { Prisma } from '../../generated/prisma/client.js';
 import { z } from 'zod';
@@ -11,6 +15,7 @@ import type { Db } from '../../lib/db.js';
 import { badRequest } from '../../lib/errors.js';
 import { basisOf, BASIS_STATES, isBasisRule } from '../../lib/link-basis.js';
 import { isDueRule, type Values } from '../../lib/register-values.js';
+import { normalizeDimensionText, normalizedTextSql, TEXT_FILTER_MAX } from '../../lib/text-dimension.js';
 import { todayIso } from '../../lib/today.js';
 import {
   calendarFor,
@@ -34,7 +39,11 @@ export interface RecordFilter {
   state?: 'open' | 'closed';
   deadline?: DeadlineState[];
   field?: { fieldId: string; values: string[] };
+  /** Текстовое измерение: нормализованное значение; null — не заполнено. */
+  text?: { fieldId: string; value: string | null };
   date?: { fieldId: string; from?: string; to?: string };
+  /** Поле связи: пустая или связанная запись не закрыта. */
+  linkOpen?: string;
 }
 
 /** Параметры фильтра в адресе — общие для GET /registers/:id/records и ссылок дашборда. */
@@ -45,6 +54,7 @@ export const RecordFilterQuery = z.object({
   date: z.string().uuid().optional(),
   from: z.string().regex(ISO_DATE).optional(),
   to: z.string().regex(ISO_DATE).optional(),
+  lopen: z.string().uuid().optional(),
 });
 export type RecordFilterParams = z.infer<typeof RecordFilterQuery>;
 
@@ -65,6 +75,20 @@ export function parseRecordFilter(reg: RegisterDef, q: RecordFilterParams): Reco
     }
     if (!deadlineField(reg)) throw badRequest('BAD_FILTER', 'В реестре нет поля с контролем сроков');
     out.deadline = [...new Set(states)] as DeadlineState[];
+  }
+  if (q.f) {
+    const sep = q.f.indexOf(':');
+    const fieldId = sep > 0 ? q.f.slice(0, sep) : '';
+    const textField = z.string().uuid().safeParse(fieldId).success ? reg.fields.find((x) => x.id === fieldId && x.type === 'text') : undefined;
+    if (textField) {
+      // Текстовое измерение: значение — весь остаток после «:» (в названиях подразделений бывают запятые).
+      if (textField.analyticsRole !== 'dimension') throw badRequest('BAD_FILTER', `По полю «${textField.label}» фильтр по значению недоступен`);
+      const raw = q.f.slice(sep + 1);
+      const value = raw.trim() === EMPTY_VALUE ? null : normalizeDimensionText(raw);
+      if (value === '' || (value?.length ?? 0) > TEXT_FILTER_MAX) throw badRequest('BAD_FILTER', `Фильтр по полю «${textField.label}»: укажите значение`);
+      out.text = { fieldId, value };
+      q = { ...q, f: undefined };
+    }
   }
   if (q.f) {
     const sep = q.f.indexOf(':');
@@ -91,6 +115,11 @@ export function parseRecordFilter(reg: RegisterDef, q: RecordFilterParams): Reco
     if (q.from && q.to && q.from > q.to) throw badRequest('BAD_FILTER', 'Фильтр по дате: «с» позже «по»');
     out.date = { fieldId: f.id, from: q.from, to: q.to };
   }
+  if (q.lopen) {
+    const f = fieldOf(reg, q.lopen, 'связь');
+    if (f.type !== 'link') throw badRequest('BAD_FILTER', `«${f.label}» — не связь с записью`);
+    out.linkOpen = f.id;
+  }
   return out;
 }
 
@@ -100,6 +129,8 @@ export function filterToParams(filter: RecordFilter): Record<string, string> {
   if (filter.state) p.state = filter.state;
   if (filter.deadline?.length) p.deadline = filter.deadline.join(',');
   if (filter.field) p.f = `${filter.field.fieldId}:${filter.field.values.join(',')}`;
+  if (filter.text) p.f = `${filter.text.fieldId}:${filter.text.value ?? EMPTY_VALUE}`;
+  if (filter.linkOpen) p.lopen = filter.linkOpen;
   if (filter.date) {
     p.date = filter.date.fieldId;
     if (filter.date.from) p.from = filter.date.from;
@@ -120,6 +151,18 @@ export function closedSql(reg: RegisterDef): Prisma.Sql {
   if (!status) return Prisma.sql`false`;
   return Prisma.sql`EXISTS (SELECT 1 FROM register_field_options o
     WHERE o.field_id = ${status.id}::uuid AND o.is_closed AND o.deleted_at IS NULL AND o.id::text = r."values" ->> ${status.id})`;
+}
+
+/**
+ * Есть ли среди записей поля связи живая запись в закрывающем статусе своего реестра (1.8.0, фильтр lopen=, вывод
+ * «(уволен)»). Удалённая связанная запись закрытой не считается: неизвестно, что она закрыта.
+ */
+export function linkClosedSql(linkFieldId: string): Prisma.Sql {
+  return Prisma.sql`EXISTS (
+    SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(r."values" -> ${linkFieldId}) = 'array' THEN r."values" -> ${linkFieldId} ELSE '[]'::jsonb END) AS l(id)
+    JOIN register_records lr ON lr.id::text = l.id AND lr.deleted_at IS NULL
+    JOIN register_fields sf ON sf.register_id = lr.register_id AND sf.is_status AND sf.deleted_at IS NULL
+    JOIN register_field_options o ON o.field_id = sf.id AND o.is_closed AND o.deleted_at IS NULL AND o.id::text = lr."values" ->> sf.id::text)`;
 }
 
 /** Последнее решение по полю «решение другого отдела»; без решения — первый действующий вариант («Ожидает решения»). */
@@ -150,6 +193,13 @@ export function filterSql(reg: RegisterDef, filter: RecordFilter): Prisma.Sql {
     if (wantsEmpty) conds.push(Prisma.sql`${value} IS NULL`);
     parts.push(Prisma.sql`(${Prisma.join(conds, ' OR ')})`);
   }
+  if (filter.text) {
+    const v = Prisma.sql`r."values" ->> ${filter.text.fieldId}`;
+    parts.push(filter.text.value === null
+      ? Prisma.sql`(${v} IS NULL OR ${normalizedTextSql(v)} = '')`
+      : Prisma.sql`${normalizedTextSql(v)} = ${filter.text.value}`);
+  }
+  if (filter.linkOpen) parts.push(Prisma.sql`NOT ${linkClosedSql(filter.linkOpen)}`);
   if (filter.date) {
     const f = reg.fields.find((x) => x.id === filter.date?.fieldId) as FieldMeta;
     if (f.type === 'date') {

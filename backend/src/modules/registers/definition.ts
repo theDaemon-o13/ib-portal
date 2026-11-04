@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { workUsersWhere } from '../../lib/work-users.js';
 import type { Db } from '../../lib/db.js';
 import { ASSET_MANAGED_FIELDS } from '../assets/definition.js';
+import { AWARENESS_MANAGED_FIELDS } from '../awareness/definition.js';
 import { conflict, notFound } from '../../lib/errors.js';
 import {
   calcRuleFieldIds,
@@ -56,8 +57,9 @@ export interface FieldMeta extends FieldDef {
  * Служебные поля системных реестров по ключам (релиз 1.5.0, ADR-0030): у реестра уязвимостей дата передачи ИКТ,
  * срок из прежнего реестра и сумма продлений — их ставят передача ИКТ, перенос и продления, а не человек.
  * У активов (1.6.0) — ключ компонента, исходное написание ОС и покрытие защиты: их ставят адаптеры импорта.
+ * У «Результатов INDIGO» (1.8.0) — всё, кроме «Сотрудника»: их ставят импорт отчёта и «Обновить по сотрудникам».
  */
-export const MANAGED_FIELDS: Readonly<Record<string, readonly string[]>> = { vulns: ['notified', 'legacyDue', 'extDays'], ...ASSET_MANAGED_FIELDS };
+export const MANAGED_FIELDS: Readonly<Record<string, readonly string[]>> = { vulns: ['notified', 'legacyDue', 'extDays'], ...ASSET_MANAGED_FIELDS, ...AWARENESS_MANAGED_FIELDS };
 
 export interface RegisterDef {
   id: string;

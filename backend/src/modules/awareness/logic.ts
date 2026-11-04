@@ -2,14 +2,15 @@
 // разбор даты, времени и процента из отчёта INDIGO, выбор лучшей попытки дня. Одна нормализация ФИО для адаптера,
 // ключа попытки и пересчёта по сотрудникам (ADR-0038).
 import type { SheetCell } from '../../lib/spreadsheetml.js';
+import { normalizeDimensionText } from '../../lib/text-dimension.js';
 import { parseDateText, parseNumberText } from '../../lib/register-values.js';
 import type { GradeSettings } from './grades.js';
 
 const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-/** ФИО для сравнения: без регистра, лишние пробелы схлопываются, по краям убираются, «ё» → «е». */
+/** ФИО для сравнения: без регистра, лишние пробелы схлопываются, по краям убираются, «ё» → «е» — то же правило, что у текстового измерения. */
 export function normalizeFio(s: string): string {
-  return collapse(s).toLowerCase().replace(/ё/g, 'е');
+  return normalizeDimensionText(s);
 }
 
 export interface FioParts {

@@ -14,11 +14,21 @@ export interface LinkRef {
   title: string;
   /** Запись удалена: связь осталась в значении, но открыть её нельзя. */
   deleted: boolean;
+  /**
+   * Метка закрывающего статуса связанной записи в нижнем регистре («уволен»); null — статуса нет или он открыт
+   * (1.8.0, решение владельца 7: общее правило вывода связей).
+   */
+  closedLabel: string | null;
 }
 
-/** Подпись связанной записи: «#12 WS-BUH-014». */
-export function linkLabel(r: Pick<LinkRef, 'number' | 'title'>): string {
-  return r.title ? `#${r.number} ${r.title}` : `#${r.number}`;
+/** Метка закрывающего статуса после заголовка: «Иванов Иван Иванович (уволен)». */
+export function withClosedLabel(title: string, closedLabel: string | null): string {
+  return closedLabel ? `${title} (${closedLabel})` : title;
+}
+
+/** Подпись связанной записи: «#12 WS-BUH-014», у закрытой — «#12 Иванов Иван Иванович (уволен)». */
+export function linkLabel(r: Pick<LinkRef, 'number' | 'title'> & { closedLabel?: string | null }): string {
+  return withClosedLabel(r.title ? `#${r.number} ${r.title}` : `#${r.number}`, r.closedLabel ?? null);
 }
 
 /** id записей во всех полях «Связь с записью» реестра. */
@@ -36,13 +46,21 @@ export function linkIdsIn(reg: RegisterDef, values: readonly Values[]): string[]
 export async function loadLinkRefs(db: Db, ids: readonly string[]): Promise<Map<string, LinkRef>> {
   const uniq = [...new Set(ids)];
   if (!uniq.length) return new Map();
-  const rows = await db.$queryRaw<{ id: string; register_id: string; number: number; title: string | null; deleted: boolean }[]>`
+  const rows = await db.$queryRaw<{ id: string; register_id: string; number: number; title: string | null; deleted: boolean; closed_label: string | null }[]>`
     SELECT r.id::text, r.register_id::text, r.number,
            r."values" ->> (SELECT f.id::text FROM register_fields f
                            WHERE f.register_id = r.register_id AND f.is_title AND f.deleted_at IS NULL LIMIT 1) AS title,
-           r.deleted_at IS NOT NULL AS deleted
+           r.deleted_at IS NOT NULL AS deleted,
+           (SELECT o.label FROM register_fields sf
+              JOIN register_field_options o ON o.field_id = sf.id AND o.is_closed AND o.deleted_at IS NULL
+             WHERE sf.register_id = r.register_id AND sf.is_status AND sf.deleted_at IS NULL
+               AND o.id::text = r."values" ->> sf.id::text LIMIT 1) AS closed_label
     FROM register_records r WHERE r.id = ANY(${uniq}::uuid[])`;
-  return new Map(rows.map((r) => [r.id, { id: r.id, registerId: r.register_id, number: r.number, title: r.title ?? '', deleted: r.deleted }]));
+  return new Map(rows.map((r) => [r.id, {
+    id: r.id, registerId: r.register_id, number: r.number, title: r.title ?? '', deleted: r.deleted,
+    // Удалённую запись помечает «(запись удалена)» в интерфейсе; закрытой её не называем.
+    closedLabel: r.closed_label && !r.deleted ? r.closed_label.toLocaleLowerCase('ru') : null,
+  }]));
 }
 
 /** id → подпись для displayValue и текста поиска. */
