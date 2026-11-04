@@ -23,6 +23,15 @@ export type TaskBulkResult = Res<'/api/v1/tasks/bulk-delete/apply', 'post'>;
 export type TaskReportFilter = NonNullable<paths['/api/v1/tasks/report']['get']['parameters']['query']>;
 export type TaskStats = Res<'/api/v1/tasks/stats', 'get'>;
 export type TaskStatsFilter = NonNullable<paths['/api/v1/tasks/stats']['get']['parameters']['query']>;
+/** Цепочки задач (1.7.0, ADR-0035). */
+export type ChainPage = Res<'/api/v1/task-chains', 'get'>;
+export type Chain = ChainPage['items'][number];
+export type ChainDetail = Res<'/api/v1/task-chains/{id}', 'get'>;
+export type ChainSuggestResult = Res<'/api/v1/task-chains/suggest', 'get'>;
+export type ChainSuggestion = ChainSuggestResult['items'][number];
+export type NewChain = Body<'/api/v1/task-chains', 'post'>;
+export type ChainPatch = Body<'/api/v1/task-chains/{id}', 'patch'>;
+export type TaskRef = { id: string; version: number };
 
 export const tasksApi = {
   list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean }) =>
@@ -67,6 +76,25 @@ export const tasksApi = {
   },
 };
 
+export const chainsApi = {
+  list: (q: { status?: 'open' | 'closed'; ownerId?: string; q?: string } = {}) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
+    return request<ChainPage>('GET', `/api/v1/task-chains?${p.toString()}`);
+  },
+  get: (id: string) => request<ChainDetail>('GET', `/api/v1/task-chains/${id}`),
+  suggest: (title: string, taskId?: string) =>
+    request<ChainSuggestResult>('GET', `/api/v1/task-chains/suggest?title=${encodeURIComponent(title)}${taskId ? `&taskId=${taskId}` : ''}`),
+  create: (body: NewChain) => request<ChainDetail>('POST', '/api/v1/task-chains', body),
+  update: (id: string, body: ChainPatch) => request<ChainDetail>('PATCH', `/api/v1/task-chains/${id}`, body),
+  close: (id: string, version: number) => request<ChainDetail>('POST', `/api/v1/task-chains/${id}/close`, { version }),
+  reopen: (id: string, version: number) => request<ChainDetail>('POST', `/api/v1/task-chains/${id}/reopen`, { version }),
+  remove: (id: string, version: number) => request<undefined>('POST', `/api/v1/task-chains/${id}/delete`, { version }),
+  attach: (id: string, tasks: TaskRef[], reopen = false) => request<ChainDetail>('POST', `/api/v1/task-chains/${id}/tasks`, { tasks, ...(reopen ? { reopen } : {}) }),
+  detach: (id: string, taskId: string, version: number) => request<{ taskId: string; chainId: string }>('POST', `/api/v1/task-chains/${id}/tasks/${taskId}/detach`, { version }),
+  move: (taskId: string, version: number, toChainId: string) => request<ChainDetail>('POST', `/api/v1/tasks/${taskId}/move-chain`, { version, toChainId }),
+};
+
 export const tkeys = {
   all: ['tasks'] as const,
   list: (archived: boolean, categoryId: string, overdue = false, automationId = '') => ['tasks', 'list', archived, categoryId, overdue, automationId] as const,
@@ -74,6 +102,10 @@ export const tkeys = {
   comments: (id: string) => ['tasks', 'comments', id] as const,
   history: (id: string) => ['tasks', 'history', id] as const,
   summary: ['tasks', 'summary'] as const,
+  chains: ['tasks', 'chains'] as const,
+  chainList: (q: object) => ['tasks', 'chains', 'list', q] as const,
+  chain: (id: string) => ['tasks', 'chains', 'detail', id] as const,
+  chainSuggest: (title: string, taskId = '') => ['tasks', 'chains', 'suggest', title, taskId] as const,
   statuses: ['settings', 'items', 'task_statuses'] as const,
   categories: ['settings', 'items', 'task_categories'] as const,
   priorities: ['settings', 'items', 'task_priorities'] as const,

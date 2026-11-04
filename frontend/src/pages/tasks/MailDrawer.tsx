@@ -4,6 +4,7 @@ import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type MailDraft } from '../../api/tasks';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
+import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
 
 const EXAMPLE = 'От: Отдел кадров <hr@example.tj>\nОтправлено: 23.10.2026 10:15\nТема: Блокировка учётных записей\n\nПросим до 27.10 заблокировать…';
 
@@ -20,6 +21,8 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
   const [raw, setRaw] = useState('');
   const [parsed, setParsed] = useState<MailDraft | null>(null);
   const [form, setForm] = useState({ title: '', assigneeId: '', dueDate: '', priorityId: '', description: '' });
+  /** Цепочка из подсказки по теме письма (1.7.0). */
+  const [chain, setChain] = useState<ChainChoice | null>(null);
 
 
   const parse = useMutation({
@@ -33,7 +36,7 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
   const create = useMutation({
     mutationFn: () => tasksApi.create({
       title: form.title, description: form.description, assigneeId: form.assigneeId || null, dueDate: form.dueDate || null,
-      priorityId: form.priorityId, mail: { raw },
+      priorityId: form.priorityId, mail: { raw }, chain: chainParam(chain),
     }),
     onSuccess: async (t) => {
       await qc.invalidateQueries({ queryKey: tkeys.all });
@@ -58,6 +61,8 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
             <form className="task-form mail-draft" onSubmit={submitCreate} aria-label="Черновик задачи">
               <div className="eyebrow">Черновик задачи: проверьте перед созданием</div>
               <label>Название<input className="inp" required maxLength={300} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+              {/* Подсказка — по теме письма; без темы — по названию. */}
+              <ChainSuggest title={parsed.subject || form.title} choice={chain} onPick={setChain} />
               <div className="fgrid">
                 <label>Ответственный
                   <select className="inp" value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}>

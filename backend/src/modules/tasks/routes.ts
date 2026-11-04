@@ -218,6 +218,11 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         assigneeId: z.string().uuid().nullable().optional(),
         dueDate: IsoDate.nullable().optional(),
         mail: z.object({ raw: z.string().max(svc.RAW_MAX) }).optional(),
+        /** Цепочка из подсказки (1.7.0): существующая (reopen — «Вернуть в работу и добавить») или новая с задачами без цепочки. */
+        chain: z.union([
+          z.object({ id: z.string().uuid(), reopen: z.boolean().optional() }),
+          z.object({ newTitle: z.string().max(300).optional(), withTasks: z.array(z.object({ id: z.string().uuid(), version: z.number().int().positive() })).max(200).optional() }),
+        ]).optional(),
       }),
       response: { 201: Task, ...errors },
     },

@@ -11,6 +11,7 @@ import { DEFAULT_SCAN_MAX_AGE_DAYS, VULN_SETTINGS_KEY } from '../vulns/profiles.
 import { SYSTEM_TYPES_CATALOG } from '../vulns/groups.service.js';
 import { auditSettings, type Actor } from './common.js';
 import { DEFAULT_STAGE_DAYS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
+import { CHAIN_SUGGEST_KEY, ChainSuggestSchema, DEFAULT_CHAIN_SUGGEST } from '../tasks/chain-settings.js';
 
 const text = (what: string, max = 200) => z.string().trim().min(1, `${what}: пустое значение`).max(max, `${what}: не длиннее ${max} символов`);
 const uuid = (what: string) => z.string().uuid(`${what}: неверный идентификатор`);
@@ -129,6 +130,11 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
     check: async (db, value: { roleId: string | null }) => {
       if (value.roleId && !(await db.role.findUnique({ where: { id: value.roleId }, select: { id: true } }))) throw badRequest('BAD_PARAM', 'Такой роли нет');
     },
+  },
+  {
+    key: CHAIN_SUGGEST_KEY, title: 'Задачи: подсказка цепочек', form: 'json',
+    description: 'Когда цепочка считается похожей на заголовок задачи: minJaccard — доля общих слов (слова от трёх букв), minCommonWords — общих слов не меньше; closedDays — сколько дней после закрытия цепочка с выполненными задачами ещё предлагается. Формат: { "minJaccard": 0.6, "minCommonWords": 2, "closedDays": 30 }.',
+    schema: ChainSuggestSchema, defaults: async () => ({ ...DEFAULT_CHAIN_SUGGEST }),
   },
 ];
 

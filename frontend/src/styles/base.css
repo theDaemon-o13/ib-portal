@@ -1037,3 +1037,23 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .party-dir td{overflow-wrap:anywhere}
 .party-dir th:last-child{width:1%}
 .party-dir .act{flex-wrap:nowrap;justify-content:flex-end}
+
+/* Цепочки задач (1.7.0, ADR-0035): подсказка под названием, выбор до создания, блок в карточке. */
+.chain-suggest{position:relative;display:grid;gap:8px;padding:10px 40px 10px 14px;margin:-4px 0 12px;border-radius:var(--r-sm);background:var(--accent-soft);font-size:13px}
+.chain-suggest>.x{position:absolute;top:6px;right:8px;width:26px;height:26px;border:0;border-radius:50%;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer}
+.chain-suggest>.x:hover{background:var(--hover);color:var(--fg)}
+.chain-suggest>.x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cs-item{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;min-width:0}
+.cs-t{flex:1 1 260px;min-width:0;overflow-wrap:anywhere}
+.cs-t .chip{margin-left:6px}
+.cs-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:6px}
+.chain-choice{margin:-4px 0 12px}
+.mail-draft .chain-suggest,.mail-draft .chain-choice,.chain-block .chain-suggest{margin:0}
+.chain-block{border:0;border-radius:var(--r-md);background:var(--fill-2);padding:12px 14px;font-size:12.5px;display:grid;gap:8px}
+.chain-block .row{min-width:0}
+.chain-timeline{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.chain-timeline li{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;min-width:0;padding:4px 8px;border-radius:var(--r-xs)}
+.chain-timeline li.cur{background:var(--accent-soft)}
+.chain-timeline time{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.chain-timeline .ct-title{flex:1 1 200px;min-width:0;text-align:left;white-space:normal;overflow-wrap:anywhere;padding-inline:0}
+.chain-timeline .ct-title b{white-space:nowrap}

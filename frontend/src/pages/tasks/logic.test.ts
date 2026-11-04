@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { actionNeedsComment, candidatesChip, cardStep, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
+import { actionNeedsComment, candidatesChip, cardStep, chainCounts, chainTitleOf, plural, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -82,5 +82,23 @@ describe('панель «Загрузка сотрудников»', () => {
     expect(candidatesChip([])).toEqual({ first: '', more: 0 });
     expect(candidatesChip([{ fullName: 'Мусоев Раджаб' }])).toEqual({ first: 'Мусоев Раджаб', more: 0 });
     expect(candidatesChip([{ fullName: 'Мусоев Раджаб' }, { fullName: 'Баротов Шавкат' }, { fullName: 'Иванов И.' }])).toEqual({ first: 'Мусоев Раджаб', more: 2 });
+  });
+});
+
+describe('цепочки задач (1.7.0)', () => {
+  it('название новой цепочки — без почтовых префиксов, как в backend', () => {
+    expect(chainTitleOf('RE: FW: Тестовая тема')).toBe('Тестовая тема');
+    expect(chainTitleOf('[EXT] Отв: ВО: Re[2]: Тестовая тема')).toBe('Тестовая тема');
+    expect(chainTitleOf('Во вторник проверка')).toBe('Во вторник проверка');
+    expect(chainTitleOf('Ответственный за доступ')).toBe('Ответственный за доступ');
+    expect(chainTitleOf('RE:')).toBe('RE:');
+  });
+
+  it('счётчик: «3 задачи, 1 выполнена», «5 задач, 0 выполнено», «21 задача, 2 выполнены»', () => {
+    expect(chainCounts({ total: 3, done: 1 })).toBe('3 задачи, 1 выполнена');
+    expect(chainCounts({ total: 5, done: 0 })).toBe('5 задач, 0 выполнено');
+    expect(chainCounts({ total: 21, done: 2 })).toBe('21 задача, 2 выполнены');
+    expect(plural(12, 'задача', 'задачи', 'задач')).toBe('задач');
+    expect(plural(111, 'задача', 'задачи', 'задач')).toBe('задач');
   });
 });

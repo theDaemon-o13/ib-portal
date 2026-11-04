@@ -7,6 +7,7 @@ import { ErrorResponse } from '../../plugins/errors.js';
 import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as chains from './chains.js';
+import { suggestChains, SUGGEST_MAX } from './chain-suggest.js';
 import type { TaskActor } from './flow.js';
 
 const tags = ['task-chains'];
@@ -46,6 +47,29 @@ export const ChainDetail = Chain.extend({
   })),
 });
 
+const Suggest = z.object({
+  /** Ключ заголовка; null — после снятия «RE:», «FW:» ничего не осталось, подсказки нет. */
+  key: z.string().nullable(),
+  items: z.array(z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('chain'),
+      group: z.enum(['open_exact', 'closed_unfinished', 'open_similar', 'closed_recent']),
+      chain: z.object({
+        id: z.string(), number: z.number().int(), title: z.string(), status: z.enum(['open', 'closed']), closedAt: z.string().nullable(), version: z.number().int(),
+        counts: z.object({ total: z.number().int(), done: z.number().int() }), canManage: z.boolean(),
+      }),
+    }),
+    z.object({
+      kind: z.literal('tasks'),
+      total: z.number().int(),
+      tasks: z.array(z.object({
+        id: z.string(), number: z.number().int(), title: z.string(), version: z.number().int(), status: z.string(),
+        completed: z.boolean(), archived: z.boolean(), createdAt: z.string(),
+      })),
+    }),
+  ])),
+});
+
 const taskActor = (request: Parameters<typeof actorOf>[0]): TaskActor => ({ ...actorOf(request), perms: request.user?.permissions ?? new Set<string>() });
 
 export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
@@ -65,6 +89,16 @@ export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
       response: { 200: z.object({ items: z.array(Chain), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => chains.listChains(db, taskActor(request), request.query));
+
+  app.get('/task-chains/suggest', {
+    preHandler: view,
+    schema: {
+      tags, summary: `Подсказка цепочки по заголовку задачи: до ${SUGGEST_MAX} вариантов (открытые с тем же ключом, закрытые с незавершёнными, `
+        + 'похожие открытые, недавно закрытые, задачи без цепочки). taskId — задача, которую правят (не предлагать её саму и её цепочку)',
+      querystring: z.object({ title: z.string().max(1000), taskId: z.string().uuid().optional() }),
+      response: { 200: Suggest, ...errors },
+    },
+  }, async (request) => suggestChains(db, taskActor(request), request.query.title, { taskId: request.query.taskId }));
 
   app.post('/task-chains', {
     preHandler: view,

@@ -8,6 +8,7 @@ import { DetailPanel } from '../../components/DetailPanel';
 import { useMe } from '../../auth/useMe';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
+import { ChainBlock } from './ChainBlock';
 import { ACTION_LABEL, actionNeedsComment, candidatesLabel, initials, needsComment, processHint, type ProcessAction } from './logic';
 
 interface Draft {
@@ -52,7 +53,7 @@ const DOC_REASON: Record<NonNullable<TaskDetail['document']>['reason'], { label:
 };
 const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу', evidence: 'по доказательству' };
 
-export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: boolean; onClose: () => void }) {
+export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string; canDelete: boolean; onClose: () => void; onOpenTask?: (id: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const task = useQuery({ queryKey: tkeys.detail(id), queryFn: () => tasksApi.get(id) });
@@ -293,6 +294,10 @@ export function TaskDrawer({ id, canDelete, onClose }: { id: string; canDelete: 
                 </label>
               )}
             </form>
+          )}
+
+          {t && draft && onOpenTask && (
+            <ChainBlock task={t} title={draft.title} onOpenTask={onOpenTask} onChanged={() => void qc.invalidateQueries({ queryKey: tkeys.history(id) })} />
           )}
 
           {canSwap && t && (

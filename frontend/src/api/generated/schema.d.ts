@@ -25755,6 +25755,18 @@ export interface paths {
                         mail?: {
                             raw: string;
                         };
+                        chain?: {
+                            /** Format: uuid */
+                            id: string;
+                            reopen?: boolean;
+                        } | {
+                            newTitle?: string;
+                            withTasks?: {
+                                /** Format: uuid */
+                                id: string;
+                                version: number;
+                            }[];
+                        };
                     };
                 };
             };
@@ -29075,6 +29087,166 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Подсказка цепочки по заголовку задачи: до 5 вариантов (открытые с тем же ключом, закрытые с незавершёнными, похожие открытые, недавно закрытые, задачи без цепочки). taskId — задача, которую правят (не предлагать её саму и её цепочку) */
+        get: {
+            parameters: {
+                query: {
+                    title: string;
+                    taskId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            key: string | null;
+                            items: ({
+                                /** @enum {string} */
+                                kind: "chain";
+                                /** @enum {string} */
+                                group: "open_exact" | "closed_unfinished" | "open_similar" | "closed_recent";
+                                chain: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                    /** @enum {string} */
+                                    status: "open" | "closed";
+                                    closedAt: string | null;
+                                    version: number;
+                                    counts: {
+                                        total: number;
+                                        done: number;
+                                    };
+                                    canManage: boolean;
+                                };
+                            } | {
+                                /** @enum {string} */
+                                kind: "tasks";
+                                total: number;
+                                tasks: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                    version: number;
+                                    status: string;
+                                    completed: boolean;
+                                    archived: boolean;
+                                    createdAt: string;
+                                }[];
+                            })[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

@@ -125,3 +125,43 @@ export function candidatesLabel(list: readonly { fullName: string }[], max = 2):
   const names = list.map((c) => c.fullName);
   return names.length > max ? `${names.slice(0, max).join(', ')} и ещё ${names.length - max}` : names.join(', ');
 }
+
+// ---------------------------------------------------------------- цепочки задач (1.7.0, ADR-0035)
+
+// Снятие почтовых префиксов — то же, что в backend (lib/title-key.ts, stripReplyPrefixes): название новой цепочки
+// из заголовка задачи. Ключ и похожесть считает только backend.
+const WITH_COLON = /^(?:re(?:\s*[[(]\d+[\])])?|fwd?|aw|wg|sv|vs|tr|rv|отв|ответ|во|пересл|переслать|переадр)\.?\s*[:：]\s*/iu;
+const BARE = /^(?:re(?:\s*[[(]\d+[\])])?|fwd?)\s+(?=\S)/iu;
+const TAG = /^[[(](?:ext|external|внешн(?:ее|ий|яя)|внешнее письмо)[\])]\s*/iu;
+
+/** «RE: FW: Тестовая тема» → «Тестовая тема»: название новой цепочки по заголовку задачи. */
+export function chainTitleOf(title: string): string {
+  let s = title.replace(/\s+/g, ' ').trim();
+  for (;;) {
+    const next = s.replace(TAG, '').replace(WITH_COLON, '').replace(BARE, '').replace(/^[\s\-–—:;,.]+/u, '');
+    if (next === s) return s || title.trim();
+    s = next;
+  }
+}
+
+/** «1 задача», «3 задачи», «5 задач». */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+/** Счётчик цепочки: «3 задачи, 1 выполнена». */
+export function chainCounts(c: { total: number; done: number }): string {
+  return `${c.total} ${plural(c.total, 'задача', 'задачи', 'задач')}, ${c.done} ${plural(c.done, 'выполнена', 'выполнены', 'выполнено')}`;
+}
+
+/** Пометка варианта подсказки по группе (порядок групп задаёт backend). */
+export const SUGGEST_NOTE: Record<'open_exact' | 'closed_unfinished' | 'open_similar' | 'closed_recent', string | null> = {
+  open_exact: null,
+  closed_unfinished: 'закрыта, есть незавершённые задачи',
+  open_similar: 'похожая тема',
+  closed_recent: 'закрыта',
+};

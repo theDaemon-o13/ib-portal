@@ -8,6 +8,7 @@ import { ChipScroller } from '../../components/ChipScroller';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, dueLabel, initials, needsComment, sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen } from './logic';
+import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
@@ -184,12 +185,17 @@ export function TasksPage() {
   const [quick, setQuick] = useState({ title: '', categoryId: '', assigneeId: me.id, dueDate: plusDays(5) });
   const quickCategories = (categories.data?.items ?? []).filter((c) => c.systemKey !== 'register' && c.systemKey !== 'mail' && c.systemKey !== 'documents' && c.systemKey !== 'evidence');
   const quickCategory = quick.categoryId || quickCategories[0]?.id || '';
+  /** Выбор из подсказки цепочки (1.7.0): уходит вместе с задачей. */
+  const [quickChain, setQuickChain] = useState<ChainChoice | null>(null);
   const create = useMutation({
-    mutationFn: () => tasksApi.create({ title: quick.title, categoryId: quickCategory, assigneeId: quick.assigneeId || null, dueDate: quick.dueDate || null }),
+    mutationFn: () => tasksApi.create({
+      title: quick.title, categoryId: quickCategory, assigneeId: quick.assigneeId || null, dueDate: quick.dueDate || null, chain: chainParam(quickChain),
+    }),
     onSuccess: async (t) => {
       setQuick({ ...quick, title: '' });
+      setQuickChain(null);
       await qc.invalidateQueries({ queryKey: tkeys.all });
-      toast(`Задача #${t.number} назначена${t.assignee ? `: ${t.assignee.fullName}` : ''}`);
+      toast(`Задача #${t.number} назначена${t.assignee ? `: ${t.assignee.fullName}` : ''}${t.chain ? `, цепочка «${t.chain.title}»` : ''}`);
     },
     onError: (e) => toast(e instanceof Error ? e.message : 'Не удалось поставить задачу', 'error'),
   });
@@ -363,6 +369,7 @@ export function TasksPage() {
           <button className="btn primary" type="submit" disabled={create.isPending || !quickCategory}>Назначить</button>
         </form>
       )}
+      {!archived && <ChainSuggest title={quick.title} choice={quickChain} onPick={setQuickChain} />}
       {tasks.isError && <div className="form-error">{tasks.error.message}</div>}
       <div className={`tasks-grid${showWorkload ? '' : ' wide'}`}>
         <div ref={boardRef} className={`board${drag?.moving ? ' is-dragging' : ''}`}>
@@ -415,7 +422,7 @@ export function TasksPage() {
           </div>
         </Overlay>
       )}
-      {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} />}
+      {openId && <TaskDrawer key={openId} id={openId} canDelete={me.permissions.includes('tasks.delete')} onClose={() => setParam({ task: null })} onOpenTask={openTask} />}
       {bulk && <TaskBulkDialog action={bulk.action} ids={bulk.ids} onClose={() => setBulk(null)} onDone={() => { setBulk(null); stopPicking(); }} />}
       {mailOpen && <MailDrawer meId={me.id} canAssign={canAssign} onClose={() => setMailOpen(false)} onCreated={(id) => { setMailOpen(false); openTask(id); }} />}
       {pendingMove && (

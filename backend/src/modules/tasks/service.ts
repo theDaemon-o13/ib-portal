@@ -13,6 +13,7 @@ import { todayIso } from '../../lib/today.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import { notifyAssignee, notifyComment, notifyMoved, notifyReviewer } from '../notifications/service.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
+import * as chains from './chains.js';
 import {
   assertCanAssign, commentRequired, initialStatusId, recordTransition, statusIdOf, type StatusKey, type TaskActor, type TransitionKind,
 } from './flow.js';
@@ -244,6 +245,11 @@ export interface NewTaskInput {
   dueDate?: string | null;
   /** «Почта → задача»: исходный текст письма; категория — «Почта», правило и причина срока — из разбора. */
   mail?: { raw: string };
+  /**
+   * Цепочка (1.7.0, выбор из подсказки): добавить в существующую (reopen — «Вернуть в работу и добавить») или создать
+   * новую — из этой задачи и задач без цепочки с той же темой. В той же транзакции, что и создание задачи.
+   */
+  chain?: { id: string; reopen?: boolean } | { newTitle?: string; withTasks?: { id: string; version: number }[] };
 }
 
 export async function createTask(db: Db, actor: TaskActor, input: NewTaskInput) {
@@ -298,6 +304,12 @@ export async function createTask(db: Db, actor: TaskActor, input: NewTaskInput) 
       summary: `Задача #${task.number} «${title}» создана${parsed ? ' из письма' : ''}`,
       after: { title, source: task.source, categoryId, priorityId, assigneeId: task.assigneeId, dueDate: input.dueDate ?? null },
     });
+    if (input.chain) {
+      const me = { id: task.id, version: task.version };
+      if ('id' in input.chain) await chains.attachTx(tx, actor, input.chain.id, { tasks: [me], reopen: input.chain.reopen }, 'task_created');
+      else await chains.createChainTx(tx, actor, { title: input.chain.newTitle || chains.chainTitleFrom(title), tasks: [me, ...(input.chain.withTasks ?? [])] }, 'task_created');
+      return toTaskDto(await getTaskRow(tx, task.id), todayIso());
+    }
     return toTaskDto(task, todayIso());
   });
 }
