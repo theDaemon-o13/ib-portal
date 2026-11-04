@@ -49,6 +49,8 @@ export const Task = z.object({
   /** Задача по доказательству (этап 7): отклонено или истекает срок действия. */
   evidence: z.object({ id: z.string(), number: z.number().int(), reason: z.enum(['rejected', 'expiring']) }).nullable(),
   completedAt: z.string().nullable(),
+  /** Цепочка (1.7.0, ADR-0035): группировка по теме, на процесс не влияет. */
+  chain: z.object({ id: z.string(), number: z.number().int(), title: z.string(), status: z.enum(['open', 'closed']) }).nullable(),
   createdBy: Person.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -95,6 +97,8 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         /** Создано правилом автоматизации (релиз 1.1.0). */
         automationId: z.string().uuid().optional(),
         overdue: z.enum(['true', 'false']).optional(),
+        /** Только задачи цепочки (1.7.0). */
+        chainId: z.string().uuid().optional(),
         limit: z.coerce.number().int().min(1).max(svc.BOARD_LIMIT).default(svc.BOARD_LIMIT),
         cursor: z.string().max(20).optional(),
       }),
@@ -110,7 +114,8 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
   }, async (request) => {
     const q = request.query;
     const page = await svc.listTasks(db, {
-      archived: q.archived === 'true', categoryId: q.categoryId, automationId: q.automationId, overdue: q.overdue === 'true', limit: q.limit, cursor: q.cursor,
+      archived: q.archived === 'true', categoryId: q.categoryId, automationId: q.automationId, overdue: q.overdue === 'true', chainId: q.chainId,
+      limit: q.limit, cursor: q.cursor,
     });
     const names = await describeRules(db, page.automations.map((a) => a.automationId));
     const automations = page.automations.map((a) => ({ ...a, label: names.get(a.automationId) ?? 'Правило' })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));

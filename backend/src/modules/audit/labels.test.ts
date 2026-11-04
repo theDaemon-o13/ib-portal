@@ -24,6 +24,8 @@ register.import.previewed register.option.created register.option.deleted regist
 register.option.archived register.option.restored register.scan.applied register.scan.previewed register.scan.archived
 register.scan.restored register.updated register.archived register.restored role.created role.deleted role.permission.granted
 role.permission.revoked role.updated task.archived task.restored task.commented task.created task.deleted task.transition task.reviewer_replaced task.updated
+task.chain_linked task.chain_unlinked task.chain_moved task_chain.created task_chain.updated task_chain.closed task_chain.reopened
+task_chain.deleted task_chain.discovered
 tasks.bulk_archive tasks.reviewers_assigned tasks.bulk_delete tasks.report_exported notifications.cleaned user.created user.password_reset user.unlocked user.updated user.enabled user.disabled
 user.ib_head.set user.ib_head.cleared user.ib_head.transferred
 audit.exported`.split(/\s+/);

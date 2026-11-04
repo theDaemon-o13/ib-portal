@@ -40,6 +40,7 @@ export const taskInclude = {
   document: { select: { id: true, number: true } },
   evidence: { select: { id: true, number: true } },
   candidates: { select: { user: userBrief }, orderBy: { user: { fullName: 'asc' } } },
+  chain: { select: { id: true, number: true, title: true, status: true, deletedAt: true } },
   _count: { select: { comments: { where: { deletedAt: null } } } },
 } as const;
 type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
@@ -72,6 +73,8 @@ export function toTaskDto(t: TaskRow, today: string) {
     document: t.document ? { ...t.document, reason: t.documentReason as 'review' | 'returned' | 'stage' } : null,
     evidence: t.evidence ? { ...t.evidence, reason: t.evidenceReason as 'rejected' | 'expiring' } : null,
     completedAt: t.completedAt?.toISOString() ?? null,
+    /** Цепочка (1.7.0, ADR-0035): группировка по теме; на процесс не влияет. */
+    chain: t.chain && !t.chain.deletedAt ? { id: t.chain.id, number: t.chain.number, title: t.chain.title, status: t.chain.status as 'open' | 'closed' } : null,
     createdBy: t.creator,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
@@ -138,6 +141,8 @@ export interface TaskListQuery {
   automationId?: string;
   /** Только открытые просроченные (ссылка с дашборда и мониторинга). */
   overdue?: boolean;
+  /** Только задачи цепочки (1.7.0). */
+  chainId?: string;
   limit: number;
   cursor?: string;
 }
@@ -149,6 +154,7 @@ export async function listTasks(db: Db, q: TaskListQuery) {
   const where: Prisma.TaskWhereInput = {
     ...scope, ...(q.categoryId ? { categoryId: q.categoryId } : {}), ...(q.automationId ? { automationId: q.automationId } : {}),
     ...(q.overdue && !q.archived ? overdueTaskWhere(today) : {}),
+    ...(q.chainId ? { chainId: q.chainId } : {}),
   };
   const [rows, total, byCategory, archivedTotal, byAutomation] = await Promise.all([
     db.task.findMany({

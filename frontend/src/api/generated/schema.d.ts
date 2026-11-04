@@ -25535,6 +25535,7 @@ export interface paths {
                     categoryId?: string;
                     automationId?: string;
                     overdue?: "true" | "false";
+                    chainId?: string;
                     limit?: number;
                     cursor?: string;
                 };
@@ -25611,6 +25612,13 @@ export interface paths {
                                     reason: "rejected" | "expiring";
                                 } | null;
                                 completedAt: string | null;
+                                chain: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                    /** @enum {string} */
+                                    status: "open" | "closed";
+                                } | null;
                                 createdBy: {
                                     id: string;
                                     fullName: string;
@@ -25817,6 +25825,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -26508,6 +26523,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -26724,6 +26746,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -26921,6 +26950,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -27123,6 +27159,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -27322,6 +27365,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -27521,6 +27571,13 @@ export interface paths {
                                 reason: "rejected" | "expiring";
                             } | null;
                             completedAt: string | null;
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                            } | null;
                             createdBy: {
                                 id: string;
                                 fullName: string;
@@ -28697,6 +28754,1620 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Цепочки с видимыми задачами: фильтр по статусу и ответственному, поиск по названию или номеру */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "open" | "closed";
+                    ownerId?: string;
+                    q?: string;
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                status: "open" | "closed";
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                summary: string;
+                                createdBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                createdAt: string;
+                                updatedAt: string;
+                                closedAt: string | null;
+                                version: number;
+                                counts: {
+                                    total: number;
+                                    done: number;
+                                };
+                                allDone: boolean;
+                                canManage: boolean;
+                            }[];
+                            nextCursor: string | null;
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Создать цепочку из задач (хотя бы одной). Задачи в другой цепочке — 409 TASK_IN_OTHER_CHAIN */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        ownerId?: string | null;
+                        dueDate?: string | null;
+                        summary?: string;
+                        tasks: {
+                            /** Format: uuid */
+                            id: string;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Цепочка и хронология её видимых задач */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить название, ответственного, срок, сводку (создатель, ответственный или «Задачи: постановка другим») */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        title?: string;
+                        ownerId?: string | null;
+                        dueDate?: string | null;
+                        summary?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/task-chains/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Закрыть. Незавершённые задачи не мешают — их число в журнале */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Открыть заново */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить мягко: задачи отвязываются и остаются. Восстановления нет */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/{id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Привязать задачи (в том числе выполненные и архивные). Закрытая цепочка — 409 CHAIN_CLOSED, reopen — «Вернуть в работу и добавить» */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        tasks: {
+                            /** Format: uuid */
+                            id: string;
+                            version: number;
+                        }[];
+                        reopen?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/{id}/tasks/{taskId}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отвязать задачу */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    taskId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            taskId: string;
+                            chainId: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/move-chain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Перенести задачу в другую (открытую) цепочку */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        /** Format: uuid */
+                        toChainId: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            title: string;
+                            /** @enum {string} */
+                            status: "open" | "closed";
+                            owner: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            dueDate: string | null;
+                            summary: string;
+                            createdBy: {
+                                id: string;
+                                fullName: string;
+                            };
+                            createdAt: string;
+                            updatedAt: string;
+                            closedAt: string | null;
+                            version: number;
+                            counts: {
+                                total: number;
+                                done: number;
+                            };
+                            allDone: boolean;
+                            canManage: boolean;
+                            tasks: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                status: {
+                                    id: string;
+                                    value: string;
+                                    systemKey: string | null;
+                                    color: string | null;
+                                };
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                } | null;
+                                dueDate: string | null;
+                                createdAt: string;
+                                completedAt: string | null;
+                                archived: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;

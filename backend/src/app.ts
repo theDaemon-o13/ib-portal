@@ -21,6 +21,7 @@ import { partyDirectoryRoutes } from './modules/party-directory/routes.js';
 import { attentionRoutes } from './modules/attention/routes.js';
 import { notificationRoutes } from './modules/notifications/routes.js';
 import { taskRoutes } from './modules/tasks/routes.js';
+import { chainRoutes } from './modules/tasks/chain-routes.js';
 import { CACHE_TTL_MS, createCache } from './modules/dashboard/cache.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { assessmentRoutes, presentationRoutes } from './modules/assessments/routes.js';
@@ -119,6 +120,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(vulnRoutes, { prefix: '/api/v1', db: deps.db, store: deps.files ?? missingStore });
   await app.register(automationRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(taskRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(chainRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(documentRoutes, { prefix: '/api/v1', db: deps.db, docUrlPrefix: deps.docUrlPrefix ?? '' });
   await app.register(assessmentRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(presentationRoutes, { prefix: '/api/v1', db: deps.db });

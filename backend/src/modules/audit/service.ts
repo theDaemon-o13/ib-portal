@@ -110,6 +110,10 @@ async function resolveLinks(db: Db, rows: readonly { entity: string | null; enti
   if (tasks.length) for (const t of await db.task.findMany({ where: { id: { in: tasks } }, select: { id: true, deletedAt: true } })) {
     put('task', t.id, `/tasks?task=${t.id}`, t.deletedAt !== null);
   }
+  const chains = ids('task_chain');
+  if (chains.length) for (const c of await db.taskChain.findMany({ where: { id: { in: chains } }, select: { id: true, deletedAt: true } })) {
+    put('task_chain', c.id, `/tasks/chains?chain=${c.id}`, c.deletedAt !== null);
+  }
   const records = ids('register_record');
   if (records.length) for (const r of await db.registerRecord.findMany({ where: { id: { in: records } }, select: { id: true, registerId: true, deletedAt: true } })) {
     put('register_record', r.id, `/registers?record=${r.id}#${r.registerId}/records`, r.deletedAt !== null);
