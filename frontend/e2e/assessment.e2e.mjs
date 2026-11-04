@@ -10,6 +10,8 @@
 // администратор меняет подпись в «Настройки → Презентация» — владелец видит новый текст (в конце — прежний текст).
 // Сотрудник ИБ без роли: пункта нет, прямой адрес уводит из раздела, API — 403.
 // Удаления оценок нет: оценки прогона уходят в архив, задача — в архив, тестовые пользователи отключаются.
+// Каждый тест создаёт свою оценку и сам убирает за собой (finally): черновик может быть один, и оставленный упавшим
+// тестом черновик не должен ронять следующие.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -23,12 +25,12 @@ const PASSWORD = process.env.E2E_PASSWORD;
 const RUN = `E2E-${Date.now().toString(36)}`;
 const TITLE = `${RUN} самооценка`;
 const TITLE2 = `${RUN} оценка с задачей`;
+const TITLE3 = `${RUN} импорт`;
+const TITLE4 = `${RUN} презентация`;
 
 let ui;
 let navSeq = 0;
 const users = {};
-let gapTask;
-let signature;
 
 async function api(method, path, body) {
   const res = await ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify(body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
@@ -72,7 +74,6 @@ async function makeUser(key, roleCode, fullName) {
 }
 
 const navTitles = () => ui.evaluate(`[...document.querySelectorAll('nav.nav a')].map((a) => a.textContent.trim())`);
-const toastText = () => ui.evaluate(`document.querySelector('.toast.on')?.textContent ?? ''`);
 const option = (code, level) => `document.getElementById('sec-${code}')?.querySelectorAll('.sa-opt')[${level - 1}]`;
 const status = () => ui.evaluate(`document.querySelector('.sa-bar .chip')?.dataset.status`);
 const tab = (title) => `[...document.querySelectorAll('.page-tabs a')].find((a) => a.textContent === ${JSON.stringify(title)})`;
@@ -81,6 +82,36 @@ const finalizeBtn = `[...document.querySelectorAll('.sa-bar button')].find((b) =
 /** Оценки прогона по названию (держатель права видит все оценки). */
 async function mine(title = TITLE) {
   return (await ok('GET', '/api/v1/assessments')).items.find((a) => a.title === title);
+}
+
+/** Черновик может быть один: тест начинает, только если черновика нет (чужой тест не трогает). */
+async function assertNoDraft() {
+  const draft = (await ok('GET', '/api/v1/assessments')).items.find((a) => a.status === 'draft');
+  assert.ok(!draft, `в базе уже есть черновик «${draft?.title}»: зафиксируйте или отправьте его в архив перед прогоном`);
+}
+
+/** Новая оценка через API (вошедший — владелец). */
+const createAssessment = (title) => ok('POST', '/api/v1/assessments', { title, assessedOn: '2026-10-30' });
+
+/**
+ * Уборка за тестом. Ошибка уборки не заменяет ошибку самого теста — она пишется в вывод,
+ * а оставшийся черновик следующий тест назовёт по имени (assertNoDraft).
+ */
+async function cleanup(what, fn) {
+  try {
+    await fn();
+  } catch (e) {
+    process.stderr.write(`уборка «${what}» не удалась: ${e?.message ?? e}\n`);
+  }
+}
+
+/** Оценки теста — в архив (удаления нет). Делает владелец: у администратора права на раздел нет. */
+async function archiveOwn(...titles) {
+  users.owner.password = await loginAs(users.owner.login, users.owner.password);
+  for (const title of titles) {
+    const a = await mine(title);
+    if (a && a.status !== 'archived') await ok('POST', `/api/v1/assessments/${a.id}/archive`, { version: a.version });
+  }
 }
 
 before(async () => {
@@ -93,23 +124,8 @@ before(async () => {
 
 after(async () => {
   if (!ui) return;
-  // Оценку прогона — в архив (удаления нет); это делает владелец: у администратора права на раздел нет.
-  if (users.owner) {
-    await loginAs(users.owner.login, users.owner.password).catch(() => undefined);
-    for (const title of [TITLE, TITLE2]) {
-      const a = await mine(title).catch(() => undefined);
-      if (a && a.status !== 'archived') await api('POST', `/api/v1/assessments/${a.id}/archive`, { version: a.version });
-    }
-  }
+  // Оценки, задачу и подпись убирает каждый тест сам; здесь — только общие пользователи прогона.
   await loginAs(LOGIN, PASSWORD).catch(() => undefined);
-  if (signature) {
-    const cur = (await api('GET', '/api/v1/settings/presentation')).json;
-    if (cur && cur.signature !== signature) await api('PUT', '/api/v1/settings/presentation', { signature, version: cur.version });
-  }
-  if (gapTask) {
-    const t = (await api('GET', `/api/v1/tasks/${gapTask.id}`)).json;
-    if (t && !t.archived) await api('POST', `/api/v1/tasks/${gapTask.id}/archive`, { version: t.version });
-  }
   for (const u of Object.values(users)) {
     const cur = (await api('GET', `/api/v1/users?q=${encodeURIComponent(u.login)}`)).json?.items.find((x) => x.id === u.id);
     if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version });
@@ -118,11 +134,11 @@ after(async () => {
 });
 
 describe('Самооценка', () => {
-  it('владелец без ib.work: новая оценка, ответы, «предварительно», фиксация при 24/24, возврат в черновик, журнал, архив', async () => {
+  it('владелец без ib.work: новая оценка, ответы, «предварительно», фиксация при 24/24, возврат в черновик, журнал, архив', async (t) => {
     users.owner.password = await loginAs(users.owner.login, users.owner.password);
-    // Чужой черновик тест не трогает: оценки не удаляются, а черновик может быть один.
-    const draft = (await ok('GET', '/api/v1/assessments')).items.find((a) => a.status === 'draft');
-    assert.ok(!draft, `в базе уже есть черновик «${draft?.title}»: зафиксируйте или отправьте его в архив перед прогоном`);
+    await assertNoDraft();
+    // Уборка — и при падении: оценка теста в архив, иначе её черновик уронит следующие тесты.
+    t.after(() => cleanup(TITLE, () => archiveOwn(TITLE)));
 
     await ui.goto('/documents');
     await ui.waitFor(`document.querySelectorAll('nav.nav a').length > 0`, 'меню');
@@ -174,7 +190,7 @@ describe('Самооценка', () => {
     await ui.click(finalizeBtn, '«Зафиксировать»');
     assert.equal((await ui.request(m, 'POST', '/finalize')).status, 200);
     await ui.waitFor(`document.querySelector('.sa-bar .chip')?.dataset.status === 'final'`, 'статус «Зафиксирована»');
-    assert.match(await toastText(), /Оценка зафиксирована: 48 из 96, «Классическая ИБ»/);
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent.includes('Оценка зафиксирована: 48 из 96, «Классическая ИБ»')`, 'уведомление о фиксации');
     await ui.waitFor(`document.querySelector('.note.ro')?.textContent.includes('верните её в черновик')`, 'пояснение «только просмотр»');
     assert.ok(await ui.evaluate(`${option('10.1', 2)}.disabled`), 'варианты недоступны');
     await ui.click(tab('Обзор'), 'вкладка «Обзор»');
@@ -190,13 +206,10 @@ describe('Самооценка', () => {
     // Окно закрыто и статус сменился — только тогда страница принимает щелчки.
     await ui.waitFor(`!document.querySelector('form.modal') && document.querySelector('.sa-bar .chip')?.dataset.status === 'draft'`, 'снова черновик, окно закрыто');
 
-    // История: журнал оценки без текста комментария к ответу; архив. Журнал пишется в той же транзакции,
-    // что и действие, — ответ GET …/log уже содержит запись о возврате.
-    m = ui.mark();
+    // История: журнал оценки без текста комментария к ответу; архив. Ждём строки на странице, а не сетевой запрос:
+    // журнал может прийти из кэша без нового запроса (так тест падал в 1.7.0). Журнал пишется в той же транзакции,
+    // что и действие, поэтому строка о возврате появляется после обновления данных.
     await ui.click(tab('История'), 'вкладка «История»');
-    const logReq = await ui.request(m, 'GET', `/assessments/${(await mine()).id}/log`);
-    assert.equal(logReq.status, 200);
-    assert.ok((await ui.response(logReq)).items.some((e) => e.action === 'assessment.reopened'), 'в ответе журнала есть возврат в черновик');
     await ui.waitFor(`document.querySelector('[data-testid=sa-journal]')?.textContent.includes('Возвращена в черновик с комментарием')`, 'журнал оценки');
     const journal = await ui.evaluate(`document.querySelector('[data-testid=sa-journal]').textContent`);
     assert.match(journal, /Зафиксирована: 48 из 96/);
@@ -214,9 +227,20 @@ describe('Самооценка', () => {
     await ui.waitFor(`document.getElementById('sec-2.2')?.classList.contains('flash')`, 'раздел 2.2 в чек-листе');
   });
 
-  it('задача по разрыву из «Плана»: на доске у исполнителя, без следа самооценки в карточке', async () => {
+  it('задача по разрыву из «Плана»: на доске у исполнителя, без следа самооценки в карточке', async (t) => {
+    let gapTask;
+    // Уборка: задача — в архив (администратор), оценка — в архив (владелец).
+    t.after(() => cleanup(TITLE2, async () => {
+      if (gapTask) {
+        await loginAs(LOGIN, PASSWORD);
+        const cur = await ok('GET', `/api/v1/tasks/${gapTask.id}`);
+        if (!cur.archived) await ok('POST', `/api/v1/tasks/${gapTask.id}/archive`, { version: cur.version });
+      }
+      await archiveOwn(TITLE2);
+    }));
     users.owner.password = await loginAs(users.owner.login, users.owner.password);
-    const created = await ok('POST', '/api/v1/assessments', { title: TITLE2, assessedOn: '2026-10-30' });
+    await assertNoDraft();
+    const created = await createAssessment(TITLE2);
     const ans = created.answers.find((x) => x.code === '5.3');
     await ok('PUT', `/api/v1/assessments/${created.id}/answers/5.3`, { version: ans.version, level: 1, targetLevel: 3, comment: `${RUN} подробность` });
 
@@ -239,7 +263,7 @@ describe('Самооценка', () => {
     const task = await ui.response(req);
     gapTask = task;
     await ui.waitFor(`${row}?.textContent.includes('#${task.number}') && !document.querySelector('form.modal')`, 'задача в плане');
-    assert.match(await toastText(), new RegExp(`Задача #${task.number} поставлена на доску`));
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent.includes('Задача #${task.number} поставлена на доску')`, 'уведомление о задаче');
 
     // Исполнитель видит обычную ручную задачу: ни раздела, ни баллов, ни названия оценки.
     users.staff.password = await loginAs(users.staff.login, users.staff.password);
@@ -253,9 +277,12 @@ describe('Самооценка', () => {
     assert.match(dto, /"source":"manual"/);
   });
 
-  it('импорт эталона Excel: предпросмотр, применение, итог 34 из 96; выгрузка .xlsx', async () => {
+  it('импорт эталона Excel: предпросмотр, применение, итог 34 из 96; выгрузка .xlsx', async (t) => {
+    t.after(() => cleanup(TITLE3, () => archiveOwn(TITLE3)));
     users.owner.password = await loginAs(users.owner.login, users.owner.password);
-    const a = await mine(TITLE2);
+    await assertNoDraft();
+    // Своя пустая оценка: тест не зависит от данных предыдущего.
+    const a = await createAssessment(TITLE3);
     await ui.goto(`/assessment/overview?id=${a.id}`);
     await ui.click($.button('Импорт Excel'), '«Импорт Excel»');
     let m = ui.mark();
@@ -266,13 +293,13 @@ describe('Самооценка', () => {
     const text = await ui.evaluate(`document.querySelector('[data-testid=sa-import-preview]').textContent`);
     assert.match(text, /итог — 34 из 96, «Цифровая гигиена»/);
     assert.match(text, /Скрытые строки пропущены/);
-    assert.equal((await mine(TITLE2)).total, 1, 'предпросмотр ничего не записал');
+    assert.equal((await mine(TITLE3)).total, 0, 'предпросмотр ничего не записал');
     m = ui.mark();
     await ui.click($.button('Применить', `document.querySelector('[role=dialog]')`));
     const applied = await ui.request(m, 'POST', `/assessments/${a.id}/import?version=`);
     assert.equal(applied.status, 200);
     await ui.waitFor(`!document.querySelector('[role=dialog]') && document.querySelector('[data-testid=sa-total]')?.textContent === '34'`, 'итог 34 после импорта');
-    assert.match(await toastText(), /Импорт применён: разделов изменено \d+\. Итог 34 из 96/);
+    await ui.waitFor(`/Импорт применён: разделов изменено \\d+\\. Итог 34 из 96/.test(document.querySelector('.toast.on')?.textContent ?? '')`, 'уведомление об импорте');
     assert.equal((await ok('GET', `/api/v1/assessments/${a.id}`)).profile.organization, 'ЗАО МДО "Хумо"');
 
     m = ui.mark();
@@ -282,11 +309,21 @@ describe('Самооценка', () => {
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent.startsWith('Выгружено: Самооценка_КБ_')`, 'уведомление о выгрузке');
   });
 
-  it('презентация: 6 слайдов, клавиши, подпись с ФИО вошедшего; новый текст подписи из настроек', async () => {
-    const slide = () => ui.evaluate(`Number(document.querySelector('.sa-pres')?.dataset.slide ?? -1)`);
+  it('презентация: 6 слайдов, клавиши, подпись с ФИО вошедшего; новый текст подписи из настроек', async (t) => {
+    // Номер слайда меняется после перерисовки — ждём его, а не читаем сразу после клавиши.
+    const slideIs = (n, what = `слайд ${n + 1}`) => ui.waitFor(`Number(document.querySelector('.sa-pres')?.dataset.slide ?? -1) === ${n}`, what);
     const sign = () => ui.evaluate(`document.querySelector('[data-testid=sa-signature]')?.innerText ?? ''`);
+    let signature;
+    // Уборка: оценка — в архив (владелец), подпись — прежний текст (администратор).
+    t.after(() => cleanup(TITLE4, async () => {
+      await archiveOwn(TITLE4);
+      if (signature === undefined) return;
+      await loginAs(LOGIN, PASSWORD);
+      const cur = await ok('GET', '/api/v1/settings/presentation');
+      if (cur.signature !== signature) await ok('PUT', '/api/v1/settings/presentation', { signature, version: cur.version });
+    }));
     const openPresentation = async () => {
-      const a = await mine(TITLE2);
+      const a = await mine(TITLE4);
       await ui.goto(`/assessment/overview?id=${a.id}`);
       await ui.click($.button('Презентация'), '«Презентация»');
       await ui.waitFor(`!!document.querySelector('.sa-pres') && document.querySelector('[data-testid=sa-signature]')?.innerText.includes('Спроектировано: ') && document.querySelector('[data-testid=sa-signature]').innerText.split('\\n')[0].length > 'Спроектировано: '.length`, 'презентация с подписью');
@@ -295,18 +332,26 @@ describe('Самооценка', () => {
     await loginAs(LOGIN, PASSWORD);
     signature = (await ok('GET', '/api/v1/settings/presentation')).signature;
     users.owner.password = await loginAs(users.owner.login, users.owner.password);
+    await assertNoDraft();
+    await createAssessment(TITLE4);
     await openPresentation();
-    assert.equal(await slide(), 0);
+    await slideIs(0);
     assert.match(await ui.evaluate(`document.querySelector('.sa-pres').textContent`), /предварительно/, 'черновик — «предварительно» на первом слайде');
     assert.equal(await sign(), `Спроектировано: ${signature}\nПодготовил: Владелец самооценки ${RUN}`);
-    for (const key of ['ArrowRight', 'Space', 'ArrowRight', 'ArrowRight', 'ArrowRight']) await ui.press(key);
-    assert.equal(await slide(), 5, 'шестой слайд');
-    assert.match(await ui.evaluate(`document.querySelector('.sa-ps-slide h2').textContent`), /План улучшений/);
+    // Клавиша за клавишей: каждое нажатие — следующий слайд, иначе быстрые нажатия могли бы слиться.
+    let n = 0;
+    for (const key of ['ArrowRight', 'Space', 'ArrowRight', 'ArrowRight', 'ArrowRight']) {
+      await ui.press(key);
+      await slideIs(++n, `слайд ${n + 1} после ${key}`);
+    }
+    await ui.waitFor(`/План улучшений/.test(document.querySelector('.sa-ps-slide h2')?.textContent ?? '')`, 'шестой слайд — «План улучшений»');
     assert.match(await ui.evaluate(`document.querySelector('.sa-ps-pg').textContent`), /^6 \/ 6/);
     await ui.press('ArrowRight');
-    assert.equal(await slide(), 5, 'дальше последнего не листается');
+    // «Дальше последнего не листается»: отсутствие перехода ждать нечем — проверяем после паузы перерисовки.
+    await new Promise((r) => setTimeout(r, 300));
+    await slideIs(5, 'дальше последнего не листается');
     await ui.press('ArrowLeft');
-    assert.equal(await slide(), 4);
+    await slideIs(4, 'назад — пятый слайд');
     assert.ok(await ui.evaluate(`document.querySelector('[data-testid=sa-signature]').querySelectorAll('button').length === 0`), 'у подписи нет кнопок');
     await ui.press('Escape');
     await ui.waitFor(`!document.querySelector('.sa-pres')`, 'Esc закрывает презентацию');
