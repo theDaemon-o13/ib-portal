@@ -24,7 +24,8 @@ export const ROLE_NAMES: Record<string, string> = {
 
 /** Совместимость роли аналитики с типом — та же, что на сервере. */
 export const ALLOWED_ROLES: Record<FieldType, string[]> = {
-  text: [],
+  // Текст — измерение с 1.8.0 (кроме многострочного — backend отклонит).
+  text: ['dimension'],
   select: ['dimension'],
   decision: ['dimension'],
   user: ['dimension'],
@@ -215,12 +216,19 @@ export function describeFilter(reg: RegisterDetail, f: RecordFilterParams): stri
   if (f.state === 'closed') parts.push('Закрытые');
   if (f.deadline) parts.push(f.deadline.split(',').map((s) => DEADLINE_NAMES[s] ?? s).join(', '));
   if (f.f) {
-    const [fieldId, values = ''] = f.f.split(':');
+    const sep = f.f.indexOf(':');
+    const fieldId = sep > 0 ? f.f.slice(0, sep) : f.f;
+    const values = sep > 0 ? f.f.slice(sep + 1) : '';
     const field = reg.fields.find((x) => x.id === fieldId);
-    const labels = values.split(',').filter(Boolean).map((v) => (v === 'empty' ? 'не заполнено'
+    // Текстовое измерение (1.8.0): значение целиком, в нём бывают запятые.
+    const labels = field?.type === 'text' ? [values === 'empty' ? 'не заполнено' : values] : values.split(',').filter(Boolean).map((v) => (v === 'empty' ? 'не заполнено'
       : isBasisRule(field?.calcRule) ? BASIS_NAMES[v] ?? v
       : field?.options.find((o) => o.id === v)?.label ?? 'выбранное значение'));
     parts.push(`${field?.label ?? 'Поле'}: ${labels.join(', ')}`);
+  }
+  if (f.lopen) {
+    const field = reg.fields.find((x) => x.id === f.lopen);
+    parts.push(`${field?.label ?? 'Связь'}: без закрытых записей`);
   }
   if (f.date) {
     const field = reg.fields.find((x) => x.id === f.date);

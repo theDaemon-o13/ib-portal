@@ -32,6 +32,28 @@ function StageDaysForm({ value, onChange }: { value: StageDays; onChange: (v: St
   );
 }
 
+type Grades = { excellent: number; good: number; satisfactory: number; retakeBelow: number };
+const GRADE_FIELDS: { key: keyof Grades; label: string }[] = [
+  { key: 'excellent', label: '«Отлично» — от' },
+  { key: 'good', label: '«Хорошо» — от' },
+  { key: 'satisfactory', label: '«Удовлетворительно» — от' },
+  { key: 'retakeBelow', label: '«На пересдачу» — ниже' },
+];
+
+/** Пороги оценки INDIGO (1.8.0): проценты; ниже «Удовлетворительно» — «Провал». Пересдача — свой порог. */
+function GradesForm({ value, onChange }: { value: Grades; onChange: (v: Grades) => void }) {
+  return (
+    <div className="fgrid">
+      {GRADE_FIELDS.map((f) => (
+        <label key={f.key} className="fd-label">{f.label}, %
+          <input className="inp" type="number" min={0} max={100} step={0.1} aria-label={`Порог: ${f.label}`} value={Number.isNaN(value[f.key]) ? '' : value[f.key]}
+            onChange={(e) => onChange({ ...value, [f.key]: e.target.valueAsNumber })} />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function Checks({ title, options, value, onChange }: { title: string; options: Option[]; value: string[]; onChange: (v: string[]) => void }) {
   return (
     <div className="fd-label">{title}
@@ -125,6 +147,7 @@ function ParamPanel({ param, options }: { param: PortalParam; options: PortalPar
         {param.form === 'vulns' && <VulnsForm value={draft as Vulns} onChange={setDraft} options={options} />}
         {param.form === 'assets' && <AssetsForm value={draft as Assets} onChange={setDraft} options={options} />}
         {param.form === 'stageDays' && <StageDaysForm value={draft as StageDays} onChange={setDraft} />}
+        {param.form === 'grades' && <GradesForm value={draft as Grades} onChange={setDraft} />}
         {param.form === 'reviewRole' && (
           <label className="fd-label">Роль
             <select className="inp" aria-label="Роль проверки сотрудниками" value={(draft as { roleId: string | null }).roleId ?? ''}

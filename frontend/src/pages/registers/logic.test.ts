@@ -111,5 +111,8 @@ describe('фильтр из ссылки дашборда', () => {
     expect(describeFilter(reg, f)).toEqual(['Открытые', 'Просрочено, ≤ 7 дней', 'Уровень: Высокий, не заполнено']);
     expect(describeFilter(reg, { date: 'lvl', from: '2026-10-01', to: '2026-10-27' })).toEqual(['Уровень: с 01.10.2026 по 27.10.2026']);
     expect(describeFilter(reg, {})).toEqual([]);
+    // 1.8.0: lopen= и текстовое измерение — значение целиком, с запятыми.
+    expect(filterFromParams(new URLSearchParams('lopen=lvl&q=x'))).toEqual({ lopen: 'lvl' });
+    expect(describeFilter(reg, { lopen: 'lvl' })).toEqual(['Уровень: без закрытых записей']);
   });
 });

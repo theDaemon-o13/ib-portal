@@ -31,11 +31,11 @@ export function Bars({ rows }: { rows: Row[] }) {
           <>
             <span className="t" title={r.label}>{r.label}</span>
             <span className="track"><span className={`fill${r.tone ? ` c-${r.tone}` : ''}`} style={{ width: `${barWidth(r.count, rows)}%` }} /></span>
-            <span className="n mono">{r.count}</span>
+            <span className="n mono">{num(r.count)}</span>
           </>
         );
         return r.link
-          ? <Link key={r.label} className="bar bar-link" to={r.link} aria-label={`${r.label}: ${r.count}`}>{inner}</Link>
+          ? <Link key={r.label} className="bar bar-link" to={r.link} aria-label={`${r.label}: ${num(r.count)}`}>{inner}</Link>
           : <div key={r.label} className="bar">{inner}</div>;
       })}
     </div>
@@ -110,6 +110,27 @@ function Basis({ w }: { w: WidgetData }) {
   );
 }
 
+/**
+ * Число со ссылкой и список записей (1.8.0, «На пересдачу»): последние попытки, щелчок открывает запись; число —
+ * список с тем же фильтром.
+ */
+function ListWidget({ w }: { w: WidgetData }) {
+  const big = <div className={`mono big-n${w.total ? ' tone-high' : ''}`}>{num(w.total)}</div>;
+  return (
+    <div className="grid-gap">
+      {w.link ? <Link className="stat stat-link" to={w.link} aria-label={`${w.title}: ${w.total ?? 0}. Открыть список`}>{big}</Link> : big}
+      <div className="list">
+        {w.items.length === 0 && <div className="hint">Записей нет</div>}
+        {w.items.map((i) => (
+          <Link key={i.id} className="li li-link" to={i.link}>
+            <div className="min0"><div className="ellipsis">{i.title}</div><div className="m">{i.sub}</div></div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3', basis: 'w6', list: 'w6' };
 
 /** Виджет: свой запрос к серверу (кэш там же, 1 минута), обновление раз в минуту. */
@@ -131,6 +152,7 @@ export function WidgetPanel({ w, bare = false }: { w: WidgetRef; bare?: boolean 
         {d && d.kind === 'timeline' && <Timeline rows={d.rows} />}
         {d && d.kind === 'deadline' && <Deadline w={d} />}
         {d && d.kind === 'basis' && <Basis w={d} />}
+        {d && d.kind === 'list' && <ListWidget w={d} />}
       </div>
     </section>
   );

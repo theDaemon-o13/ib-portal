@@ -1,6 +1,11 @@
 // Системные виджеты «Осведомлённости» (релиз 1.8.0, docs/specs/awareness.md, раздел 6): «На пересдачу» без уволенных
 // и «Средний результат по подразделениям». Числа виджета = total списка по его ссылке. Люди вымышленные.
 import { describe, expect, it } from 'vitest';
+import { buildApp } from '../../app.js';
+import { argon2Hasher } from '../../lib/passwords.js';
+import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
+import { prismaAuditWriter } from '../audit/audit.js';
+import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import type { Values } from '../../lib/register-values.js';
 import { actorFor, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY } from '../awareness/definition.js';
@@ -62,6 +67,25 @@ describe('виджеты «Осведомлённости»', () => {
       expect(w.items.map((i) => i.title).slice(0, 2)).toEqual(['Иванов Иван Иванович', 'Сидоров Сергей']);
       expect(w.items.some((i) => i.title.startsWith('Петров'))).toBe(false);
       expect(w.items[0]?.link).toMatch(/^\/registers\?record=[0-9a-f-]+#[0-9a-f-]+\/records$/);
+    }));
+
+  it('по HTTP: total маршрута списка по ссылке виджета — то же число (lopen= доходит до фильтра)', () =>
+    inTx(async (tx) => {
+      const s = await setup(tx);
+      const fired = await s.employee('Петров Пётр Петрович', 'fired');
+      await s.result('Петров Пётр Петрович', 20, 'Отдел Б', { employee: fired });
+      await s.result('Сидоров Сергей', 40, 'Отдел Б');
+      const user = await makeUser(tx, ['ib_staff'], { passwordHash: await argon2Hasher.hash('Widgets-Http-2026!') });
+      const app = await buildApp({ db: tx, repo: prismaAuthRepository(tx), audit: prismaAuditWriter(tx), hasher: argon2Hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, logger: false });
+      const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: user.login, password: 'Widgets-Http-2026!' } });
+      const cookie = `ib_session=${login.cookies.find((c) => c.name === 'ib_session')?.value}`;
+      const w = await widgetData(tx, AWARENESS_RETAKE_WIDGET);
+      const link = must(w.link);
+      const qs = link.slice(link.indexOf('?') + 1, link.indexOf('#'));
+      const res = await app.inject({ method: 'GET', url: `/api/v1/registers/${s.res.id}/records?${qs}&limit=100`, headers: { cookie, origin: TEST_PORTAL_URL } });
+      expect(res.statusCode).toBe(200);
+      expect(res.json<{ total: number }>().total).toBe(w.total);
+      expect(w.total).toBe(1);
     }));
 
   it('«Средний по подразделениям»: все, от худшего к лучшему, по нормализованному названию; полоса = список по ссылке', () =>

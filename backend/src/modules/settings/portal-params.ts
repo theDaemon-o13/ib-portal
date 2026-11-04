@@ -54,7 +54,7 @@ const HOST_TYPE_RULES = {
   workstation: { namePatterns: ['(NB|PC|MAC)\\d*$'] },
 };
 
-export type ParamForm = 'vulns' | 'assets' | 'lines' | 'text' | 'json' | 'stageDays' | 'reviewRole';
+export type ParamForm = 'vulns' | 'assets' | 'lines' | 'text' | 'json' | 'stageDays' | 'reviewRole' | 'grades';
 
 interface ParamDef {
   key: string;
@@ -137,8 +137,8 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
     description: 'Когда цепочка считается похожей на заголовок задачи: minJaccard — доля общих слов (слова от трёх букв), minCommonWords — общих слов не меньше; closedDays — сколько дней после закрытия цепочка с выполненными задачами ещё предлагается. Формат: { "minJaccard": 0.6, "minCommonWords": 2, "closedDays": 30 }.',
     schema: ChainSuggestSchema, defaults: async () => ({ ...DEFAULT_CHAIN_SUGGEST }),
   },  {
-    key: AWARENESS_GRADES_KEY, title: 'Осведомлённость: пороги оценки', form: 'json',
-    description: 'Оценка результата INDIGO по «Результату, %»: не ниже excellent — «Отлично», не ниже good — «Хорошо», не ниже satisfactory — «Удовлетворительно», иначе «Провал». retakeBelow — «На пересдачу», если процент ниже; с порогами оценки не связан. Оценка ставится при загрузке отчёта: новые пороги действуют на новые импорты. Формат: { "excellent": 90, "good": 70, "satisfactory": 50, "retakeBelow": 50 }.',
+    key: AWARENESS_GRADES_KEY, title: 'Осведомлённость: пороги оценки', form: 'grades',
+    description: 'Оценка результата INDIGO по «Результату, %»: «Отлично», «Хорошо» и «Удовлетворительно» — не ниже своего порога, иначе «Провал». «На пересдачу» — процент ниже своего порога, с порогами оценки не связан. Оценка ставится при загрузке отчёта: новые пороги действуют на новые загрузки.',
     schema: GradesSchema, defaults: async () => ({ ...DEFAULT_GRADES }),
   },
 ];

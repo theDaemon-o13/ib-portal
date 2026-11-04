@@ -29,6 +29,11 @@ export type HistoryEntry = Res<'/api/v1/register-records/{id}/history', 'get'>['
 export type TypePreview = Res<'/api/v1/register-fields/{id}/type/preview', 'post'>;
 export type ImportPreview = Res<'/api/v1/registers/{id}/imports', 'post', 201>;
 export type ImportResult = Res<'/api/v1/register-imports/{id}/apply', 'post'>;
+/** Выбор связи в предпросмотре импорта (1.8.0): строки, кандидаты, реестр и область поиска. */
+export type ImportChoices = NonNullable<ImportPreview['summary']['choices']>;
+/** «Обновить по сотрудникам» (1.8.0): что изменится. */
+export type RefreshPreview = Res<'/api/v1/registers/{id}/awareness/refresh/preview', 'post'>;
+export type RefreshItem = RefreshPreview['items'][number];
 export type NewField = Body<'/api/v1/registers/{id}/fields', 'post'>;
 export type FieldPatch = Body<'/api/v1/register-fields/{id}', 'patch'>;
 export type RecordValues = Body<'/api/v1/registers/{id}/records', 'post'>['values'];
@@ -86,7 +91,8 @@ export type RecordReason = Pick<Body<'/api/v1/register-records/{id}/delete', 'po
 export type RegisterDeletePreview = Res<'/api/v1/registers/{id}/delete/preview', 'post'>;
 
 /** Параметры фильтра записей — те же имена, что в адресе страницы и в API. */
-export const FILTER_PARAMS = ['state', 'deadline', 'f', 'date', 'from', 'to'] as const;
+/** lopen (1.8.0) — связь пустая или связанная запись не закрыта. */
+export const FILTER_PARAMS = ['state', 'deadline', 'f', 'date', 'from', 'to', 'lopen'] as const;
 export type RecordFilterParams = Partial<Record<(typeof FILTER_PARAMS)[number], string>>;
 
 function qs(params: Record<string, string | undefined>): string {
@@ -211,9 +217,9 @@ export const registersApi = {
   },
   /**
    * Импорт через адаптер (1.6.0): реестр сервисов в «Компоненты», отчёт Kaspersky Security Center (.xls XML или .xlsx)
-   * в «Хосты». Формат backend определяет по содержимому.
+   * в «Хосты»; 1.8.0 — отчёт INDIGO в «Результаты INDIGO». Формат backend определяет по содержимому.
    */
-  async previewAdapter(registerId: string, adapter: 'services' | 'ksc', file: File): Promise<ImportPreview> {
+  async previewAdapter(registerId: string, adapter: 'services' | 'ksc' | 'indigo', file: File): Promise<ImportPreview> {
     const res = await fetch(`/api/v1/registers/${registerId}/imports?adapter=${adapter}`, {
       method: 'POST',
       credentials: 'same-origin',
@@ -223,9 +229,15 @@ export const registersApi = {
     if (!res.ok) throw await errorOf(res);
     return (await res.json()) as ImportPreview;
   },
-  /** skip — снятые блоки адаптера («Будут созданы хосты»): не создаются. */
-  applyImport: (id: string, skip: string[] = []) =>
-    request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`, skip.length ? { skip } : undefined),
+  /** skip — снятые блоки адаптера («Будут созданы хосты»): не создаются; choices — выбор связи: строка → запись или null. */
+  applyImport: (id: string, skip: string[] = [], choices: Record<string, string | null> = {}) => {
+    const body = { ...(skip.length ? { skip } : {}), ...(Object.keys(choices).length ? { choices } : {}) };
+    return request<ImportResult>('POST', `/api/v1/register-imports/${id}/apply`, Object.keys(body).length ? body : undefined);
+  },
+  /** «Обновить по сотрудникам» (1.8.0): предпросмотр → применение отмеченных с числом строк предпросмотра. */
+  refreshPreview: (registerId: string) => request<RefreshPreview>('POST', `/api/v1/registers/${registerId}/awareness/refresh/preview`),
+  refreshApply: (registerId: string, recordIds: string[], expected: number) =>
+    request<{ updated: number; skipped: number }>('POST', `/api/v1/registers/${registerId}/awareness/refresh/apply`, { recordIds, expected }),
   /** Сравнение: тот же файл, что в предпросмотре импорта; область — обязательно. Записи не меняются. */
   async compare(importId: string, file: File, scope: CompareScope): Promise<CompareResult> {
     const q = 'all' in scope ? 'scope=all'

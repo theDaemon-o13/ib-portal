@@ -10,6 +10,7 @@ import { BulkDialog, type BulkMode } from './BulkDialog';
 import { isPicked, NOTHING, pickedCount, pickPage, selectionBody, togglePicked, type Picked } from './bulk';
 import { ImportDialog } from './ImportDialog';
 import { KscGuide, kscGuideHidden } from './KscGuide';
+import { RefreshDialog } from './RefreshDialog';
 import { BASIS_TONES, deadlineChip, deadlineFieldOf, describeFilter, filterFromParams, formatDate, optionTone, pinOffsets, visibleColumns } from './logic';
 import { ExportZipDialog } from './ExportZipDialog';
 import { rkeys } from './keys';
@@ -221,7 +222,15 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
 
   // Выгрузка реестра. Отчёт сканера backend не примет: его загружают в узел раздела «Уязвимости» (ADR-0029).
   // Адаптеры реестра активов (1.6.0): реестр сервисов → «Компоненты», отчёт KSC → «Хосты».
-  const adapter = reg.systemKey === 'asset_components' ? 'services' as const : reg.systemKey === 'asset_hosts' ? 'ksc' as const : null;
+  // 1.8.0: отчёт INDIGO → «Результаты INDIGO».
+  const adapter = reg.systemKey === 'asset_components' ? 'services' as const : reg.systemKey === 'asset_hosts' ? 'ksc' as const
+    : reg.systemKey === 'awareness_results' ? 'indigo' as const : null;
+  const ADAPTER_TEXT = {
+    ksc: { button: 'Импорт отчёта KSC', file: 'Файл отчёта KSC', title: 'Отчёт о развёртывании защиты, о статусе антивирусных баз или о версиях программ — .xls из KSC как есть или .xlsx' },
+    services: { button: 'Импорт реестра сервисов', file: 'Файл реестра сервисов', title: 'Форма реестра сервисов, лист «Список активов»' },
+    indigo: { button: 'Импорт отчёта INDIGO', file: 'Файл отчёта INDIGO', title: 'Отчёт «Статистика по баллам». Откройте выгрузку INDIGO в Excel и сохраните как .xlsx' },
+  } as const;
+  const [refreshing, setRefreshing] = useState(false);
   const adapterRef = useRef<HTMLInputElement>(null);
   const onAdapterFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -270,12 +279,16 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
                 <>
                   <button className="btn" type="button" disabled={busy}
                     onClick={() => (adapter === 'ksc' && !kscGuideHidden() ? setKscGuide(true) : adapterRef.current?.click())}
-                    title={adapter === 'ksc' ? 'Отчёт о развёртывании защиты, о статусе антивирусных баз или о версиях программ — .xls из KSC как есть или .xlsx' : 'Форма реестра сервисов, лист «Список активов»'}>
-                    {adapter === 'ksc' ? 'Импорт отчёта KSC' : 'Импорт реестра сервисов'}
+                    title={ADAPTER_TEXT[adapter].title}>
+                    {ADAPTER_TEXT[adapter].button}
                   </button>
                   <input ref={adapterRef} type="file" accept=".xls,.xml,.xlsx" hidden onChange={(e) => void onAdapterFile(e)}
-                    aria-label={adapter === 'ksc' ? 'Файл отчёта KSC' : 'Файл реестра сервисов'} />
+                    aria-label={ADAPTER_TEXT[adapter].file} />
                   {adapter === 'ksc' && <button className="btn sm ghost" type="button" onClick={() => setKscGuide(true)}>Как загружать</button>}
+                  {adapter === 'indigo' && (
+                    <button className="btn" type="button" disabled={busy} onClick={() => setRefreshing(true)}
+                      title="Сопоставить «Не сопоставлен» с сотрудниками, которые появились после загрузки">Обновить по сотрудникам…</button>
+                  )}
                 </>
               )}
             </>
@@ -393,6 +406,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       )}
       {open && <RecordDrawer key={open} reg={reg} recordId={open === 'new' ? null : open} canEdit={canEdit} canDelete={canDelete} onClose={() => setOpen(null)} onCreated={(id) => setOpen(id, true)} />}
       {kscGuide && <KscGuide onPick={() => adapterRef.current?.click()} onClose={() => setKscGuide(false)} />}
+      {refreshing && <RefreshDialog reg={reg} onClose={() => setRefreshing(false)} />}
       {preview && <ImportDialog reg={reg} preview={preview} file={importFile} onClose={() => setPreview(null)} />}
       {zipOpen && <ExportZipDialog reg={reg} onClose={() => setZipOpen(false)} />}
       {bulk && <BulkDialog reg={reg} mode={bulk.mode} selection={bulk.selection} onClose={() => setBulk(null)} onDone={() => { setBulk(null); setPicked(NOTHING); }} />}

@@ -469,8 +469,8 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       response: { 200: z.object({ items: z.array(RegisterRecord), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => {
-    const { state, deadline, f, date, from, to, archived, ...rest } = request.query;
-    const filter = parseRecordFilter(await loadRegister(db, request.params.id), { state, deadline, f, date, from, to });
+    const { state, deadline, f, date, from, to, lopen, archived, ...rest } = request.query;
+    const filter = parseRecordFilter(await loadRegister(db, request.params.id), { state, deadline, f, date, from, to, lopen });
     const page = await records.listRecords(db, request.params.id, {
       ...rest, includeArchived: rest.includeArchived === 'true', archivedOnly: archived === 'only', withTasks: rest.withTasks === 'true', filter,
     });

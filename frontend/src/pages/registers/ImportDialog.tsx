@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { registersApi, type ImportPreview, type RegisterDetail } from '../../api/registers';
 import { useToast } from '../../components/Toast';
 import { CompareDialog } from './CompareDialog';
+import { ImportChoicesBlock, type ChoiceMap } from './ImportChoicesBlock';
 import { rkeys } from './keys';
 
 const MATCH_NAMES = { add: 'новая запись', update: 'обновление', unchanged: 'без изменений', error: 'ошибка — не применяется' } as const;
@@ -23,9 +24,12 @@ export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDet
   const blocks = s.blocks ?? [];
   const [skip, setSkip] = useState<string[]>([]);
   const ksc = s.source?.adapter === 'ksc' ? s.source as { reportName?: string; summaryTotal?: number | null; detailsRows?: number; devices?: number } : null;
+  // Отчёт INDIGO (1.8.0): тест и сопоставление; ручной выбор сотрудника — блок choices.
+  const indigo = s.source?.adapter === 'indigo' ? s.source as { test?: string; matchedExact?: number; unmatched?: number; sameDayRepeats?: number } : null;
+  const [choices, setChoices] = useState<ChoiceMap>({});
 
   const apply = useMutation({
-    mutationFn: () => registersApi.applyImport(preview.id, skip),
+    mutationFn: () => registersApi.applyImport(preview.id, skip, Object.fromEntries(Object.entries(choices).filter(([, v]) => v))),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: rkeys.records(reg.id) });
       await qc.invalidateQueries({ queryKey: rkeys.list });
@@ -56,6 +60,10 @@ export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDet
         {ksc && (
           <p className="imp-kind">Отчёт Kaspersky Security Center <span className="chip info">{ksc.reportName}</span>
             {' '}устройств: {ksc.devices}{ksc.summaryTotal != null ? `, в сводке ${ksc.summaryTotal}` : ''}. Обновляются только поля этого отчёта.</p>
+        )}
+        {indigo && (
+          <p className="imp-kind">Отчёт INDIGO <span className="chip info">{indigo.test}</span>
+            {' '}сопоставлено автоматически: {indigo.matchedExact ?? 0}, требуют ручного выбора: {indigo.unmatched ?? 0}{indigo.sameDayRepeats ? `, повторов в один день: ${indigo.sameDayRepeats}` : ''}.</p>
         )}
         {s.source?.adapter === 'services' && <p className="imp-kind">Реестр сервисов <span className="chip info">лист «{String(s.source.sheet)}», заголовки в строке {String(s.source.headerRow)}</span></p>}
         {byKey
@@ -92,6 +100,7 @@ export function ImportDialog({ reg, preview, file, onClose }: { reg: RegisterDet
             </div>
           </div>
         ))}
+        {s.choices && <ImportChoicesBlock choices={s.choices} value={choices} onChange={setChoices} />}
         {s.errors.length > 0 && (
           <div className="grid-gap">
             <div className="eyebrow">Строки с ошибками — не будут применены</div>

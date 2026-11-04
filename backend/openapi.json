@@ -15732,7 +15732,8 @@
                               "text",
                               "json",
                               "stageDays",
-                              "reviewRole"
+                              "reviewRole",
+                              "grades"
                             ]
                           },
                           "value": {},
@@ -16120,7 +16121,8 @@
                         "text",
                         "json",
                         "stageDays",
-                        "reviewRole"
+                        "reviewRole",
+                        "grades"
                       ]
                     },
                     "value": {},
@@ -16410,7 +16412,8 @@
                         "text",
                         "json",
                         "stageDays",
-                        "reviewRole"
+                        "reviewRole",
+                        "grades"
                       ]
                     },
                     "value": {},

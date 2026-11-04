@@ -6787,7 +6787,7 @@ export interface paths {
                                 title: string;
                                 description: string;
                                 /** @enum {string} */
-                                form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole";
+                                form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole" | "grades";
                                 value: unknown;
                                 defaultValue: unknown;
                                 isDefault: boolean;
@@ -6947,7 +6947,7 @@ export interface paths {
                             title: string;
                             description: string;
                             /** @enum {string} */
-                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole";
+                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole" | "grades";
                             value: unknown;
                             defaultValue: unknown;
                             isDefault: boolean;
@@ -7087,7 +7087,7 @@ export interface paths {
                             title: string;
                             description: string;
                             /** @enum {string} */
-                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole";
+                            form: "vulns" | "assets" | "lines" | "text" | "json" | "stageDays" | "reviewRole" | "grades";
                             value: unknown;
                             defaultValue: unknown;
                             isDefault: boolean;

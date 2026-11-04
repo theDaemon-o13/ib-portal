@@ -10,7 +10,7 @@ import { listPortalParams, resetPortalParam, updatePortalParam } from './portal-
 const tags = ['settings'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
 const Param = z.object({
-  key: z.string(), title: z.string(), description: z.string(), form: z.enum(['vulns', 'assets', 'lines', 'text', 'json', 'stageDays', 'reviewRole']),
+  key: z.string(), title: z.string(), description: z.string(), form: z.enum(['vulns', 'assets', 'lines', 'text', 'json', 'stageDays', 'reviewRole', 'grades']),
   value: z.unknown(), defaultValue: z.unknown(), isDefault: z.boolean(), version: z.number().int(),
 });
 const Option = z.object({ id: z.string(), label: z.string() });

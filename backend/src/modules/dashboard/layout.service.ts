@@ -11,7 +11,7 @@ import { DASHBOARD_KPIS, listWidgets } from './service.js';
 import { listTiles } from './tiles.service.js';
 
 /** Виджеты сроков и дат — половина ширины, остальные — треть (как было до настройки). */
-const WIDE_KINDS = new Set(['deadline', 'timeline', 'basis']);
+const WIDE_KINDS = new Set(['deadline', 'timeline', 'basis', 'list']);
 
 /** Всё, что сейчас есть на дашборде, — в системном порядке (KPI, плитки, виджеты). */
 export async function dashboardElements(db: Db): Promise<LayoutElement[]> {

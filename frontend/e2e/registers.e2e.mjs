@@ -273,7 +273,8 @@ describe('Поля', () => {
     }))`);
     assert.ok(rows.length >= BASE_FIELDS.length, `строки полей: ${rows.length}`);
     assert.ok(rows.every((r) => r.select), 'список «Для аналитики» есть в каждой строке');
-    assert.equal(rows.find((r) => r.label === 'Комментарий')?.disabled, true, 'для текста — неактивный «Не используется»');
+    // С 1.8.0 текст может быть «измерением» (решение владельца 9): выбор роли у него активен.
+    assert.equal(rows.find((r) => r.label === 'Комментарий')?.disabled, false, 'для текста — выбор «Измерение» доступен');
     assert.ok(rows.every((r) => r.buttons <= 2), 'в строке только стрелки порядка');
   });
 

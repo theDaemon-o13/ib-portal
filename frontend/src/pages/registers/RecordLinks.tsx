@@ -11,6 +11,10 @@ import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { BASIS_TONES, deadlineChip, isBasisRule } from './logic';
 
+/** Подпись связанной записи: «#12 Иванов Иван Иванович», у закрытой — с меткой статуса «(уволен)» (1.8.0). */
+export const linkText = (l: { number: number; title: string; closedLabel?: string | null }) =>
+  `#${l.number}${l.title ? ` ${l.title}` : ''}${l.closedLabel ? ` (${l.closedLabel})` : ''}`;
+
 /** Карточка записи по ссылке: /registers?record=<id>#<реестр>/records. */
 export const recordHref = (registerId: string, recordId: string) => `/registers?record=${recordId}#${registerId}/records`;
 
@@ -94,7 +98,7 @@ export function LinkField({ f, rec, value, onChange, disabled }: {
 }) {
   const ids = value ? value.split(',').filter(Boolean) : [];
   const [labels, setLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries((rec?.links[f.id] ?? []).map((l) => [l.id, `#${l.number}${l.title ? ` ${l.title}` : ''}`])));
+    Object.fromEntries((rec?.links[f.id] ?? []).map((l) => [l.id, linkText(l)])));
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => {
