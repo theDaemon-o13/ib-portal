@@ -13,6 +13,7 @@ import { requireAnyPerm, requirePerm } from '../../plugins/rbac.js';
 import { RECORD_REASONS } from '../trash/service.js';
 import { actorOf } from '../settings/common.js';
 import { assetImportAdapter } from '../assets/import.js';
+import { indigoImportAdapter } from '../awareness/import.js';
 import { registerAnalytics } from './analytics.service.js';
 import * as bulk from './bulk.service.js';
 import * as compare from './compare.service.js';
@@ -856,9 +857,10 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     schema: {
       tags: ['register-excel'],
       summary: 'Импорт, шаг 1: предпросмотр. Тело — файл .xlsx (Content-Type xlsx), имя файла — в X-File-Name. '
-        + 'adapter — разбор чужого файла (1.6.0): services — реестр сервисов в «Компоненты», ksc — отчёт Kaspersky Security Center в «Хосты»',
+        + 'adapter — разбор чужого файла (1.6.0): services — реестр сервисов в «Компоненты», ksc — отчёт Kaspersky Security Center в «Хосты»; '
+        + 'indigo — отчёт INDIGO «Статистика по баллам» в «Результаты INDIGO» (1.8.0; .xls старого формата — 400 OLD_EXCEL_FORMAT)',
       params: IdParams,
-      querystring: z.object({ adapter: z.enum(['services', 'ksc']).optional() }),
+      querystring: z.object({ adapter: z.enum(['services', 'ksc', 'indigo']).optional() }),
       body: z.any(),
       response: { 201: ImportPreview, ...errors },
     },
@@ -873,7 +875,9 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
         fileName = raw;
       }
     }
-    const adapter = request.query.adapter ? await assetImportAdapter(db, request.params.id, request.query.adapter, request.body) : undefined;
+    const kind = request.query.adapter;
+    const adapter = kind === 'indigo' ? await indigoImportAdapter(db, request.params.id, request.body)
+      : kind ? await assetImportAdapter(db, request.params.id, kind, request.body) : undefined;
     const preview = await excel.previewImport(db, actorOf(request), request.params.id, request.body, fileName, adapter);
     return reply.status(201).send(preview);
   });

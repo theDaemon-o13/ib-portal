@@ -17853,11 +17853,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Импорт, шаг 1: предпросмотр. Тело — файл .xlsx (Content-Type xlsx), имя файла — в X-File-Name. adapter — разбор чужого файла (1.6.0): services — реестр сервисов в «Компоненты», ksc — отчёт Kaspersky Security Center в «Хосты» */
+        /** Импорт, шаг 1: предпросмотр. Тело — файл .xlsx (Content-Type xlsx), имя файла — в X-File-Name. adapter — разбор чужого файла (1.6.0): services — реестр сервисов в «Компоненты», ksc — отчёт Kaspersky Security Center в «Хосты»; indigo — отчёт INDIGO «Статистика по баллам» в «Результаты INDIGO» (1.8.0; .xls старого формата — 400 OLD_EXCEL_FORMAT) */
         post: {
             parameters: {
                 query?: {
-                    adapter?: "services" | "ksc";
+                    adapter?: "services" | "ksc" | "indigo";
                 };
                 header?: never;
                 path: {
