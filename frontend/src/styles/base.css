@@ -1076,3 +1076,10 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .chains-tbl td{overflow-wrap:anywhere;vertical-align:middle}
 .chains-tbl td .chip{margin-left:6px}
 .chains-tbl tr.sel{background:var(--accent-soft)}
+/* «Найти цепочки среди старых задач»: список групп прокручивается внутри окна. */
+.discover-dialog{width:min(760px,calc(100vw - 32px))}
+.discover-list{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:min(50dvh,420px);overflow-y:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.discover-list li{padding:6px 4px}
+.discover-list .check{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.discover-list .check input{margin-top:3px;flex:none}
+.dg-t{min-width:0;overflow-wrap:anywhere;font-size:13px}

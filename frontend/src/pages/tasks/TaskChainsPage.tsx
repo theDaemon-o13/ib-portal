@@ -2,14 +2,20 @@
 // по названию и номеру. Строка открывает панель цепочки (?chain=). Фильтры — в адресе страницы.
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
+import type { Me } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { chainsApi, tkeys } from '../../api/tasks';
 import { formatDate } from '../registers/logic';
 import { ChainPanel } from './ChainPanel';
+import { DiscoverDialog } from './DiscoverDialog';
 import { chainCounts } from './logic';
 
 export function TaskChainsPage() {
+  const me = useOutletContext<Me>();
+  const [discover, setDiscover] = useState(false);
+  // «Найти цепочки среди старых задач» — право «Задачи: постановка другим» (решение владельца 04.11.2026).
+  const canDiscover = me.permissions.includes('tasks.assign');
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const raw = params.get('status');
@@ -36,6 +42,7 @@ export function TaskChainsPage() {
         </div>
         <div className="row">
           <Link className="btn" to="/tasks">К доске</Link>
+          {canDiscover && <button className="btn" type="button" onClick={() => setDiscover(true)}>Найти цепочки среди старых задач</button>}
         </div>
       </div>
       <div className="toolbar chains-filters" aria-label="Фильтры цепочек">
@@ -78,6 +85,7 @@ export function TaskChainsPage() {
         </div>
         {list.data && list.data.total > list.data.items.length && <div className="hint panel-b">Показаны {list.data.items.length} из {list.data.total} — уточните поиск</div>}
       </section>
+      {discover && <DiscoverDialog onClose={() => setDiscover(false)} />}
       {openId && <ChainPanel key={openId} id={openId} onClose={() => set({ chain: null })} onOpenTask={(taskId) => navigate(`/tasks?task=${taskId}`)} />}
     </>
   );

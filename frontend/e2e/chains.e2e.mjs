@@ -19,6 +19,7 @@ let me;
 let category;
 let navSeq = 0;
 let reader;
+let head;
 const drawer = `document.querySelector('aside.drawer[aria-label="Задача"]')`;
 const mailDrawer = `document.querySelector('aside.drawer[aria-label="Задача из письма"]')`;
 const suggest = (within = 'document') => `(${within}).querySelector('[data-testid=chain-suggest]')`;
@@ -84,8 +85,8 @@ after(async () => {
   if (!ui) return;
   try {
     await loginAs(LOGIN, PASSWORD).catch(() => undefined);
-    if (reader) {
-      const u = (await api('GET', `/api/v1/users?q=${encodeURIComponent(reader.login)}`).catch(() => ({ items: [] }))).items.find((x) => x.id === reader.id);
+    for (const who of [reader, head].filter(Boolean)) {
+      const u = (await api('GET', `/api/v1/users?q=${encodeURIComponent(who.login)}`).catch(() => ({ items: [] }))).items.find((x) => x.id === who.id);
       if (u?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: u.version }).catch(() => undefined);
     }
     for (const c of (await api('GET', `/api/v1/task-chains?q=${encodeURIComponent(RUN)}`).catch(() => ({ items: [] }))).items) {
@@ -256,6 +257,45 @@ describe('Цепочки задач (1.7.0)', () => {
     const sug = await ui.evaluate(`fetch('/api/v1/task-chains/suggest?title=' + encodeURIComponent('Тестовая тема')).then((x) => x.status)`);
     assert.equal(sug, 403);
     assert.equal(await ui.evaluate(`!![...document.querySelectorAll('nav a')].find((a) => a.getAttribute('href') === '/tasks')`), false, 'раздела «Задачи» нет в меню');
+    await loginAs(LOGIN, PASSWORD);
+  });
+  it('«Найти цепочки среди старых задач»: предпросмотр, выбор группы, подтверждение; повторный запуск её не находит', async () => {
+    const roles = (await api('GET', '/api/v1/roles')).items;
+    const r = await api('POST', '/api/v1/users', {
+      login: `${RUN.toLowerCase()}.head`, fullName: `Начальник Цепочек ${RUN}`, roleIds: ['ib_staff', 'ib_head'].map((c) => roles.find((x) => x.code === c).id),
+    });
+    head = { id: r.user.id, login: r.user.login };
+    await loginAs(head.login, r.temporaryPassword);
+    const theme = `Старая тема ${RUN}`;
+    const a = await api('POST', '/api/v1/tasks', { title: theme, categoryId: category.id });
+    const b = await api('POST', '/api/v1/tasks', { title: `RE: ${theme}`, categoryId: category.id });
+    await ui.goto(`/tasks/chains?run=${++navSeq}`);
+    await ui.click($.button('Найти цепочки среди старых задач'));
+    const dialog = `document.querySelector('[role=dialog][aria-labelledby=dc-title]')`;
+    const group = `${dialog}?.querySelector(${JSON.stringify(`li[data-group="${theme}"]`)})`;
+    await ui.waitFor(`!!${group}`, 'группа прогона в предпросмотре');
+    assert.match(await ui.text(group), /новая цепочка · 2 задачи/);
+    await ui.click($.button('Снять все', dialog));
+    await ui.click(`${group}.querySelector('input[type=checkbox]')`, 'выбрать группу прогона');
+    await ui.click($.button('Объединить выбранные (1)', dialog));
+    await ui.waitFor(`!!${dialog}.querySelector('[data-testid=discover-confirm]')`, 'подтверждение');
+    assert.match(await ui.text(`${dialog}.querySelector('[data-testid=discover-confirm]')`), /Будет создано цепочек: 1, дополнено: 0, задач привязано: 2/);
+    const m = ui.mark();
+    await ui.click($.button('Подтвердить', dialog));
+    const applied = await ui.request(m, 'POST', '/api/v1/task-chains/discover/apply');
+    assert.equal(applied.status, 200, applied.body);
+    assert.equal(applied.json.groups.length, 1, 'применяется только выбранная группа');
+    await ui.waitFor(`!${dialog}`, 'окно закрыто');
+    const ta = await api('GET', `/api/v1/tasks/${a.id}`);
+    const tb = await api('GET', `/api/v1/tasks/${b.id}`);
+    assert.ok(ta.chain && tb.chain && ta.chain.id === tb.chain.id, 'обе задачи в одной цепочке');
+    assert.equal(ta.chain.title, theme);
+    // Повторный запуск: группа прогона больше не находится.
+    const again = await api('POST', '/api/v1/task-chains/discover/preview');
+    assert.equal(again.groups.some((g) => g.title === theme), false);
+    // Уборка своей цепочки (удалить может создатель).
+    const c = await api('GET', `/api/v1/task-chains/${ta.chain.id}`);
+    await api('POST', `/api/v1/task-chains/${c.id}/delete`, { version: c.version });
     await loginAs(LOGIN, PASSWORD);
   });
 });

@@ -32,6 +32,9 @@ export type ChainSuggestion = ChainSuggestResult['items'][number];
 export type NewChain = Body<'/api/v1/task-chains', 'post'>;
 export type ChainPatch = Body<'/api/v1/task-chains/{id}', 'patch'>;
 export type TaskRef = { id: string; version: number };
+export type DiscoverPreview = Res<'/api/v1/task-chains/discover/preview', 'post'>;
+export type DiscoverGroup = DiscoverPreview['groups'][number];
+export type DiscoverApply = Body<'/api/v1/task-chains/discover/apply', 'post'>;
 
 export const tasksApi = {
   list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean; chainId?: string }) =>
@@ -92,6 +95,9 @@ export const chainsApi = {
   remove: (id: string, version: number) => request<undefined>('POST', `/api/v1/task-chains/${id}/delete`, { version }),
   attach: (id: string, tasks: TaskRef[], reopen = false) => request<ChainDetail>('POST', `/api/v1/task-chains/${id}/tasks`, { tasks, ...(reopen ? { reopen } : {}) }),
   detach: (id: string, taskId: string, version: number) => request<{ taskId: string; chainId: string }>('POST', `/api/v1/task-chains/${id}/tasks/${taskId}/detach`, { version }),
+  /** «Найти цепочки среди старых задач» — «Задачи: постановка другим». */
+  discoverPreview: () => request<DiscoverPreview>('POST', '/api/v1/task-chains/discover/preview'),
+  discoverApply: (body: DiscoverApply) => request<{ created: number; attached: number; tasks: number }>('POST', '/api/v1/task-chains/discover/apply', body),
   move: (taskId: string, version: number, toChainId: string) => request<ChainDetail>('POST', `/api/v1/tasks/${taskId}/move-chain`, { version, toChainId }),
 };
 

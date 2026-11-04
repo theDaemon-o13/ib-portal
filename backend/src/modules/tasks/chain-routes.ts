@@ -8,6 +8,7 @@ import { requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as chains from './chains.js';
 import { suggestChains, SUGGEST_MAX } from './chain-suggest.js';
+import { discoverApply, discoverPreview } from './chain-discover.js';
 import type { TaskActor } from './flow.js';
 
 const tags = ['task-chains'];
@@ -99,6 +100,40 @@ export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
       response: { 200: Suggest, ...errors },
     },
   }, async (request) => suggestChains(db, taskActor(request), request.query.title, { taskId: request.query.taskId }));
+
+  const DiscoverTask = z.object({
+    id: z.string(), number: z.number().int(), title: z.string(), version: z.number().int(), completed: z.boolean(), archived: z.boolean(), createdAt: z.string(),
+  });
+  app.post('/task-chains/discover/preview', {
+    preHandler: view,
+    schema: {
+      tags, summary: 'Найти цепочки среди старых задач — предпросмотр (только «Задачи: постановка другим»): группы задач без цепочки с одинаковым ключом, от двух задач',
+      response: {
+        200: z.object({
+          groups: z.array(z.object({
+            key: z.string(), title: z.string(), tasks: z.array(DiscoverTask),
+            target: z.object({ id: z.string(), number: z.number().int(), title: z.string() }).nullable(),
+          })),
+          total: z.number().int(), tasks: z.number().int(),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => discoverPreview(db, taskActor(request)));
+
+  app.post('/task-chains/discover/apply', {
+    preHandler: view,
+    schema: {
+      tags, summary: 'Найти цепочки среди старых задач — применить выбранные группы одной транзакцией; изменилось после предпросмотра — 409 BULK_CHANGED',
+      body: z.object({
+        groups: z.array(z.object({
+          key: z.string().max(1000), title: z.string().max(chains.CHAIN_TITLE_MAX).optional(),
+          tasks: z.array(TaskRef).min(1).max(chains.CHAIN_ATTACH_MAX), chainId: z.string().uuid().nullable(),
+        })).min(1).max(500),
+      }),
+      response: { 200: z.object({ created: z.number().int(), attached: z.number().int(), tasks: z.number().int() }), ...errors },
+    },
+  }, async (request) => discoverApply(db, taskActor(request), request.body));
 
   app.post('/task-chains', {
     preHandler: view,
