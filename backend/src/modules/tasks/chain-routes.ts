@@ -107,7 +107,7 @@ export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
   app.post('/task-chains/discover/preview', {
     preHandler: view,
     schema: {
-      tags, summary: 'Найти цепочки среди старых задач — предпросмотр (только «Задачи: постановка другим»): группы задач без цепочки с одинаковым ключом, от двух задач',
+      tags, summary: 'Найти цепочки среди старых задач — предпросмотр («Задачи: постановка другим» или «Настройки»): группы задач без цепочки с одинаковым ключом, от двух задач',
       response: {
         200: z.object({
           groups: z.array(z.object({

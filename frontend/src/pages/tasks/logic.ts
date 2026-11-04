@@ -182,8 +182,9 @@ export type ColumnEntry =
   | { kind: 'chain'; chain: NonNullable<Task['chain']>; tasks: Task[] };
 
 /**
- * Колонка доски с группировкой по цепочкам: задачи одной цепочки — одна свёрнутая карточка на месте первой из них
- * (в каждой колонке, где у цепочки есть задачи). Без группировки — задачи как есть.
+ * Колонка доски с группировкой по цепочкам: две и больше задач одной цепочки в колонке — одна свёрнутая карточка
+ * на месте первой из них; одна задача цепочки в колонке — обычная карточка с меткой цепочки (решение владельца
+ * 04.11.2026). Без группировки — задачи как есть.
  */
 export function columnEntries(items: readonly Task[], group: boolean): ColumnEntry[] {
   if (!group) return items.map((t) => ({ kind: 'task', t }));
@@ -202,5 +203,5 @@ export function columnEntries(items: readonly Task[], group: boolean): ColumnEnt
       out.push(e);
     }
   }
-  return out;
+  return out.map((e) => (e.kind === 'chain' && e.tasks.length === 1 ? { kind: 'task' as const, t: e.tasks[0] as Task } : e));
 }

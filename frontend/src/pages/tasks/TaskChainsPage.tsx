@@ -14,8 +14,8 @@ import { chainCounts } from './logic';
 export function TaskChainsPage() {
   const me = useOutletContext<Me>();
   const [discover, setDiscover] = useState(false);
-  // «Найти цепочки среди старых задач» — право «Задачи: постановка другим» (решение владельца 04.11.2026).
-  const canDiscover = me.permissions.includes('tasks.assign');
+  // «Найти цепочки среди старых задач» — «Задачи: постановка другим» или «Настройки» (решение владельца 04.11.2026).
+  const canDiscover = me.permissions.includes('tasks.assign') || me.permissions.includes('settings.manage');
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const raw = params.get('status');

@@ -71,10 +71,10 @@ function saveWorkloadOpen(open: boolean) {
   }
 }
 
-function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick, selected = false, ghost = false, showChain = false }: {
+function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep, picking, picked, onPick, selected = false, ghost = false, onOpenChain }: {
   t: Task; today: string; archived: boolean; drag: Drag | null;
-  /** Без группировки по цепочкам — метка цепочки на карточке (1.7.0). */
-  showChain?: boolean;
+  /** Метка цепочки на карточке (1.7.0): без группировки или одна задача цепочки в колонке; щелчок открывает цепочку. */
+  onOpenChain?: (chainId: string) => void;
   /** Карточка открыта справа — подсвечена на доске. */
   selected?: boolean;
   /** Копия под указателем при перетаскивании: без обработчиков и data-task. */
@@ -138,7 +138,15 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
         </span>
       </div>
       {t.reviewer && <div className="meta reviewer" data-testid="card-reviewer">Проверяет: {t.reviewer.fullName}</div>}
-      {showChain && t.chain && <div className="meta"><span className="chip acc card-chain" title={`Цепочка «${t.chain.title}»`}>Цепочка: {t.chain.title}</span></div>}
+      {onOpenChain && t.chain && (
+        <div className="meta">
+          <button type="button" className="chip acc card-chain" title={`Открыть цепочку «${t.chain.title}»`} aria-label={`Открыть цепочку «${t.chain.title}»`}
+            onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); if (t.chain) onOpenChain(t.chain.id); }}>
+            Цепочка: {t.chain.title}
+          </button>
+        </div>
+      )}
       {step && (
         <div className="card-step">
           <button className="btn sm" type="button" onPointerDown={(e) => e.stopPropagation()}
@@ -422,9 +430,11 @@ export function TasksPage() {
               <div key={c.id} className={`col${drag?.moving && drag.over === c.id && drag.task.status.id !== c.id ? ' over' : ''}`} data-status={c.id} aria-label={`Колонка «${c.value}»`}>
                 <div className="col-h"><span>{c.value}</span><span className="mono">{items.length}</span></div>
                 {columnEntries(items, group).map((e) => {
-                  const card = (t: Task) => (
+                  // Метка цепочки — у отдельной карточки; внутри раскрытой цепочки она не нужна.
+                  const card = (t: Task, standalone = true) => (
                     <Card key={t.id} t={t} today={today} archived={archived} drag={drag} canDrag={canOverride} onPointerDown={onPointerDown} onOpen={openTask}
-                      onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} selected={openId === t.id} showChain={!group} />
+                      onStep={onStep} picking={picking} picked={picked.has(t.id)} onPick={togglePick} selected={openId === t.id}
+                      onOpenChain={picking || !standalone ? undefined : (id: string) => setParam({ chain: id })} />
                   );
                   if (e.kind === 'task') return card(e.t);
                   const key = `${e.chain.id}:${c.id}`;
@@ -443,7 +453,7 @@ export function TasksPage() {
                           <button type="button" className="btn ghost sm" onClick={() => setParam({ chain: e.chain.id })}>Цепочка</button>
                         </div>
                       </div>
-                      {isOpen && e.tasks.map(card)}
+                      {isOpen && e.tasks.map((t) => card(t, false))}
                     </div>
                   );
                 })}

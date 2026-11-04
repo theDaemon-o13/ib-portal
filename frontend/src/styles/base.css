@@ -1070,7 +1070,9 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .cc-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-xs)}
 .cc-t{font-size:13px;font-weight:600;overflow-wrap:anywhere}
 .cc-m{font-size:11.5px;color:var(--muted)}
-.card-chain{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.card-chain{max-width:100%;overflow:hidden;text-overflow:ellipsis;border:0;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.card-chain:hover{text-decoration:underline}
+.card-chain:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .chains-filters .grow{flex:1 1 220px;min-width:0}
 .chains-filters .grow .inp{width:100%}
 .chains-tbl td{overflow-wrap:anywhere;vertical-align:middle}

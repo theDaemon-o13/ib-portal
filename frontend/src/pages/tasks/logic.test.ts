@@ -105,10 +105,10 @@ describe('цепочки задач (1.7.0)', () => {
 
 describe('доска: группировка по цепочкам и поиск (1.7.0)', () => {
   const ch = (id: string, title: string) => ({ id, number: 1, title, status: 'open' as const });
-  it('задачи одной цепочки — одна карточка на месте первой; без группировки — как есть', () => {
+  it('две и больше задач цепочки — одна карточка на месте первой; одна — обычная карточка; без группировки — как есть', () => {
     const list = [task(1), task(2, { chain: ch('a', 'Тема А') }), task(3), task(4, { chain: ch('a', 'Тема А') }), task(5, { chain: ch('b', 'Тема Б') })];
     expect(columnEntries(list, true).map((e) => (e.kind === 'task' ? e.t.number : `${e.chain.id}:${e.tasks.map((t) => t.number).join(',')}`)))
-      .toEqual([1, 'a:2,4', 3, 'b:5']);
+      .toEqual([1, 'a:2,4', 3, 5]);
     expect(columnEntries(list, false)).toHaveLength(5);
   });
   it('поиск: номер, название задачи, название цепочки; ё = е', () => {

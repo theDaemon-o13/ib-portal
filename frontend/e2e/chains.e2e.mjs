@@ -187,7 +187,7 @@ describe('Цепочки задач (1.7.0)', () => {
     assert.equal(detail.status, 'open');
     assert.equal(detail.counts.total, 2);
   });
-  it('доска: цепочка с задачами в двух колонках — свёрнутая карточка в каждой, раскрытие, без группировки — метка; поиск и фильтр', async () => {
+  it('доска: две задачи цепочки в колонке — свёрнутая карточка, одна — обычная карточка с меткой и переходом; без группировки — метки; поиск и фильтр', async () => {
     const theme = `Доска тема ${RUN}`;
     const a = await makeTask(theme);
     const b = await makeTask(`RE: ${theme}`);
@@ -195,7 +195,14 @@ describe('Цепочки задач (1.7.0)', () => {
     const chain = await api('POST', '/api/v1/task-chains', { title: theme, tasks: [a, b, c].map((t) => ({ id: t.id, version: t.version })) });
     await openBoard();
     const groups = `[...document.querySelectorAll(${JSON.stringify(`.chain-group[data-chain="${theme}"]`)})]`;
-    await ui.waitFor(`${groups}.length === 2`, 'цепочка в двух колонках');
+    await ui.waitFor(`${groups}.length === 1`, 'свёрнута только колонка с двумя задачами');
+    // Одна задача цепочки в колонке (Backlog) — обычная карточка с меткой; метка открывает панель цепочки.
+    const single = `document.querySelector('article.card[data-task="${c.id}"]')`;
+    assert.match(await ui.text(`${single}.querySelector('.card-chain')`), new RegExp(`Цепочка: ${theme}`));
+    await ui.click(`${single}.querySelector('.card-chain')`, 'метка цепочки');
+    await ui.waitFor(`!!document.querySelector('[data-testid=chain-panel]') && !${drawer}`, 'панель цепочки, а не карточка задачи');
+    await ui.click($.button('Закрыть', `document.querySelector('[data-testid=chain-panel]')`));
+    await ui.waitFor(`!document.querySelector('[data-testid=chain-panel]')`, 'панель закрыта');
     const assigned = `${groups}.find((g) => g.querySelector('.cc-m')?.textContent.includes('здесь 2'))`;
     assert.match(await ui.text(`${assigned}.querySelector('.cc-m')`), /3 задачи, 0 выполнено · здесь 2/);
     assert.equal(await ui.evaluate(`${assigned}.querySelectorAll('article.card').length`), 0, 'свёрнута');
@@ -205,13 +212,13 @@ describe('Цепочки задач (1.7.0)', () => {
     await ui.click(`${assigned}.querySelector('article.card[data-task="${b.id}"]')`, 'открыть задачу из цепочки');
     await ui.waitFor(`!!${drawer}?.querySelector('[data-testid=chain-block]')`, 'карточка задачи с блоком цепочки');
     await ui.goto(`/tasks?run=${++navSeq}`);
-    await ui.waitFor(`${groups}.length === 2`, 'доска');
+    await ui.waitFor(`${groups}.length === 1`, 'доска');
     await ui.click($.button('Группировать по цепочкам'));
     await ui.waitFor(`${groups}.length === 0 && !!document.querySelector('article.card[data-task="${c.id}"] .card-chain')`, 'без группировки — метка цепочки на карточке');
     await ui.click($.button('Группировать по цепочкам'));
     // Поиск над доской — по названию цепочки; фильтр «Цепочка» — запрос с chainId.
     await ui.type(`document.querySelector('input[aria-label="Поиск по доске"]')`, theme);
-    await ui.waitFor(`${groups}.length === 2 && document.querySelectorAll('.board .chain-group, .board > .col > article.card').length === 2`, 'на доске только задачи цепочки');
+    await ui.waitFor(`${groups}.length === 1 && document.querySelectorAll('.board .chain-group, .board > .col > article.card').length === 2`, 'на доске только задачи цепочки');
     const m = ui.mark();
     await ui.select(`document.querySelector('select[aria-label="Цепочка"]')`, chain.id);
     await ui.request(m, 'GET', `chainId=${chain.id}`);

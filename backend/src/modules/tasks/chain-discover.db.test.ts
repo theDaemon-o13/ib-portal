@@ -1,6 +1,7 @@
 // «Найти цепочки среди старых задач» (релиз 1.7.0, ADR-0035): предпросмотр ничего не меняет, группы — от двух задач
 // по точному ключу (включая выполненные и архивные), системные источники не участвуют, открытая цепочка с тем же
-// ключом дополняется, повторный запуск безопасен, изменение после предпросмотра — BULK_CHANGED, право — tasks.assign.
+// ключом дополняется, повторный запуск безопасен, изменение после предпросмотра — BULK_CHANGED, право — tasks.assign
+// или settings.manage.
 import { describe, expect, it } from 'vitest';
 import { actorFor, expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { createDocument } from '../documents/service.js';
@@ -49,7 +50,7 @@ describe('поиск цепочек среди старых задач (1.7.0)',
       expect(await tx.task.count({ where: { chainId: { not: null } } })).toBe(before);
     }));
 
-  it('применение: цепочка создана, задачи привязаны, журнал; повторный запуск ничего не находит; без tasks.assign — 403', () =>
+  it('применение: цепочка создана, задачи привязаны, журнал; повторный запуск ничего не находит; без tasks.assign и settings.manage — 403', () =>
     inTx(async (tx) => {
       const x = await setup(tx);
       await x.task('Тестовая тема ТЕГ');
@@ -65,6 +66,20 @@ describe('поиск цепочек среди старых задач (1.7.0)',
       const log = await tx.auditLog.findFirstOrThrow({ where: { action: 'task_chain.discovered' }, orderBy: { id: 'desc' } });
       expect((log.diff as { after: unknown }).after).toEqual({ created: 1, attached: 0, tasks: 2 });
       expect(mine((await discoverPreview(tx, x.a.head)).groups, x.tag)).toEqual([]);
+    }));
+
+  it('администратор с settings.manage (без tasks.assign) — может; создатель цепочки — он', () =>
+    inTx(async (tx) => {
+      const x = await setup(tx);
+      const admin = await makeUser(tx, ['super_admin'], { fullName: 'Администратор Тестов' });
+      const actor = await actorFor(tx, admin.id);
+      expect([actor.perms.has('settings.manage'), actor.perms.has('tasks.assign')]).toEqual([true, false]);
+      await x.task('Тестовая тема ТЕГ');
+      await x.task('RE: Тестовая тема ТЕГ');
+      const g = must(mine((await discoverPreview(tx, actor)).groups, x.tag)[0], 'группа');
+      expect(await discoverApply(tx, actor, { groups: [toApply(g)] })).toEqual({ created: 1, attached: 0, tasks: 2 });
+      const chainId = must((await tx.task.findUniqueOrThrow({ where: { id: must(g.tasks[0]).id } })).chainId, 'цепочка');
+      expect((await tx.taskChain.findUniqueOrThrow({ where: { id: chainId } })).createdBy).toBe(admin.id);
     }));
 
   it('открытая цепочка с тем же ключом дополняется; изменение после предпросмотра — BULK_CHANGED, ничего не применено', () =>

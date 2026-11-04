@@ -2,7 +2,8 @@
 // по кнопке, после предпросмотра и подтверждения. Только точное совпадение ключа и не меньше двух задач (включая
 // выполненные и архивные), только ручные и из письма, только задачи без цепочки — поэтому повторный запуск безопасен.
 // Если с тем же ключом уже есть открытая цепочка — группа добавляется в неё, а не создаёт новую.
-// Право — tasks.assign («Задачи: постановка другим»), решение владельца 04.11.2026.
+// Право — tasks.assign («Задачи: постановка другим») или settings.manage («Настройки»): разовая операция администратора
+// с предпросмотром и подтверждением (решение владельца 04.11.2026). Маршрут закрыт ib.work, как весь раздел «Задачи».
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict } from '../../lib/errors.js';
 import { stripReplyPrefixes, titleKey } from '../../lib/title-key.js';
@@ -24,8 +25,8 @@ export interface DiscoverGroup {
 }
 
 function assertAllowed(actor: TaskActor) {
-  if (!actor.perms.has('tasks.assign')) {
-    throw new AppError(403, 'FORBIDDEN', 'Искать цепочки среди старых задач может пользователь с правом «Задачи: постановка другим»');
+  if (!actor.perms.has('tasks.assign') && !actor.perms.has('settings.manage')) {
+    throw new AppError(403, 'FORBIDDEN', 'Искать цепочки среди старых задач может пользователь с правом «Задачи: постановка другим» или «Настройки»');
   }
 }
 
