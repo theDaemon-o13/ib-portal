@@ -7,6 +7,7 @@
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict } from '../../lib/errors.js';
 import { stripReplyPrefixes, titleKey } from '../../lib/title-key.js';
+import { notLetterTaskWhere } from '../awareness-letters/links.js';
 import { auditSettings } from '../settings/common.js';
 import { CHAIN_SOURCES } from './chain-suggest.js';
 import { attachTx, CHAIN_ATTACH_MAX, createChainTx, visibleTasksWhere, type TaskRef } from './chains.js';
@@ -32,7 +33,7 @@ function assertAllowed(actor: TaskActor) {
 
 async function groupsOf(db: Db, actor: TaskActor): Promise<DiscoverGroup[]> {
   const rows = await db.task.findMany({
-    where: { AND: [visibleTasksWhere(actor), { chainId: null, source: { in: [...CHAIN_SOURCES] } }] },
+    where: { AND: [visibleTasksWhere(actor), { chainId: null, source: { in: [...CHAIN_SOURCES] } }, notLetterTaskWhere] },
     select: { id: true, number: true, title: true, version: true, completedAt: true, archivedAt: true, createdAt: true },
     orderBy: [{ createdAt: 'asc' }, { number: 'asc' }],
   });

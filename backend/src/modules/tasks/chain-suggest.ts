@@ -11,13 +11,17 @@ import type { Db } from '../../lib/db.js';
 import { prefilterPattern, similarKeys, titleKey } from '../../lib/title-key.js';
 import { readPortalParam } from '../settings/portal-params.js';
 import { CHAIN_SUGGEST_KEY, type ChainSuggestSettings } from './chain-settings.js';
+import { NOT_LETTER_TASK_SQL } from '../awareness-letters/links.js';
 import { canManageChain, visibleTasksWhere } from './chains.js';
 import type { TaskActor } from './flow.js';
 
 export const SUGGEST_MAX = 5;
 /** Задач без цепочки в одном варианте «Создать цепочку из этих задач». */
 export const SUGGEST_TASKS_MAX = 50;
-/** Источники задач, которые участвуют в подсказках и поиске среди старых задач: у системных заголовки шаблонные. */
+/**
+ * Источники задач, которые участвуют в подсказках и поиске среди старых задач: у системных заголовки шаблонные.
+ * Задачи учебных писем и расписания (1.9.0) — source = 'manual', их отсекает notLetterTaskWhere / NOT_LETTER_TASK_SQL.
+ */
 export const CHAIN_SOURCES = ['manual', 'mail'] as const;
 
 export type SuggestGroup = 'open_exact' | 'closed_unfinished' | 'open_similar' | 'closed_recent';
@@ -108,7 +112,8 @@ export async function looseTasks(db: Db, actor: TaskActor, key: string, exceptTa
   const pattern = prefilterPattern(key);
   const ids = await db.$queryRaw<{ id: string }[]>`
     SELECT t.id::text FROM tasks t
-    WHERE t.chain_id IS NULL AND t.deleted_at IS NULL AND t.source = ANY(${[...CHAIN_SOURCES]}::text[]) AND t.title ILIKE ${pattern}`;
+    WHERE t.chain_id IS NULL AND t.deleted_at IS NULL AND t.source = ANY(${[...CHAIN_SOURCES]}::text[]) AND t.title ILIKE ${pattern}
+      AND ${NOT_LETTER_TASK_SQL}`;
   if (!ids.length) return [];
   const rows = await db.task.findMany({
     where: { AND: [visibleTasksWhere(actor), { id: { in: ids.map((r) => r.id).filter((id) => id !== exceptTaskId) } }] },

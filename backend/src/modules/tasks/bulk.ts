@@ -4,6 +4,7 @@
 // Удаление мягкое (deleted_at), только по праву tasks.delete — его проверяет маршрут.
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest } from '../../lib/errors.js';
+import { taskLetterLinks } from '../awareness-letters/links.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 
 export const TASK_BULK_BATCH = 200;
@@ -31,6 +32,8 @@ export interface TaskBulkPreview {
   untouched: number;
   /** Разбивка выборки по статусам. */
   byStatus: { statusId: string; label: string; count: number }[];
+  /** Связаны с учебным письмом или правилом расписания (1.9.0): не удаляются, пропускаются — только архив. */
+  linkedToLetters: number;
 }
 
 export interface TaskBulkResult {
@@ -73,19 +76,22 @@ async function plan(db: Db, action: TaskBulkAction, sel: TaskSelection) {
   const rows = await selectRows(db, sel);
   const untouched = await untouchedIds(db, rows.map((r) => r.id));
   const candidates = rows.filter((r) => !sel.onlyUntouched || untouched.has(r.id));
-  const affected = action === 'archive' ? candidates.filter((r) => !r.archivedAt) : candidates;
+  // Удаление пропускает задачи учебных писем и правил расписания (1.9.0) и продолжает с остальными.
+  const linked = action === 'delete' ? await taskLetterLinks(db, candidates.map((r) => r.id)) : new Map();
+  const affected = action === 'archive' ? candidates.filter((r) => !r.archivedAt) : candidates.filter((r) => !linked.has(r.id));
   const statuses = await db.task.groupBy({ by: ['statusId'], where: { id: { in: rows.map((r) => r.id) } }, _count: { _all: true } });
   const labels = new Map((await db.catalogItem.findMany({ where: { id: { in: statuses.map((s) => s.statusId) } }, select: { id: true, value: true, sortOrder: true } }))
     .map((i) => [i.id, i]));
   const preview: TaskBulkPreview = {
     total: rows.length,
     affected: affected.length,
-    alreadyInState: candidates.length - affected.length,
+    alreadyInState: action === 'archive' ? candidates.length - affected.length : 0,
     untouched: untouched.size,
     byStatus: statuses
       .map((s) => ({ statusId: s.statusId, label: labels.get(s.statusId)?.value ?? '?', count: s._count._all, order: labels.get(s.statusId)?.sortOrder ?? 0 }))
       .sort((a, b) => a.order - b.order)
       .map(({ order: _order, ...s }) => s),
+    linkedToLetters: linked.size,
   };
   return { preview, affected };
 }

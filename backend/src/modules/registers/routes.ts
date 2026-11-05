@@ -634,7 +634,7 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
     }),
   ]);
   const Expected = z.object({ total: z.number().int(), willDelete: z.number().int(), willArchive: z.number().int(), willRestore: z.number().int() });
-  const Reasons = z.object({ locked: z.number().int(), decisions: z.number().int(), evidence: z.number().int(), tasks: z.number().int(), links: z.number().int() });
+  const Reasons = z.object({ locked: z.number().int(), decisions: z.number().int(), evidence: z.number().int(), tasks: z.number().int(), links: z.number().int(), letters: z.number().int() });
   const BulkPreview = Expected.extend({ alreadyInState: z.number().int(), byReason: Reasons });
   const BulkResult = z.object({ deleted: z.number().int(), archived: z.number().int(), restored: z.number().int(), skipped: z.number().int(), byReason: Reasons });
 

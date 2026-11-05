@@ -3,9 +3,11 @@
 // ключом дополняется, повторный запуск безопасен, изменение после предпросмотра — BULK_CHANGED, право — tasks.assign
 // или settings.manage.
 import { describe, expect, it } from 'vitest';
-import { actorFor, expectCode, inTx, makeUser, must, type Tx } from '../../test/db.js';
+import { titleKey } from '../../lib/title-key.js';
+import { actorFor, expectCode, inTx, makeUser, must, roleId, type Tx } from '../../test/db.js';
 import { createDocument } from '../documents/service.js';
 import { discoverApply, discoverPreview, type DiscoverGroup } from './chain-discover.js';
+import { looseTasks } from './chain-suggest.js';
 import * as chains from './chains.js';
 import { statusIdOf } from './flow.js';
 import * as svc from './service.js';
@@ -103,5 +105,27 @@ describe('поиск цепочек среди старых задач (1.7.0)',
       const r = await discoverApply(tx, x.a.head, { groups: [toApply(first)] });
       expect(r).toEqual({ created: 0, attached: 1, tasks: 2 });
       expect((await chains.getChain(tx, x.a.head, c.id)).counts.total).toBe(3);
+    }));
+
+  it('задачи учебных писем и расписания (1.9.0, source = manual без автора) — ни в «Найти среди старых», ни в подсказке', () =>
+    inTx(async (tx) => {
+      const x = await setup(tx);
+      const t1 = await x.task('Рассылка ТЕГ');
+      const t2 = await x.task('RE: Рассылка ТЕГ');
+      // Задача письма и задача запуска правила с той же темой — как их ставит модуль: manual, без автора.
+      const ofLetter = await x.task('FW: Рассылка ТЕГ');
+      const ofRun = await x.task('Рассылка ТЕГ');
+      await tx.task.updateMany({ where: { id: { in: [ofLetter.id, ofRun.id] } }, data: { createdBy: null } });
+      await tx.awarenessLetter.create({ data: { title: 'Письмо', kind: 'planned', createdBy: x.staff.id, taskId: ofLetter.id } });
+      const rule = await tx.awarenessScheduleRule.create({
+        data: { title: 'Правило', cadence: { kind: 'monthly', day: 15 }, startsOn: new Date('2026-01-01'), leadDays: 10, roleId: await roleId(tx, 'ib_staff'), createdBy: x.staff.id },
+      });
+      await tx.awarenessScheduleRun.create({
+        data: { ruleId: rule.id, nominalDate: new Date('2026-11-15'), plannedDate: new Date('2026-11-13'), draftDue: new Date('2026-11-06'), reviewDue: new Date('2026-11-12'), taskId: ofRun.id },
+      });
+      const [g] = mine((await discoverPreview(tx, x.a.head)).groups, x.tag);
+      expect(must(g).tasks.map((t) => t.id).sort()).toEqual([t1.id, t2.id].sort());
+      const loose = await looseTasks(tx, x.a.staff, must(titleKey(`Рассылка ${x.tag}`)));
+      expect(loose.map((t) => t.id).sort()).toEqual([t1.id, t2.id].sort());
     }));
 });

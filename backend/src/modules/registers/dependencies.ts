@@ -4,12 +4,14 @@
 //   decisions — решения другого отдела;
 //   evidence  — привязанные доказательства;
 //   tasks     — открытые задачи по записи;
-//   links     — ссылки из других неудалённых записей (поле «Связь с записью», например разрешение DLP → устройство).
+//   links     — ссылки из других неудалённых записей (поле «Связь с записью», например разрешение DLP → устройство);
+//   letters   — запись «Рассылок», созданная отметкой «Отправлено» учебного письма (1.9.0).
 import type { Db } from '../../lib/db.js';
 import type { Values } from '../../lib/register-values.js';
+import { recordLetterLinks } from '../awareness-letters/links.js';
 import { recordLocks, type RegisterDef } from './definition.js';
 
-export const DEPENDENCY_REASONS = ['locked', 'decisions', 'evidence', 'tasks', 'links'] as const;
+export const DEPENDENCY_REASONS = ['locked', 'decisions', 'evidence', 'tasks', 'links', 'letters'] as const;
 export type DependencyReason = (typeof DEPENDENCY_REASONS)[number];
 
 export const DEPENDENCY_TEXT: Record<DependencyReason, string> = {
@@ -18,6 +20,7 @@ export const DEPENDENCY_TEXT: Record<DependencyReason, string> = {
   evidence: 'К записи привязаны доказательства — её можно только отправить в архив',
   tasks: 'По записи есть открытые задачи — сначала закройте или удалите задачи, либо отправьте запись в архив',
   links: 'На запись ссылаются записи других реестров — её можно только отправить в архив',
+  letters: 'Запись связана с учебным письмом — её можно только отправить в архив',
 };
 
 /** Причины, по которым записи нельзя удалить: id → причины (записи без зависимостей в карте нет). */
@@ -46,6 +49,8 @@ export async function recordDependencies(
     SELECT DISTINCT record_id::text AS id FROM tasks
     WHERE record_id = ANY(${ids}::uuid[]) AND completed_at IS NULL AND archived_at IS NULL AND deleted_at IS NULL`;
   for (const r of tasks) add(r.id, 'tasks');
+
+  for (const id of (await recordLetterLinks(db, ids)).keys()) add(id, 'letters');
 
   // Поля «Связь с записью» любых реестров (и архивных: значения в них живы), которые ссылаются на этот реестр.
   const linkFields = await db.registerField.findMany({

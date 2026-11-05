@@ -135,6 +135,7 @@ export async function previewBulk(db: Db, registerId: string, action: BulkAction
 
 const REASON_NAMES: Record<DependencyReason, string> = {
   locked: 'зафиксированные поля', decisions: 'решения другого отдела', evidence: 'доказательства', tasks: 'открытые задачи', links: 'ссылки из других записей',
+  letters: 'учебные письма',
 };
 
 function describeSelection(selection: BulkSelection): unknown {

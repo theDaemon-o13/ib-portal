@@ -42,6 +42,7 @@ import {
   type RecordDto,
   type RegisterDef,
 } from './definition.js';
+import { recordLetterLinks, recordLinkMessage } from '../awareness-letters/links.js';
 import { DEPENDENCY_TEXT, recordDependencies, type DependencyReason } from './dependencies.js';
 import { baseSql, filterInMemory, filterSql, type RecordFilter } from './filter.js';
 import { linkFieldsTo, linkIdsIn, linkLabels, loadBasisSources, loadLinkRefs, recordsLinkingTo } from './links.js';
@@ -476,6 +477,7 @@ export async function setRecordArchived(db: Db, actor: Actor, id: string, versio
 
 const DEPENDENCY_CODES: Record<DependencyReason, string> = {
   locked: 'RECORD_LOCKED', decisions: 'HAS_DECISIONS', evidence: 'HAS_EVIDENCE', tasks: 'HAS_TASKS', links: 'HAS_LINKS',
+  letters: 'RECORD_LINKED_TO_LETTER',
 };
 
 function dependencyError(reason: DependencyReason) {
@@ -507,6 +509,11 @@ export async function deleteRecord(db: Db, actor: Actor, id: string, version: nu
     if (row.version !== version) throw versionConflict();
     // Те же зависимости, что и у массового удаления (dependencies.ts); первая найденная — в ответе.
     const [dep] = (await recordDependencies(tx, reg, [row])).get(id) ?? [];
+    if (dep === 'letters') {
+      // Номер письма — в тексте ответа (замечание владельца 05.11.2026, п. 3).
+      const letter = (await recordLetterLinks(tx, [id])).get(id) ?? 0;
+      throw conflict(DEPENDENCY_CODES.letters, recordLinkMessage(row.number, letter));
+    }
     if (dep) throw dependencyError(dep);
     const snapshot = await vulnSnapshot(tx, reg, [row]);
     const deletionId = await createDeletion(tx, actor, {

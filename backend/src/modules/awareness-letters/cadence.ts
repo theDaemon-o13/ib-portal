@@ -20,8 +20,10 @@ export const CadenceSchema = z.discriminatedUnion('kind', [
 ]);
 export type Cadence = z.infer<typeof CadenceSchema>;
 
-/** Опережение: за сколько календарных дней до плановой даты создаётся задача. */
-export const LEAD_DAYS = { min: 1, max: 90, default: 10, warnBelow: 7 } as const;
+/** Опережение: за сколько календарных дней до плановой даты создаётся задача. Не меньше 7: этап «черновик» — за 7
+ * дней, иначе задача рождалась бы с просроченным этапом (решение владельца 05.11.2026; то же — CHECK в БД и форма). */
+export const LEAD_DAYS = { min: 7, max: 90, default: 10 } as const;
+export const LeadDaysSchema = z.number().int().min(LEAD_DAYS.min, { message: `Опережение — не меньше ${LEAD_DAYS.min} дней: этап «черновик» начинается за 7 дней` }).max(LEAD_DAYS.max, { message: `Опережение — не больше ${LEAD_DAYS.max} дней` });
 /** Этапы задачи рассылки: календарных дней до плановой даты. */
 export const STAGE_OFFSETS = { draft: 7, review: 3 } as const;
 

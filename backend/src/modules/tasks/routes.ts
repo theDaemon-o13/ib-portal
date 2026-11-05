@@ -321,6 +321,7 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
   const Expected = z.object({ total: z.number().int(), affected: z.number().int() });
   const BulkPreview = z.object({
     total: z.number().int(), affected: z.number().int(), alreadyInState: z.number().int(), untouched: z.number().int(),
+    linkedToLetters: z.number().int(),
     byStatus: z.array(z.object({ statusId: z.string(), label: z.string(), count: z.number().int() })),
   });
   const BulkResult = z.object({ archived: z.number().int(), deleted: z.number().int(), skipped: z.number().int() });

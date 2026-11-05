@@ -7,6 +7,7 @@ import { workUsersWhere } from '../../lib/work-users.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
+import { taskLetterLinks, taskLinkMessage } from '../awareness-letters/links.js';
 import { parseMail, type ParsedMail } from '../../lib/mail-parse.js';
 import { reviewerFor } from '../../lib/hierarchy.js';
 import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
@@ -529,6 +530,9 @@ export async function setTaskArchived(db: Db, actor: Actor, id: string, version:
 export async function deleteTask(db: Db, actor: Actor, id: string, version: number) {
   await withTx(db, async (tx) => {
     const t = await getTaskRow(tx, id);
+    // Задача учебного письма или правила расписания (1.9.0) не удаляется — только архив.
+    const link = (await taskLetterLinks(tx, [id])).get(id);
+    if (link) throw conflict('TASK_LINKED_TO_LETTER', taskLinkMessage(t.number, link));
     const res = await tx.task.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.task.findFirst({ where: { id, deletedAt: null } }), 'Задача');
     await auditSettings(tx, actor, {

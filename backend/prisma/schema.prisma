@@ -108,6 +108,13 @@ model User {
   vulnExtensionCancels VulnExtension[]      @relation("VulnExtensionCanceller")
   deletionsMade           Deletion[]               @relation("DeletionDeletedBy")
   deletionsRestored       Deletion[]               @relation("DeletionRestoredBy")
+  awarenessTemplatesCreated AwarenessTemplate[]      @relation("AwarenessTemplateCreator")
+  awarenessTemplatesUpdated AwarenessTemplate[]      @relation("AwarenessTemplateUpdater")
+  awarenessFragments        AwarenessFragment[]
+  awarenessLetters          AwarenessLetter[]
+  awarenessLetterVersions   AwarenessLetterVersion[]
+  awarenessLetterEvents     AwarenessLetterEvent[]
+  awarenessRules            AwarenessScheduleRule[]
 
   @@index([managerId])
   @@map("users")
@@ -149,6 +156,7 @@ model Role {
   permissions     RolePermission[]
   users           UserRole[]
   dashboardLayout DashboardLayout?
+  awarenessRules  AwarenessScheduleRule[]
 
   @@map("roles")
 }
@@ -492,6 +500,7 @@ model RegisterRecord {
   vuln      VulnRecord?
   vulnScans VulnRecordScan[]
   vulnExtensionItems VulnExtensionItem[]
+  awarenessEvents AwarenessLetterEvent[]
 
   @@unique([registerId, number])
   @@index([searchTsv], type: Gin)
@@ -997,6 +1006,10 @@ model Task {
   notifications Notification[]
   /// Общая задача (1.6.4, ADR-0034): кто может взять её себе.
   candidates    TaskCandidate[]
+  /// Учебные письма (1.9.0): письмо задачи рассылки или срочной рассылки, событие с задачей доработки, запуск правила.
+  awarenessLetters AwarenessLetter[]
+  awarenessEvents  AwarenessLetterEvent[]
+  awarenessRun     AwarenessScheduleRun?
 
   @@index([statusId])
   @@index([assigneeId, dueDate])
@@ -1786,4 +1799,192 @@ model AssessmentLink {
   @@unique([answerId, entityType, entityId])
   @@index([entityType, entityId])
   @@map("assessment_links")
+}
+
+// ——— Учебные письма и расписание (1.9.0, ADR-0039, ADR-0040; docs/specs/awareness.md, часть 2) ———
+
+/// Шаблон письма: тема и текст RU и TJ с переменными {{описание}}. Архив вместо удаления.
+model AwarenessTemplate {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  subjectRu  String    @default("") @map("subject_ru")
+  subjectTj  String    @default("") @map("subject_tj")
+  htmlRu     String    @default("") @map("html_ru")
+  htmlTj     String    @default("") @map("html_tj")
+  version    Int       @default(1)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdBy  String    @map("created_by") @db.Uuid
+  updatedBy  String    @map("updated_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  creator User                    @relation("AwarenessTemplateCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User                    @relation("AwarenessTemplateUpdater", fields: [updatedBy], references: [id], onDelete: Restrict)
+  letters AwarenessLetter[]
+  rules   AwarenessScheduleRule[]
+
+  @@map("awareness_templates")
+}
+
+/// Системный фрагмент: «Подпись ИБ» (code = signature). Создаёт seed.
+model AwarenessFragment {
+  code      String   @id
+  htmlRu    String   @map("html_ru")
+  htmlTj    String   @map("html_tj")
+  version   Int      @default(1)
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  updater User? @relation(fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@map("awareness_fragments")
+}
+
+/// Учебное письмо. Содержимое — в версиях; отправленное заморожено (frozen, триггер).
+model AwarenessLetter {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Сквозной номер «Письмо № 12».
+  number            Int       @unique @default(autoincrement())
+  title             String
+  /// planned | urgent
+  kind              String
+  /// Повод: обязателен для срочного.
+  reason            String    @default("")
+  /// draft | review | approved | sent
+  status            String    @default("draft")
+  frozen            Boolean   @default(false)
+  templateId        String?   @map("template_id") @db.Uuid
+  /// Задача рассылки по расписанию или срочной рассылки.
+  taskId            String?   @map("task_id") @db.Uuid
+  currentVersionId  String?   @map("current_version_id") @db.Uuid
+  approvedVersionId String?   @map("approved_version_id") @db.Uuid
+  sentVersionId     String?   @map("sent_version_id") @db.Uuid
+  version           Int       @default(1)
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdBy         String    @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  template        AwarenessTemplate?       @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  task            Task?                    @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  creator         User                     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  currentVersion  AwarenessLetterVersion?  @relation("AwarenessLetterCurrent", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  approvedVersion AwarenessLetterVersion?  @relation("AwarenessLetterApproved", fields: [approvedVersionId], references: [id], onDelete: Restrict)
+  sentVersion     AwarenessLetterVersion?  @relation("AwarenessLetterSent", fields: [sentVersionId], references: [id], onDelete: Restrict)
+  versions        AwarenessLetterVersion[] @relation("AwarenessLetterVersions")
+  events          AwarenessLetterEvent[]
+  runs            AwarenessScheduleRun[]
+
+  @@unique([currentVersionId])
+  @@unique([approvedVersionId])
+  @@unique([sentVersionId])
+  @@index([taskId])
+  @@index([status, archivedAt])
+  @@map("awareness_letters")
+}
+
+/// Версия письма: только пополняется (триггер). Новая версия у замороженного письма запрещена.
+model AwarenessLetterVersion {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letterId     String   @map("letter_id") @db.Uuid
+  no           Int
+  /// created | edit | restore | template | copy | sent
+  reason       String
+  /// Восстановлена из версии N (reason = restore).
+  restoredFrom Int?     @map("restored_from")
+  subjectRu    String   @map("subject_ru")
+  subjectTj    String   @map("subject_tj")
+  htmlRu       String   @map("html_ru")
+  htmlTj       String   @map("html_tj")
+  createdBy    String   @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  letter       AwarenessLetter        @relation("AwarenessLetterVersions", fields: [letterId], references: [id], onDelete: Restrict)
+  creator      User                   @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  currentOf    AwarenessLetter?       @relation("AwarenessLetterCurrent")
+  approvedOf   AwarenessLetter?       @relation("AwarenessLetterApproved")
+  sentOf       AwarenessLetter?       @relation("AwarenessLetterSent")
+  events       AwarenessLetterEvent[]
+
+  @@unique([letterId, no])
+  @@map("awareness_letter_versions")
+}
+
+/// События письма: согласование, возврат, отправка, архив. Только пополняется (триггер), как document_approvals.
+model AwarenessLetterEvent {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letterId        String    @map("letter_id") @db.Uuid
+  versionId       String?   @map("version_id") @db.Uuid
+  /// submitted | withdrawn | approved | returned | approval_dropped | sent | archived | unarchived
+  action          String
+  comment         String    @default("")
+  selfApproved    Boolean   @default(false) @map("self_approved")
+  withoutApproval Boolean   @default(false) @map("without_approval")
+  sentOn          DateTime? @map("sent_on") @db.Date
+  audience        String?
+  /// Запись реестра «Рассылки», созданная отметкой «Отправлено».
+  recordId        String?   @map("record_id") @db.Uuid
+  /// Задача доработки после возврата.
+  taskId          String?   @map("task_id") @db.Uuid
+  actorId         String    @map("actor_id") @db.Uuid
+  at              DateTime  @default(now()) @db.Timestamptz(3)
+
+  letter  AwarenessLetter         @relation(fields: [letterId], references: [id], onDelete: Restrict)
+  version AwarenessLetterVersion? @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  record  RegisterRecord?         @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  task    Task?                   @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  actor   User                    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([letterId, at])
+  @@index([action, sentOn])
+  @@map("awareness_letter_events")
+}
+
+/// Правило расписания рассылок. Правка и отключение не трогают созданные запуски и задачи.
+model AwarenessScheduleRule {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  /// Периодичность: { kind: monthly | twice_monthly | quarterly | yearly | weekly, … } — modules/awareness-letters/cadence.ts.
+  cadence    Json
+  startsOn   DateTime  @map("starts_on") @db.Date
+  leadDays   Int       @default(10) @map("lead_days")
+  roleId     String    @map("role_id") @db.Uuid
+  templateId String?   @map("template_id") @db.Uuid
+  active     Boolean   @default(true)
+  version    Int       @default(1)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  role     Role                   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  template AwarenessTemplate?     @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  creator  User                   @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  runs     AwarenessScheduleRun[]
+
+  @@map("awareness_schedule_rules")
+}
+
+/// Запуск правила: «правило + номинальная дата» — ключ идемпотентности; плановая дата, этапы и задача.
+model AwarenessScheduleRun {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ruleId      String    @map("rule_id") @db.Uuid
+  nominalDate DateTime  @map("nominal_date") @db.Date
+  plannedDate DateTime  @map("planned_date") @db.Date
+  draftDue    DateTime  @map("draft_due") @db.Date
+  reviewDue   DateTime  @map("review_due") @db.Date
+  taskId      String    @unique @map("task_id") @db.Uuid
+  /// Черновик из шаблона правила (если был).
+  letterId    String?   @map("letter_id") @db.Uuid
+  escalatedAt DateTime? @map("escalated_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  rule   AwarenessScheduleRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  task   Task                  @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  letter AwarenessLetter?      @relation(fields: [letterId], references: [id], onDelete: Restrict)
+
+  @@unique([ruleId, nominalDate])
+  @@index([ruleId, plannedDate])
+  @@index([letterId])
+  @@map("awareness_schedule_runs")
 }

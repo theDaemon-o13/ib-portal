@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { todayIso } from '../../lib/today.js';
 import type { WorkCalendar } from '../../lib/working-days.js';
-import { CadenceSchema, nominalDates, occurrencesInWindow, plannedDate, stageDates, upcoming, type Cadence } from './cadence.js';
+import { CadenceSchema, LeadDaysSchema, nominalDates, occurrencesInWindow, plannedDate, stageDates, upcoming, type Cadence } from './cadence.js';
 
 const cal = (days: Record<string, 'holiday' | 'workday'> = {}): WorkCalendar => ({ weekendDays: [6, 7], days: new Map(Object.entries(days)) });
 const START = '2026-01-01';
@@ -122,5 +122,15 @@ describe('проверка параметров', () => {
     expect(CadenceSchema.safeParse({ kind: 'yearly', month: 4, day: 31 }).success).toBe(false);
     expect(CadenceSchema.safeParse({ kind: 'weekly', every: 13, weekday: 1 }).success).toBe(false);
     expect(CadenceSchema.safeParse({ kind: 'weekly', every: 2, weekday: 8 }).success).toBe(false);
+  });
+});
+
+describe('опережение 7–90 дней (решение владельца 05.11.2026)', () => {
+  it('меньше 7 и больше 90 — отказ: этап «черновик» не рождается просроченным', () => {
+    expect(LeadDaysSchema.safeParse(6).success).toBe(false);
+    expect(LeadDaysSchema.safeParse(7).success).toBe(true);
+    expect(LeadDaysSchema.safeParse(90).success).toBe(true);
+    expect(LeadDaysSchema.safeParse(91).success).toBe(false);
+    expect(LeadDaysSchema.safeParse(10.5).success).toBe(false);
   });
 });

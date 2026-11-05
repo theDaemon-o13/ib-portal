@@ -20,6 +20,7 @@ const TasksChoice = z.object({
 });
 const TaskBulkPreview = z.object({
   total: z.number().int(), affected: z.number().int(), alreadyInState: z.number().int(), untouched: z.number().int(),
+  linkedToLetters: z.number().int(),
   byStatus: z.array(z.object({ statusId: z.string(), label: z.string(), count: z.number().int() })),
 });
 const TaskBulkResult = z.object({ archived: z.number().int(), deleted: z.number().int(), skipped: z.number().int() });

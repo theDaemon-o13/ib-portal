@@ -75,7 +75,7 @@ describe('массовые действия с записями', () => {
       expect(p).toMatchObject({ total: 4, willDelete: 1, willArchive: 2, alreadyInState: 1, byReason: { tasks: 2, links: 1, decisions: 0, evidence: 0, locked: 0 } });
 
       const r = await bulk.applyBulk(tx, x.actor, x.reg.id, 'delete', sel, counts(p), 'массовое удаление', { reasonCode: 'duplicate' as const });
-      expect(r).toEqual({ deleted: 1, archived: 2, restored: 0, skipped: 1, byReason: { tasks: 2, links: 1, decisions: 0, evidence: 0, locked: 0 } });
+      expect(r).toEqual({ deleted: 1, archived: 2, restored: 0, skipped: 1, byReason: { tasks: 2, links: 1, decisions: 0, evidence: 0, locked: 0, letters: 0 } });
       expect(await tx.registerRecord.findUnique({ where: { id: must(free).id } })).toMatchObject({ deletedAt: expect.any(Date) });
       expect(await tx.registerRecord.findUnique({ where: { id: must(withTask).id } })).toMatchObject({ deletedAt: null, archivedAt: expect.any(Date) });
 
