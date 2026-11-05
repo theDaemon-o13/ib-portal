@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Проверка после выкладки: health, вход, /me, выход и число записей в таблицах.
+# Проверка после выкладки: health, вход, /me, выход, системные объекты версии и число записей в таблицах.
 #
 #   ./scripts/smoke.sh --before   — перед выкладкой: запомнить число записей
 #   ./scripts/smoke.sh --after    — после выкладки: проверить и сравнить с --before
@@ -32,6 +32,22 @@ UNION ALL SELECT 'audit_log', count(*) FROM audit_log;
 SQL
 }
 
+# Системные объекты, которые создаёт migrate (seed): каждая строка должна дать ровно 1.
+# 1.8.0: служебная роль (ADR-0036), реестры «Осведомлённости» и пороги оценки (ADR-0037).
+# Ищутся по коду, а не по названию: реестр мог получить имя «… (системный)», если своё такое уже было.
+release_objects() {
+  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "|" -v ON_ERROR_STOP=1' <<'SQL'
+SELECT 'роль «Администратор портала» (portal_admin) с правами settings.manage и users.manage', count(*) FROM roles r
+  WHERE r.code = 'portal_admin'
+    AND (SELECT array_agg(rp.permission_code ORDER BY rp.permission_code) FROM role_permissions rp WHERE rp.role_id = r.id) = ARRAY['settings.manage', 'users.manage']
+UNION ALL SELECT 'реестр «Сотрудники» (awareness_employees)', count(*) FROM registers
+  WHERE system_key = 'awareness_employees' AND archived_at IS NULL AND deleted_at IS NULL
+UNION ALL SELECT 'реестр «Результаты INDIGO» (awareness_results)', count(*) FROM registers
+  WHERE system_key = 'awareness_results' AND archived_at IS NULL AND deleted_at IS NULL
+UNION ALL SELECT 'пороги оценки (app_settings awareness.grades)', count(*) FROM app_settings WHERE key = 'awareness.grades';
+SQL
+}
+
 if [ "$MODE" = "--before" ]; then
   counts > "$STATE_DIR/counts-before.txt"
   echo "Число записей до выкладки:"
@@ -60,7 +76,20 @@ if [ "$CODE" = 200 ]; then ok "/me: 200"; else bad "/me: $CODE"; fi
 CODE="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -b "$JAR" -X POST "$URL/api/v1/auth/logout" || true)"
 if [ "$CODE" = 204 ]; then ok "выход: 204"; else bad "выход: $CODE"; fi
 
-# 3. число записей
+# 3. системные объекты версии (что создаёт migrate)
+# После отката на версию до 1.8.0 (VERSION в .env) объектов может не быть — тогда не проверяются.
+if [ "$(printf '%s\n' 1.8.0 "$VERSION" | sort -V | head -n1)" = 1.8.0 ]; then
+  OBJECTS="$(release_objects)" || { bad "системные объекты: запрос к базе не выполнился"; OBJECTS=""; }
+else
+  echo "· системные объекты 1.8.0 не проверяются: VERSION=$VERSION"
+  OBJECTS=""
+fi
+while IFS='|' read -r what n; do
+  [ -n "$what" ] || continue
+  if [ "$n" = 1 ]; then ok "$what"; else bad "$what: найдено $n, нужно 1 — migrate не выполнен или прерван (RELEASE.md, шаг 5)"; fi
+done <<< "$OBJECTS"
+
+# 4. число записей
 counts > "$STATE_DIR/counts-after.txt"
 echo "Число записей:"
 if [ "$MODE" = "--after" ] && [ -f "$STATE_DIR/counts-before.txt" ]; then
