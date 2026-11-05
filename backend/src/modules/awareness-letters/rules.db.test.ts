@@ -5,6 +5,7 @@ import { SERVICE_ROLE_CODE } from '../../lib/work-users.js';
 import { actorFor, expectCode, inTx, lastAudit, makeUser, roleId } from '../../test/db.js';
 import * as rules from './rules.service.js';
 import * as templates from './templates.service.js';
+import { deleteRole, setRolePermission } from '../roles/service.js';
 
 const NOW = new Date('2041-01-01T06:00:00Z');
 const monthly5 = { kind: 'monthly', day: 5 } as const;
@@ -74,5 +75,23 @@ describe('правила расписания', () => {
       await expectCode(rules.updateRule(tx, staff, r.id, { ...base, version: arch.version }, NOW), 'RULE_ARCHIVED');
       expect((await rules.listRules(tx, { scope: 'active' }, NOW)).items.map((x) => x.id)).not.toContain(r.id);
       expect((await rules.archiveRule(tx, staff, r.id, { version: arch.version, archived: false }, NOW)).archived).toBe(false);
+    }));
+
+  it('«Роли и права»: снять ib.work с роли активного правила можно — с предупреждением; удалить роль из правил — 409', () =>
+    inTx(async (tx) => {
+      const admin = await actorFor(tx, (await makeUser(tx, ['super_admin'])).id);
+      const role = await tx.role.create({ data: { name: 'Рассыльщики', permissions: { create: [{ permissionCode: 'ib.work' }] } } });
+      const other = await tx.role.create({ data: { name: 'Без правил', permissions: { create: [{ permissionCode: 'ib.work' }] } } });
+      const base = { cadence: monthly5, startsOn: '2041-01-01', roleId: role.id };
+      await rules.createRule(tx, admin, { ...base, title: 'Активное' }, NOW);
+      await rules.createRule(tx, admin, { ...base, title: 'Отключённое', active: false }, NOW);
+
+      const res = await setRolePermission(tx, admin, role.id, 'ib.work', false);
+      expect(res.permissions).not.toContain('ib.work');
+      expect(res.warnings).toEqual(['Роль — исполнитель правил расписания рассылок: «Активное». Их задачи будут создаваться без кандидатов, с эскалацией начальнику ИБ. Выберите в правилах другую роль']);
+      expect((await setRolePermission(tx, admin, other.id, 'ib.work', false)).warnings).toEqual([]);
+
+      const fresh = await tx.role.findUniqueOrThrow({ where: { id: role.id } });
+      await expectCode(deleteRole(tx, admin, role.id, fresh.version), 'ROLE_IN_RULES');
     }));
 });

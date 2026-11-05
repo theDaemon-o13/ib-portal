@@ -11,8 +11,8 @@ import { SIGNATURE_BLOCK } from './variables.js';
 const NOW = new Date('2041-01-04T06:00:00Z');
 const both = { subjectRu: 'Тема', subjectTj: 'Мавзӯъ', htmlRu: `<p>Текст</p>${SIGNATURE_BLOCK}`, htmlTj: `<p>Матн</p>${SIGNATURE_BLOCK}` };
 
-async function failing(tx: Tx): Promise<string[]> {
-  return (await letterIntegrity(tx)).filter((c) => !c.ok).map((c) => c.label);
+async function failing(tx: Tx, level: 'error' | 'warn' = 'error'): Promise<string[]> {
+  return (await letterIntegrity(tx)).filter((c) => !c.ok && c.level === level).map((c) => c.label);
 }
 
 describe('check-integrity: учебные письма', () => {
@@ -36,7 +36,7 @@ describe('check-integrity: учебные письма', () => {
 
       // Запись «Рассылок» удалили в обход портала.
       await tx.registerRecord.update({ where: { id: must(must(sent.events[0]).record).id }, data: { deletedAt: new Date() } });
-      // Роль правила потеряла ib.work.
+      // Роль правила потеряла ib.work (администратор снял право).
       await tx.rolePermission.deleteMany({ where: { roleId: role.id } });
       // Пропуск в номерах версий (у незамороженного письма вставка разрешена).
       const { letter: draft } = await letters.createLetter(tx, worker, { title: 'С пропуском', kind: 'planned', ...both });
@@ -45,11 +45,12 @@ describe('check-integrity: учебные письма', () => {
       await tx.task.update({ where: { id: run.taskId }, data: { deletedAt: new Date() } });
 
       expect((await failing(tx)).sort()).toEqual([
-        'расписание: роль-исполнитель правил участвует в работе (ib.work, не служебная)',
         'расписание: у каждого запуска есть задача',
         'учебные письма: записи «Рассылок» из отметок «Отправлено» на месте',
         'учебные письма: номера версий без пропусков',
       ].sort());
+      // Роль без ib.work — законное действие администратора: предупреждение, не ошибка.
+      expect(await failing(tx, 'warn')).toEqual(['расписание: роль-исполнитель активных правил участвует в работе']);
       const gap = must((await letterIntegrity(tx)).find((c) => c.label === 'учебные письма: номера версий без пропусков'));
       expect(gap.hint).toBe(`№ ${draft.number}`);
     }));

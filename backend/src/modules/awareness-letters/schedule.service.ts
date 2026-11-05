@@ -14,7 +14,7 @@ import { withTx, type Db } from '../../lib/db.js';
 import { AppError } from '../../lib/errors.js';
 import { todayIso } from '../../lib/today.js';
 import { isoDate, parseIsoDate, workingDaysBetween, type WorkCalendar } from '../../lib/working-days.js';
-import { workUsersWhere } from '../../lib/work-users.js';
+import { workRolesWhere, workUsersWhere } from '../../lib/work-users.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import { setTaskCandidates } from '../documents/tasks.js';
 import { notify } from '../notifications/service.js';
@@ -43,8 +43,13 @@ export interface ScheduleResult {
   escalated: number;
 }
 
-/** Держатели роли, участвующие в работе: кандидаты задачи рассылки. */
+/**
+ * Держатели роли, участвующие в работе: кандидаты задачи рассылки. Роль больше не рабочая (с неё сняли ib.work) —
+ * кандидатов нет, даже если её держатели работают через другие роли: задача идёт по ветке «у роли нет участников»
+ * с эскалацией начальнику ИБ.
+ */
 export async function roleHolders(db: Db, roleId: string): Promise<string[]> {
+  if (!(await db.role.count({ where: { AND: [{ id: roleId }, workRolesWhere()] } }))) return [];
   const rows = await db.user.findMany({ where: { AND: [workUsersWhere(), { roles: { some: { roleId } } }] }, select: { id: true }, orderBy: { id: 'asc' } });
   return rows.map((r) => r.id);
 }
@@ -180,7 +185,7 @@ async function escalate(tx: Db, today: string, cal: WorkCalendar, ruleIds?: stri
       task: { assigneeId: null, completedAt: null, archivedAt: null, deletedAt: null },
     },
     select: {
-      id: true, plannedDate: true, rule: { select: { title: true } },
+      id: true, plannedDate: true, rule: { select: { title: true, role: { select: { name: true } } } },
       task: { select: { id: true, number: true, _count: { select: { candidates: true } } } },
     },
   });
@@ -195,7 +200,7 @@ async function escalate(tx: Db, today: string, cal: WorkCalendar, ruleIds?: stri
       kind: 'awareness_unclaimed',
       to: recipients,
       title: `Рассылку «${r.rule.title}» никто не взял, срок ${ruShort(planned)}`,
-      body: r.task._count.candidates ? `Задача #${r.task.number}` : `Задача #${r.task.number}: у роли нет сотрудников — назначьте исполнителя`,
+      body: r.task._count.candidates ? `Задача #${r.task.number}` : `Задача #${r.task.number}: у роли «${r.rule.role.name}» нет участников — назначьте исполнителя`,
       taskId: r.task.id,
       actorId: null,
       dedupeKey: `awareness_unclaimed:${r.task.id}`,

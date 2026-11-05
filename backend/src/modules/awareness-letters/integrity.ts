@@ -10,6 +10,8 @@ export interface IntegrityCheck {
   ok: boolean;
   label: string;
   hint: string;
+  /** warn — законное состояние, которое стоит поправить (печатается «!», выкладку не останавливает). */
+  level: 'error' | 'warn';
 }
 
 const LIMIT = 20;
@@ -17,7 +19,7 @@ const nums = (rows: { number: number }[]) => rows.map((r) => `№ ${r.number}`).
 
 export async function letterIntegrity(db: Db): Promise<IntegrityCheck[]> {
   const out: IntegrityCheck[] = [];
-  const check = (ok: boolean, label: string, hint = '') => out.push({ ok, label, hint: ok ? '' : hint });
+  const check = (ok: boolean, label: string, hint = '', level: IntegrityCheck['level'] = 'error') => out.push({ ok, label, hint: ok ? '' : hint, level });
 
   // Триггеры: версии и события только пополняются, замороженное письмо меняется только в части архива.
   const triggers = await db.$queryRaw<{ tgname: string }[]>`
@@ -64,12 +66,14 @@ export async function letterIntegrity(db: Db): Promise<IntegrityCheck[]> {
     ORDER BY l.number LIMIT ${LIMIT}`;
   check(lostRecords.length === 0, 'учебные письма: записи «Рассылок» из отметок «Отправлено» на месте', `письма ${nums(lostRecords)} — запись удалена; восстановите её из корзины`);
 
-  // Роль неархивного правила участвует в работе.
-  const rules = await db.awarenessScheduleRule.findMany({ where: { archivedAt: null }, select: { title: true, roleId: true } });
+  // Роль активного правила участвует в работе. Это не порча данных: администратор вправе снять ib.work с роли —
+  // тогда задачи правила создаются без кандидатов с эскалацией. Поэтому предупреждение, а не ошибка.
+  const rules = await db.awarenessScheduleRule.findMany({ where: { archivedAt: null, active: true }, select: { title: true, roleId: true } });
   const work = new Set((await db.role.findMany({ where: workRolesWhere(), select: { id: true } })).map((r) => r.id));
   const badRules = rules.filter((r) => !work.has(r.roleId));
-  check(badRules.length === 0, 'расписание: роль-исполнитель правил участвует в работе (ib.work, не служебная)',
-    `правила ${badRules.slice(0, LIMIT).map((r) => `«${r.title}»`).join(', ')} — выберите другую роль`);
+  check(badRules.length === 0, 'расписание: роль-исполнитель активных правил участвует в работе',
+    `правила ${badRules.slice(0, LIMIT).map((r) => `«${r.title}»`).join(', ')}: у роли нет права «Работа в разделах ИБ» — задачи создаются без кандидатов, с эскалацией начальнику ИБ; выберите в правиле другую роль`,
+    'warn');
 
   // У каждого запуска есть задача, и она не удалена.
   const runs = await db.$queryRaw<{ title: string; d: Date }[]>`

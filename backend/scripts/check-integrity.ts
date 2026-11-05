@@ -407,7 +407,11 @@ async function main() {
 
   await checkAwareness();
   // Учебные письма и расписание (1.9.0).
-  for (const c of await letterIntegrity(prisma)) check(c.ok, c.label, c.hint);
+  // warn — законное состояние (роль правила без ib.work): «!», как «файлы без строки в БД», выкладку не останавливает.
+  for (const c of await letterIntegrity(prisma)) {
+    if (c.level === 'warn' && !c.ok) console.log(`! ${c.label} — ${c.hint}`);
+    else check(c.ok, c.label, c.hint);
+  }
   await checkServiceRole();
 
   const admins = await prisma.user.count({

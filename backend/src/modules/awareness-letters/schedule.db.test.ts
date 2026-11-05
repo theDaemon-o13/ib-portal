@@ -138,4 +138,28 @@ describe('прогон расписания', () => {
       const r = await runAwarenessSchedule(tx, { now: at('2041-01-24T06:00:00Z') });
       expect([r.escalated, r.candidatesUpdated]).toEqual([0, 0]);
     }));
+
+  it('с роли сняли ib.work: прогон не падает, задачи — без кандидатов (даже если держатели работают через другие роли), эскалация сразу', () =>
+    inTx(async (tx) => {
+      const { role, users, author } = await setup(tx, 1);
+      const head = await makeUser(tx, ['ib_staff', 'ib_head'], { isIbHead: true });
+      const rule = await rules.createRule(tx, author, {
+        title: 'Без права', cadence: { kind: 'monthly', day: 25 }, startsOn: '2041-01-01', roleId: role.id, leadDays: 30,
+      }, at('2041-01-01T06:00:00Z'));
+      await runAwarenessSchedule(tx, { now: at('2041-01-01T06:00:00Z') });
+      const first = must((await taskOfRun(tx, rule.id))[0], 'запуск');
+      expect(first.task.candidates.map((c) => c.userId)).toEqual([must(users[0]).id]);
+
+      // Администратор снял ib.work с роли; держатель по-прежнему сотрудник ИБ через «Сотрудник ИБ».
+      await tx.rolePermission.deleteMany({ where: { roleId: role.id } });
+      const r = await runAwarenessSchedule(tx, { now: at('2041-01-02T06:00:00Z') });
+      expect([r.ran, r.candidatesUpdated, r.escalated]).toEqual([true, 1, 1]);
+      expect(must((await taskOfRun(tx, rule.id))[0]).task.candidates).toEqual([]);
+      const n = await tx.notification.findFirstOrThrow({ where: { kind: 'awareness_unclaimed', taskId: first.taskId } });
+      expect([n.userId, n.body]).toEqual([head.id, `Задача #${first.task.number}: у роли «${role.name}» нет участников — назначьте исполнителя`]);
+
+      // Новый запуск той же роли — тоже без кандидатов и с эскалацией.
+      const r2 = await runAwarenessSchedule(tx, { now: at('2041-02-01T06:00:00Z') });
+      expect([r2.created, r2.escalated]).toEqual([1, 1]);
+    }));
 });

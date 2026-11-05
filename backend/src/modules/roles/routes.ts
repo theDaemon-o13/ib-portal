@@ -81,7 +81,8 @@ export const roleRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       tags, summary: 'Выдать или снять право у роли',
       params: z.object({ id: z.string().uuid(), code: Perm }),
       body: z.object({ granted: z.boolean() }),
-      response: { 200: Role, ...errors },
+      /** warnings — изменение прошло, но на что обратить внимание (снят ib.work с роли-исполнителя правил рассылок). */
+      response: { 200: Role.extend({ warnings: z.array(z.string()) }), ...errors },
     },
   }, async (request) => svc.setRolePermission(db, actorOf(request), request.params.id, request.params.code, request.body.granted));
 };

@@ -125,6 +125,11 @@ export async function deleteRole(db: Db, actor: Actor, id: string, version: numb
     const r = await getRole(tx, id);
     if (r.isSystem) throw conflict('SYSTEM_ROLE', 'Системную роль удалить нельзя');
     if (r.users.length > 0) throw conflict('ROLE_HAS_USERS', `У роли есть пользователи (${r.users.length}). Сначала снимите её с них`);
+    // Роль — исполнитель правил расписания рассылок (в том числе архивных): связь в БД не даёт удалить роль.
+    const rules = await tx.awarenessScheduleRule.findMany({ where: { roleId: id }, select: { title: true }, orderBy: { title: 'asc' }, take: 10 });
+    if (rules.length) {
+      throw conflict('ROLE_IN_RULES', `Роль — исполнитель правил расписания рассылок: ${rules.map((x) => `«${x.title}»`).join(', ')}. Выберите в них другую роль`);
+    }
     if (r.version !== version) throw versionConflict();
     await tx.rolePermission.deleteMany({ where: { roleId: id } });
     await tx.role.delete({ where: { id } });
@@ -146,7 +151,7 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     await lockRbac(tx);
     const r = await getRole(tx, roleId);
     const has = r.permissions.some((p) => p.permissionCode === perm);
-    if (has === granted) return toDto(r);
+    if (has === granted) return { ...toDto(r), warnings: [] as string[] };
     // Служебная роль (ADR-0036): состав прав фиксирован — иначе, например, ib.work открыл бы ей данные банка.
     if (r.code === SERVICE_ROLE_CODE) throw serviceRoleLocked();
     if (r.code === 'super_admin' && !granted && SUPER_ADMIN_LOCKED.includes(perm)) {
@@ -188,6 +193,15 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     });
     // Служебный администратор изменил права роли — держателям «Журнала действий» (ADR-0036).
     await notifyServiceAction(tx, actor.id, `роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»`);
-    return toDto(await getRole(tx, roleId));
+    // Сняли ib.work с роли-исполнителя активных правил рассылок (1.9.0): не запрещено, но задачи правил пойдут без
+    // кандидатов с эскалацией начальнику ИБ — предупреждение со списком правил.
+    const warnings: string[] = [];
+    if (!granted && perm === 'ib.work') {
+      const rules = await tx.awarenessScheduleRule.findMany({ where: { roleId, active: true, archivedAt: null }, select: { title: true }, orderBy: { title: 'asc' } });
+      if (rules.length) {
+        warnings.push(`Роль — исполнитель правил расписания рассылок: ${rules.map((x) => `«${x.title}»`).join(', ')}. Их задачи будут создаваться без кандидатов, с эскалацией начальнику ИБ. Выберите в правилах другую роль`);
+      }
+    }
+    return { ...toDto(await getRole(tx, roleId)), warnings };
   });
 }
