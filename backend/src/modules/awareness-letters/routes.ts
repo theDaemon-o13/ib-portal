@@ -237,7 +237,8 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
         + 'повторная — новая дата и аудитория, текст не меняется',
       params: IdParams,
       body: Version.extend({ sentOn: IsoDate, audience: z.string().max(AUDIENCE_MAX * 2), comment: z.string().max(COMMENT_MAX * 2).optional() }),
-      response: { 200: LetterDetail, ...errors },
+      /** warnings — что не получилось рядом с отметкой: «Запись в „Рассылках“ не создана: реестр в архиве». */
+      response: { 200: LetterDetail.extend({ warnings: z.array(z.string()) }), ...errors },
     },
   }, async (request) => letters.sendLetter(db, actorOf(request), request.params.id, request.body, deps));
 

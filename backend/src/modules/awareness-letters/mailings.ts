@@ -7,7 +7,7 @@ import { workUsersWhere } from '../../lib/work-users.js';
 import { loadRegister } from '../registers/definition.js';
 import { createRecord } from '../registers/records.service.js';
 import type { Actor } from '../settings/common.js';
-import { AWARENESS_MAILINGS_KEY } from './definition.js';
+import { AWARENESS_MAILINGS_KEY, type MailingApproval } from './definition.js';
 import { LANG_MARK_TEXT, type LangMark, type LetterKind } from './flow.js';
 
 /** «№ 12, версия 3» или «№ 12, версия 3, только RU». */
@@ -41,8 +41,40 @@ export function mailingSubject(subjects: { ru: string; tj: string }, mark: LangM
   return [subjects.ru.trim(), subjects.tj.trim()].filter(Boolean).join(' / ');
 }
 
+/** Версии, которые пишет человек (как у самосогласования): ручное создание, правка, восстановление. */
+const AUTHORED = ['created', 'edit', 'restore'];
+
+/**
+ * «Подготовил» — по фактическому участию: исполнитель задачи письма → автор последней версии, написанной человеком →
+ * автор письма. Берётся первый, кто есть по порядку; если он сейчас не участвует в работе — пусто.
+ */
+export async function preparedBy(tx: Db, letter: { id: string; createdBy: string; taskId: string | null }): Promise<string | null> {
+  const assignee = letter.taskId ? (await tx.task.findUnique({ where: { id: letter.taskId }, select: { assigneeId: true, deletedAt: true } })) : null;
+  let who: string | null = assignee && !assignee.deletedAt ? assignee.assigneeId : null;
+  if (!who) {
+    const v = await tx.awarenessLetterVersion.findFirst({ where: { letterId: letter.id, reason: { in: AUTHORED } }, orderBy: { no: 'desc' }, select: { createdBy: true } });
+    who = v?.createdBy ?? letter.createdBy;
+  }
+  const working = await tx.user.findFirst({ where: { AND: [{ id: who }, workUsersWhere()] }, select: { id: true } });
+  return working?.id ?? null;
+}
+
+/** «Согласование» записи: без согласования (срочное), без независимого (самосогласование) или согласовано. */
+export async function approvalOf(tx: Db, letter: { id: string; approvedVersionId: string | null }, withoutApproval: boolean): Promise<MailingApproval> {
+  if (withoutApproval) return 'none';
+  const first = await tx.awarenessLetterEvent.findFirst({ where: { letterId: letter.id, action: 'sent' }, orderBy: { at: 'asc' }, select: { withoutApproval: true } });
+  if (first?.withoutApproval) return 'none';
+  if (!letter.approvedVersionId) return 'none';
+  const approved = await tx.awarenessLetterEvent.findFirst({
+    where: { letterId: letter.id, action: 'approved', versionId: letter.approvedVersionId }, orderBy: { at: 'desc' }, select: { selfApproved: true },
+  });
+  return approved?.selfApproved ? 'self' : 'approved';
+}
+
 export interface MailingInput {
-  letter: { number: number; kind: LetterKind; reason: string; createdBy: string; taskId: string | null };
+  letter: { id: string; number: number; kind: LetterKind; reason: string; createdBy: string; taskId: string | null; approvedVersionId: string | null };
+  /** Отметка без согласования (срочное): «Согласование» — «Без согласования». */
+  withoutApproval: boolean;
   versionNo: number;
   langMark: LangMark;
   subjects: { ru: string; tj: string };
@@ -50,13 +82,22 @@ export interface MailingInput {
   audience: string;
 }
 
+/** Почему записи «Рассылок» нет: интерфейс показывает предупреждение. */
+export const MAILING_SKIPPED = {
+  missing: 'Запись в «Рассылках» не создана: реестра «Рассылки» нет',
+  archived: 'Запись в «Рассылках» не создана: реестр в архиве',
+  deleted: 'Запись в «Рассылках» не создана: реестр удалён',
+} as const;
+
 /**
- * Запись «Рассылок» при отметке «Отправлено». Реестра нет, он в архиве или удалён — записи нет (null): отметка
- * не блокируется, событие остаётся без записи. Поле в архиве или удалено — его значение не ставится.
+ * Запись «Рассылок» при отметке «Отправлено». Реестра нет, он в архиве или удалён — записи нет, отметка не
+ * блокируется: возвращается причина (предупреждение в ответе API). Поле в архиве или удалено — значение не ставится.
  */
-export async function createMailingRecord(tx: Db, actor: Actor, input: MailingInput): Promise<{ id: string; number: number } | null> {
+export async function createMailingRecord(tx: Db, actor: Actor, input: MailingInput): Promise<{ record: { id: string; number: number } | null; warning: string | null }> {
   const reg = await tx.register.findUnique({ where: { systemKey: AWARENESS_MAILINGS_KEY }, select: { id: true, archivedAt: true, deletedAt: true } });
-  if (!reg || reg.archivedAt || reg.deletedAt) return null;
+  if (!reg) return { record: null, warning: MAILING_SKIPPED.missing };
+  if (reg.deletedAt) return { record: null, warning: MAILING_SKIPPED.deleted };
+  if (reg.archivedAt) return { record: null, warning: MAILING_SKIPPED.archived };
   const def = await loadRegister(tx, reg.id);
   const field = (key: string) => def.fields.find((f) => f.systemKey === key && !f.archived);
   const values: Record<string, unknown> = {};
@@ -70,12 +111,13 @@ export async function createMailingRecord(tx: Db, actor: Actor, input: MailingIn
   put('kind', field('kind')?.options.find((o) => o.systemKey === input.letter.kind && !o.archived)?.id);
   put('reason', input.letter.reason);
   put('audience', input.audience);
-  const author = await tx.user.findFirst({ where: { AND: [{ id: input.letter.createdBy }, workUsersWhere()] }, select: { id: true } });
-  put('preparedBy', author?.id);
+  put('preparedBy', await preparedBy(tx, input.letter));
+  const approval = await approvalOf(tx, input.letter, input.withoutApproval);
+  put('approval', field('approval')?.options.find((o) => o.systemKey === approval && !o.archived)?.id);
   if (input.letter.taskId) {
     const task = await tx.task.findUnique({ where: { id: input.letter.taskId }, select: { number: true, deletedAt: true } });
     if (task && !task.deletedAt) put('task', `Задача #${task.number}`);
   }
   const rec = await createRecord(tx, actor, reg.id, { values }, { via: 'awareness_letter', letterNumber: input.letter.number });
-  return { id: rec.id, number: rec.number };
+  return { record: { id: rec.id, number: rec.number }, warning: null };
 }

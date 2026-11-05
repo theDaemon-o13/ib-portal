@@ -608,10 +608,10 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
   const d = flow.markSent(await stateOf(db, l), input, todayIso(deps.now?.() ?? new Date()));
   if (!d.firstSend) {
     const sentTexts = currentTexts(l);
-    await withTx(db, async (tx) => {
+    const warning = await withTx(db, async (tx) => {
       await claim(tx, l, input.version);
-      const record = await createMailingRecord(tx, actor, {
-        letter: { ...l, kind: l.kind as flow.LetterKind }, versionNo: l.currentVersion?.no ?? 0, langMark: langMarkOf(l.kind as flow.LetterKind, sentTexts),
+      const { record, warning } = await createMailingRecord(tx, actor, {
+        letter: { ...l, kind: l.kind as flow.LetterKind }, withoutApproval: false, versionNo: l.currentVersion?.no ?? 0, langMark: langMarkOf(l.kind as flow.LetterKind, sentTexts),
         subjects: { ru: sentTexts.subjectRu, tj: sentTexts.subjectTj }, sentOn: d.sentOn, audience: d.audience,
       });
       await addEvent(tx, id, actor.id, 'sent', {
@@ -621,8 +621,9 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
         sentOn: d.sentOn, audience: d.audience, repeat: true, recordNumber: record?.number ?? null,
       });
       await noteTaskSent(tx, actor, l, d.sentOn, true);
+      return warning;
     });
-    return getLetter(db, actor.id, id);
+    return { ...(await getLetter(db, actor.id, id)), warnings: warning ? [warning] : [] };
   }
   const t = currentTexts(l);
   const unfilled = unfilledInLetter(t);
@@ -630,13 +631,13 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
   const langMark = flow.checkLanguages(l.kind as flow.LetterKind, t);
   const sig = await currentSignature(db);
   const sent: TemplateTexts = { ...t, htmlRu: substituteSignature(t.htmlRu, sig.htmlRu), htmlTj: substituteSignature(t.htmlTj, sig.htmlTj) };
-  await withTx(db, async (tx) => {
+  const warning = await withTx(db, async (tx) => {
     await claim(tx, l, input.version);
     const v = await addVersion(tx, id, actor.id, 'sent', sent);
     await tx.awarenessLetter.update({ where: { id }, data: { status: 'sent', frozen: true, sentVersionId: v.id, currentVersionId: v.id } });
     // «Без согласования» в реестр не пишется — он виден в карточке письма и в журнале.
-    const record = await createMailingRecord(tx, actor, {
-      letter: { ...l, kind: l.kind as flow.LetterKind }, versionNo: v.no, langMark, subjects: { ru: t.subjectRu, tj: t.subjectTj }, sentOn: d.sentOn, audience: d.audience,
+    const { record, warning } = await createMailingRecord(tx, actor, {
+      letter: { ...l, kind: l.kind as flow.LetterKind }, withoutApproval: d.withoutApproval, versionNo: v.no, langMark, subjects: { ru: t.subjectRu, tj: t.subjectTj }, sentOn: d.sentOn, audience: d.audience,
     });
     await addEvent(tx, id, actor.id, 'sent', {
       versionId: v.id, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, withoutApproval: d.withoutApproval, recordId: record?.id ?? null,
@@ -645,8 +646,9 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
       versionNo: v.no, sentOn: d.sentOn, audience: d.audience, withoutApproval: d.withoutApproval, comment: d.comment || undefined, langMark, recordNumber: record?.number ?? null,
     });
     await noteTaskSent(tx, actor, l, d.sentOn, false);
+    return warning;
   });
-  return getLetter(db, actor.id, id);
+  return { ...(await getLetter(db, actor.id, id)), warnings: warning ? [warning] : [] };
 }
 
 // ———————————————————————————————————————————————— копия и архив

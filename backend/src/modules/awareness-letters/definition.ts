@@ -10,6 +10,9 @@ export const MAILINGS_NAME = 'Рассылки';
 export const AWARENESS_CATEGORY_KEY = 'awareness';
 
 export const MAILING_KIND = { planned: 'Плановое', urgent: 'Срочное' } as const;
+/** «Согласование» в «Рассылках»: виден в выгрузке руководству и проверяющим (решение владельца 05.11.2026). */
+export const MAILING_APPROVAL = { approved: 'Согласовано', self: 'Без независимого согласования', none: 'Без согласования' } as const;
+export type MailingApproval = keyof typeof MAILING_APPROVAL;
 
 export const MAILING_FIELDS: AwarenessFieldSpec[] = [
   { key: 'sentOn', label: 'Дата отправки', type: 'date', analyticsRole: 'date' },
@@ -23,6 +26,15 @@ export const MAILING_FIELDS: AwarenessFieldSpec[] = [
   { key: 'audience', label: 'Аудитория', type: 'text', analyticsRole: 'dimension', hint: '«Все сотрудники» или подразделения через запятую' },
   { key: 'preparedBy', label: 'Подготовил', type: 'user' },
   { key: 'task', label: 'Задача', type: 'text', hint: '«Задача #123», если письмо было по задаче' },
+  {
+    key: 'approval', label: 'Согласование', type: 'select', analyticsRole: 'dimension',
+    hint: 'Ставит отметка «Отправлено»; в истории прошлых рассылок — необязательно',
+    options: [
+      { label: MAILING_APPROVAL.approved, key: 'approved' },
+      { label: MAILING_APPROVAL.self, key: 'self' },
+      { label: MAILING_APPROVAL.none, key: 'none' },
+    ],
+  },
 ];
 
 export const SIGNATURE_CODE = 'signature';

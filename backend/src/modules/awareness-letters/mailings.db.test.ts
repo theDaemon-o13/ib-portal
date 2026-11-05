@@ -44,8 +44,9 @@ describe('реестр «Рассылки»', () => {
       const r1 = await mailing(tx, must(ev.record).id);
       expect(r1.values).toEqual({
         sentOn: '2041-01-04', letter: `№ ${letter.number}, версия ${sent.sentVersionNo}`, subject: 'Поддельные письма / Мактубҳои қалбакӣ',
-        kind: 'Плановое', audience: 'Все сотрудники', preparedBy: author.id,
+        kind: 'Плановое', audience: 'Все сотрудники', preparedBy: author.id, approval: 'Согласовано',
       });
+      expect(sent.warnings).toEqual([]);
       const a = await tx.auditLog.findFirstOrThrow({ where: { entity: 'register_record', entityId: must(ev.record).id } });
       expect(a.diff).toMatchObject({ after: { via: 'awareness_letter', letterNumber: letter.number } });
 
@@ -55,7 +56,7 @@ describe('реестр «Рассылки»', () => {
       expect(again.versions.length).toBe(sent.versions.length);
     }));
 
-  it('срочное на одном языке без согласования: «, только RU», тема RU, повод, «Задача #K»; автор отключён — «Подготовил» пусто', () =>
+  it('срочное на одном языке без согласования: «, только RU», тема RU, повод, «Задача #K», «Без согласования»; исполнитель задачи отключён — «Подготовил» пусто', () =>
     inTx(async (tx) => {
       const author = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
       const sender = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
@@ -69,7 +70,11 @@ describe('реестр «Рассылки»', () => {
       expect(r.values).toEqual({
         sentOn: '2041-01-04', letter: `№ ${u.letter.number}, версия ${sent.sentVersionNo}, только RU`, subject: 'Внимание', kind: 'Срочное',
         reason: 'Новая схема мошенничества', audience: 'Все сотрудники', task: `Задача #${must(u.letter.task).number}`,
+        approval: 'Без согласования',
       });
+      // Повторная отметка того же письма — тоже «Без согласования».
+      const again = await letters.sendLetter(tx, sender, u.letter.id, { version: sent.version, sentOn: '2041-01-04', audience: 'Отдел кадров' }, deps);
+      expect((await mailing(tx, must(must(again.events[0]).record).id)).values.approval).toBe('Без согласования');
     }));
 
   it('реестр в архиве — отметка проходит без записи; ручная запись с любым «Письмом» — можно; ссылка — только на существующее', () =>
@@ -78,7 +83,7 @@ describe('реестр «Рассылки»', () => {
       const reg = await tx.register.findUniqueOrThrow({ where: { systemKey: AWARENESS_MAILINGS_KEY }, include: { fields: true } });
       await tx.register.update({ where: { id: reg.id }, data: { archivedAt: new Date() } });
       const sent = await letters.sendLetter(tx, author, letter.id, { version: letter.version, sentOn: '2041-01-04', audience: 'Все сотрудники' }, deps);
-      expect([sent.status, sent.events[0]?.record]).toEqual(['sent', null]);
+      expect([sent.status, sent.events[0]?.record, sent.warnings]).toEqual(['sent', null, ['Запись в «Рассылках» не создана: реестр в архиве']]);
       await tx.register.update({ where: { id: reg.id }, data: { archivedAt: null } });
 
       const fieldId = (key: string) => must(reg.fields.find((f) => f.systemKey === key)).id;
@@ -91,5 +96,30 @@ describe('реестр «Рассылки»', () => {
       expect(parseLetterRef('Рассылка 2023 года')).toBeNull();
       const refs = await letterRefs(tx, [letter.number, 999_999_999]);
       expect(refs.items).toEqual([{ number: letter.number, id: letter.id, lastVersionNo: must(sent.sentVersionNo) }]);
+    }));
+
+  it('«Подготовил» — по участию: исполнитель задачи, иначе автор последней написанной версии; самосогласование — «Без независимого согласования»', () =>
+    inTx(async (tx) => {
+      const creator = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
+      const writer = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
+      const assignee = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
+      const head = await actorFor(tx, (await makeUser(tx, ['ib_staff', 'ib_head'], { isIbHead: true })).id);
+
+      // Без задачи: письмо создал один, последнюю версию написал другой — «Подготовил» он.
+      const { letter } = await letters.createLetter(tx, creator, { title: 'Чужими руками', kind: 'planned', ...both });
+      const ed = await letters.saveLetter(tx, writer, letter.id, { version: letter.version, ...both, subjectRu: 'Новая тема' });
+      const s = await letters.submitLetter(tx, writer, letter.id, { version: ed.letter.version });
+      const a = await letters.approveLetter(tx, head, letter.id, { version: s.version });
+      const sent = await letters.sendLetter(tx, writer, letter.id, { version: a.version, sentOn: '2041-01-04', audience: 'Все сотрудники' }, deps);
+      expect((await mailing(tx, must(must(sent.events[0]).record).id)).values).toMatchObject({ preparedBy: writer.id, approval: 'Согласовано' });
+
+      // С задачей: исполнитель задачи главнее авторов версий; начальник ИБ правил сам — «Без независимого согласования».
+      const u = await letters.urgentMailing(tx, creator, { title: 'Срочно', reason: 'Инцидент' }, deps);
+      await tx.task.update({ where: { id: must(u.letter.task).id }, data: { assigneeId: assignee.id } });
+      const f = await letters.saveLetter(tx, head, u.letter.id, { version: u.letter.version, ...both });
+      const s2 = await letters.submitLetter(tx, creator, u.letter.id, { version: f.letter.version });
+      const a2 = await letters.approveLetter(tx, head, u.letter.id, { version: s2.version });
+      const sent2 = await letters.sendLetter(tx, creator, u.letter.id, { version: a2.version, sentOn: '2041-01-04', audience: 'Все сотрудники' }, deps);
+      expect((await mailing(tx, must(must(sent2.events[0]).record).id)).values).toMatchObject({ preparedBy: assignee.id, approval: 'Без независимого согласования' });
     }));
 });
