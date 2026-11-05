@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AppError } from '../../lib/errors.js';
-import { checkTemplate, extractVariables, fillTemplate, SIGNATURE_BLOCK, unfilledInLetter } from './variables.js';
+import {
+  checkTemplate, extractVariables, fillTemplate, hasSignatureInSubject, SIGNATURE_BLOCK, signatureToBlock, unfilledInLetter,
+} from './variables.js';
 
 const t = (o: Partial<{ subjectRu: string; subjectTj: string; htmlRu: string; htmlTj: string }>) => ({ subjectRu: '', subjectTj: '', htmlRu: '', htmlTj: '', ...o });
 
@@ -81,5 +83,12 @@ describe('подстановка', () => {
   it('незаполненные переменные письма — для блокировки «На согласование»', () => {
     expect(unfilledInLetter(t({ subjectRu: 'Тема', htmlRu: '<p>{{дата}} {{подпись}}</p>' }))).toEqual(['дата']);
     expect(unfilledInLetter(t({ htmlRu: `<p>текст</p>${SIGNATURE_BLOCK}` }))).toEqual([]);
+  });
+
+  it('{{подпись}} в письме — блок «Подпись ИБ» (абзац целиком или внутри строки), в любом написании; в теме — ошибка', () => {
+    expect(signatureToBlock('<p>Текст</p><p> {{Подпись}} </p>')).toBe(`<p>Текст</p>${SIGNATURE_BLOCK}`);
+    expect(signatureToBlock('<p>Ҳурмат, {{ подпись }}</p>')).toBe(`<p>Ҳурмат, ${SIGNATURE_BLOCK}</p>`);
+    expect(signatureToBlock('<p>{{дата}}</p>')).toBe('<p>{{дата}}</p>');
+    expect([hasSignatureInSubject('Тема {{ПОДПИСЬ}}'), hasSignatureInSubject('Тема {{дата}}')]).toEqual([true, false]);
   });
 });

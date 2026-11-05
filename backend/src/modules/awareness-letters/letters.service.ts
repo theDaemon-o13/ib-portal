@@ -14,7 +14,7 @@ import { substituteSignature } from './export/html.js';
 import * as flow from './flow.js';
 import { checkLetterSize, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
-import { unfilledInLetter, type TemplateTexts } from './variables.js';
+import { hasSignatureInSubject, signatureToBlock, unfilledInLetter, type TemplateTexts } from './variables.js';
 
 export const LETTER_ENTITY = 'awareness_letter';
 export const TITLE_MAX = 200;
@@ -69,10 +69,12 @@ export interface CleanContent {
   size: { bytes: number; warn: boolean };
 }
 
-/** Тема — одна строка до 300 символов; текст — через санитайзер; размер — по лимитам «Параметров портала». */
+/** Тема — одна строка до 300 символов, без `{{подпись}}`; текст — через санитайзер; размер — по лимитам «Параметров портала». */
 export async function cleanContent(db: Db, input: TemplateTexts, deps: LetterDeps): Promise<CleanContent> {
-  const ru = sanitizeLetterHtml(input.htmlRu, { portalUrl: deps.portalUrl });
-  const tj = sanitizeLetterHtml(input.htmlTj, { portalUrl: deps.portalUrl });
+  if ([input.subjectRu, input.subjectTj].some(hasSignatureInSubject)) throw badRequest('SIGNATURE_IN_SUBJECT', 'Подпись ИБ не ставится в тему письма');
+  // `{{подпись}}`, набранная вручную, — блок «Подпись ИБ», как в письме из шаблона: её подставляет система.
+  const ru = sanitizeLetterHtml(signatureToBlock(input.htmlRu), { portalUrl: deps.portalUrl });
+  const tj = sanitizeLetterHtml(signatureToBlock(input.htmlTj), { portalUrl: deps.portalUrl });
   const images: LetterImage[] = [...ru.images, ...tj.images];
   const limits = await readPortalParam<LetterLimits>(db, AWARENESS_LETTERS_KEY);
   const size = checkLetterSize([ru.html, tj.html], images, limits);

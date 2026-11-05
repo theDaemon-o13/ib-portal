@@ -56,11 +56,7 @@ export function extractVariables(texts: readonly string[]): { variables: Templat
 /** Шаблон при сохранении: переменные разбираются, `{{подпись}}` в теме запрещена. */
 export function checkTemplate(t: TemplateTexts): TemplateVariable[] {
   const { variables, problems } = extractVariables([t.subjectRu, t.subjectTj, t.htmlRu, t.htmlTj]);
-  for (const s of [t.subjectRu, t.subjectTj]) {
-    if ([...s.matchAll(VAR_RE)].some((m) => variableKey(m[1] ?? '') === SIGNATURE_VARIABLE)) {
-      problems.push('Подпись ИБ не ставится в тему письма');
-    }
-  }
+  if ([t.subjectRu, t.subjectTj].some(hasSignatureInSubject)) problems.push('Подпись ИБ не ставится в тему письма');
   if (problems.length) throw new AppError(400, 'BAD_TEMPLATE', [...new Set(problems)].join('. '));
   return variables;
 }
@@ -69,6 +65,23 @@ const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 /** Редактор хранит текст с HTML-сущностями: `{{a &amp; b}}` — переменная «a & b». */
 function decodeEntities(s: string): string {
   return s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' })[e] ?? '');
+}
+
+const isSignature = (name: string) => variableKey(decodeEntities(name)) === SIGNATURE_VARIABLE;
+
+/**
+ * `{{подпись}}` в HTML — блок «Подпись ИБ»; абзац из одной подписи заменяется блоком целиком. Подставляет система:
+ * в шаблоне (fillTemplate) и при каждом сохранении письма — набранная вручную подпись не уйдёт в письмо текстом.
+ */
+export function signatureToBlock(html: string): string {
+  return html
+    .replace(/<p>\s*\{\{([^{}]*)\}\}\s*<\/p>/g, (all, name: string) => (isSignature(name) ? SIGNATURE_BLOCK : all))
+    .replace(VAR_RE, (all, name: string) => (isSignature(name) ? SIGNATURE_BLOCK : all));
+}
+
+/** `{{подпись}}` в теме письма или шаблона — ошибка: подпись бывает только в тексте. */
+export function hasSignatureInSubject(subject: string): boolean {
+  return [...subject.matchAll(VAR_RE)].some((m) => isSignature(m[1] ?? ''));
 }
 
 /**
@@ -84,18 +97,17 @@ export function fillTemplate(t: TemplateTexts, values: Readonly<Record<string, s
     throw new AppError(400, 'UNFILLED_VARIABLES', `Заполните переменные: ${unfilled.map((v) => `«${v.label}»`).join(', ')}`);
   }
   const subject = (s: string) => s.replace(VAR_RE, (all, name: string) => given.get(variableKey(name)) ?? all);
-  const html = (s: string) => s
-    .replace(/<p>\s*\{\{([^{}]*)\}\}\s*<\/p>/g, (all, name: string) => (variableKey(decodeEntities(name)) === SIGNATURE_VARIABLE ? SIGNATURE_BLOCK : all))
-    .replace(VAR_RE, (all, name: string) => {
-      const key = variableKey(decodeEntities(name));
-      if (key === SIGNATURE_VARIABLE) return SIGNATURE_BLOCK;
-      const v = given.get(key);
-      return v === undefined ? all : escapeHtml(v);
-    });
+  const html = (s: string) => signatureToBlock(s).replace(VAR_RE, (all, name: string) => {
+    const v = given.get(variableKey(decodeEntities(name)));
+    return v === undefined ? all : escapeHtml(v);
+  });
   return { subjectRu: subject(t.subjectRu), subjectTj: subject(t.subjectTj), htmlRu: html(t.htmlRu), htmlTj: html(t.htmlTj) };
 }
 
-/** Незаполненные переменные в письме — «На согласование» с ними нельзя (черновик из расписания). */
+/**
+ * Незаполненные переменные в письме, кроме служебной `{{подпись}}`: с ними нельзя «На согласование» и первую отметку
+ * «Отправлено» (черновик из расписания, срочное без согласования).
+ */
 export function unfilledInLetter(t: TemplateTexts): string[] {
   return extractVariables([t.subjectRu, t.subjectTj, t.htmlRu, t.htmlTj]).variables.map((v) => v.label);
 }

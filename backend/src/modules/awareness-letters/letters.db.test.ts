@@ -179,6 +179,39 @@ describe('учебные письма: отправка и заморозка', 
     }));
 });
 
+describe('учебные письма: переменные', () => {
+  it('{{подпись}} не считается незаполненной: при сохранении — блок, письмо проходит согласование и отправку с подписью текстом', () =>
+    inTx(async (tx) => {
+      const { author, head } = await people(tx);
+      const typed = { ...both, htmlRu: '<p>Не открывайте вложения.</p><p>{{подпись}}</p>', htmlTj: '<p>Замимаҳоро накушоед.</p><p>{{Подпись}}</p>' };
+      const { letter } = await letters.createLetter(tx, author, { title: 'Подпись вручную', kind: 'planned', ...typed });
+      expect(letter.content).toEqual(both);
+      const s = await letters.submitLetter(tx, author, letter.id, { version: letter.version });
+      const a = await letters.approveLetter(tx, head, letter.id, { version: s.version });
+      const sent = await letters.sendLetter(tx, author, letter.id, { version: a.version, sentOn: todayIso, audience: 'Все сотрудники' }, { now: () => today });
+      expect([sent.content.htmlRu, sent.content.htmlTj]).toEqual(['<p>Не открывайте вложения.</p><div><p>Подпись RU</p></div>', '<p>Замимаҳоро накушоед.</p><div><p>Имзо TJ</p></div>']);
+      await expectCode(letters.createLetter(tx, author, { title: 'Тема с подписью', kind: 'planned', ...both, subjectRu: 'Тема {{подпись}}' }), 'SIGNATURE_IN_SUBJECT');
+    }));
+
+  it('незаполненные {{…}} блокируют «На согласование» и первую отметку «Отправлено» (срочное без согласования)', () =>
+    inTx(async (tx) => {
+      const { author } = await people(tx);
+      const withVar = { ...both, subjectRu: 'Атака {{дата}}', htmlTj: `<p>{{схема}}</p>${SIGNATURE_BLOCK}` };
+      const { letter: p } = await letters.createLetter(tx, author, { title: 'Плановое с переменными', kind: 'planned', ...withVar });
+      await expectCode(letters.submitLetter(tx, author, p.id, { version: p.version }), 'UNFILLED_VARIABLES');
+      expect((await letters.getLetter(tx, author.id, p.id)).status).toBe('draft');
+
+      const { letter: u } = await letters.createLetter(tx, author, { title: 'Срочное с переменными', kind: 'urgent', reason: 'Инцидент', ...withVar });
+      const send = { sentOn: todayIso, audience: 'Все сотрудники', comment: 'Отправлено без согласования: инцидент' };
+      await expectCode(letters.submitLetter(tx, author, u.id, { version: u.version }), 'UNFILLED_VARIABLES');
+      await expectCode(letters.sendLetter(tx, author, u.id, { version: u.version, ...send }, { now: () => today }), 'UNFILLED_VARIABLES');
+      const after = await letters.getLetter(tx, author.id, u.id);
+      expect([after.status, after.frozen, after.versions.length]).toEqual(['draft', false, 1]);
+      const { letter: filled } = await letters.saveLetter(tx, author, u.id, { version: u.version, ...both });
+      expect((await letters.sendLetter(tx, author, u.id, { version: filled.version, ...send }, { now: () => today })).status).toBe('sent');
+    }));
+});
+
 describe('учебные письма по HTTP', () => {
   it('ib.work — да; без него и служебной учётной записи — 403; размер больше лимита — 413', () =>
     inTx(async (tx) => {
