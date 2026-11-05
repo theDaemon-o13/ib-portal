@@ -48,6 +48,27 @@ UNION ALL SELECT 'пороги оценки (app_settings awareness.grades)', co
 SQL
 }
 
+# 1.9.0: учебные письма (ADR-0039, ADR-0040) — реестр «Рассылки» со всеми системными полями, категория задач
+# «Осведомлённость», «Подпись ИБ», лимиты писем, семь таблиц и четыре триггера. Каждая строка — ровно 1.
+release_objects_190() {
+  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "|" -v ON_ERROR_STOP=1' <<'SQL'
+SELECT 'реестр «Рассылки» (awareness_mailings)', count(*) FROM registers
+  WHERE system_key = 'awareness_mailings' AND archived_at IS NULL AND deleted_at IS NULL
+UNION ALL SELECT 'системные поля реестра «Рассылки» (9)', ((SELECT count(*) FROM register_fields f JOIN registers r ON r.id = f.register_id
+  WHERE r.system_key = 'awareness_mailings' AND f.deleted_at IS NULL AND f.archived_at IS NULL
+    AND f.system_key IN ('sentOn', 'letter', 'subject', 'kind', 'reason', 'audience', 'preparedBy', 'task', 'approval')) = 9)::int
+UNION ALL SELECT 'категория задач «Осведомлённость» (awareness)', count(*) FROM catalog_items
+  WHERE catalog_code = 'task_categories' AND system_key = 'awareness' AND deleted_at IS NULL AND archived_at IS NULL
+UNION ALL SELECT '«Подпись ИБ» (awareness_fragments signature)', count(*) FROM awareness_fragments WHERE code = 'signature'
+UNION ALL SELECT 'лимиты писем (app_settings awareness.letters)', count(*) FROM app_settings WHERE key = 'awareness.letters'
+UNION ALL SELECT 'таблицы учебных писем (7)', ((SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN (
+  'awareness_templates', 'awareness_fragments', 'awareness_letters', 'awareness_letter_versions', 'awareness_letter_events',
+  'awareness_schedule_rules', 'awareness_schedule_runs')) = 7)::int
+UNION ALL SELECT 'триггеры учебных писем (4)', ((SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN (
+  'awareness_letter_versions_append_only', 'awareness_letter_events_append_only', 'awareness_letter_versions_guard', 'awareness_letters_guard')) = 4)::int;
+SQL
+}
+
 if [ "$MODE" = "--before" ]; then
   counts > "$STATE_DIR/counts-before.txt"
   echo "Число записей до выкладки:"
@@ -77,12 +98,17 @@ CODE="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -b "$JAR" -X POST "$URL/api/
 if [ "$CODE" = 204 ]; then ok "выход: 204"; else bad "выход: $CODE"; fi
 
 # 3. системные объекты версии (что создаёт migrate)
-# После отката на версию до 1.8.0 (VERSION в .env) объектов может не быть — тогда не проверяются.
+# После отката на более раннюю версию (VERSION в .env) объектов может не быть — тогда не проверяются.
 if [ "$(printf '%s\n' 1.8.0 "$VERSION" | sort -V | head -n1)" = 1.8.0 ]; then
   OBJECTS="$(release_objects)" || { bad "системные объекты: запрос к базе не выполнился"; OBJECTS=""; }
 else
   echo "· системные объекты 1.8.0 не проверяются: VERSION=$VERSION"
   OBJECTS=""
+fi
+if [ "$(printf '%s\n' 1.9.0 "$VERSION" | sort -V | head -n1)" = 1.9.0 ]; then
+  OBJECTS="$OBJECTS"$'\n'"$(release_objects_190)" || bad "системные объекты 1.9.0: запрос к базе не выполнился"
+else
+  echo "· системные объекты 1.9.0 не проверяются: VERSION=$VERSION"
 fi
 while IFS='|' read -r what n; do
   [ -n "$what" ] || continue
