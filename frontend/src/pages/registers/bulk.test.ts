@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isPicked, NOTHING, pickedCount, pickPage, previewLines, reasonLines, records, resultSummary, selectionBody, togglePicked, type Picked } from './bulk';
 
-const reasons = { tasks: 0, links: 0, decisions: 0, evidence: 0, locked: 0 };
+const reasons = { tasks: 0, links: 0, decisions: 0, evidence: 0, locked: 0, letters: 0 };
 
 describe('выбор записей', () => {
   it('отмеченные строки: страница целиком, снять одну', () => {
