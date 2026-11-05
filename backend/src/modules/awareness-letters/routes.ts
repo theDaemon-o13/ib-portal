@@ -1,14 +1,16 @@
 // Маршруты учебных писем (1.9.0, ADR-0039; docs/specs/awareness.md, разделы 13–14, 21). Все — ib.work; утвердить и
-// вернуть — пользователь с отметкой «Является начальником ИБ» (проверяет flow.ts). Модуль вне группы open (app.ts):
+// вернуть — пользователь с отметкой «Является начальником ИБ» (проверяет flow.ts). Шаблоны — ib.work; «Подпись ИБ»
+// читает ib.work (редактор и предпросмотр), правит settings.manage и ib.work. Модуль вне группы open (app.ts):
 // служебной учётной записи — 403 SERVICE_ACCOUNT.
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
 import { ErrorResponse } from '../../plugins/errors.js';
-import { requirePerm } from '../../plugins/rbac.js';
+import { requireAllPerms, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import { LETTER_KINDS, LETTER_STATUSES, COMMENT_MAX, AUDIENCE_MAX } from './flow.js';
 import * as letters from './letters.service.js';
+import * as templates from './templates.service.js';
 
 const tags = ['awareness-letters'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 413: ErrorResponse };
@@ -83,6 +85,35 @@ export const LetterDetail = LetterItem.extend({
 });
 
 const SaveResult = z.object({ letter: LetterDetail, versionCreated: z.boolean(), removed: z.array(z.string()) });
+
+const Variable = z.object({ key: z.string(), label: z.string() });
+const Limits = z.object({ maxImageKb: z.number().int(), maxLetterKb: z.number().int(), warnLetterKb: z.number().int() });
+export const TemplateItem = z.object({
+  id: z.string(),
+  title: z.string(),
+  subjectRu: z.string(),
+  subjectTj: z.string(),
+  /** Переменные {{…}} из тем и текстов, без служебной {{подпись}} — поля формы «Письмо из шаблона». */
+  variables: z.array(Variable),
+  archived: z.boolean(),
+  archivedAt: z.string().nullable(),
+  rules: z.number().int(),
+  createdBy: Person,
+  createdAt: z.string(),
+  updatedBy: Person,
+  updatedAt: z.string(),
+  version: z.number().int(),
+});
+export const TemplateDetail = TemplateItem.extend({
+  content: Content,
+  size: z.object({ bytes: z.number().int(), warn: z.boolean(), limits: Limits }),
+});
+const TemplateSave = z.object({ template: TemplateDetail, removed: z.array(z.string()) });
+const TemplateInput = ContentInput.extend({ title: z.string().max(1000) });
+export const Signature = z.object({
+  htmlRu: z.string(), htmlTj: z.string(), version: z.number().int(),
+  updatedBy: Person.nullable(), updatedAt: z.string().nullable(), canEdit: z.boolean(),
+});
 
 export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> = async (app, { db, portalUrl }) => {
   const work = requirePerm('ib.work');
@@ -218,4 +249,85 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
     preHandler: work,
     schema: { tags, summary: 'Вернуть из архива', params: IdParams, body: Version, response: { 200: LetterDetail, ...errors } },
   }, async (request) => letters.archiveLetter(db, actorOf(request), request.params.id, { version: request.body.version, archived: false }));
+
+  // ———————————————————————————————————————— шаблоны (раздел 17)
+
+  app.get('/awareness/templates', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Шаблоны писем по названию; фильтр архива, поиск',
+      querystring: z.object({
+        scope: z.enum(['active', 'archived', 'all']).default('active'),
+        q: z.string().max(300).optional(),
+        limit: z.coerce.number().int().min(1).max(templates.TEMPLATE_LIST_LIMIT).default(100),
+        cursor: z.string().max(20).optional(),
+      }),
+      response: { 200: z.object({ items: z.array(TemplateItem), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
+    },
+  }, async (request) => templates.listTemplates(db, request.query));
+
+  app.post('/awareness/templates', {
+    preHandler: work,
+    bodyLimit: LETTER_BODY_LIMIT,
+    schema: {
+      tags, summary: 'Новый шаблон: санитизация и лимиты письма; переменные — 400 BAD_TEMPLATE (пустые, длинные, больше 30, {{подпись}} в теме)',
+      body: TemplateInput, response: { 201: TemplateSave, ...errors },
+    },
+  }, async (request, reply) => reply.status(201).send(await templates.createTemplate(db, actorOf(request), request.body, portalUrl)));
+
+  app.get('/awareness/templates/:id', {
+    preHandler: work,
+    schema: { tags, summary: 'Шаблон с содержимым и переменными', params: IdParams, response: { 200: TemplateDetail, ...errors } },
+  }, async (request) => templates.getTemplate(db, request.params.id));
+
+  app.put('/awareness/templates/:id', {
+    preHandler: work,
+    bodyLimit: LETTER_BODY_LIMIT,
+    schema: {
+      tags, summary: 'Изменить шаблон (version). Архивный — 409 TEMPLATE_ARCHIVED. Созданные письма не меняются',
+      params: IdParams, body: TemplateInput.merge(Version), response: { 200: TemplateSave, ...errors },
+    },
+  }, async (request) => templates.updateTemplate(db, actorOf(request), request.params.id, request.body, portalUrl));
+
+  app.post('/awareness/templates/:id/archive', {
+    preHandler: work,
+    schema: { tags, summary: 'В архив: в новых правилах и «Письме из шаблона» не выбирается', params: IdParams, body: Version, response: { 200: TemplateDetail, ...errors } },
+  }, async (request) => templates.archiveTemplate(db, actorOf(request), request.params.id, { version: request.body.version, archived: true }));
+
+  app.post('/awareness/templates/:id/unarchive', {
+    preHandler: work,
+    schema: { tags, summary: 'Вернуть из архива', params: IdParams, body: Version, response: { 200: TemplateDetail, ...errors } },
+  }, async (request) => templates.archiveTemplate(db, actorOf(request), request.params.id, { version: request.body.version, archived: false }));
+
+  app.post('/awareness/templates/:id/letter', {
+    preHandler: work,
+    schema: {
+      tags,
+      summary: '«Письмо из шаблона»: значения переменных (простой текст) → черновик, версия template. Пустая переменная — '
+        + '400 UNFILLED_VARIABLES, черновик не создаётся; шаблон в архиве — 409 TEMPLATE_ARCHIVED',
+      params: IdParams,
+      body: z.object({
+        title: z.string().max(1000), kind: Kind, reason: z.string().max(10_000).optional(),
+        values: z.record(z.string().max(200), z.string().max(templates.VALUE_MAX * 2)),
+      }),
+      response: { 201: SaveResult, ...errors },
+    },
+  }, async (request, reply) => reply.status(201).send(await templates.letterFromTemplate(db, actorOf(request), request.params.id, request.body, deps)));
+
+  // ———————————————————————————————————————— «Подпись ИБ» (раздел 17.3)
+
+  app.get('/awareness/signature', {
+    preHandler: work,
+    schema: { tags, summary: '«Подпись ИБ» — текущая: показывается в незамороженных письмах', response: { 200: Signature, ...errors } },
+  }, async (request) => templates.getSignature(db, request.user?.permissions ?? new Set<string>()));
+
+  app.put('/awareness/signature', {
+    preHandler: requireAllPerms(['settings.manage', 'ib.work']),
+    bodyLimit: LETTER_BODY_LIMIT,
+    schema: {
+      tags, summary: 'Изменить «Подпись ИБ» (settings.manage и ib.work): санитизация, лимиты, без переменных; version (0 — строки ещё нет)',
+      body: z.object({ htmlRu: ContentInput.shape.htmlRu, htmlTj: ContentInput.shape.htmlTj, version: z.number().int().min(0) }),
+      response: { 200: z.object({ signature: Signature, removed: z.array(z.string()) }), ...errors },
+    },
+  }, async (request) => templates.updateSignature(db, { ...actorOf(request), perms: request.user?.permissions ?? new Set<string>() }, request.body, portalUrl));
 };

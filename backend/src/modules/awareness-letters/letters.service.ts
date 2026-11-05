@@ -107,7 +107,7 @@ async function isIbHead(db: Db, userId: string): Promise<boolean> {
   return u?.isActive === true && u.isIbHead;
 }
 
-async function audit(tx: Db, actor: Actor, letter: { id: string; number: number }, action: string, summary: string, extra: Record<string, unknown> = {}) {
+export async function auditLetter(tx: Db, actor: Actor, letter: { id: string; number: number }, action: string, summary: string, extra: Record<string, unknown> = {}) {
   await tx.auditLog.create({
     data: {
       userId: actor.id, action: `${LETTER_ENTITY}.${action}`, entity: LETTER_ENTITY, entityId: letter.id, ip: actor.ip,
@@ -339,19 +339,38 @@ export interface SaveResult {
   removed: string[];
 }
 
-/** Новое письмо — черновик с версией 1 (created). Из шаблона — шаг 5, из расписания — шаг 7. */
+/**
+ * Вставить письмо с первой версией (в транзакции действия). Содержимое уже прошло cleanContent.
+ * Общая для «Новое письмо», «Письмо из шаблона», копии и черновика из расписания (шаг 7).
+ */
+export async function insertLetter(
+  tx: Db, actor: Actor,
+  letter: { title: string; kind: flow.LetterKind; reason: string; templateId?: string | null; taskId?: string | null },
+  texts: TemplateTexts, versionReason: Extract<VersionReason, 'created' | 'template' | 'copy'>,
+): Promise<{ id: string; number: number; versionNo: number }> {
+  const row = await tx.awarenessLetter.create({
+    data: { title: letter.title, kind: letter.kind, reason: letter.reason, templateId: letter.templateId ?? null, taskId: letter.taskId ?? null, createdBy: actor.id },
+  });
+  const v = await addVersion(tx, row.id, actor.id, versionReason, texts);
+  await tx.awarenessLetter.update({ where: { id: row.id }, data: { currentVersionId: v.id } });
+  return { id: row.id, number: row.number, versionNo: v.no };
+}
+
+/** Проверить название, тип и повод нового письма. */
+export function cleanLetterHead(input: { title: string; kind: flow.LetterKind; reason?: string }) {
+  return { title: cleanTitle(input.title), kind: input.kind, reason: cleanReason(input.kind, input.reason ?? '') };
+}
+
+/** Новое письмо — черновик с версией 1 (created). */
 export async function createLetter(db: Db, actor: Actor, input: CreateLetterInput, deps: LetterDeps = {}): Promise<SaveResult> {
-  const title = cleanTitle(input.title);
-  const reason = cleanReason(input.kind, input.reason ?? '');
+  const head = cleanLetterHead(input);
   const content = await cleanContent(db, {
     subjectRu: input.subjectRu ?? '', subjectTj: input.subjectTj ?? '', htmlRu: input.htmlRu ?? '', htmlTj: input.htmlTj ?? '',
   }, deps);
   const id = await withTx(db, async (tx) => {
-    const letter = await tx.awarenessLetter.create({ data: { title, kind: input.kind, reason, createdBy: actor.id } });
-    const v = await addVersion(tx, letter.id, actor.id, 'created', content.texts);
-    await tx.awarenessLetter.update({ where: { id: letter.id }, data: { currentVersionId: v.id } });
-    await audit(tx, actor, letter, 'created', `создано «${title}» (${input.kind === 'urgent' ? 'срочное' : 'плановое'})`, { after: { title, kind: input.kind, reason } });
-    return letter.id;
+    const l = await insertLetter(tx, actor, head, content.texts, 'created');
+    await auditLetter(tx, actor, l, 'created', `создано «${head.title}» (${head.kind === 'urgent' ? 'срочное' : 'плановое'})`, { after: head });
+    return l.id;
   });
   return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };
 }
@@ -408,7 +427,7 @@ export async function saveLetter(db: Db, actor: Actor, id: string, input: SaveLe
     if (kind !== l.kind) changes.push(kind === 'urgent' ? 'тип → срочное' : 'тип → плановое');
     if (reason !== l.reason) changes.push('повод');
     if (dropping) changes.push('утверждение снято');
-    await audit(tx, actor, l, 'updated', `сохранено: ${changes.join(', ')}`, {
+    await auditLetter(tx, actor, l, 'updated', `сохранено: ${changes.join(', ')}`, {
       versionNo: v?.no ?? null,
       approvalDropped: dropping,
       before: { title: l.title, kind: l.kind, reason: l.reason },
@@ -435,7 +454,7 @@ export async function restoreVersion(db: Db, actor: Actor, id: string, input: { 
       data: { currentVersionId: v.id, ...(dropsApproval ? { status: 'draft', approvedVersionId: null } : {}) },
     });
     if (dropsApproval) await addEvent(tx, id, actor.id, 'approval_dropped', { versionId: l.approvedVersionId });
-    await audit(tx, actor, l, 'version_restored', `версия ${v.no} восстановлена из версии ${src.no}${dropsApproval ? ', утверждение снято' : ''}`, {
+    await auditLetter(tx, actor, l, 'version_restored', `версия ${v.no} восстановлена из версии ${src.no}${dropsApproval ? ', утверждение снято' : ''}`, {
       versionNo: v.no, restoredFrom: src.no, approvalDropped: dropsApproval,
     });
   });
@@ -451,7 +470,7 @@ export async function submitLetter(db: Db, actor: Actor, id: string, input: { ve
   await withTx(db, async (tx) => {
     await claim(tx, l, input.version, { status: 'review' });
     await addEvent(tx, id, actor.id, 'submitted', { versionId: l.currentVersionId });
-    await audit(tx, actor, l, 'submitted', `отправлено на согласование (версия ${l.currentVersion?.no})`, { versionNo: l.currentVersion?.no, langMark });
+    await auditLetter(tx, actor, l, 'submitted', `отправлено на согласование (версия ${l.currentVersion?.no})`, { versionNo: l.currentVersion?.no, langMark });
   });
   return getLetter(db, actor.id, id);
 }
@@ -462,7 +481,7 @@ export async function withdrawLetter(db: Db, actor: Actor, id: string, input: { 
   await withTx(db, async (tx) => {
     await claim(tx, l, input.version, { status: 'draft' });
     await addEvent(tx, id, actor.id, 'withdrawn', { versionId: l.currentVersionId });
-    await audit(tx, actor, l, 'withdrawn', 'отозвано с согласования');
+    await auditLetter(tx, actor, l, 'withdrawn', 'отозвано с согласования');
   });
   return getLetter(db, actor.id, id);
 }
@@ -475,7 +494,7 @@ export async function approveLetter(db: Db, actor: Actor, id: string, input: { v
   await withTx(db, async (tx) => {
     await claim(tx, l, input.version, { status: 'approved', approvedVersionId: l.currentVersionId });
     await addEvent(tx, id, actor.id, 'approved', { versionId: l.currentVersionId, selfApproved, comment });
-    await audit(tx, actor, l, 'approved', `утверждено (версия ${l.currentVersion?.no})${selfApproved ? ' — без независимого согласования' : ''}`, {
+    await auditLetter(tx, actor, l, 'approved', `утверждено (версия ${l.currentVersion?.no})${selfApproved ? ' — без независимого согласования' : ''}`, {
       versionNo: l.currentVersion?.no, selfApproved,
     });
   });
@@ -489,7 +508,7 @@ export async function returnLetter(db: Db, actor: Actor, id: string, input: { ve
   await withTx(db, async (tx) => {
     await claim(tx, l, input.version, { status: 'draft' });
     await addEvent(tx, id, actor.id, 'returned', { versionId: l.currentVersionId, comment });
-    await audit(tx, actor, l, 'returned', 'возвращено на доработку', { versionNo: l.currentVersion?.no, comment });
+    await auditLetter(tx, actor, l, 'returned', 'возвращено на доработку', { versionNo: l.currentVersion?.no, comment });
   });
   return getLetter(db, actor.id, id);
 }
@@ -518,7 +537,7 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
     await withTx(db, async (tx) => {
       await claim(tx, l, input.version);
       await addEvent(tx, id, actor.id, 'sent', { versionId: l.sentVersionId, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment });
-      await audit(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}`, { sentOn: d.sentOn, audience: d.audience, repeat: true });
+      await auditLetter(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}`, { sentOn: d.sentOn, audience: d.audience, repeat: true });
     });
     return getLetter(db, actor.id, id);
   }
@@ -535,7 +554,7 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
     await addEvent(tx, id, actor.id, 'sent', {
       versionId: v.id, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, withoutApproval: d.withoutApproval,
     });
-    await audit(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}${d.withoutApproval ? ' — без согласования' : ''}`, {
+    await auditLetter(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}${d.withoutApproval ? ' — без согласования' : ''}`, {
       versionNo: v.no, sentOn: d.sentOn, audience: d.audience, withoutApproval: d.withoutApproval, comment: d.comment || undefined, langMark,
     });
   });
@@ -562,11 +581,9 @@ export async function copyLetter(db: Db, actor: Actor, id: string) {
   }
   const title = `${l.title} (копия)`.slice(0, TITLE_MAX);
   const newId = await withTx(db, async (tx) => {
-    const copy = await tx.awarenessLetter.create({ data: { title, kind: l.kind, reason: l.reason, createdBy: actor.id } });
-    const v = await addVersion(tx, copy.id, actor.id, 'copy', src);
-    await tx.awarenessLetter.update({ where: { id: copy.id }, data: { currentVersionId: v.id } });
-    await audit(tx, actor, copy, 'created', `создано копией письма № ${l.number} (версия ${fromNo})`, { copiedFrom: { id: l.id, number: l.number, versionNo: fromNo } });
-    await audit(tx, actor, l, 'copied', `создана копия — письмо № ${copy.number}`, { copyId: copy.id, copyNumber: copy.number });
+    const copy = await insertLetter(tx, actor, { title, kind: l.kind as flow.LetterKind, reason: l.reason }, src, 'copy');
+    await auditLetter(tx, actor, copy, 'created', `создано копией письма № ${l.number} (версия ${fromNo})`, { copiedFrom: { id: l.id, number: l.number, versionNo: fromNo } });
+    await auditLetter(tx, actor, l, 'copied', `создана копия — письмо № ${copy.number}`, { copyId: copy.id, copyNumber: copy.number });
     return copy.id;
   });
   return getLetter(db, actor.id, newId);
@@ -580,7 +597,7 @@ export async function archiveLetter(db: Db, actor: Actor, id: string, input: { v
   await withTx(db, async (tx) => {
     await claim(tx, l, input.version, { archivedAt: input.archived ? new Date() : null });
     await addEvent(tx, id, actor.id, input.archived ? 'archived' : 'unarchived');
-    await audit(tx, actor, l, input.archived ? 'archived' : 'unarchived', input.archived ? 'отправлено в архив' : 'возвращено из архива');
+    await auditLetter(tx, actor, l, input.archived ? 'archived' : 'unarchived', input.archived ? 'отправлено в архив' : 'возвращено из архива');
   });
   return getLetter(db, actor.id, id);
 }

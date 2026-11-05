@@ -32,6 +32,8 @@ export const ENTITY_LABELS: Record<string, string> = {
   assessment_methodology: 'Самооценка',
   presentation: 'Презентация самооценки',
   awareness_letter: 'Осведомлённость: учебные письма',
+  awareness_template: 'Осведомлённость: шаблоны писем',
+  awareness_fragment: 'Осведомлённость: «Подпись ИБ»',
 };
 
 /** Разделы настроек: прежняя вкладка «Настройки → Журнал изменений» — пункт фильтра «Настройки — всё». */
@@ -133,6 +135,11 @@ const ACTION_LABELS: Record<string, string> = {
   'awareness_letter.copied': 'Создана копия учебного письма',
   'awareness_letter.archived': 'Учебное письмо отправлено в архив',
   'awareness_letter.unarchived': 'Учебное письмо возвращено из архива',
+  'awareness_template.created': 'Шаблон письма создан',
+  'awareness_template.updated': 'Шаблон письма изменён',
+  'awareness_template.archived': 'Шаблон письма отправлен в архив',
+  'awareness_template.unarchived': 'Шаблон письма возвращён из архива',
+  'awareness_fragment.updated': '«Подпись ИБ» изменена',
 };
 
 type Gender = 'm' | 'f' | 'n';
