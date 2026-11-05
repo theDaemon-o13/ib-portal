@@ -13,6 +13,7 @@ import * as letters from './letters.service.js';
 import * as templates from './templates.service.js';
 import * as exporter from './export.service.js';
 import * as rules from './rules.service.js';
+import { checkRuleNow } from './schedule.service.js';
 import { CadenceSchema, LEAD_DAYS } from './cadence.js';
 import { attachmentDisposition } from './export/eml.js';
 
@@ -461,4 +462,19 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
     preHandler: work,
     schema: { tags, summary: 'Вернуть из архива: догоняет только окно', params: IdParams, body: Version, response: { 200: RuleDetail, ...errors } },
   }, async (request) => rules.archiveRule(db, actorOf(request), request.params.id, { version: request.body.version, archived: false }));
+
+  app.post('/awareness/rules/:id/run', {
+    preHandler: work,
+    schema: {
+      tags, summary: '«Проверить сейчас»: прогон расписания для одного правила (окно, кандидаты, эскалация). Отключено — 409 RULE_INACTIVE; идёт фоновый прогон — 409 SCHEDULE_BUSY',
+      params: IdParams,
+      response: {
+        200: z.object({
+          ran: z.boolean(), today: z.string(), rules: z.number().int(), created: z.number().int(), letters: z.number().int(),
+          candidatesUpdated: z.number().int(), escalated: z.number().int(),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => checkRuleNow(db, request.params.id));
 };

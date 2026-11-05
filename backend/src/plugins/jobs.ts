@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Db } from '../lib/db.js';
 import type { FileStore } from '../lib/file-store.js';
 import { runAutomations } from '../modules/automations/service.js';
+import { runAwarenessSchedule } from '../modules/awareness-letters/schedule.service.js';
 import { processPendingTexts } from '../modules/files/text.js';
 import { notifyReassessment } from '../modules/assessments/service.js';
 import { notifyPartyDeadlines } from '../modules/documents/notify.js';
@@ -61,6 +62,14 @@ export function installJobs(app: FastifyInstance, opts: JobsOptions): void {
         const r = await runAutomations(opts.db, { now: opts.now?.() });
         if (r.ran) app.log.info({ today: r.today, rules: r.rules, checked: r.checked, created: r.created }, 'автоматизации проверены');
         else app.log.info('автоматизации: прогон уже идёт в другом процессе — пропуск');
+        // Расписание рассылок (1.9.0, ADR-0040): своя транзакция и блокировка — ошибка не откатывает автоматизации.
+        try {
+          const s = await runAwarenessSchedule(opts.db, { now: opts.now?.() });
+          if (!s.ran) app.log.info('расписание рассылок: прогон уже идёт в другом процессе — пропуск');
+          else if (s.created || s.escalated || s.candidatesUpdated) app.log.info(s, 'расписание рассылок проверено');
+        } catch (err) {
+          app.log.error({ err }, 'расписание рассылок: прогон не выполнен');
+        }
         // Уведомления (этап В): «срок завтра» и «просрочено» без дублей (уникальный dedupe_key), очистка — раз в сутки.
         const now = opts.now?.() ?? new Date();
         const d = await notifyDeadlines(opts.db, now);

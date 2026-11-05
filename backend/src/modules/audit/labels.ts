@@ -146,6 +146,7 @@ const ACTION_LABELS: Record<string, string> = {
   'awareness_rule.updated': 'Правило рассылки изменено',
   'awareness_rule.archived': 'Правило рассылки отправлено в архив',
   'awareness_rule.unarchived': 'Правило рассылки возвращено из архива',
+  'awareness_schedule.run': 'Прогон расписания рассылок',
 };
 
 type Gender = 'm' | 'f' | 'n';

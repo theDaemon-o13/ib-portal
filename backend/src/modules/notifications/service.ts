@@ -16,6 +16,8 @@ export const NOTIFICATION_KINDS = [
   // Служебный администратор (1.8.0, ADR-0036) назначил или снял роль, изменил права роли, сбросил пароль — держателям
   // audit.view; ссылка — журнал по этому пользователю; считается в индикаторе /me/attention.
   'service_admin_action',
+  // Расписание рассылок (1.9.0, ADR-0040): задачу рассылки никто не взял — начальнику ИБ, один раз на задачу.
+  'awareness_unclaimed',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
