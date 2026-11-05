@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, portalToday } from './browser.mjs';
+import { restoreIbHead, saveIbHead } from './ib-head.mjs';
 import { pagesPdf, pickFiles, tempFile, tinyDocx, tinyPdf, tinyPng, uploadViaApi } from './files.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
@@ -20,6 +21,8 @@ const URL1 = 'https://office.example.local/products/files/doceditor.aspx?fileid=
 
 let ui;
 let docType;
+/** Держатель отметки «Начальник ИБ» до прогона — ему она возвращается в after. */
+let savedHead;
 let navSeq = 0;
 /** Тестовые пользователи: { id, login, fullName, password, version }. */
 const users = {};
@@ -197,15 +200,29 @@ before(async () => {
     });
     users[key] = { key, id: r.user.id, login: r.user.login, fullName: r.user.fullName, password: r.temporaryPassword, version: r.user.version };
   }
-  // Этап «Начальник ИБ» — по отметке (1.4.0): передать её начальнику прогона; отключение в after снимет её.
+  // Этап «Начальник ИБ» — по отметке (1.4.0): запомнить прежнего держателя и передать отметку начальнику прогона;
+  // в after она возвращается прежнему держателю.
+  savedHead = await saveIbHead(ui);
   const marked = await api('PUT', `/api/v1/users/${users.head.id}/ib-head`, { version: users.head.version, value: true, transfer: true });
   assert.equal(marked.isIbHead, true);
   users.head.version = marked.version;
 });
 
 after(async () => {
-  // Уборка, даже если тест упал на середине: документы и задачи прогона — в архив, пользователи — отключить.
-  if (ui) {
+  // Уборка, даже если тест упал на середине: документы и задачи прогона — в архив, пользователи — отключить;
+  // отметка «Начальник ИБ» — прежнему держателю (в finally).
+  if (!ui) return;
+  try {
+    await cleanup();
+  } finally {
+    await loginAs(admin).catch(() => undefined);
+    console.log(`Начальник ИБ: ${await restoreIbHead(ui, savedHead)}`);
+    ui.close();
+  }
+});
+
+async function cleanup() {
+  {
     await loginAs(admin).catch(() => undefined);
     const docs = await api('GET', '/api/v1/documents?archived=false&limit=500').catch(() => ({ items: [] }));
     for (const d of docs.items.filter((x) => x.title.startsWith(RUN))) {
@@ -220,9 +237,8 @@ after(async () => {
       if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version }).catch(() => undefined);
     }
     assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
-    ui.close();
   }
-});
+}
 
 describe('Документы: маршрут 1.2.0', () => {
   it('драфт → проверка сотрудниками → начальник ИБ → ответственные лица → перевод → подписание', async () => {

@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, portalToday } from './browser.mjs';
+import { restoreIbHead, saveIbHead } from './ib-head.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -20,6 +21,8 @@ const RUN = `E2E-${Date.now().toString(36)}`;
 
 let ui;
 let navSeq = 0;
+/** Держатель отметки «Начальник ИБ» до прогона — ему она возвращается в after. */
+let savedHead;
 const users = {};
 const ids = { template: null, rule: null, letters: new Set(), tasks: new Set(), records: new Set() };
 const admin = { key: 'admin', get login() { return LOGIN; }, get password() { return PASSWORD; }, set password(_) { /* не меняется */ } };
@@ -86,13 +89,25 @@ before(async () => {
     const r = await api('POST', '/api/v1/users', { login: `${RUN.toLowerCase()}.${key}`, fullName: `${fullName} ${RUN}`, roleIds: codes.map(role) });
     users[key] = { key, id: r.user.id, login: r.user.login, fullName: r.user.fullName, password: r.temporaryPassword, version: r.user.version };
   }
-  // Утверждает держатель отметки «Является начальником ИБ» (ADR-0027): передать её начальнику прогона.
+  // Утверждает держатель отметки «Является начальником ИБ» (ADR-0027): запомнить прежнего, передать начальнику прогона.
+  savedHead = await saveIbHead(ui);
   const marked = await api('PUT', `/api/v1/users/${users.head.id}/ib-head`, { version: users.head.version, value: true, transfer: true });
   assert.equal(marked.isIbHead, true);
 });
 
 after(async () => {
   if (!ui) return;
+  try {
+    await cleanup();
+  } finally {
+    // Отметку «Начальник ИБ» — прежнему держателю, даже если тест или уборка упали.
+    await loginAs(admin).catch(() => undefined);
+    console.log(`Начальник ИБ: ${await restoreIbHead(ui, savedHead)}`);
+    ui.close();
+  }
+});
+
+async function cleanup() {
   await loginAs(admin).catch(() => undefined);
   const letters = await api('GET', `/api/v1/awareness/letters?scope=all&q=${encodeURIComponent(RUN)}&limit=200`).catch(() => ({ items: [] }));
   for (const l of letters.items) if (!l.archived) await api('POST', `/api/v1/awareness/letters/${l.id}/archive`, { version: l.version }).catch(() => undefined);
@@ -117,8 +132,7 @@ after(async () => {
     if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version }).catch(() => undefined);
   }
   assert.deepEqual(ui.consoleErrors, [], 'ошибки JavaScript в странице');
-  ui.close();
-});
+}
 
 describe('Учебные письма: от правила до «Отправлено»', () => {
   it('правило с шаблоном → задача → письмо заполнено → согласование → отправка → «Рассылки» → заморожено, копия', async () => {

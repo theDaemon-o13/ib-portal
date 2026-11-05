@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, sleep } from './browser.mjs';
+import { restoreIbHead, saveIbHead } from './ib-head.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -420,12 +421,19 @@ describe('Отметка «Является начальником ИБ» (1.4.0
   const json = (method, path, body) => ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
     .then(async (r) => ({ status: r.status, body: await r.json() }))`);
   const people = [];
+  /** Держатель отметки до теста — ему она возвращается в after, даже если тест упал. */
+  let savedHead;
+  before(async () => { savedHead = await saveIbHead(ui); });
 
   after(async () => {
-    // Уборка: пользователи теста отключаются (отметка снимается вместе с отключением).
-    for (const p of people) {
-      const cur = await ui.evaluate(`fetch('/api/v1/users?limit=100&q=${p.login}').then((r) => r.json()).then((j) => j.items.find((u) => u.id === '${p.id}'))`);
-      if (cur?.isActive) await json('POST', `/api/v1/users/${p.id}/disable`, { version: cur.version });
+    try {
+      // Уборка: пользователи теста отключаются (отметка снимается вместе с отключением).
+      for (const p of people) {
+        const cur = await ui.evaluate(`fetch('/api/v1/users?limit=100&q=${p.login}').then((r) => r.json()).then((j) => j.items.find((u) => u.id === '${p.id}'))`);
+        if (cur?.isActive) await json('POST', `/api/v1/users/${p.id}/disable`, { version: cur.version });
+      }
+    } finally {
+      console.log(`Начальник ИБ: ${await restoreIbHead(ui, savedHead)}`);
     }
   });
 
