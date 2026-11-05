@@ -265,6 +265,28 @@ describe('Поля', () => {
     assert.match(await ui.text(fieldRow('Срок устранения')), /«Выявлено» \+ срок по «Уровень»/);
   });
 
+  it('следующее поле, начатое до конца обновления, не стирается', async () => {
+    // Медленный сервер: поле уже в таблице, а перезапрос списка реестров ещё идёт.
+    // Начатое в это время название и тип следующего поля сброс формы не трогает.
+    await openReg(await makeRegister('ввод'), 'fields');
+    await addField('Первое', 'select', { options: 'А, Б' });
+    ui.holdResponses(/\/api\/v1\/registers$/);
+    try {
+      const m = ui.mark();
+      await ui.click($.button('Добавить поле'));
+      assert.equal((await ui.request(m, 'POST', '/fields')).status, 200);
+      await ui.waitFor(`!!${fieldRow('Первое')}`, 'поле «Первое» в таблице');
+      await ui.type($.field('Название поля', addForm), 'Второе');
+      await ui.select($.field('Тип', addForm), 'number');
+    } finally {
+      ui.releaseResponses();
+    }
+    await ui.waitFor(`document.body.textContent.includes('Поле «Первое» добавлено')`, 'уведомление о первом поле');
+    assert.equal(await ui.evaluate(`${$.field('Название поля', addForm)}.value`), 'Второе', 'название следующего поля на месте');
+    assert.equal(await ui.evaluate(`${$.field('Тип', addForm)}.value`), 'number', 'тип следующего поля на месте');
+    await submitField('Второе');
+  });
+
   it('строка поля — одна линия, «Для аналитики» в каждой строке', async () => {
     await openReg(base, 'fields');
     const rows = await ui.evaluate(`[...document.querySelectorAll('table.fields-tbl tbody tr')].map((tr) => ({

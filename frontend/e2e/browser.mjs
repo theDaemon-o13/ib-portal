@@ -93,7 +93,10 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       const { requestId, networkId } = m.params;
       const got = send('Fetch.getResponseBody', { requestId }).catch((e) => ({ error: e.message }));
       bodies.set(networkId, got);
-      void got.finally(() => send('Fetch.continueRequest', { requestId }).catch(() => undefined));
+      const release = () => send('Fetch.continueRequest', { requestId }).catch(() => undefined);
+      // ui.holdResponses: ответ придерживается до ui.releaseResponses — «медленный сервер».
+      if (held.some((part) => (typeof part === 'string' ? m.params.request.url.includes(part) : part.test(m.params.request.url)))) heldQueue.push(() => got.finally(release));
+      else void got.finally(release);
     }
     if (m.method === 'Runtime.exceptionThrown') consoleErrors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
     // Сообщения браузера: нарушение CSP (source: security), не загрузившийся worker или скрипт.
@@ -105,6 +108,8 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
   await send('Network.enable');
   const responsePattern = { urlPattern: `${baseUrl}/api/*`, requestStage: 'Response' };
   const blocked = [];
+  const held = [];
+  const heldQueue = [];
   await send('Fetch.enable', { patterns: [responsePattern] });
   await send('Runtime.enable');
   await send('Log.enable');
@@ -284,6 +289,16 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     async allowRequests() {
       blocked.length = 0;
       await send('Fetch.enable', { patterns: [responsePattern] });
+    },
+
+    /** Придержать ответы API, адрес которых содержит urlPart (строка) или подходит под него (RegExp), пока не вызван releaseResponses. */
+    holdResponses(urlPart) {
+      held.push(urlPart);
+    },
+    /** Отпустить придержанные ответы и больше не держать. */
+    releaseResponses() {
+      held.length = 0;
+      for (const go of heldQueue.splice(0)) void go();
     },
 
     /** Нажать и отпустить клавишу (ArrowLeft, ArrowRight, Space, Escape). */

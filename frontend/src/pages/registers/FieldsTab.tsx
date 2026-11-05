@@ -15,9 +15,11 @@ const ALL_TYPES = Object.keys(TYPE_NAMES) as FieldType[];
 /** Щелчок по списку или стрелкам не открывает панель поля. */
 const stop = (e: MouseEvent) => e.stopPropagation();
 
+type AddForm = { label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string; linkRegisterId: string; basis: BasisRule | null; calcKind: 'due' | 'basis'; multiline: boolean };
+
 export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [add, setAdd] = useState<{ label: string; type: FieldType; options: string; role: string; rule: DueRule | null; catalogCode: string; linkRegisterId: string; basis: BasisRule | null; calcKind: 'due' | 'basis'; multiline: boolean }>(
+  const [add, setAdd] = useState<AddForm>(
     { label: '', type: 'text', options: '', role: '', rule: null, catalogCode: '', linkRegisterId: '', basis: null, calcKind: 'due', multiline: false });
   const regs = useQuery({ queryKey: rkeys.listWith(false), queryFn: () => registersApi.list(false) });
   const regName = (id: string | null) => regs.data?.items.find((r) => r.id === id)?.name ?? 'реестр';
@@ -32,7 +34,8 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
     invalidate, success: () => 'Роль для аналитики сохранена',
   });
   const move = useAction(({ f, dir }: { f: RegisterField; dir: 'up' | 'down' }) => registersApi.moveField(f.id, dir), { invalidate });
-  const create = useAction(() => registersApi.addField(reg.id, {
+  // Форма уходит аргументом: сброс после ответа сверяется с отправленным снимком (onDone).
+  const create = useAction((add: AddForm) => registersApi.addField(reg.id, {
     label: add.label,
     type: add.type,
     options: add.type === 'select' || add.type === 'decision' ? add.options.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
@@ -42,8 +45,10 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
     linkRegisterId: add.type === 'link' ? add.linkRegisterId : undefined,
     settings: add.type === 'text' && add.multiline ? { text: { multiline: true } } : undefined,
   }), {
-    invalidate, success: () => `Поле «${add.label}» добавлено — оно уже есть в карточке записи`,
-    onDone: () => setAdd({ ...add, label: '', options: '', role: '', rule: null, basis: null, multiline: false }),
+    invalidate, success: (_, sent) => `Поле «${sent.label}» добавлено — оно уже есть в карточке записи`,
+    // Ответ приходит после перезапроса реестра; если за это время начали следующее поле, форма не сбрасывается:
+    // прежний сброс из копии состояния стирал введённое название и возвращал тип (найдено e2e, 1.8.0).
+    onDone: (_, sent) => setAdd((cur) => (cur === sent ? { ...cur, label: '', options: '', role: '', rule: null, basis: null, multiline: false } : cur)),
   });
 
   const fields = reg.fields;
@@ -60,7 +65,7 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
     }
     return '—';
   };
-  const submitAdd = (e: FormEvent) => { e.preventDefault(); create.mutate(undefined); };
+  const submitAdd = (e: FormEvent) => { e.preventDefault(); create.mutate(add); };
 
   return (
     <>

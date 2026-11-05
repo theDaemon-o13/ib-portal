@@ -10,7 +10,7 @@ import { useToast } from '../../components/Toast';
 export function useAction<A, R>(
   fn: (args: A) => Promise<R>,
   opts: {
-    invalidate: QueryKey[]; success?: (result: R, args: A) => string | null; onDone?: (result: R) => void;
+    invalidate: QueryKey[]; success?: (result: R, args: A) => string | null; onDone?: (result: R, args: A) => void;
     /** Своя обработка ошибки (например, вопрос пользователю); true — обработана, общий текст не показывается. */
     handle?: (err: unknown, args: A) => boolean;
   },
@@ -24,7 +24,7 @@ export function useAction<A, R>(
       await refresh();
       const text = opts.success?.(result, args);
       if (text) toast(text);
-      opts.onDone?.(result);
+      opts.onDone?.(result, args);
     },
     onError: async (err, args) => {
       if (opts.handle?.(err, args)) return;
