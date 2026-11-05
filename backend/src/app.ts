@@ -13,7 +13,7 @@ import type { IpList } from './lib/ip-list.js';
 import type { PasswordHasher } from './lib/passwords.js';
 import type { AuditWriter } from './modules/audit/audit.js';
 import type { AuthRepository } from './modules/auth/repository.js';
-import { authRoutes } from './modules/auth/routes.js';
+import { authRoutes, sessionRoutes } from './modules/auth/routes.js';
 import { automationRoutes } from './modules/automations/routes.js';
 import { assetRoutes } from './modules/assets/routes.js';
 import { portalParamRoutes } from './modules/settings/portal-params.routes.js';
@@ -112,6 +112,7 @@ export async function buildApp(deps: AppDeps) {
       route.config = { ...(route.config ?? {}), service: true } as typeof route.config;
     });
     await open.register(authRoutes, { prefix: '/api/v1/auth', auth });
+    await open.register(sessionRoutes, { prefix: '/api/v1', auth });
     await open.register(catalogRoutes, { prefix: '/api/v1', db: deps.db });
     await open.register(notificationRoutes, { prefix: '/api/v1', db: deps.db });
     await open.register(attentionRoutes, { prefix: '/api/v1', db: deps.db });

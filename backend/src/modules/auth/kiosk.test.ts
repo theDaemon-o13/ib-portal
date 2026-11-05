@@ -1,10 +1,9 @@
-// Учётная запись настенного монитора (ADR-0012): вход только с MONITOR_ALLOWED_IPS,
-// без завершения по бездействию, абсолютный срок 12 часов; X-Forwarded-For принимается только от TRUSTED_PROXY_IPS.
+// Учётная запись настенного монитора (ADR-0012): вход и каждый запрос только с MONITOR_ALLOWED_IPS; срок сессии —
+// общие правила 1.10.0 (7 суток убраны, ADR-0023); X-Forwarded-For принимается только от TRUSTED_PROXY_IPS.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildApp, type App } from '../../app.js';
 import { createPrisma } from '../../lib/db.js';
 import { parseIpList } from '../../lib/ip-list.js';
-import { KIOSK_SESSION_MAX_AGE_MS, SESSION_IDLE_MS, SESSION_MAX_AGE_MS } from '../../lib/session-token.js';
 import { FakeClock, TEST_PORTAL_URL, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
 import { MemoryAuditWriter } from '../audit/audit.js';
 import { MemoryAuthRepository } from './repository.memory.js';
@@ -13,6 +12,8 @@ const PASSWORD = 'Wall-Monitor-2026!';
 const NGINX = '172.31.250.6';
 const WALL = '10.20.30.40';
 const OTHER = '10.20.30.99';
+const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 
 let repo: MemoryAuthRepository;
 let audit: MemoryAuditWriter;
@@ -88,38 +89,30 @@ describe('вход настенного монитора', () => {
 });
 
 describe('сессия настенного монитора', () => {
-  it('не завершается по бездействию и работает сутками, но не дольше 7 суток', async () => {
+  it('общие правила 1.10.0: без отдельных 7 суток — сессия жива и через 10 суток; срок задаёт maxDays', async () => {
     const cookie = cookieOf(await login('wall', viaNginx(WALL)));
-    clock.advance(SESSION_IDLE_MS + 60_000);
+    clock.advance(10 * DAY);
     expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie }) })).statusCode).toBe(200);
-    // Двое суток подряд — сессия жива (раньше предел был 12 часов).
-    clock.advance(2 * 24 * 60 * 60 * 1000);
-    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie }) })).statusCode).toBe(200);
-    clock.advance(KIOSK_SESSION_MAX_AGE_MS - 2 * 24 * 60 * 60 * 1000);
+    repo.sessionSettings = { maxDays: 10, adminMaxHours: 12 };
     const late = await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie }) });
     expect(late.statusCode).toBe(401);
     expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'max_age' } });
   });
 
-  it('фоновый опрос слайдов 31 минуту и дольше — сессия жива (киоск не завершается по бездействию); остатка в заголовке нет', async () => {
+  it('фоновый опрос слайдов часами — сессия жива; остатка до завершения в заголовке нет', async () => {
     const cookie = cookieOf(await login('wall', viaNginx(WALL)));
     for (let i = 0; i < 4; i++) {
-      clock.advance(SESSION_IDLE_MS / 3);
+      clock.advance(40 * MINUTE);
       const r = await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie, 'x-background': '1' }) });
       expect(r.statusCode).toBe(200);
       expect(r.headers['x-session-idle-ms']).toBeUndefined();
     }
   });
 
-  it('у обычного пользователя абсолютный срок — по-прежнему 12 часов, даже при постоянной активности', async () => {
+  it('у обычного пользователя нет общего срока 12 часов и завершения по бездействию', async () => {
     const cookie = cookieOf(await login('ivanov', viaNginx(OTHER)));
-    for (let t = 0; t < SESSION_MAX_AGE_MS - 20 * 60_000; t += 20 * 60_000) {
-      clock.advance(20 * 60_000);
-      expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(OTHER, { cookie }) })).statusCode).toBe(200);
-    }
-    clock.advance(20 * 60_000);
-    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(OTHER, { cookie }) })).statusCode).toBe(401);
-    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'max_age' } });
+    clock.advance(13 * 60 * MINUTE);
+    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(OTHER, { cookie }) })).statusCode).toBe(200);
   });
 
   it('смена пароля монитора закрывает его остальные сессии', async () => {
@@ -131,12 +124,6 @@ describe('сессия настенного монитора', () => {
     });
     expect(changed.statusCode, changed.body).toBe(200);
     expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(WALL, { cookie: wallScreen }) })).statusCode).toBe(401);
-  });
-
-  it('у обычного пользователя бездействие по-прежнему завершает сессию', async () => {
-    const cookie = cookieOf(await login('ivanov', viaNginx(OTHER)));
-    clock.advance(SESSION_IDLE_MS + 60_000);
-    expect((await app.inject({ url: '/api/v1/auth/me', ...viaNginx(OTHER, { cookie }) })).statusCode).toBe(401);
   });
 
   it('сессия, перенесённая на другой адрес, закрывается и пишется в журнал', async () => {

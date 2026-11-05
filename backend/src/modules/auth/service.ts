@@ -15,16 +15,44 @@ import { hasServiceRole } from '../../lib/work-users.js';
 /** Права служебной роли «Администратор портала» (ADR-0036). */
 const SERVICE_PERMISSIONS: readonly PermissionCode[] = ['settings.manage', 'users.manage'];
 import {
-  SESSION_IDLE_MS,
-  KIOSK_SESSION_MAX_AGE_MS,
-  SESSION_MAX_AGE_MS,
+  FAR_FUTURE_MS,
   SESSION_TOUCH_INTERVAL_MS,
   newSessionToken,
+  sessionDeadline,
   sessionIdFromToken,
+  type SessionSettings,
 } from '../../lib/session-token.js';
 import type { AuthUser } from '../../types.js';
 import type { AuditWriter } from '../audit/audit.js';
-import type { AuthRepository, UserRecord } from './repository.js';
+import type { AuthRepository, SessionInfo, SessionRecord, UserRecord } from './repository.js';
+
+/**
+ * Сессии администратора (1.10.0, решение владельца 05.11.2026): у держателей users.manage и служебной роли
+ * «Администратор портала» — без «Запомнить меня», общий срок adminMaxHours (по умолчанию 12 часов).
+ */
+export const isSessionAdmin = (u: AuthUser) => u.service || u.permissions.has('users.manage');
+
+/** Сессия в «Моих сессиях» и карточке пользователя: id — public_id, хэш токена наружу не отдаётся. */
+export interface SessionView {
+  id: string;
+  current: boolean;
+  createdAt: string;
+  lastSeenAt: string;
+  ip: string | null;
+  userAgent: string | null;
+  remember: boolean;
+  /** До какого времени живёт сессия; null — бессрочно. */
+  expiresAt: string | null;
+}
+
+/** Срок сессии: из параметров (от входа) и, у сессий до 1.10.0, — их собственный expires_at. */
+function deadlineOf(s: SessionRecord, admin: boolean, settings: SessionSettings): Date | null {
+  const byRules = sessionDeadline(s.createdAt, admin, settings);
+  const own = s.expiresAt.getTime() < s.createdAt.getTime() + FAR_FUTURE_MS / 2 ? s.expiresAt : null;
+  if (!byRules) return own;
+  if (!own) return byRules;
+  return byRules.getTime() < own.getTime() ? byRules : own;
+}
 
 export interface AuthServiceDeps {
   repo: AuthRepository;
@@ -84,7 +112,8 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     };
   }
 
-  async function login(input: { login: string; password: string }, client: ClientInfo) {
+  /** remember — галочка «Запомнить меня»; у администраторов не действует (isSessionAdmin). */
+  async function login(input: { login: string; password: string; remember?: boolean }, client: ClientInfo) {
     const login = normalizeLogin(input.login);
     const at = now();
     const user = await repo.findUserByLogin(login);
@@ -155,25 +184,31 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     await repo.saveLockout(user.id, reset);
     await repo.recordSuccessfulLogin(user.id, at);
 
+    const admin = isSessionAdmin(authUser);
+    const remember = input.remember === true && !admin;
+    const settings = await repo.getSessionSettings();
     const token = newSessionToken();
     const sessionId = sessionIdFromToken(token);
     await repo.createSession({
       id: sessionId,
       userId: user.id,
       createdAt: at,
-      expiresAt: new Date(at.getTime() + (authUser.kiosk ? KIOSK_SESSION_MAX_AGE_MS : SESSION_MAX_AGE_MS)),
+      expiresAt: new Date(at.getTime() + FAR_FUTURE_MS),
       ip: client.ip,
       userAgent: client.userAgent,
+      remember,
     });
-    await audit.write({ userId: user.id, action: 'auth.login', entity: 'user', entityId: user.id, ip: client.ip });
+    await audit.write({ userId: user.id, action: 'auth.login', entity: 'user', entityId: user.id, diff: { remember }, ip: client.ip });
 
-    return { token, sessionId, user: authUser };
+    const deadline = sessionDeadline(at, admin, settings);
+    return { token, sessionId, user: authUser, remember, admin, adminMaxHours: admin ? settings.adminMaxHours : null, expiresAt: deadline };
   }
 
   /**
-   * Проверяет токен из cookie. Неактивную или истёкшую сессию закрывает.
-   * background — фоновый запрос страницы (опрос по таймеру, заголовок X-Background: 1): сессию не продлевает,
-   * иначе открытая вкладка не завершалась бы по бездействию никогда (релиз 1.2.0, ADR-0023). Киоск продлевается всегда.
+   * Проверяет токен из cookie. Истёкшую по сроку сессию закрывает; по бездействию сессия не завершается (1.10.0).
+   * background — фоновый запрос страницы (опрос по таймеру, X-Background: 1): «последнюю активность» не обновляет —
+   * в «Моих сессиях» это время действий человека. Монитор обновляется всегда (его страница — только фоновая).
+   * refreshCookie — активность обновлена у сессии «Запомнить меня»: cookie выдаётся заново, Max-Age — от этого запроса.
    */
   async function resolveSession(token: string, client: ClientInfo, opts: { background?: boolean } = {}) {
     const sessionId = sessionIdFromToken(token);
@@ -181,7 +216,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     if (!session || session.revokedAt) return null;
 
     const at = now();
-    const expire = async (reason: 'idle' | 'max_age') => {
+    const expire = async (reason: 'max_age' | 'admin_max_age') => {
       await repo.revokeSession(sessionId, at);
       await audit.write({
         userId: session.userId, action: 'auth.session_expired', entity: 'session', entityId: sessionId.slice(0, 12),
@@ -189,8 +224,8 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       });
       return null;
     };
+    // Сессия до 1.10.0: свой срок (вход + 12 часов).
     if (at.getTime() >= session.expiresAt.getTime()) return expire('max_age');
-    const idle = at.getTime() - session.lastSeenAt.getTime() > SESSION_IDLE_MS;
 
     const user = await repo.findUserById(session.userId);
     if (!user || !user.isActive) {
@@ -198,11 +233,11 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       return null;
     }
     const authUser = await toAuthUser(user);
-    // Настенный монитор не завершается по бездействию (только абсолютный срок, 12 часов),
-    // но работает только с разрешённого адреса: перенесённая на другой ПК сессия закрывается.
-    if (!authUser.kiosk && idle) return expire('idle');
-    // 7 суток — только у монитора: если роль сняли, а сессия ещё открыта, действует общий предел 12 часов.
-    if (!authUser.kiosk && at.getTime() - session.createdAt.getTime() >= SESSION_MAX_AGE_MS) return expire('max_age');
+    // Срок — по текущим правам: выданное посреди сессии право администратора сразу ограничивает её срок.
+    const admin = isSessionAdmin(authUser);
+    const deadline = sessionDeadline(session.createdAt, admin, await repo.getSessionSettings());
+    if (deadline && at.getTime() >= deadline.getTime()) return expire(admin ? 'admin_max_age' : 'max_age');
+    // Монитор работает только с разрешённого адреса: перенесённая на другой ПК сессия закрывается.
     if (authUser.kiosk && !kioskIpAllowed(client.ip)) {
       await repo.revokeSession(sessionId, at);
       await audit.write({
@@ -213,6 +248,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     }
     // Права читаются на каждом запросе: выданная уже вошедшему пользователю роль администратора с чужого адреса
     // не открывает администрирование — сессия закрывается.
+    // ADR-0015: settings.manage и users.manage — шире, чем «администратор» для срока сессии (без settings.manage).
     if (isAdmin(authUser) && !adminIpAllowed(client.ip)) {
       await repo.revokeSession(sessionId, at);
       await audit.write({
@@ -222,14 +258,14 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
       return null;
     }
 
-    let lastSeen = session.lastSeenAt;
-    if ((authUser.kiosk || !opts.background) && at.getTime() - lastSeen.getTime() >= SESSION_TOUCH_INTERVAL_MS) {
+    let touched = false;
+    if ((authUser.kiosk || !opts.background) && at.getTime() - session.lastSeenAt.getTime() >= SESSION_TOUCH_INTERVAL_MS) {
       await repo.touchSession(sessionId, at);
-      lastSeen = at;
+      touched = true;
     }
-    // Сколько осталось до завершения по бездействию: frontend предупреждает за 2 минуты. У киоска — не ограничено.
-    const idleRemainingMs = authUser.kiosk ? null : Math.max(0, SESSION_IDLE_MS - (at.getTime() - lastSeen.getTime()));
-    return { sessionId, user: authUser, idleRemainingMs };
+    // Администратор после выдачи права посреди сессии: постоянную cookie больше не продлеваем.
+    const remember = session.remember && !admin;
+    return { sessionId, user: authUser, remember, refreshCookie: touched && remember };
   }
 
   async function logout(sessionId: string, userId: string, client: ClientInfo) {
@@ -268,14 +304,103 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
 
     const at = now();
     await repo.changePassword(user.id, await hasher.hash(input.newPassword), user.passwordHash, at);
-    await repo.revokeOtherSessions(user.id, input.sessionId, at);
-    await audit.write({ userId: user.id, action: 'auth.password_changed', entity: 'user', entityId: user.id, ip: client.ip });
+    const closed = await repo.revokeOtherSessions(user.id, input.sessionId, at);
+    await audit.write({ userId: user.id, action: 'auth.password_changed', entity: 'user', entityId: user.id, diff: { sessionsClosed: closed }, ip: client.ip });
 
     const updated = await repo.findUserById(user.id);
     return toAuthUser(updated ?? { ...user, mustChangePassword: false, passwordChangedAt: at });
   }
 
-  return { login, resolveSession, logout, changePassword };
+  // ---------------------------------------------------------------- «Мои сессии» и сессии пользователя (1.10.0)
+
+  /** Открытые и не истёкшие сессии пользователя; истёкшие, но ещё не закрытые, не показываются (закроются при обращении). */
+  async function openSessionsOf(user: UserRecord, currentSessionId: string | null): Promise<SessionView[]> {
+    const admin = isSessionAdmin(await toAuthUser(user));
+    const settings = await repo.getSessionSettings();
+    const at = now().getTime();
+    const out: SessionView[] = [];
+    for (const s of await repo.listOpenSessions(user.id)) {
+      const deadline = deadlineOf(s, admin, settings);
+      if (deadline && deadline.getTime() <= at) continue;
+      out.push(viewOf(s, s.id === currentSessionId, admin, deadline));
+    }
+    return out;
+  }
+  const viewOf = (s: SessionInfo, current: boolean, admin: boolean, deadline: Date | null): SessionView => ({
+    id: s.publicId, current, createdAt: s.createdAt.toISOString(), lastSeenAt: s.lastSeenAt.toISOString(),
+    ip: s.ip, userAgent: s.userAgent, remember: s.remember && !admin, expiresAt: deadline?.toISOString() ?? null,
+  });
+
+  async function userOrNotFound(userId: string): Promise<UserRecord> {
+    const user = await repo.findUserById(userId);
+    if (!user) throw new AppError(404, 'NOT_FOUND', 'Пользователь не найден');
+    return user;
+  }
+
+  /** «Мои сессии»: текущая отмечена. */
+  async function mySessions(userId: string, currentSessionId: string) {
+    const user = await userOrNotFound(userId);
+    const settings = await repo.getSessionSettings();
+    const admin = isSessionAdmin(await toAuthUser(user));
+    return { items: await openSessionsOf(user, currentSessionId), admin, adminMaxHours: settings.adminMaxHours, maxDays: settings.maxDays };
+  }
+
+  /** Завершить свою сессию (не текущую: для неё — «Выйти»). Чужая или закрытая — 404. */
+  async function revokeMySession(userId: string, currentSessionId: string, publicId: string, client: ClientInfo) {
+    const open = await repo.listOpenSessions(userId);
+    const target = open.find((s) => s.publicId === publicId);
+    if (!target) throw new AppError(404, 'NOT_FOUND', 'Сессия не найдена или уже завершена');
+    if (target.id === currentSessionId) throw new AppError(409, 'CURRENT_SESSION', 'Это текущая сессия: чтобы её завершить, нажмите «Выйти»');
+    await repo.revokeSessionByPublicId(userId, publicId, now());
+    await audit.write({
+      userId, action: 'auth.session_revoked', entity: 'session', entityId: publicId,
+      diff: { summary: 'Своя сессия завершена', userAgent: target.userAgent, ip: target.ip }, ip: client.ip,
+    });
+  }
+
+  /** «Завершить все, кроме текущей». */
+  async function revokeMyOtherSessions(userId: string, currentSessionId: string, client: ClientInfo) {
+    const closed = await repo.revokeOtherSessions(userId, currentSessionId, now());
+    await audit.write({
+      userId, action: 'auth.sessions_revoked_others', entity: 'user', entityId: userId,
+      diff: { summary: `Завершены остальные сессии: ${closed}`, count: closed }, ip: client.ip,
+    });
+    return { revoked: closed };
+  }
+
+  /** Сессии другого пользователя (users.manage проверяет маршрут). */
+  async function userSessions(userId: string) {
+    const user = await userOrNotFound(userId);
+    return { items: await openSessionsOf(user, null) };
+  }
+
+  /** Администратор завершает одну сессию пользователя или все (publicId = null). */
+  async function revokeUserSessions(actor: { id: string; sessionId: string | null }, userId: string, publicId: string | null, client: ClientInfo) {
+    const user = await userOrNotFound(userId);
+    const at = now();
+    let closed: number;
+    if (publicId) {
+      if (!(await repo.revokeSessionByPublicId(userId, publicId, at))) throw new AppError(404, 'NOT_FOUND', 'Сессия не найдена или уже завершена');
+      closed = 1;
+    } else {
+      // Свою текущую сессию администратор этим не закрывает: для неё — «Выйти».
+      closed = await repo.revokeOtherSessions(userId, userId === actor.id ? actor.sessionId : null, at);
+    }
+    await audit.write({
+      userId: actor.id, action: 'user.sessions_revoked', entity: 'user', entityId: userId,
+      diff: {
+        summary: `Пользователи: ${user.fullName} (${user.login}) — завершено сессий: ${closed}`,
+        count: closed, ...(publicId ? { sessionId: publicId } : { all: true }),
+      },
+      ip: client.ip,
+    });
+    return { revoked: closed };
+  }
+
+  return {
+    login, resolveSession, logout, changePassword,
+    mySessions, revokeMySession, revokeMyOtherSessions, userSessions, revokeUserSessions,
+  };
 }
 
 export type AuthService = ReturnType<typeof createAuthService>;

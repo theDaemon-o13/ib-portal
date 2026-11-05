@@ -1,10 +1,9 @@
-// Настенный монитор по настоящему маршруту (релиз 1.2.0, ADR-0023): фоновый опрос не продлевает сессии людей,
-// но киоск не завершается по бездействию — после 31 минуты без действий слайды приходят; чужой адрес — нет.
+// Настенный монитор по настоящему маршруту (ADR-0012, ADR-0023): с 1.10.0 сессии не завершаются по бездействию ни у
+// монитора, ни у людей; при снятии роли у пользователя или права с роли закрываются все его сессии (не только монитора).
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
 import { parseIpList } from '../../lib/ip-list.js';
 import { argon2Hasher } from '../../lib/passwords.js';
-import { SESSION_IDLE_MS } from '../../lib/session-token.js';
 import { actorFor, inTx, makeUser, type Tx } from '../../test/db.js';
 import { FakeClock, TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { prismaAuditWriter } from '../audit/audit.js';
@@ -17,7 +16,7 @@ const NGINX = '172.31.250.6';
 const WALL = '10.20.30.40';
 
 describe('сессия настенного монитора', () => {
-  it('после 31 минуты одного фонового опроса /monitor отвечает слайдами; у сотрудника ИБ так же — 401', () =>
+  it('после 31 минуты одного фонового опроса /monitor отвечает слайдами; сессия сотрудника ИБ тоже жива (1.10.0)', () =>
     inTx(async (tx) => {
       const hash = await argon2Hasher.hash(PASSWORD);
       const wall = await makeUser(tx, ['kiosk'], { passwordHash: hash });
@@ -43,12 +42,12 @@ describe('сессия настенного монитора', () => {
       const slides = await app.inject({ url: '/api/v1/monitor', ...via({ cookie: K, 'x-background': '1' }) });
       expect(slides.statusCode).toBe(200);
       expect(Array.isArray(slides.json().slides)).toBe(true);
-      expect(SESSION_IDLE_MS).toBeLessThan(31 * 60_000);
-      expect((await app.inject({ url: '/api/v1/monitor', ...via({ cookie: S, 'x-background': '1' }) })).statusCode).toBe(401);
+      // Сотруднику ИБ монитор закрыт (403), но сессия жива: по бездействию она больше не завершается.
+      expect((await app.inject({ url: '/api/v1/auth/me', ...via({ cookie: S, 'x-background': '1' }) })).statusCode).toBe(200);
     }));
 });
 
-describe('сессии монитора закрываются при снятии роли или права (7 суток только у монитора)', () => {
+describe('сессии закрываются при снятии роли у пользователя или права с роли (1.10.0 — у любого пользователя)', () => {
   async function wallWithSession(tx: Tx) {
     const wall = await makeUser(tx, ['kiosk']);
     const admin = await actorFor(tx, (await makeUser(tx, ['super_admin'])).id);
@@ -76,6 +75,43 @@ describe('сессии монитора закрываются при сняти
       await setRolePermission(tx, x.admin, role.id, 'monitor.kiosk', false);
       expect(await x.open()).toBe(0);
       const log = await tx.auditLog.findFirstOrThrow({ where: { action: 'role.permission.revoked', entityId: role.id } });
-      expect((log.diff as { summary: string }).summary).toMatch(/закрыто сессий монитора: 1/);
+      expect((log.diff as { summary: string }).summary).toMatch(/закрыто сессий: 1/);
+    }));
+
+  it('сняли роль у сотрудника ИБ — все его сессии закрыты, в журнале — число; добавили роль — нет', () =>
+    inTx(async (tx) => {
+      const staff = await makeUser(tx, ['ib_staff', 'ib_head']);
+      const admin = await actorFor(tx, (await makeUser(tx, ['super_admin'])).id);
+      for (const n of [1, 2]) await tx.session.create({ data: { id: `s${n}-${staff.id}`, userId: staff.id, expiresAt: new Date(Date.now() + 86_400_000) } });
+      const open = () => tx.session.count({ where: { userId: staff.id, revokedAt: null } });
+      const roles = await tx.role.findMany({ where: { code: { in: ['ib_staff', 'ib_head', 'soc'] } } });
+      const id = (code: string) => roles.find((r) => r.code === code)?.id as string;
+      const u = await updateUser(tx, admin, staff.id, { version: staff.version, roleIds: [id('ib_staff'), id('ib_head'), id('soc')] });
+      expect(await open()).toBe(2);
+      await updateUser(tx, admin, staff.id, { version: u.version, roleIds: [id('ib_staff')] });
+      expect(await open()).toBe(0);
+      const log = await tx.auditLog.findFirstOrThrow({ where: { action: 'user.updated', entityId: staff.id }, orderBy: { id: 'desc' } });
+      expect((log.diff as { summary: string }).summary).toMatch(/закрыто сессий: 2/);
+    }));
+
+  it('сняли право с роли — сессии всех её держателей закрыты, кроме текущей сессии того, кто снял', () =>
+    inTx(async (tx) => {
+      const holder = await makeUser(tx, ['ib_staff']);
+      const adminUser = await makeUser(tx, ['super_admin']);
+      const role = await tx.role.create({ data: { code: `r_${holder.id.slice(0, 8)}`, name: `Роль ${holder.id.slice(0, 8)}`, permissions: { create: [{ permissionCode: 'records.edit' }, { permissionCode: 'ib.work' }] } } });
+      await tx.userRole.createMany({ data: [{ userId: holder.id, roleId: role.id }, { userId: adminUser.id, roleId: role.id }] });
+      const expiresAt = new Date(Date.now() + 86_400_000);
+      await tx.session.createMany({ data: [
+        { id: `h-${holder.id}`, userId: holder.id, expiresAt },
+        { id: `cur-${adminUser.id}`, userId: adminUser.id, expiresAt },
+        { id: `old-${adminUser.id}`, userId: adminUser.id, expiresAt },
+      ] });
+      const admin = { ...(await actorFor(tx, adminUser.id)), sessionId: `cur-${adminUser.id}` };
+      await setRolePermission(tx, admin, role.id, 'records.edit', false);
+      const openIds = (await tx.session.findMany({ where: { userId: { in: [holder.id, adminUser.id] }, revokedAt: null }, select: { id: true } })).map((x) => x.id);
+      expect(openIds).toEqual([`cur-${adminUser.id}`]);
+      // Выдача права сессий не закрывает.
+      await setRolePermission(tx, admin, role.id, 'records.edit', true);
+      expect(await tx.session.count({ where: { id: `cur-${adminUser.id}`, revokedAt: null } })).toBe(1);
     }));
 });

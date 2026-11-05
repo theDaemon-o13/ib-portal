@@ -5,7 +5,6 @@ import { wasExpired } from '../auth/session';
 import { useMe } from '../auth/useMe';
 import { canSee, homePath, isKiosk, NAV, type NavItem } from '../nav';
 import { MonitorPage } from '../pages/monitor/MonitorPage';
-import { SessionWatch } from './SessionWatch';
 import { Shell } from './Shell';
 
 function Loading() {
@@ -20,8 +19,7 @@ export function RequireUser({ children }: { children: (me: Me) => ReactNode }) {
   if (isError) return <div className="loading">Сервер недоступен. Обновите страницу позже</div>;
   // Вернуть после входа на ту же страницу — с параметрами (/tasks?task=…).
   if (!me) return <Navigate to="/login" replace state={{ from: location.pathname + location.search, expired: wasExpired() }} />;
-  // Предупреждение о завершении по бездействию; у настенного монитора бездействия нет (ADR-0012).
-  return <>{children(me)}{!isKiosk(me.permissions) && <SessionWatch />}</>;
+  return <>{children(me)}</>;
 }
 
 export function ProtectedShell() {

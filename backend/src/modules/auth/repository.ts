@@ -1,4 +1,5 @@
 import type { PermissionCode } from '../../lib/permissions.js';
+import type { SessionSettings } from '../../lib/session-token.js';
 
 export interface UserRecord {
   id: string;
@@ -19,6 +20,15 @@ export interface SessionRecord {
   lastSeenAt: Date;
   expiresAt: Date;
   revokedAt: Date | null;
+  /** «Запомнить меня»: постоянная cookie (1.10.0). */
+  remember: boolean;
+}
+
+/** Открытая сессия для «Моих сессий» и карточки пользователя: id — хэш токена, наружу отдаётся publicId. */
+export interface SessionInfo extends SessionRecord {
+  publicId: string;
+  ip: string | null;
+  userAgent: string | null;
 }
 
 export interface NewSession {
@@ -28,6 +38,7 @@ export interface NewSession {
   expiresAt: Date;
   ip: string | null;
   userAgent: string | null;
+  remember: boolean;
 }
 
 export interface AuthRepository {
@@ -43,7 +54,14 @@ export interface AuthRepository {
   findSession(id: string): Promise<SessionRecord | null>;
   touchSession(id: string, at: Date): Promise<void>;
   revokeSession(id: string, at: Date): Promise<void>;
-  revokeOtherSessions(userId: string, keepSessionId: string | null, at: Date): Promise<void>;
+  /** Закрывает все открытые сессии пользователя, кроме keepSessionId; возвращает число закрытых. */
+  revokeOtherSessions(userId: string, keepSessionId: string | null, at: Date): Promise<number>;
+  /** Открытые (не закрытые) сессии пользователя, новые сверху. */
+  listOpenSessions(userId: string): Promise<SessionInfo[]>;
+  /** Закрывает открытую сессию пользователя по publicId; false — такой открытой сессии у него нет. */
+  revokeSessionByPublicId(userId: string, publicId: string, at: Date): Promise<boolean>;
+  /** Параметр «Параметров портала» auth.session (по умолчанию — если строки нет или она неверна). */
+  getSessionSettings(): Promise<SessionSettings>;
 
   /** Хэши прошлых паролей, от новых к старым. */
   getPasswordHistory(userId: string, limit: number): Promise<string[]>;

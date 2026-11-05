@@ -6,6 +6,8 @@ import type { AuthUser } from '../../types.js';
 export const LoginBody = z.object({
   login: z.string().trim().min(1).max(100),
   password: z.string().min(1).max(PASSWORD_MAX_LENGTH * 4),
+  /** «Запомнить меня» (1.10.0): постоянная сессия; у администраторов не действует. Не передано — нет. */
+  remember: z.boolean().optional(),
 });
 
 export const ChangePasswordBody = z.object({
@@ -28,6 +30,29 @@ export const Me = z.object({
 });
 
 export const MeResponse = z.object({ user: Me });
+
+/** Ответ входа: пользователь и какая сессия открыта (1.10.0). */
+export const LoginResponse = MeResponse.extend({
+  session: z.object({
+    remember: z.boolean(),
+    /** Администратор (users.manage или «Администратор портала»): «Запомнить меня» не действует, срок — adminMaxHours. */
+    admin: z.boolean(),
+    adminMaxHours: z.number().int().nullable(),
+    /** До какого времени живёт сессия; null — бессрочно. */
+    expiresAt: z.string().nullable(),
+  }),
+});
+
+export const SessionItem = z.object({
+  id: z.string().uuid(),
+  current: z.boolean(),
+  createdAt: z.string(),
+  lastSeenAt: z.string(),
+  ip: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  remember: z.boolean(),
+  expiresAt: z.string().nullable(),
+});
 
 export function toMe(user: AuthUser): z.infer<typeof Me> {
   return {

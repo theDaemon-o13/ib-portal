@@ -7,6 +7,7 @@ import { ReadOnlyNote } from '../../components/LockIcon';
 import { ConfirmDialog, type ConfirmAsk } from './ConfirmDialog';
 import { formatDateTime, initials } from './logic';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
+import { UserSessionsDialog } from './UserSessionsDialog';
 import { keys, useAction } from './useAction';
 
 interface Draft {
@@ -71,6 +72,8 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
   const [add, setAdd] = useState<Draft>(empty);
   const [shown, setShown] = useState<{ title: string; result: WithTemporaryPassword } | null>(null);
   const [ask, setAsk] = useState<ConfirmAsk | null>(null);
+  // «Сессии» пользователя (1.10.0): открытые сессии и «Завершить».
+  const [sessionsOf, setSessionsOf] = useState<{ id: string; fullName: string } | null>(null);
 
   const invalidate = [keys.users, keys.roles, keys.userOptions, keys.journal, ['auth', 'me']];
   const create = useAction(() => settingsApi.createUser({ ...add, login: add.login.trim(), managerId: add.managerId || null }), {
@@ -244,6 +247,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                             roleIds: u.roles.map((r) => r.id), managerId: u.manager?.id ?? '',
                           });
                         }}>Изменить</button>
+                        <button className="btn ghost sm" type="button" onClick={() => setSessionsOf({ id: u.id, fullName: u.fullName })}>Сессии</button>
                         {u.locked && <button className="btn ghost sm" type="button" onClick={() => unlock.mutate(u)} disabled={unlock.isPending}>Разблокировать</button>}
                         {!self && u.isActive && <button className="btn ghost sm" type="button" onClick={() => reset.mutate(u)} disabled={reset.isPending}>Сбросить пароль</button>}
                         {!self && (
@@ -284,6 +288,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
         </div>
       </div>
       {ask && <ConfirmDialog ask={ask} busy={ibHead.isPending || toggleActive.isPending} onClose={() => setAsk(null)} />}
+      {sessionsOf && <UserSessionsDialog user={sessionsOf} onClose={() => setSessionsOf(null)} />}
       {shown && (
         <TemporaryPasswordDialog
           title={shown.title}

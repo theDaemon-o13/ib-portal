@@ -38,6 +38,8 @@ export function LoginPage() {
   const [login, setLogin] = useState(remembered);
   const [remember, setRemember] = useState(remembered !== '');
   const [password, setPassword] = useState('');
+  // «Запомнить меня» (1.10.0): сессия без срока и переживает закрытие браузера; по умолчанию включена.
+  const [stay, setStay] = useState(true);
 
   const mutation = useMutation({
     mutationFn: authApi.login,
@@ -57,18 +59,18 @@ export function LoginPage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    mutation.mutate({ login, password });
+    mutation.mutate({ login, password, remember: stay });
   };
 
   return (
     <div className="auth-wrap">
       <div>
-        <form className="panel auth-card form" onSubmit={submit} noValidate>
+        <form className="panel auth-card form" method="post" onSubmit={submit} noValidate>
           <Brand />
           <h1>Вход</h1>
           {expired && (
             <div className="note" role="status">
-              Сессия завершилась: 30 минут без действий. Войдите снова — откроем ту же страницу.
+              Сессия завершена. Войдите снова — откроем ту же страницу.
             </div>
           )}
           <label>
@@ -79,9 +81,14 @@ export function LoginPage() {
           <PasswordInput label="Пароль" name="password" autoComplete="current-password" autoFocus={!!remembered} required
             value={password} onChange={(e) => setPassword(e.target.value)} />
           <label className="check">
+            <input type="checkbox" name="remember-me" checked={stay} onChange={(e) => setStay(e.target.checked)} />
+            Запомнить меня
+          </label>
+          <label className="check">
             <input type="checkbox" name="remember-login" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
             Запомнить логин
           </label>
+          <p className="hint">У администраторов портала сессия ограничена по времени: «Запомнить меня» для них не действует.</p>
           {mutation.isError && <p className="form-error" role="alert">{errorText(mutation.error)}</p>}
           <button className="btn primary" type="submit" disabled={mutation.isPending || !login || !password}>
             {mutation.isPending ? 'Входим…' : 'Войти'}

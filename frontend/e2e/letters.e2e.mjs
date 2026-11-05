@@ -186,7 +186,11 @@ describe('Учебные письма: от правила до «Отправл
     ids.letters.add(letterId);
 
     // Черновик из шаблона: переменные в тексте — на согласование нельзя; заполнить в редакторе.
+    // Карточка задачи перерисовывается после «Взять себе» (исполнитель, кнопки): щелчок по ссылке во время
+    // перерисовки мог прийтись мимо (нестабильный сбой полного прогона 1.10.0). Ждём исполнителя в карточке и смену адреса.
+    await ui.waitFor(`${drawer}?.textContent.includes(${JSON.stringify(users.staff.fullName)}) && !!${drawer}.querySelector('[data-testid=task-origin] a')`, 'исполнитель в карточке задачи');
     await ui.click(`${drawer}.querySelector('[data-testid=task-origin] a')`, 'ссылка на письмо');
+    await ui.waitFor(`location.search.includes(${JSON.stringify(letterId)})`, 'адрес письма');
     await ui.waitFor(`!!${panel}?.querySelector('.aw-doc')`, 'карточка письма');
     assert.equal(await ui.evaluate(statusChip), 'Черновик');
     await ui.click($.button('На согласование', panel));

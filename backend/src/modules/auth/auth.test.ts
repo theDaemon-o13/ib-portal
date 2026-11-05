@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildApp, type App } from '../../app.js';
 import { createPrisma } from '../../lib/db.js';
 import { LOCK_DURATION_MS } from '../../lib/lockout.js';
-import { SESSION_IDLE_MS } from '../../lib/session-token.js';
+import { REMEMBER_COOKIE_MAX_AGE_S, SESSION_TOUCH_INTERVAL_MS } from '../../lib/session-token.js';
 import { FakeClock, TEST_PORTAL_URL, TEST_SECRET, fakeHasher } from '../../test/helpers.js';
 import { MemoryAuditWriter } from '../audit/audit.js';
 import { MemoryAuthRepository } from './repository.memory.js';
@@ -25,9 +25,13 @@ beforeEach(async () => {
   app = await buildApp({ db: createPrisma('postgresql://unit:test@127.0.0.1:1/none'), repo, audit, hasher, sessionSecret: TEST_SECRET, portalUrl: TEST_PORTAL_URL, now: clock.now });
 });
 
-async function login(loginName: string, password: string) {
-  return app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: loginName, password } });
+async function login(loginName: string, password: string, remember?: boolean) {
+  return app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { login: loginName, password, ...(remember === undefined ? {} : { remember }) } });
 }
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+const me = (cookie: string, extra: Record<string, string> = {}) => app.inject({ url: '/api/v1/auth/me', headers: { cookie, ...extra } });
 
 function sessionCookie(res: Awaited<ReturnType<typeof login>>): string {
   const c = res.cookies.find((x) => x.name === 'ib_session');
@@ -87,35 +91,111 @@ describe('вход и сессия', () => {
     expect(repo.users.get('u1')?.failedLoginCount).toBe(0);
   });
 
-  it('неактивная сессия закрывается через 30 минут', async () => {
-    const cookie = sessionCookie(await login('ivanov', PASSWORD));
-    clock.advance(SESSION_IDLE_MS - 1000);
-    expect((await app.inject({ url: '/api/v1/auth/me', headers: { cookie } })).statusCode).toBe(200);
-    clock.advance(SESSION_IDLE_MS + 1);
-    expect((await app.inject({ url: '/api/v1/auth/me', headers: { cookie } })).statusCode).toBe(401);
-    expect(audit.actions()).toContain('auth.session_expired');
+  it('«Запомнить меня»: постоянная cookie, сессия жива через 30 дней без активности и после перезапуска браузера', async () => {
+    const res = await login('ivanov', PASSWORD, true);
+    expect(res.json().session).toEqual({ remember: true, admin: false, adminMaxHours: null, expiresAt: null });
+    const c = res.cookies.find((x) => x.name === 'ib_session');
+    expect(c).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', maxAge: REMEMBER_COOKIE_MAX_AGE_S });
+    const cookie = sessionCookie(res);
+    clock.advance(30 * DAY);
+    // «Перезапуск браузера»: тот же токен из постоянной cookie, нового входа нет.
+    expect((await me(cookie)).statusCode).toBe(200);
+    clock.advance(200 * DAY);
+    expect((await me(cookie)).statusCode).toBe(200);
+    expect(audit.actions()).not.toContain('auth.session_expired');
   });
 
-  it('фоновые запросы (X-Background: 1) не продлевают сессию; действие пользователя продлевает; остаток — в X-Session-Idle-Ms', async () => {
-    const cookie = sessionCookie(await login('ivanov', PASSWORD));
-    const bg = { cookie, 'x-background': '1' };
-    clock.advance(20 * 60_000);
-    const polled = await app.inject({ url: '/api/v1/auth/me', headers: bg });
-    expect(polled.statusCode).toBe(200);
-    expect(Number(polled.headers['x-session-idle-ms'])).toBe(SESSION_IDLE_MS - 20 * 60_000);
-    clock.advance(9 * 60_000);
-    expect((await app.inject({ url: '/api/v1/auth/me', headers: bg })).statusCode).toBe(200);
-    // Действие пользователя (без заголовка) продлевает: снова 30 минут.
-    const active = await app.inject({ url: '/api/v1/auth/me', headers: { cookie } });
-    expect(Number(active.headers['x-session-idle-ms'])).toBe(SESSION_IDLE_MS);
-    // 31 минута одних фоновых запросов — сессия закрыта по бездействию.
-    for (let i = 0; i < 31; i++) {
-      clock.advance(60_000);
-      const r = await app.inject({ url: '/api/v1/auth/me', headers: bg });
-      if (i < 29) expect(r.statusCode).toBe(200);
-    }
-    expect((await app.inject({ url: '/api/v1/auth/me', headers: bg })).statusCode).toBe(401);
-    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'idle' } });
+  it('без галочки — cookie до закрытия браузера, по бездействию сессия не завершается', async () => {
+    const res = await login('ivanov', PASSWORD, false);
+    const c = res.cookies.find((x) => x.name === 'ib_session');
+    expect(c?.maxAge).toBeUndefined();
+    expect(c?.expires).toBeUndefined();
+    const cookie = sessionCookie(res);
+    clock.advance(3 * HOUR);
+    expect((await me(cookie)).statusCode).toBe(200);
+    clock.advance(40 * DAY);
+    expect((await me(cookie)).statusCode).toBe(200);
+    // Заголовка с остатком до завершения по бездействию больше нет.
+    expect((await me(cookie)).headers['x-session-idle-ms']).toBeUndefined();
+  });
+
+  it('параметр maxDays > 0 закрывает сессию старше N дней — и открытую до изменения параметра', async () => {
+    const before = sessionCookie(await login('ivanov', PASSWORD, true));
+    clock.advance(5 * DAY);
+    repo.sessionSettings = { maxDays: 7, adminMaxHours: 12 };
+    const after = sessionCookie(await login('ivanov', PASSWORD, true));
+    clock.advance(2 * DAY - 1000);
+    expect((await me(before)).statusCode).toBe(200);
+    clock.advance(1000);
+    expect((await me(before)).statusCode).toBe(401);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'max_age' } });
+    expect((await me(after)).statusCode).toBe(200);
+    clock.advance(5 * DAY);
+    expect((await me(after)).statusCode).toBe(401);
+  });
+
+  it('администратор (users.manage): галочка не действует, сессия — 12 часов от входа, параметр меняет срок', async () => {
+    repo.addUser({ id: 'a1', login: 'admin', passwordHash: `hash:${PASSWORD}` }, ['users.manage', 'settings.manage']);
+    const res = await login('admin', PASSWORD, true);
+    expect(res.json().session).toMatchObject({ remember: false, admin: true, adminMaxHours: 12 });
+    expect(res.cookies.find((x) => x.name === 'ib_session')?.maxAge).toBeUndefined();
+    expect([...repo.sessions.values()].at(-1)?.remember).toBe(false);
+    const cookie = sessionCookie(res);
+    clock.advance(12 * HOUR - 1000);
+    expect((await me(cookie)).statusCode).toBe(200);
+    clock.advance(1000);
+    expect((await me(cookie)).statusCode).toBe(401);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'admin_max_age' } });
+
+    repo.sessionSettings = { maxDays: 0, adminMaxHours: 2 };
+    const short = sessionCookie(await login('admin', PASSWORD, true));
+    clock.advance(2 * HOUR);
+    expect((await me(short)).statusCode).toBe(401);
+  });
+
+  it('служебная роль «Администратор портала» — тоже 12 часов без «Запомнить меня»', async () => {
+    repo.addUser({ id: 'p1', login: 'portal.admin', passwordHash: `hash:${PASSWORD}` }, ['settings.manage', 'users.manage']);
+    repo.roleCodes.set('p1', ['portal_admin']);
+    const res = await login('portal.admin', PASSWORD, true);
+    expect(res.json().session).toMatchObject({ remember: false, admin: true });
+    const cookie = sessionCookie(res);
+    clock.advance(12 * HOUR);
+    expect((await me(cookie)).statusCode).toBe(401);
+  });
+
+  it('право администратора выдано посреди сессии — срок 12 часов от входа действует сразу', async () => {
+    const cookie = sessionCookie(await login('ivanov', PASSWORD, true));
+    clock.advance(13 * HOUR);
+    expect((await me(cookie)).statusCode).toBe(200);
+    repo.permissions.set('u1', ['ib.work', 'users.manage']);
+    expect((await me(cookie)).statusCode).toBe(401);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.session_expired', diff: { reason: 'admin_max_age' } });
+  });
+
+  it('сессия до 1.10.0 (expires_at = вход + 12 часов) закрывается по своему сроку', async () => {
+    const cookie = sessionCookie(await login('ivanov', PASSWORD, true));
+    const s = [...repo.sessions.values()].at(-1);
+    if (!s) throw new Error('нет сессии');
+    s.expiresAt = new Date(s.createdAt.getTime() + 12 * HOUR);
+    clock.advance(12 * HOUR);
+    expect((await me(cookie)).statusCode).toBe(401);
+  });
+
+  it('последняя активность — не чаще раза в 5 минут; фоновые запросы её не трогают; постоянная cookie продлевается', async () => {
+    const cookie = sessionCookie(await login('ivanov', PASSWORD, true));
+    const s = [...repo.sessions.values()].at(-1);
+    const started = s?.lastSeenAt.getTime();
+    clock.advance(SESSION_TOUCH_INTERVAL_MS - 1000);
+    const early = await me(cookie);
+    expect(s?.lastSeenAt.getTime()).toBe(started);
+    expect(early.cookies.find((x) => x.name === 'ib_session')).toBeUndefined();
+    clock.advance(1000);
+    const bg = await me(cookie, { 'x-background': '1' });
+    expect(s?.lastSeenAt.getTime()).toBe(started);
+    expect(bg.cookies.find((x) => x.name === 'ib_session')).toBeUndefined();
+    const active = await me(cookie);
+    expect(s?.lastSeenAt.getTime()).toBe(clock.now().getTime());
+    expect(active.cookies.find((x) => x.name === 'ib_session')).toMatchObject({ maxAge: REMEMBER_COOKIE_MAX_AGE_S });
   });
 
   it('выход закрывает сессию', async () => {
@@ -163,6 +243,76 @@ describe('вход и сессия', () => {
       payload: { login: 'ivanov', password: PASSWORD },
     });
     expect(own.statusCode).toBe(200);
+  });
+});
+
+describe('«Мои сессии» и сессии пользователя (1.10.0)', () => {
+  const list = (cookie: string) => app.inject({ url: '/api/v1/auth/sessions', headers: { cookie } });
+
+  it('открытые сессии с отметкой текущей; в ответе public_id, не хэш токена', async () => {
+    await login('ivanov', PASSWORD, true);
+    const second = sessionCookie(await login('ivanov', PASSWORD, false));
+    const res = await list(second);
+    expect(res.statusCode).toBe(200);
+    const items = res.json().items as { id: string; current: boolean; remember: boolean }[];
+    expect(items).toHaveLength(2);
+    expect(items.filter((x) => x.current)).toHaveLength(1);
+    expect(items.find((x) => x.current)?.remember).toBe(false);
+    for (const x of items) {
+      expect(x.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(repo.sessions.has(x.id)).toBe(false);
+    }
+  });
+
+  it('«Завершить все, кроме текущей» и «Завершить» одну; текущую — 409, чужую — 404', async () => {
+    const first = sessionCookie(await login('ivanov', PASSWORD, true));
+    const second = sessionCookie(await login('ivanov', PASSWORD, true));
+    const third = sessionCookie(await login('ivanov', PASSWORD, true));
+    const items = (await list(third)).json().items as { id: string; current: boolean }[];
+    const current = items.find((x) => x.current);
+    if (!current) throw new Error('нет текущей');
+    expect((await app.inject({ method: 'POST', url: `/api/v1/auth/sessions/${current.id}/revoke`, headers: { cookie: third } })).statusCode).toBe(409);
+
+    repo.addUser({ id: 'u9', login: 'petrova', passwordHash: `hash:${PASSWORD}` }, ['ib.work']);
+    const foreign = sessionCookie(await login('petrova', PASSWORD, true));
+    const foreignId = ((await list(foreign)).json().items as { id: string }[])[0]?.id;
+    expect((await app.inject({ method: 'POST', url: `/api/v1/auth/sessions/${foreignId}/revoke`, headers: { cookie: third } })).statusCode).toBe(404);
+    expect((await me(foreign)).statusCode).toBe(200);
+
+    const other = items.find((x) => !x.current);
+    expect((await app.inject({ method: 'POST', url: `/api/v1/auth/sessions/${other?.id}/revoke`, headers: { cookie: third } })).statusCode).toBe(204);
+    expect(audit.actions()).toContain('auth.session_revoked');
+    const rest = await app.inject({ method: 'POST', url: '/api/v1/auth/sessions/revoke-others', headers: { cookie: third } });
+    expect(rest.json()).toEqual({ revoked: 1 });
+    expect((await me(first)).statusCode).toBe(401);
+    expect((await me(second)).statusCode).toBe(401);
+    expect((await me(third)).statusCode).toBe(200);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'auth.sessions_revoked_others', diff: { count: 1 } });
+  });
+
+  it('администратор users.manage видит и завершает одну и все сессии пользователя; без права — 403, нет пользователя — 404', async () => {
+    const id = '00000000-0000-4000-8000-000000000001';
+    repo.addUser({ id, login: 'smirnov', passwordHash: `hash:${PASSWORD}` }, ['ib.work']);
+    repo.addUser({ id: '00000000-0000-4000-8000-0000000000a1', login: 'admin', passwordHash: `hash:${PASSWORD}` }, ['users.manage']);
+    const admin = sessionCookie(await login('admin', PASSWORD));
+    const a = sessionCookie(await login('smirnov', PASSWORD, true));
+    const b = sessionCookie(await login('smirnov', PASSWORD, false));
+    expect((await app.inject({ url: `/api/v1/users/${id}/sessions`, headers: { cookie: a } })).statusCode).toBe(403);
+    const seen = await app.inject({ url: `/api/v1/users/${id}/sessions`, headers: { cookie: admin } });
+    expect(seen.statusCode, seen.body).toBe(200);
+    const items = seen.json().items as { id: string; current: boolean }[];
+    expect(items).toHaveLength(2);
+    expect(items.every((x) => !x.current)).toBe(true);
+    const one = await app.inject({ method: 'POST', url: `/api/v1/users/${id}/sessions/${items[0]?.id}/revoke`, headers: { cookie: admin } });
+    expect(one.json()).toEqual({ revoked: 1 });
+    const all = await app.inject({ method: 'POST', url: `/api/v1/users/${id}/sessions/revoke-all`, headers: { cookie: admin } });
+    expect(all.json()).toEqual({ revoked: 1 });
+    expect((await me(a)).statusCode).toBe(401);
+    expect((await me(b)).statusCode).toBe(401);
+    expect((await me(admin)).statusCode).toBe(200);
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'user.sessions_revoked', entityId: id, diff: { count: 1, all: true } });
+    const missing = await app.inject({ url: '/api/v1/users/00000000-0000-4000-8000-0000000000ff/sessions', headers: { cookie: admin } });
+    expect(missing.statusCode).toBe(404);
   });
 });
 

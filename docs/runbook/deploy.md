@@ -282,6 +282,20 @@ docker compose down                                     # тома провер�
 - текстовое поле с ролью «измерение» показывается пустым распределением;
 - `smoke.sh` при `VERSION=1.7.0` системные объекты 1.8.0 не проверяет.
 
+### Выкладка 1.10.0 (сессии без повторного входа): обязательно с `migrate`
+
+Подробно — `RELEASE.md` 1.10.0: разделы «Для DevOps» и «Проверки по порядку выполнения» (`deploy/prechecks/1.10.0.md`).
+
+**Без `migrate` выкладывать нельзя.** Миграция одна, `sessions_remember`: колонки `remember` и `public_id` в `sessions`; без них backend 1.10.0 не открывает сессии (вход — ошибка). Существующие сессии не закрываются и доживают прежний срок (вход + 12 часов). Новых переменных `.env` нет.
+
+1. **Сборка (не на сервере):** `git checkout v1.10.0 && ./deploy/scripts/make-release.sh`. На сервер — `dist/ibportal-1.10.0.tar.gz` и `.sha256`.
+2. **До выкладки, на 1.9.0:** запросы из `RELEASE.md` — сколько строк в `sessions` и открытых сессий, сколько администраторов получат предел 12 часов.
+3. **На сервере:** проверка архива и `docker load`; `./scripts/smoke.sh --before`; `./scripts/backup.sh` — обязательно, нет копии — стоп; скопировать `docker-compose*.yml` и `scripts/*.sh` (в `smoke.sh` — проверка колонок сессий).
+4. `sed -i 's/^VERSION=.*/VERSION=1.10.0/' .env`, затем `docker compose --profile tools run --rm migrate`: применена миграция `..._sessions_remember`, «Seed выполнен: …».
+5. `docker compose up -d backend frontend`, `./scripts/smoke.sh --after` — строка «✓ сессии: колонки remember и public_id (sessions_remember)» и «Smoke-проверка пройдена»; `check-integrity` → «Целостность в порядке».
+
+**Откат на 1.9.0 — только код:** `sed -i 's/^VERSION=.*/VERSION=1.9.0/' .env` и `docker compose up -d backend frontend`. Колонки 1.9.0 не читает; сессии снова завершаются через 30 минут без действий и через 12 часов — пользователи войдут заново.
+
 ### Выкладка 1.9.0 (учебные письма, расписание рассылок): обязательно с `migrate`
 
 Подробно, с запросами «до» и «после», — раздел «Проверки по порядку выполнения» в `RELEASE.md` 1.9.0 (`deploy/prechecks/1.9.0.md`).

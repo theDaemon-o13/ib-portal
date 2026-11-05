@@ -247,6 +247,12 @@ select.inp{appearance:auto}
 .modal{width:min(460px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;border-radius:var(--r-xl);padding:22px;display:grid;gap:12px;background:var(--sheen),var(--glass-strong);box-shadow:inset 0 1px 0 var(--hl),var(--shadow-lg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .modal h2{margin:0;font-family:var(--f-display);font-size:19px;font-weight:700}
 .modal p{margin:0}
+/* Сессии (1.10.0): окно сессий пользователя шире обычного; ссылка «Профиль» в подвале меню. */
+.modal.wide{width:min(860px,100%)}
+a.me-t{color:inherit;text-decoration:none;border-radius:var(--r-sm)}
+a.me-t:hover b,a.me-t.active b{color:var(--accent-ink)}
+.sessions-tbl td b{display:block;min-width:0;overflow-wrap:anywhere}
+.sessions-tbl .chip{margin-top:4px}
 .temp-pass{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:var(--r-sm);background:var(--fill)}
 .temp-pass code{font-family:var(--f-mono);font-size:17px;letter-spacing:.06em;user-select:all;word-break:break-all}
 .temp-pass code.masked{user-select:none;color:var(--muted)}

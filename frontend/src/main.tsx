@@ -22,7 +22,7 @@ installInputTracking();
 // и проверка образа релиза (make-release.sh ищет коммит в сборке).
 document.documentElement.dataset.build = [BUILD.version, BUILD.commit, BUILD.date].filter(Boolean).join(' ');
 
-// Сессия истекла (30 минут без действий) — любой 401 возвращает на страницу входа.
+// Сессию закрыли (срок, «Завершить», смена пароля в другой вкладке) — любой 401 возвращает на страницу входа.
 const onApiError = (error: unknown) => {
   if (error instanceof ApiError && error.status === 401 && error.code !== 'INVALID_CREDENTIALS') {
     // Был вошедший пользователь — сессия завершилась посреди работы: вход объяснит и вернёт на ту же страницу.

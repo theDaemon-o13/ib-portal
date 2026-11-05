@@ -112,11 +112,15 @@ export async function hasKioskRole(db: Db, userId: string): Promise<boolean> {
 }
 
 /**
- * Сессии монитора живут 7 суток (ADR-0012): сняли роль или право «Настенный монитор» — открытые сессии этих
- * пользователей закрываются сразу, а не по общему пределу. Возвращает число закрытых сессий.
+ * Сессии живут долго (1.10.0, ADR-0023): сняли роль у пользователя или право с роли — все открытые сессии этих
+ * пользователей закрываются (права и так перечитываются на каждом запросе — это дополнительная мера). Текущая
+ * сессия того, кто снял (keepSessionId), остаётся: он сам только что это сделал. Возвращает число закрытых.
  */
-export async function revokeKioskSessions(db: Db, userIds: readonly string[]): Promise<number> {
+export async function revokeUserSessions(db: Db, userIds: readonly string[], keepSessionId: string | null = null): Promise<number> {
   if (!userIds.length) return 0;
-  const res = await db.session.updateMany({ where: { userId: { in: [...userIds] }, revokedAt: null }, data: { revokedAt: new Date() } });
+  const res = await db.session.updateMany({
+    where: { userId: { in: [...userIds] }, revokedAt: null, ...(keepSessionId ? { NOT: { id: keepSessionId } } : {}) },
+    data: { revokedAt: new Date() },
+  });
   return res.count;
 }

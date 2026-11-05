@@ -196,6 +196,10 @@ model Session {
   revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
   ip         String?
   userAgent  String?   @map("user_agent")
+  /// «Запомнить меня» (1.10.0, ADR-0023): постоянная cookie; у администраторов всегда false.
+  remember   Boolean   @default(false)
+  /// Идентификатор сессии в API («Мои сессии»): sessions.id — хэш токена, наружу не отдаётся.
+  publicId   String    @unique @default(dbgenerated("gen_random_uuid()")) @map("public_id") @db.Uuid
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 

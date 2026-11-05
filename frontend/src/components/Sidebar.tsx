@@ -75,10 +75,11 @@ export function Sidebar({ me }: { me: Me }) {
       <div className="rail-foot">
         <div className="me">
           <span className="av" aria-hidden="true">{initials(me.fullName)}</span>
-          <div className="me-t">
+          {/* «Профиль» и «Мои сессии» (1.10.0). */}
+          <NavLink className="me-t" to="/profile" title="Профиль и мои сессии">
             <b title={me.fullName}>{me.fullName}</b>
             <small>{me.login}</small>
-          </div>
+          </NavLink>
           <button type="button" className="btn ghost sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
             Выйти
           </button>

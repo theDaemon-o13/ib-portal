@@ -4,10 +4,10 @@ import { SERVICE_ROLE_CODE } from '../../lib/work-users.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import {
-  APPROVAL_PERMISSIONS, ASSESSMENT_PERMISSION, ASSESSMENT_ROLE, KIOSK_PERMISSION, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
+  APPROVAL_PERMISSIONS, ASSESSMENT_PERMISSION, ASSESSMENT_ROLE, PERMISSION_CODES, RETIRED_ROLE_CODES, SUPER_ADMIN_LOCKED, isPermissionCode, type PermissionCode,
 } from '../../lib/permissions.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
-import { assertIbHeadValid, assertKioskExclusive, assertServiceExclusive, serviceRoleLocked, assertUsersManageKept, lockRbac, revokeKioskSessions } from './invariant.js';
+import { assertIbHeadValid, assertKioskExclusive, assertServiceExclusive, serviceRoleLocked, assertUsersManageKept, lockRbac, revokeUserSessions } from './invariant.js';
 
 /** Коды прав из кода; строки прав до 1.2.0 (юрист, правление) остаются в БД до 1.3.0, в матрице их нет. */
 export async function listPermissions(db: Db) {
@@ -177,18 +177,18 @@ export async function setRolePermission(db: Db, actor: Actor, roleId: string, co
     if (granted) await assertKioskExclusive(tx);
     await assertServiceExclusive(tx);
     await assertIbHeadValid(tx);
-    // Сняли право «Настенный монитор» с роли — 7-суточные сессии её пользователей закрываются (ADR-0012).
+    // Сняли право с роли — все сессии её пользователей закрываются (1.10.0; раньше — только «Настенный монитор»).
     let closed = 0;
-    if (!granted && perm === KIOSK_PERMISSION) {
+    if (!granted) {
       const holders = await tx.userRole.findMany({ where: { roleId }, select: { userId: true } });
-      closed = await revokeKioskSessions(tx, holders.map((h) => h.userId));
+      closed = await revokeUserSessions(tx, holders.map((h) => h.userId), actor.sessionId ?? null);
     }
     const permName = (await tx.permission.findUnique({ where: { code: perm } }))?.name ?? perm;
     await auditSettings(tx, actor, {
       action: granted ? 'role.permission.granted' : 'role.permission.revoked',
       entity: 'role',
       entityId: roleId,
-      summary: `Роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»${closed ? `, закрыто сессий монитора: ${closed}` : ''}`,
+      summary: `Роль «${r.name}»: ${granted ? 'выдано' : 'снято'} право «${permName}»${closed ? `, закрыто сессий: ${closed}` : ''}`,
       after: { permission: perm, granted, ...(closed ? { sessionsClosed: closed } : {}) },
     });
     // Служебный администратор изменил права роли — держателям «Журнала действий» (ADR-0036).

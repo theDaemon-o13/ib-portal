@@ -13,7 +13,7 @@ import { isRetiredRole } from '../../lib/permissions.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
-import { assertIbHeadValid, assertKioskExclusive, assertServiceExclusive, assertUsersManageKept, hasKioskRole, lockRbac, revokeKioskSessions } from '../roles/invariant.js';
+import { assertIbHeadValid, assertKioskExclusive, assertServiceExclusive, assertUsersManageKept, lockRbac, revokeUserSessions } from '../roles/invariant.js';
 import { auditSettings, ensureVersioned, trimmed, type Actor } from '../settings/common.js';
 import { reassignReviewsOf } from '../tasks/reviewer.js';
 import { syncAllStageTasks } from '../documents/service.js';
@@ -208,7 +208,6 @@ export async function updateUser(
     }
     const beforeRoles = u.roles.map((r) => r.role);
     let afterRoles = beforeRoles;
-    const wasKiosk = input.roleIds !== undefined && await hasKioskRole(tx, id);
     if (input.roleIds !== undefined) {
       const next = await resolveRoles(tx, input.roleIds);
       const nextIds = new Set(next.map((r) => r.id));
@@ -221,8 +220,11 @@ export async function updateUser(
         afterRoles = next;
         changes.push(`роли ${roleList(beforeRoles)} → ${roleList(next)}`);
       }
-      // Сняли роль настенного монитора — его 7-суточные сессии закрываются сразу (ADR-0012).
-      if (wasKiosk && !(await hasKioskRole(tx, id)) && (await revokeKioskSessions(tx, [id]))) changes.push('сессии монитора закрыты');
+      // Сняли роль — все сессии пользователя закрываются (1.10.0; раньше — только у монитора, ADR-0012).
+      if (removed.length) {
+        const closed = await revokeUserSessions(tx, [id], actor.sessionId ?? null);
+        if (closed) changes.push(`закрыто сессий: ${closed}`);
+      }
     }
     // Руководитель и подчинённые — только сотрудники ИБ: без ib.work руководитель снимается, подчинённые мешают.
     const ibWork = await hasIbWork(tx, id);

@@ -14,6 +14,7 @@ import { DEFAULT_STAGE_DAYS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY } from '../
 import { CHAIN_SUGGEST_KEY, ChainSuggestSchema, DEFAULT_CHAIN_SUGGEST } from '../tasks/chain-settings.js';
 import { AWARENESS_GRADES_KEY, DEFAULT_GRADES, GradesSchema } from '../awareness/grades.js';
 import { AWARENESS_LETTERS_KEY, DEFAULT_LETTERS_SETTINGS, LetterLimitsSchema } from '../awareness-letters/settings.js';
+import { DEFAULT_SESSION_SETTINGS, SESSION_SETTINGS_KEY, SessionSettingsSchema } from '../../lib/session-token.js';
 
 const text = (what: string, max = 200) => z.string().trim().min(1, `${what}: пустое значение`).max(max, `${what}: не длиннее ${max} символов`);
 const uuid = (what: string) => z.string().uuid(`${what}: неверный идентификатор`);
@@ -145,6 +146,10 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
     key: AWARENESS_LETTERS_KEY, title: 'Осведомлённость: размер учебных писем', form: 'json',
     description: 'Лимиты в килобайтах: maxImageKb — одно изображение, maxLetterKb — письмо целиком (текст обоих языков вместе с изображениями), warnLetterKb — с какого размера редактор предупреждает. Письмо уходит на все ящики банка, каждая копия лежит на почтовом сервере. Формат: { "maxImageKb": 1024, "maxLetterKb": 2048, "warnLetterKb": 1024 }.',
     schema: LetterLimitsSchema, defaults: async () => ({ ...DEFAULT_LETTERS_SETTINGS }),
+  }, {
+    key: SESSION_SETTINGS_KEY, title: 'Сессии: сроки', form: 'json',
+    description: 'maxDays — максимальный срок сессии пользователя в днях от входа, 0 — бессрочно (по бездействию сессия не завершается). adminMaxHours — срок сессии администратора (право «Пользователи и роли» или роль «Администратор портала») в часах от входа; «Запомнить меня» у администраторов не действует. Новое значение действует и на открытые сессии. Формат: { "maxDays": 0, "adminMaxHours": 12 }.',
+    schema: SessionSettingsSchema, defaults: async () => ({ ...DEFAULT_SESSION_SETTINGS }),
   },
 ];
 

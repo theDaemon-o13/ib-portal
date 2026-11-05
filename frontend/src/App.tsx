@@ -13,6 +13,7 @@ import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { DocumentsPage } from './pages/documents/DocumentsPage';
 import { EvidencePage } from './pages/evidence/EvidencePage';
 import { LoginPage } from './pages/login/LoginPage';
+import { ProfilePage } from './pages/profile/ProfilePage';
 import { RegistersPage } from './pages/registers/RegistersPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { StubPage } from './pages/stub/StubPage';
@@ -69,6 +70,8 @@ export function App() {
           ),
         )}
         <Route path="/search" element={<SearchPage />} />
+        {/* «Профиль» и «Мои сессии» (1.10.0): любому вошедшему, кроме настенного монитора. */}
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<HomeRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

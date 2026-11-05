@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AppError, forbidden } from '../lib/errors.js';
 import { sameOrigin } from '../lib/portal-url.js';
-import { SESSION_COOKIE } from '../lib/session-token.js';
+import { REMEMBER_COOKIE_MAX_AGE_S, SESSION_COOKIE } from '../lib/session-token.js';
 import type { AuthService, ClientInfo } from '../modules/auth/service.js';
 
 export function clientInfo(request: FastifyRequest): ClientInfo {
@@ -9,14 +9,18 @@ export function clientInfo(request: FastifyRequest): ClientInfo {
   return { ip: request.ip ?? null, userAgent: typeof ua === 'string' ? ua.slice(0, 512) : null };
 }
 
-/** Cookie сессии: HttpOnly, Secure, SameSite=Strict (CLAUDE.md, раздел 5). */
-export function setSessionCookie(reply: FastifyReply, token: string): void {
+/**
+ * Cookie сессии: HttpOnly, Secure, SameSite=Strict (CLAUDE.md, раздел 5). persistent — «Запомнить меня» (1.10.0):
+ * Max-Age 400 дней, продлевается при обновлении активности; без него — до закрытия браузера.
+ */
+export function setSessionCookie(reply: FastifyReply, token: string, persistent = false): void {
   reply.setCookie(SESSION_COOKIE, token, {
     path: '/',
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
     signed: true,
+    ...(persistent ? { maxAge: REMEMBER_COOKIE_MAX_AGE_S } : {}),
   });
 }
 
@@ -54,7 +58,7 @@ export function installAuth(app: FastifyInstance, auth: AuthService, portalOrigi
       clearSessionCookie(reply);
       return;
     }
-    // Фоновый запрос страницы (опрос счётчиков, уведомлений, дашборда) не продлевает сессию (ADR-0023).
+    // Фоновый запрос страницы (опрос счётчиков, уведомлений, дашборда) не обновляет «последнюю активность» (ADR-0023).
     const resolved = await auth.resolveSession(unsigned.value, clientInfo(request), { background: request.headers['x-background'] === '1' });
     if (!resolved) {
       clearSessionCookie(reply);
@@ -62,7 +66,8 @@ export function installAuth(app: FastifyInstance, auth: AuthService, portalOrigi
     }
     request.user = resolved.user;
     request.sessionId = resolved.sessionId;
-    if (resolved.idleRemainingMs !== null) reply.header('X-Session-Idle-Ms', String(resolved.idleRemainingMs));
+    // «Запомнить меня»: постоянная cookie продлевается вместе с активностью — 400 дней от последнего действия.
+    if (resolved.refreshCookie) setSessionCookie(reply, unsigned.value, true);
     // Настенный монитор: закрытые для него маршруты отвечают 403 до разбора запроса (guard в rbac.ts — второй слой).
     const config = request.routeOptions.config as { kiosk?: boolean; public?: boolean } | undefined;
     if (resolved.user.kiosk && request.url.startsWith('/api/v1/') && config?.kiosk !== true && config?.public !== true) {

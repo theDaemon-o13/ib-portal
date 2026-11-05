@@ -1,5 +1,6 @@
 import { withTx, type Db } from '../../lib/db.js';
 import { collectPermissions } from '../../lib/permissions.js';
+import { SESSION_SETTINGS_KEY, parseSessionSettings } from '../../lib/session-token.js';
 import type { AuthRepository, UserRecord } from './repository.js';
 
 const userSelect = {
@@ -56,6 +57,7 @@ export function prismaAuthRepository(prisma: Db): AuthRepository {
           expiresAt: s.expiresAt,
           ip: s.ip,
           userAgent: s.userAgent,
+          remember: s.remember,
         },
       });
     },
@@ -63,7 +65,7 @@ export function prismaAuthRepository(prisma: Db): AuthRepository {
     findSession: (id) =>
       prisma.session.findUnique({
         where: { id },
-        select: { id: true, userId: true, createdAt: true, lastSeenAt: true, expiresAt: true, revokedAt: true },
+        select: { id: true, userId: true, createdAt: true, lastSeenAt: true, expiresAt: true, revokedAt: true, remember: true },
       }),
 
     async touchSession(id, at) {
@@ -75,10 +77,31 @@ export function prismaAuthRepository(prisma: Db): AuthRepository {
     },
 
     async revokeOtherSessions(userId, keepSessionId, at) {
-      await prisma.session.updateMany({
+      const res = await prisma.session.updateMany({
         where: { userId, revokedAt: null, ...(keepSessionId ? { NOT: { id: keepSessionId } } : {}) },
         data: { revokedAt: at },
       });
+      return res.count;
+    },
+
+    listOpenSessions: (userId) =>
+      prisma.session.findMany({
+        where: { userId, revokedAt: null },
+        select: {
+          id: true, publicId: true, userId: true, createdAt: true, lastSeenAt: true, expiresAt: true, revokedAt: true,
+          remember: true, ip: true, userAgent: true,
+        },
+        orderBy: [{ lastSeenAt: 'desc' }, { createdAt: 'desc' }],
+      }),
+
+    async revokeSessionByPublicId(userId, publicId, at) {
+      const res = await prisma.session.updateMany({ where: { userId, publicId, revokedAt: null }, data: { revokedAt: at } });
+      return res.count > 0;
+    },
+
+    async getSessionSettings() {
+      const row = await prisma.appSetting.findUnique({ where: { key: SESSION_SETTINGS_KEY }, select: { value: true } });
+      return parseSessionSettings(row?.value);
     },
 
     async getPasswordHistory(userId, limit) {

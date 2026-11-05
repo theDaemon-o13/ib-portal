@@ -8,11 +8,13 @@ export interface Actor {
   id: string;
   roleNames: readonly string[];
   ip: string | null;
+  /** Текущая сессия (хэш токена): при снятии ролей и прав не закрывается у того, кто их снял (1.10.0). */
+  sessionId?: string | null;
 }
 
 export function actorOf(request: FastifyRequest): Actor {
   if (!request.user) throw unauthorized();
-  return { id: request.user.id, roleNames: request.user.roleNames, ip: request.ip ?? null };
+  return { id: request.user.id, roleNames: request.user.roleNames, ip: request.ip ?? null, sessionId: request.sessionId };
 }
 
 /** Действия, которые показывает журнал изменений настроек. */
