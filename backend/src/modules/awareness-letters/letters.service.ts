@@ -541,9 +541,24 @@ export async function withdrawLetter(db: Db, actor: Actor, id: string, input: { 
   return getLetter(db, actor.id, id);
 }
 
+/** Версии, которые пишет человек: создание письма вручную, правка, восстановление. Шаблон, копия и отправка — нет. */
+const AUTHORED_REASONS: VersionReason[] = ['created', 'edit', 'restore'];
+
+/**
+ * Участвовал ли пользователь в письме (для пометки «без независимого согласования»): автор хотя бы одной версии,
+ * написанной человеком (created, edit, restore), или исполнитель задачи письма. Черновик из расписания или шаблона
+ * участием не считается: его автор по полю — создатель правила.
+ */
+export async function participatedIn(db: Db, letter: { id: string; taskId: string | null }, userId: string): Promise<boolean> {
+  const wrote = await db.awarenessLetterVersion.count({ where: { letterId: letter.id, createdBy: userId, reason: { in: AUTHORED_REASONS } } });
+  if (wrote) return true;
+  if (!letter.taskId) return false;
+  return (await db.task.count({ where: { id: letter.taskId, assigneeId: userId } })) > 0;
+}
+
 export async function approveLetter(db: Db, actor: Actor, id: string, input: { version: number; comment?: string }) {
   const l = await loadLetter(db, id);
-  const { selfApproved } = flow.approve(await stateOf(db, l), { id: actor.id, isIbHead: await isIbHead(db, actor.id) });
+  const { selfApproved } = flow.approve(await stateOf(db, l), { id: actor.id, isIbHead: await isIbHead(db, actor.id) }, await participatedIn(db, l, actor.id));
   const comment = (input.comment ?? '').trim();
   if (comment.length > flow.COMMENT_MAX) throw badRequest('COMMENT_TOO_LONG', `Комментарий длиннее ${flow.COMMENT_MAX} символов`);
   await withTx(db, async (tx) => {

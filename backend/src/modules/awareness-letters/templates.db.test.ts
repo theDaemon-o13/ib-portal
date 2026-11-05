@@ -146,3 +146,20 @@ describe('«Подпись ИБ»', () => {
       expect([fromTpl.statusCode, fromTpl.json().letter.versions[0].reason]).toEqual([201, 'template']);
     }));
 });
+
+describe('шаблон больше текущего лимита', () => {
+  it('лимиты уменьшили после сохранения — в списке и карточке отметка с размерами', () =>
+    inTx(async (tx) => {
+      const staff = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
+      const { template } = await templates.createTemplate(tx, staff, { ...tpl, htmlRu: `<p>${'а'.repeat(40_000)}</p>` });
+      expect(template.tooLarge).toBeNull();
+      await tx.appSetting.upsert({
+        where: { key: 'awareness.letters' },
+        create: { key: 'awareness.letters', value: { maxImageKb: 16, maxLetterKb: 64, warnLetterKb: 32 } },
+        update: { value: { maxImageKb: 16, maxLetterKb: 64, warnLetterKb: 32 } },
+      });
+      const item = (await templates.listTemplates(tx, { scope: 'active', limit: 200 })).items.find((x) => x.id === template.id);
+      expect(item?.tooLarge).toMatch(/^Письмо \d+ КБ — больше допустимых 64 КБ/);
+      expect((await templates.getTemplate(tx, template.id)).tooLarge).toBe(item?.tooLarge);
+    }));
+});

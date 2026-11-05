@@ -104,6 +104,8 @@ export const TemplateItem = z.object({
   archived: z.boolean(),
   archivedAt: z.string().nullable(),
   rules: z.number().int(),
+  /** «Больше текущего лимита» (лимиты уменьшили после сохранения): текст с размерами; null — укладывается. */
+  tooLarge: z.string().nullable(),
   createdBy: Person,
   createdAt: z.string(),
   updatedBy: Person,

@@ -107,10 +107,14 @@ function assertHead(s: LetterState, actor: LetterActor): void {
   if (!actor.isIbHead) throw new AppError(403, 'NOT_IB_HEAD', 'Согласует письмо начальник ИБ (отметка «Является начальником ИБ»)');
 }
 
-/** Утвердить: начальник ИБ. Своё письмо — «без независимого согласования» (self_approved). */
-export function approve(s: LetterState, actor: LetterActor): { selfApproved: boolean } {
+/**
+ * Утвердить: начальник ИБ. Письмо, в котором он участвовал, — «без независимого согласования» (self_approved).
+ * Участие считает сервис (participatedIn): автор письма по полю createdBy не годится — у черновика из расписания
+ * это создатель правила, который письмо мог и не писать.
+ */
+export function approve(s: LetterState, actor: LetterActor, participated: boolean): { selfApproved: boolean } {
   assertHead(s, actor);
-  return { selfApproved: actor.id === s.createdBy };
+  return { selfApproved: participated };
 }
 
 /** Вернуть на доработку: начальник ИБ, с обязательным комментарием. */

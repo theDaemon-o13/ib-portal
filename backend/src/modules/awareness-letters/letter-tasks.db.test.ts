@@ -85,4 +85,48 @@ describe('задачи модуля писем', () => {
       expect((note.diff as { summary: string }).summary).toContain(`письмо № ${letter.number} отмечено отправленным 04.01.2041`);
       expect((await taskOf(tx, run.taskId)).completedAt).toBeNull();
     }));
+
+  it('«без независимого согласования» — по участию: черновик из правила начальника ИБ, написанный сотрудником, — без пометки', () =>
+    inTx(async (tx) => {
+      const { worker, head } = await people(tx);
+      const role = await tx.role.create({ data: { name: 'Рассылки самосогласование', permissions: { create: [{ permissionCode: 'ib.work' }] } } });
+      await tx.userRole.create({ data: { userId: worker.id, roleId: role.id } });
+      await tx.userRole.create({ data: { userId: head.id, roleId: role.id } });
+      const { template } = await templates.createTemplate(tx, head, { title: 'Шаблон начальника', ...both });
+      const rule = await rules.createRule(tx, head, { title: 'Правило начальника', cadence: { kind: 'monthly', day: 15 }, startsOn: '2041-01-01', roleId: role.id, leadDays: 14, templateId: template.id }, NOW);
+      await runAwarenessSchedule(tx, { now: NOW });
+      const run = await tx.awarenessScheduleRun.findFirstOrThrow({ where: { ruleId: rule.id } });
+      const letterId = must(run.letterId);
+      expect((await letters.getLetter(tx, head.id, letterId)).createdBy.id).toBe(head.id);
+
+      // Сотрудник взял задачу и написал письмо — начальник ИБ утверждает без пометки.
+      await tx.task.update({ where: { id: run.taskId }, data: { assigneeId: worker.id } });
+      const l0 = await letters.getLetter(tx, worker.id, letterId);
+      const ed = await letters.saveLetter(tx, worker, letterId, { version: l0.version, ...both, htmlRu: `<p>Текст сотрудника</p>${SIGNATURE_BLOCK}` });
+      const s = await letters.submitLetter(tx, worker, letterId, { version: ed.letter.version });
+      const a = await letters.approveLetter(tx, head, letterId, { version: s.version });
+      expect([a.selfApproved, a.events[0]?.selfApproved]).toEqual([false, false]);
+    }));
+
+  it('«без независимого согласования» — начальник ИБ правил чужое письмо или ведёт его задачу — с пометкой', () =>
+    inTx(async (tx) => {
+      const { author, head } = await people(tx);
+      // Правил сам письмо другого автора.
+      const { letter } = await letters.createLetter(tx, author, { title: 'Чужое', kind: 'planned', ...both });
+      const ed = await letters.saveLetter(tx, head, letter.id, { version: letter.version, ...both, subjectRu: 'Тема начальника' });
+      const s = await letters.submitLetter(tx, author, letter.id, { version: ed.letter.version });
+      expect((await letters.approveLetter(tx, head, letter.id, { version: s.version })).selfApproved).toBe(true);
+
+      // Исполнитель задачи письма (срочная рассылка, письмо создал другой) — тоже участие.
+      const urgent = await letters.urgentMailing(tx, author, { title: 'Срочно', reason: 'Инцидент' }, deps);
+      await tx.task.update({ where: { id: must(urgent.letter.task).id }, data: { assigneeId: head.id } });
+      const filled = await letters.saveLetter(tx, author, urgent.letter.id, { version: urgent.letter.version, ...both });
+      const s2 = await letters.submitLetter(tx, author, urgent.letter.id, { version: filled.letter.version });
+      expect((await letters.approveLetter(tx, head, urgent.letter.id, { version: s2.version })).selfApproved).toBe(true);
+
+      // Не участвовал — без пометки.
+      const { letter: l3 } = await letters.createLetter(tx, author, { title: 'Независимое', kind: 'planned', ...both });
+      const s3 = await letters.submitLetter(tx, author, l3.id, { version: l3.version });
+      expect((await letters.approveLetter(tx, head, l3.id, { version: s3.version })).selfApproved).toBe(false);
+    }));
 });

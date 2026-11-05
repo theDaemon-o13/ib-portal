@@ -53,7 +53,7 @@ describe('правка и заморозка', () => {
     const sent = s({ status: 'sent', frozen: true });
     expect(code(() => assertEditable(sent, true))).toBe('409 LETTER_FROZEN');
     expect(code(() => submit(sent, both, []))).toBe('409 LETTER_FROZEN');
-    expect(code(() => approve(sent, HEAD))).toBe('409 LETTER_FROZEN');
+    expect(code(() => approve(sent, HEAD, false))).toBe('409 LETTER_FROZEN');
     expect(code(() => returnForRework(sent, HEAD, 'x'))).toBe('409 LETTER_FROZEN');
     expect(code(() => withdraw(sent, { id: AUTHOR, isIbHead: false }))).toBe('409 LETTER_FROZEN');
   });
@@ -82,10 +82,12 @@ describe('согласование', () => {
 
   it('утверждает и возвращает только начальник ИБ; своё письмо — self_approved', () => {
     const r = s({ status: 'review' });
-    expect(code(() => approve(r, { id: 'x', isIbHead: false }))).toBe('403 NOT_IB_HEAD');
-    expect(approve(r, HEAD)).toEqual({ selfApproved: false });
-    expect(approve(s({ status: 'review', createdBy: HEAD.id }), HEAD)).toEqual({ selfApproved: true });
-    expect(code(() => approve(s(), HEAD))).toBe('409 LETTER_STATE');
+    expect(code(() => approve(r, { id: 'x', isIbHead: false }, false))).toBe('403 NOT_IB_HEAD');
+    expect(approve(r, HEAD, false)).toEqual({ selfApproved: false });
+    // Автор по createdBy не решает: решает участие (считает сервис).
+    expect(approve(s({ status: 'review', createdBy: HEAD.id }), HEAD, false)).toEqual({ selfApproved: false });
+    expect(approve(r, HEAD, true)).toEqual({ selfApproved: true });
+    expect(code(() => approve(s(), HEAD, false))).toBe('409 LETTER_STATE');
   });
 
   it('возврат — с обязательным комментарием', () => {

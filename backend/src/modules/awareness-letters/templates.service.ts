@@ -83,7 +83,26 @@ function variablesOf(t: TemplateTexts): TemplateVariable[] {
   }
 }
 
-function templateItem(t: TemplateRow, rules: number) {
+const DATA_IMG_RE = /src="data:image\/(?:png|jpeg|gif);base64,([A-Za-z0-9+/=]+)"/g;
+
+/**
+ * Шаблон больше текущих лимитов (их могли уменьшить после сохранения): текст проблемы или null. Такой шаблон
+ * не даст черновик по расписанию (задача создаётся с пометкой) — в списке это видно заранее.
+ */
+export function sizeProblem(t: TemplateTexts, limits: LetterLimits): string | null {
+  const images = [t.htmlRu, t.htmlTj].flatMap((h) => [...h.matchAll(DATA_IMG_RE)].map((m) => ({
+    mime: 'image/png' as const, bytes: Buffer.from(m[1] ?? '', 'base64').length, sha256: '',
+  })));
+  try {
+    checkLetterSize([t.htmlRu, t.htmlTj], images, limits);
+    return null;
+  } catch (err) {
+    if (err instanceof AppError) return err.message;
+    throw err;
+  }
+}
+
+function templateItem(t: TemplateRow, rules: number, limits: LetterLimits) {
   return {
     id: t.id,
     title: t.title,
@@ -94,6 +113,8 @@ function templateItem(t: TemplateRow, rules: number) {
     archivedAt: t.archivedAt?.toISOString() ?? null,
     /** Правил расписания с этим шаблоном (неархивных). */
     rules,
+    /** «Больше текущего лимита»: текст с размерами; null — укладывается. */
+    tooLarge: sizeProblem(t, limits),
     createdBy: t.creator,
     createdAt: t.createdAt.toISOString(),
     updatedBy: t.updater,
@@ -121,8 +142,9 @@ export async function listTemplates(db: Db, q: { scope: 'active' | 'archived' | 
   ]);
   const page = rows.slice(0, q.limit);
   const counts = await rulesCount(db, page.map((t) => t.id));
+  const limits = await readPortalParam<LetterLimits>(db, AWARENESS_LETTERS_KEY);
   return {
-    items: page.map((t) => templateItem(t, counts.get(t.id) ?? 0)),
+    items: page.map((t) => templateItem(t, counts.get(t.id) ?? 0, limits)),
     nextCursor: rows.length > q.limit ? String(offset + q.limit) : null,
     total,
   };
@@ -134,7 +156,7 @@ export async function getTemplate(db: Db, id: string) {
   const counts = await rulesCount(db, [id]);
   const limits = await readPortalParam<LetterLimits>(db, AWARENESS_LETTERS_KEY);
   const bytes = Buffer.byteLength(t.htmlRu, 'utf8') + Buffer.byteLength(t.htmlTj, 'utf8');
-  return { ...templateItem(t, counts.get(id) ?? 0), content: textsOf(t), size: { bytes, warn: bytes >= limits.warnLetterKb * 1024, limits } };
+  return { ...templateItem(t, counts.get(id) ?? 0, limits), content: textsOf(t), size: { bytes, warn: bytes >= limits.warnLetterKb * 1024, limits } };
 }
 export type TemplateDetail = Awaited<ReturnType<typeof getTemplate>>;
 
