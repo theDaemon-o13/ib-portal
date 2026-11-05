@@ -100,6 +100,7 @@ const ACTION_LABELS: Record<string, string> = {
   'task.chain_linked': 'Задача добавлена в цепочку',
   'task.chain_unlinked': 'Задача отвязана от цепочки',
   'task.chain_moved': 'Задача перенесена в другую цепочку',
+  'task.awareness_sent': 'Задача: учебное письмо отмечено отправленным',
   'task_chain.closed': 'Цепочка задач закрыта',
   'task_chain.reopened': 'Цепочка задач открыта заново',
   'task_chain.discovered': 'Цепочки найдены среди старых задач',

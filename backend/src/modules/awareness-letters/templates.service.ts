@@ -9,6 +9,7 @@ import { readPortalParam } from '../settings/portal-params.js';
 import type { Actor } from '../settings/common.js';
 import { SIGNATURE_CODE } from './definition.js';
 import * as letters from './letters.service.js';
+import { runForNewLetter } from './letter-tasks.js';
 import type { LetterKind } from './flow.js';
 import { checkLetterSize, sanitizeLetterHtml, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
@@ -208,7 +209,7 @@ export interface FromTemplateInput {
  * Черновик из шаблона (версия template, template_id). Пустая переменная — 400 UNFILLED_VARIABLES со списком,
  * черновик не создаётся. Значения экранируются, `{{подпись}}` — блок «Подпись ИБ»; затем санитайзер и лимиты письма.
  */
-export async function letterFromTemplate(db: Db, actor: Actor, templateId: string, input: FromTemplateInput, deps: letters.LetterDeps = {}) {
+export async function letterFromTemplate(db: Db, actor: Actor, templateId: string, input: FromTemplateInput, deps: letters.LetterDeps = {}, link?: letters.TaskLink) {
   const t = await db.awarenessTemplate.findUnique({ where: { id: templateId } });
   if (!t) throw notFound('Шаблон');
   if (t.archivedAt) throw new AppError(409, 'TEMPLATE_ARCHIVED', `Шаблон «${t.title}» в архиве — выберите другой или верните его из архива`);
@@ -219,8 +220,10 @@ export async function letterFromTemplate(db: Db, actor: Actor, templateId: strin
   const filled = fillTemplate(textsOf(t), values);
   const content = await letters.cleanContent(db, filled, deps);
   const id = await withTx(db, async (tx) => {
+    if (link) await runForNewLetter(tx, link.taskId);
     const l = await letters.insertLetter(tx, actor, { ...head, templateId }, content.texts, 'template');
-    await letters.auditLetter(tx, actor, l, 'created', `создано из шаблона «${t.title}»`, { after: head, templateId, templateVersion: t.version });
+    const linked = await letters.linkNewLetterToTask(tx, link, l);
+    await letters.auditLetter(tx, actor, l, 'created', `создано из шаблона «${t.title}»${linked ? ` по задаче #${linked.taskNumber}` : ''}`, { after: head, templateId, templateVersion: t.version });
     return l.id;
   });
   return { letter: await letters.getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };

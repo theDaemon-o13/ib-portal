@@ -220,10 +220,10 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
   app.post('/awareness/letters/:id/return', {
     preHandler: work,
     schema: {
-      tags, summary: 'Вернуть на доработку: начальник ИБ, комментарий обязателен',
+      tags, summary: 'Вернуть на доработку: начальник ИБ, комментарий обязателен; задача «Доработать письмо» — исполнителю задачи письма или автору',
       params: IdParams, body: Version.extend({ comment: z.string().max(COMMENT_MAX * 2) }), response: { 200: LetterDetail, ...errors },
     },
-  }, async (request) => letters.returnLetter(db, actorOf(request), request.params.id, request.body));
+  }, async (request) => letters.returnLetter(db, actorOf(request), request.params.id, request.body, deps));
 
   app.post('/awareness/letters/:id/send', {
     preHandler: work,
@@ -477,4 +477,39 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
       },
     },
   }, async (request) => checkRuleNow(db, request.params.id));
+
+  // ———————————————————————————————————————— задачи модуля (раздел 19.6)
+
+  app.post('/awareness/urgent', {
+    preHandler: work,
+    schema: {
+      tags, summary: '«Срочная рассылка»: письмо «Срочное» с поводом (из шаблона — переменные остаются в тексте) и задача нажавшему — 1 рабочий день, «Высокий»',
+      body: z.object({ title: z.string().max(1000), reason: z.string().max(10_000), templateId: z.string().uuid().nullable().optional() }),
+      response: { 201: SaveResult, ...errors },
+    },
+  }, async (request, reply) => reply.status(201).send(await letters.urgentMailing(db, actorOf(request), request.body, deps)));
+
+  app.post('/awareness/tasks/:taskId/letter', {
+    preHandler: work,
+    schema: {
+      tags,
+      summary: '«Создать письмо» или «Письмо из шаблона» из задачи рассылки без черновика: письмо привязывается к задаче и запуску. '
+        + 'У задачи уже есть письмо — 409 TASK_HAS_LETTER; выполнена — 409 TASK_DONE; не задача расписания — 404',
+      params: z.object({ taskId: z.string().uuid() }),
+      body: z.object({
+        title: z.string().max(1000),
+        templateId: z.string().uuid().optional(),
+        values: z.record(z.string().max(200), z.string().max(templates.VALUE_MAX * 2)).optional(),
+      }),
+      response: { 201: SaveResult, ...errors },
+    },
+  }, async (request, reply) => {
+    const { taskId } = request.params;
+    const b = request.body;
+    const link = { taskId };
+    const res = b.templateId
+      ? await templates.letterFromTemplate(db, actorOf(request), b.templateId, { title: b.title, kind: 'planned', values: b.values ?? {} }, deps, link)
+      : await letters.createLetter(db, actorOf(request), { title: b.title, kind: 'planned' }, deps, link);
+    return reply.status(201).send(res);
+  });
 };

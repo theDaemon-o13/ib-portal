@@ -12,6 +12,7 @@ import type { Actor } from '../settings/common.js';
 import { SIGNATURE_CODE } from './definition.js';
 import { substituteSignature, type ExportLang } from './export/html.js';
 import * as flow from './flow.js';
+import { createReworkTask, createUrgentTask, noteTaskSent, runForNewLetter } from './letter-tasks.js';
 import { checkLetterSize, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
 import { hasSignatureInSubject, signatureToBlock, unfilledInLetter, type TemplateTexts } from './variables.js';
@@ -370,15 +371,60 @@ export function cleanLetterHead(input: { title: string; kind: flow.LetterKind; r
   return { title: cleanTitle(input.title), kind: input.kind, reason: cleanReason(input.kind, input.reason ?? '') };
 }
 
-/** Новое письмо — черновик с версией 1 (created). */
-export async function createLetter(db: Db, actor: Actor, input: CreateLetterInput, deps: LetterDeps = {}): Promise<SaveResult> {
+/** Письмо из задачи рассылки без черновика: задача и запуск получают ссылку на письмо (в транзакции создания). */
+export interface TaskLink {
+  taskId: string;
+}
+
+/** Проверить задачу до вставки письма и связать после: письмо получает task_id, запуск — letter_id. */
+export async function linkNewLetterToTask(tx: Db, link: TaskLink | undefined, letter: { id: string }): Promise<{ taskNumber: number } | null> {
+  if (!link) return null;
+  const run = await runForNewLetter(tx, link.taskId);
+  await tx.awarenessLetter.update({ where: { id: letter.id }, data: { taskId: run.taskId } });
+  await tx.awarenessScheduleRun.update({ where: { id: run.id }, data: { letterId: letter.id } });
+  const task = await tx.task.findUniqueOrThrow({ where: { id: run.taskId }, select: { number: true } });
+  return { taskNumber: task.number };
+}
+
+/** Новое письмо — черновик с версией 1 (created). link — «Создать письмо» из задачи рассылки. */
+export async function createLetter(db: Db, actor: Actor, input: CreateLetterInput, deps: LetterDeps = {}, link?: TaskLink): Promise<SaveResult> {
   const head = cleanLetterHead(input);
   const content = await cleanContent(db, {
     subjectRu: input.subjectRu ?? '', subjectTj: input.subjectTj ?? '', htmlRu: input.htmlRu ?? '', htmlTj: input.htmlTj ?? '',
   }, deps);
   const id = await withTx(db, async (tx) => {
+    if (link) await runForNewLetter(tx, link.taskId);
     const l = await insertLetter(tx, actor, head, content.texts, 'created');
-    await auditLetter(tx, actor, l, 'created', `создано «${head.title}» (${head.kind === 'urgent' ? 'срочное' : 'плановое'})`, { after: head });
+    const linked = await linkNewLetterToTask(tx, link, l);
+    await auditLetter(tx, actor, l, 'created', `создано «${head.title}» (${head.kind === 'urgent' ? 'срочное' : 'плановое'})${linked ? ` по задаче #${linked.taskNumber}` : ''}`, { after: head });
+    return l.id;
+  });
+  return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };
+}
+
+/**
+ * «Срочная рассылка» (раздел 19.6): письмо «Срочное» с поводом (из шаблона — переменные остаются в тексте) и задача
+ * «Срочная рассылка: <название>» нажавшему — срок 1 рабочий день, приоритет «Высокий».
+ */
+export async function urgentMailing(db: Db, actor: Actor, input: { title: string; reason: string; templateId?: string | null }, deps: LetterDeps = {}): Promise<SaveResult> {
+  const head = cleanLetterHead({ title: input.title, kind: 'urgent', reason: input.reason });
+  let texts: TemplateTexts = { subjectRu: '', subjectTj: '', htmlRu: '', htmlTj: '' };
+  let template: { id: string; title: string } | null = null;
+  if (input.templateId) {
+    const t = await db.awarenessTemplate.findUnique({ where: { id: input.templateId } });
+    if (!t) throw notFound('Шаблон');
+    if (t.archivedAt) throw new AppError(409, 'TEMPLATE_ARCHIVED', `Шаблон «${t.title}» в архиве — выберите другой`);
+    texts = textsOf(t);
+    template = { id: t.id, title: t.title };
+  }
+  const content = await cleanContent(db, texts, deps);
+  const id = await withTx(db, async (tx) => {
+    const l = await insertLetter(tx, actor, { ...head, templateId: template?.id ?? null }, content.texts, template ? 'template' : 'created');
+    const task = await createUrgentTask(tx, actor, { title: head.title, reason: head.reason, letterNumber: l.number }, deps.now?.());
+    await tx.awarenessLetter.update({ where: { id: l.id }, data: { taskId: task.id } });
+    await auditLetter(tx, actor, l, 'created', `срочная рассылка «${head.title}»${template ? ` из шаблона «${template.title}»` : ''}, задача #${task.number}`, {
+      after: head, taskId: task.id, templateId: template?.id ?? null,
+    });
     return l.id;
   });
   return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };
@@ -510,14 +556,15 @@ export async function approveLetter(db: Db, actor: Actor, id: string, input: { v
   return getLetter(db, actor.id, id);
 }
 
-/** Вернуть на доработку. Задача автору (раздел 19.6) — шаг 7 плана. */
-export async function returnLetter(db: Db, actor: Actor, id: string, input: { version: number; comment: string }) {
+/** Вернуть на доработку: письмо — в черновик, задача «Доработать письмо» (раздел 19.6, letter-tasks.ts). */
+export async function returnLetter(db: Db, actor: Actor, id: string, input: { version: number; comment: string }, deps: LetterDeps = {}) {
   const l = await loadLetter(db, id);
   const { comment } = flow.returnForRework(await stateOf(db, l), { id: actor.id, isIbHead: await isIbHead(db, actor.id) }, input.comment);
   await withTx(db, async (tx) => {
     await claim(tx, l, input.version, { status: 'draft' });
-    await addEvent(tx, id, actor.id, 'returned', { versionId: l.currentVersionId, comment });
-    await auditLetter(tx, actor, l, 'returned', 'возвращено на доработку', { versionNo: l.currentVersion?.no, comment });
+    const task = await createReworkTask(tx, actor, l, comment, deps.now?.());
+    await addEvent(tx, id, actor.id, 'returned', { versionId: l.currentVersionId, comment, taskId: task.id });
+    await auditLetter(tx, actor, l, 'returned', `возвращено на доработку, задача #${task.number}`, { versionNo: l.currentVersion?.no, comment, taskId: task.id });
   });
   return getLetter(db, actor.id, id);
 }
@@ -537,7 +584,7 @@ export interface SendLetterInput extends flow.SendInput {
 /**
  * «Отметить отправленным». Первая отметка: версия sent (подпись подставлена текстом на момент отправки), письмо
  * замораживается. Повторная — только событие с новой датой и аудиторией, текст не меняется.
- * Запись «Рассылок» — шаг 8 плана (event.recordId).
+ * Задачу письма отметка не закрывает: в её историю — «Письмо № N отмечено отправленным». Запись «Рассылок» — шаг 8.
  */
 export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLetterInput, deps: LetterDeps = {}) {
   const l = await loadLetter(db, id);
@@ -547,6 +594,7 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
       await claim(tx, l, input.version);
       await addEvent(tx, id, actor.id, 'sent', { versionId: l.sentVersionId, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment });
       await auditLetter(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}`, { sentOn: d.sentOn, audience: d.audience, repeat: true });
+      await noteTaskSent(tx, actor, l, d.sentOn, true);
     });
     return getLetter(db, actor.id, id);
   }
@@ -566,6 +614,7 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
     await auditLetter(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}${d.withoutApproval ? ' — без согласования' : ''}`, {
       versionNo: v.no, sentOn: d.sentOn, audience: d.audience, withoutApproval: d.withoutApproval, comment: d.comment || undefined, langMark,
     });
+    await noteTaskSent(tx, actor, l, d.sentOn, false);
   });
   return getLetter(db, actor.id, id);
 }
