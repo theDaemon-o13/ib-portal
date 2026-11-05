@@ -54,3 +54,29 @@
 .aw-sig::before{content:attr(data-label);position:absolute;top:2px;left:10px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .aw-sig.ProseMirror-selectednode{outline:2px solid var(--accent)}
 .aw-doc .var{background:var(--high-soft);color:var(--high);border-radius:4px;padding:0 2px}
+
+/* Письма */
+.aw-sections{margin:0 0 12px}
+.aw-letters td{vertical-align:top}
+.aw-letters .wrap{flex-wrap:wrap}
+.aw-tabs{margin:0 0 12px}
+.aw-letter{display:grid;gap:12px;min-width:0}
+.aw-dialog{width:min(560px,calc(100vw - 32px))}
+.aw-dialog-b{display:grid;gap:10px;margin:0 0 12px}
+.aw-events{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.aw-events li{padding:10px 12px;border-radius:var(--r-sm);background:var(--fill-2);display:grid;gap:3px;font-size:13px;min-width:0}
+.aw-comment{white-space:pre-wrap;overflow-wrap:anywhere}
+.aw-versions{display:grid;gap:12px;min-width:0}
+.aw-cmp{gap:6px;align-items:center;font-size:13px}
+.aw-cmp .inp.sm{width:auto;padding:3px 8px}
+.aw-version-view,.aw-compare{display:grid;gap:10px;padding:12px;border-radius:var(--r-sm);box-shadow:inset 0 0 0 1px var(--line-2);min-width:0}
+.aw-lang-view{display:grid;gap:6px;min-width:0}
+.aw-view{min-height:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--solid)}
+.aw-sig-view{margin:8px 0 0;padding-top:8px;border-top:1px dashed var(--line-2);color:var(--muted)}
+.aw-diff ul{list-style:none;margin:4px 0 0;padding:0;font-size:13px;display:grid;gap:1px}
+.aw-diff li{padding:2px 8px;border-radius:4px;overflow-wrap:anywhere;white-space:pre-wrap}
+.aw-diff li.add{background:var(--low-soft)}
+.aw-diff li.del{background:var(--crit-soft);text-decoration:line-through;text-decoration-color:var(--crit)}
+.aw-diff li.same{color:var(--muted)}
+.aw-diff-m{display:inline-block;width:14px;font-weight:700}
+.ml6{margin-left:6px}

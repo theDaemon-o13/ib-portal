@@ -6,6 +6,7 @@ import { NAV } from './nav';
 import { AssessmentPage } from './pages/assessment/AssessmentPage';
 import { AssetsPage } from './pages/assets/AssetsPage';
 import { AuditPage } from './pages/audit/AuditPage';
+import { AwarenessPage } from './pages/awareness/AwarenessPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { DocumentsPage } from './pages/documents/DocumentsPage';
@@ -45,6 +46,11 @@ export function App() {
             <Route key={item.path} path="/documents" element={<Section item={item}><DocumentsPage /></Section>} />
           ) : item.path === '/evidence' ? (
             <Route key={item.path} path="/evidence" element={<Section item={item}><EvidencePage /></Section>} />
+          ) : item.path === '/awareness' ? (
+            <Fragment key={item.path}>
+              <Route path="/awareness" element={<Navigate to="/awareness/letters" replace />} />
+              <Route path="/awareness/:tab" element={<Section item={item}><AwarenessPage /></Section>} />
+            </Fragment>
           ) : item.path === '/audit' ? (
             <Route key={item.path} path="/audit" element={<Section item={item}><AuditPage /></Section>} />
           ) : item.path === '/assessment' ? (

@@ -1,7 +1,7 @@
 // Разделы сайдбара как в прототипе. Скрытие по правам — только удобство:
 // доступ всегда проверяет backend.
 
-export type IconName = 'dash' | 'monitor' | 'builder' | 'bug' | 'assets' | 'tasks' | 'docs' | 'evidence' | 'journal' | 'assess' | 'settings';
+export type IconName = 'dash' | 'monitor' | 'builder' | 'bug' | 'assets' | 'tasks' | 'docs' | 'evidence' | 'mail' | 'journal' | 'assess' | 'settings';
 
 export interface NavItem {
   path: string;
@@ -30,6 +30,8 @@ export const NAV: NavItem[] = [
   { path: '/tasks', title: 'Задачи', icon: 'tasks', perm: 'ib.work' },
   { path: '/documents', title: 'Документы', icon: 'docs' },
   { path: '/evidence', title: 'Доказательства', icon: 'evidence', perm: 'ib.work' },
+  // Учебные письма и расписание рассылок (1.9.0). Служебной учётной записи — нет (без service).
+  { path: '/awareness', title: 'Осведомлённость', icon: 'mail', perm: 'ib.work' },
   // Журнал действий (релиз 1.2.0, ADR-0021): только по праву «Журнал действий», ib.work не нужен.
   { path: '/audit', title: 'Журнал', icon: 'journal', perm: 'audit.view' },
   // Самооценка (этап Д, ADR-0026): личный раздел, только по праву «Самооценка», ib.work не нужен.

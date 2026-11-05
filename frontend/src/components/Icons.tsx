@@ -56,6 +56,13 @@ const paths: Record<IconName, ReactElement> = {
       <path d="M8.5 12l2.5 2.5 4.5-5" />
     </>
   ),
+  // Конверт: учебные письма (1.9.0).
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+    </>
+  ),
   journal: (
     <>
       <path d="M6 3h11a1 1 0 011 1v16a1 1 0 01-1 1H6z" />
