@@ -217,6 +217,12 @@ prechecks() {
   if [ -f "$f" ]; then cat "$f"; else echo "Для этой версии отдельных проверок нет."; fi
 }
 
+# Проверки разработчика перед выпуском (числа прогонов, репетиция) — deploy/verification/<VERSION>.md.
+verification() {
+  local f="deploy/verification/$VERSION.md"
+  if [ -f "$f" ]; then cat "$f"; else echo "Не указано."; fi
+}
+
 # Путь обновления: с какой версии и какие пропущены (их миграции и seed идут в этом же migrate).
 path_note() {
   if [ -n "$SKIPPED" ]; then
@@ -226,7 +232,7 @@ path_note() {
   fi
 }
 
-CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" PRECHECKS="$(prechecks)" PATH_NOTE="$(path_note)" \
+CHANGES="$(changes)" MIGRATIONS="$(migrations)" ENV_CHANGES="$(env_changes)" PRECHECKS="$(prechecks)" VERIFICATION="$(verification)" PATH_NOTE="$(path_note)" \
 VERSION="$VERSION" DATE="$(date '+%Y-%m-%d %H:%M')" COMMIT="$COMMIT" \
 PREV_VERSION="${PREV_VERSION:-нет (первая установка)}" ROLLBACK_VERSION="${PREV_VERSION:-<прежняя версия>}" \
 perl -pe 's/\{\{(\w+)\}\}/exists $ENV{$1} ? $ENV{$1} : $&/ge' deploy/RELEASE.template.md > "$OUT/RELEASE.md"
