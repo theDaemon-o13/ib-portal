@@ -319,6 +319,24 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await sleep(120);
     },
 
+    /**
+     * Выделить всё в элементе с фокусом сочетанием Cmd+A (macOS) или Ctrl+A — как пользователь. Визуальный редактор
+     * (ProseMirror) слушает именно сочетание клавиш, команда selectAll без модификатора его не трогает.
+     */
+    async selectAll() {
+      const mac = await evaluate(`/Mac/.test(navigator.platform)`);
+      const modifiers = mac ? 4 : 2;
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers, commands: ['selectAll'] });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers });
+      await sleep(80);
+    },
+
+    /** Ввести текст в элемент с фокусом (заменяет выделенное). */
+    async insertText(text) {
+      await send('Input.insertText', { text });
+      await sleep(80);
+    },
+
     /** Подвинуть мышь (панель управления мониторингом появляется при движении). */
     async moveMouse(x, y) {
       await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });

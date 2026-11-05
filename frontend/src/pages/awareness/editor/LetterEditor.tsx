@@ -73,6 +73,11 @@ export default function LetterEditor(p: LetterEditorProps) {
   const props = useRef(p);
   props.current = p;
   const fileInput = useRef<HTMLInputElement>(null);
+  /**
+   * Загруженное содержимое и его вид после разбора редактором: TipTap нормализует HTML (атрибуты, обёртки), и без
+   * этого открытое письмо сразу считалось бы изменённым. Совпадение с нормализованным видом — исходное значение.
+   */
+  const baseline = useRef<{ value: string; html: string }>({ value: p.value, html: '' });
   const [link, setLink] = useState<string | null>(null);
 
   const insertFiles = async (editor: Editor, files: File[]) => {
@@ -130,22 +135,30 @@ export default function LetterEditor(p: LetterEditorProps) {
         return true;
       },
     },
-    onUpdate: ({ editor: e }) => props.current.onChange(isEmptyDoc(e) ? '' : e.getHTML()),
+    onCreate: ({ editor: e }) => { baseline.current = { value: props.current.value, html: e.getHTML() }; },
+    onUpdate: ({ editor: e }) => {
+      const html = e.getHTML();
+      props.current.onChange(html === baseline.current.html ? baseline.current.value : isEmptyDoc(e) ? '' : html);
+    },
   });
 
   // Другая версия или перечитанное письмо — заменить содержимое без события правки.
   useEffect(() => {
-    if (editor && !editor.isDestroyed) editor.commands.setContent(p.value, { emitUpdate: false });
+    if (!editor || editor.isDestroyed) return;
+    editor.commands.setContent(p.value, { emitUpdate: false });
+    baseline.current = { value: p.value, html: editor.getHTML() };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, p.resetKey]);
   useEffect(() => {
-    editor?.setEditable(!p.readOnly);
+    // Без события правки: иначе переключение «только чтение» отдавало бы нормализованный HTML как изменение.
+    editor?.setEditable(!p.readOnly, false);
   }, [editor, p.readOnly]);
   // Подпись загрузилась или изменилась — блоки рисуются заново (вид узла создаётся один раз), без события правки.
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const html = editor.getHTML();
     if (html.includes('data-ib-fragment')) editor.commands.setContent(html, { emitUpdate: false });
+    if (html === baseline.current.html) baseline.current = { ...baseline.current, html: editor.getHTML() };
   }, [editor, p.signatureHtml]);
 
   const s = useEditorState({
