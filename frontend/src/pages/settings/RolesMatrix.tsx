@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { settingsApi, type Role } from '../../api/settings';
 import { LockIcon, ReadOnlyNote } from '../../components/LockIcon';
+import { useToast } from '../../components/Toast';
 import { keys, useAction } from './useAction';
 
 export function RolesMatrix({ canEdit }: { canEdit: boolean }) {
@@ -10,12 +11,15 @@ export function RolesMatrix({ canEdit }: { canEdit: boolean }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [add, setAdd] = useState({ name: '', description: '' });
+  const toast = useToast();
 
   const invalidate = [keys.roles, keys.users, keys.journal, ['auth', 'me']];
   const toggle = useAction(({ role, code, granted }: { role: Role; code: string; granted: boolean }) =>
     settingsApi.setPermission(role.id, code, granted), {
     invalidate,
-    success: (r, a) => `${a.granted ? 'Право выдано' : 'Право снято'}: ${r.name}`,
+    // Снят ib.work с роли-исполнителя правил рассылок (1.9.0): изменение прошло, но задачи правил пойдут без кандидатов.
+    success: (r, a) => (r.warnings.length ? null : `${a.granted ? 'Право выдано' : 'Право снято'}: ${r.name}`),
+    onDone: (r) => { if (r.warnings.length) toast(r.warnings.join(' '), 'warn'); },
   });
   const rename = useAction((role: Role) => settingsApi.updateRole(role.id, { version: role.version, name: editName }), {
     invalidate, success: (r) => `Роль переименована: «${r.name}»`, onDone: () => setEditId(null),

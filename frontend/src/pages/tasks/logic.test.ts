@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { actionNeedsComment, candidatesChip, cardStep, chainCounts, chainTitleOf, columnEntries, matchTask, plural, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
+import { actionNeedsComment, originText, sourceChip, candidatesChip, cardStep, chainCounts, chainTitleOf, columnEntries, matchTask, plural, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -121,3 +121,18 @@ describe('доска: группировка по цепочкам и поиск
     expect(matchTask(t, '  ')).toBe(true);
   });
 });
+
+describe('происхождение задачи (1.9.0)', () => {
+  const letter = { id: 'l1', number: 12, status: 'draft' as const };
+  it('расписание и учебное письмо — по origin; известный source — словами; неизвестный — «другое», без падения', () => {
+    const sched = task(1, { origin: { kind: 'schedule', rule: { id: 'r', title: 'Ежемесячная' }, plannedDate: '2041-01-15', letter: null, stages: [], letterSent: false } });
+    expect([originText(sched), sourceChip(sched)?.label]).toEqual(['создана расписанием: Ежемесячная', 'рассылка']);
+    const urgent = task(2, { origin: { kind: 'letter', reason: 'urgent', letter, letterSent: false } });
+    expect([originText(urgent), sourceChip(urgent)]).toEqual(['учебное письмо № 12', { label: 'письмо № 12', title: 'Срочная рассылка' }]);
+    expect([originText(task(3)), sourceChip(task(3))]).toEqual(['поставлена вручную', null]);
+    expect(sourceChip(task(4, { source: 'mail' }))?.label).toBe('письмо');
+    const future = task(5, { source: 'awareness' });
+    expect([originText(future), sourceChip(future)?.label]).toEqual(['другое', 'другое']);
+  });
+});
+

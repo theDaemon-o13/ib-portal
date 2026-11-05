@@ -45,4 +45,8 @@ describe('тексты', () => {
     expect(reasonLines(r.byReason)).toEqual(['открытые задачи — 1', 'ссылки из других записей — 1']);
     expect(resultSummary({ ...r, deleted: 0, archived: 0, byReason: reasons })).toEqual({ title: 'Ничего не изменилось', hint: null });
   });
+
+  it('причина «связь с учебным письмом» (1.9.0): запись «Рассылок» по отметке «Отправлено» уходит в архив вместо удаления', () => {
+    expect(reasonLines({ ...reasons, letters: 2 })).toEqual(['связь с учебным письмом — 2']);
+  });
 });

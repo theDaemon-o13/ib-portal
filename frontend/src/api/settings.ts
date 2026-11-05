@@ -31,6 +31,8 @@ export type AdminUser = Res<'/api/v1/users', 'get'>['items'][number];
 export type UserPage = Res<'/api/v1/users', 'get'>;
 export type UserOption = Res<'/api/v1/users/options', 'get'>['items'][number];
 export type Role = Res<'/api/v1/roles', 'get'>['items'][number];
+/** Ответ выдачи и снятия права: роль и предупреждения (снят ib.work с роли-исполнителя правил рассылок, 1.9.0). */
+export type RolePermissionResult = Res<'/api/v1/roles/{id}/permissions/{code}', 'put'>;
 export type Permission = Res<'/api/v1/permissions', 'get'>['items'][number];
 export type WithTemporaryPassword = Res<'/api/v1/users', 'post', 201>;
 
@@ -107,6 +109,6 @@ export const settingsApi = {
   updateRole: (id: string, body: Body<'/api/v1/roles/{id}', 'patch'>) => request<Role>('PATCH', `/api/v1/roles/${id}`, body),
   deleteRole: (id: string, version: number) => request<undefined>('POST', `/api/v1/roles/${id}/delete`, { version }),
   setPermission: (roleId: string, code: string, granted: boolean) =>
-    request<Role>('PUT', `/api/v1/roles/${roleId}/permissions/${enc(code)}`, { granted }),
+    request<RolePermissionResult>('PUT', `/api/v1/roles/${roleId}/permissions/${enc(code)}`, { granted }),
 
 };

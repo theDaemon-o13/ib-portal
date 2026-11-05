@@ -205,3 +205,36 @@ export function columnEntries(items: readonly Task[], group: boolean): ColumnEnt
   }
   return out.map((e) => (e.kind === 'chain' && e.tasks.length === 1 ? { kind: 'task' as const, t: e.tasks[0] as Task } : e));
 }
+
+// ---------------------------------------------------------------- происхождение (1.9.0)
+
+/** Источник задачи словами. Неизвестный (задача более новой версии портала) — «другое», без падения. */
+export const SOURCE_LABEL: Readonly<Record<string, string>> = {
+  manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу', evidence: 'по доказательству',
+};
+export const OTHER_SOURCE = 'другое';
+
+/** Откуда задача: у задач учебных писем — по таблицам модуля (source у них manual), иначе — по source. */
+export function originText(t: Pick<Task, 'source' | 'origin'>): string {
+  if (t.origin?.kind === 'schedule') return `создана расписанием: ${t.origin.rule.title}`;
+  if (t.origin?.kind === 'letter') return `учебное письмо № ${t.origin.letter.number}`;
+  return SOURCE_LABEL[t.source] ?? OTHER_SOURCE;
+}
+
+/** Метка источника на карточке доски; у задачи, поставленной вручную, — нет. */
+export function sourceChip(t: Pick<Task, 'source' | 'origin'>): { label: string; title: string } | null {
+  if (t.origin?.kind === 'schedule') return { label: 'рассылка', title: `Создана расписанием: ${t.origin.rule.title}` };
+  if (t.origin?.kind === 'letter') {
+    return { label: `письмо № ${t.origin.letter.number}`, title: t.origin.reason === 'urgent' ? 'Срочная рассылка' : 'Доработка учебного письма' };
+  }
+  const known: Record<string, { label: string; title: string }> = {
+    automation: { label: 'авто', title: 'Задача из автоматизации реестра' },
+    mail: { label: 'письмо', title: 'Задача из письма' },
+    document: { label: 'документ', title: 'Задача по документу' },
+    evidence: { label: 'доказательство', title: 'Задача по доказательству' },
+  };
+  if (t.source === 'manual') return null;
+  return known[t.source] ?? { label: OTHER_SOURCE, title: `Источник «${t.source}» — из более новой версии портала` };
+}
+
+export const STAGE_LABEL = { draft: 'Черновик', review: 'Согласование', send: 'Отправка' } as const;

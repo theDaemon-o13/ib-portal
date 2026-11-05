@@ -9,7 +9,7 @@ import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import {
   actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, chainCounts, columnEntries, dueLabel, GROUP_CHAINS_KEY, initials, matchTask, needsComment,
-  sortColumn, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen,
+  sortColumn, sourceChip, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen,
 } from './logic';
 import { ChainPanel } from './ChainPanel';
 import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
@@ -92,6 +92,7 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
   const draggable = canDrag && !archived && !picking && !ghost;
   const step = archived || picking || ghost ? null : cardStep(t);
   const cand = candidatesChip(t.candidates);
+  const src = sourceChip(t);
   if (ghost) {
     return (
       <article className="card ghost" aria-hidden="true">
@@ -131,10 +132,7 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>{t.commentCount}
             </span>
           )}
-          {t.source === 'automation' && <span className="chip src" title="Задача из автоматизации реестра">авто</span>}
-          {t.source === 'mail' && <span className="chip src" title="Задача из письма">письмо</span>}
-          {t.source === 'document' && <span className="chip src" title="Задача по документу">документ</span>}
-          {t.source === 'evidence' && <span className="chip src" title="Задача по доказательству">доказательство</span>}
+          {src && <span className="chip src" title={src.title} data-testid="task-source">{src.label}</span>}
         </span>
       </div>
       {t.reviewer && <div className="meta reviewer" data-testid="card-reviewer">Проверяет: {t.reviewer.fullName}</div>}

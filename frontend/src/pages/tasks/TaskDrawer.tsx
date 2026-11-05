@@ -9,7 +9,8 @@ import { useMe } from '../../auth/useMe';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { ChainBlock } from './ChainBlock';
-import { ACTION_LABEL, actionNeedsComment, candidatesLabel, initials, needsComment, processHint, type ProcessAction } from './logic';
+import { ACTION_LABEL, actionNeedsComment, candidatesLabel, initials, needsComment, originText, processHint, type ProcessAction } from './logic';
+import { TaskOriginBlock } from './TaskOriginBlock';
 
 interface Draft {
   title: string;
@@ -51,7 +52,6 @@ const DOC_REASON: Record<NonNullable<TaskDetail['document']>['reason'], { label:
   returned: { label: 'доработка после возврата', hint: 'Задача закроется сама, когда документ снова отправят на согласование.' },
   stage: { label: 'этап маршрута', hint: 'Действие выполняется в карточке документа. Задача закроется сама, когда документ перейдёт на следующий этап.' },
 };
-const SOURCE: Record<TaskDetail['source'], string> = { manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу', evidence: 'по доказательству' };
 
 export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string; canDelete: boolean; onClose: () => void; onOpenTask?: (id: string) => void }) {
   const qc = useQueryClient();
@@ -233,7 +233,7 @@ export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string;
 
   return (
     <DetailPanel label="Задача" onClose={onClose} scrollKey={id}
-      eyebrow={t ? <>Задача #{t.number}. {t.category.value}, {SOURCE[t.source]}</> : 'Задача'}
+      eyebrow={t ? <>Задача #{t.number}. {t.category.value}, {originText(t)}</> : 'Задача'}
       title={t?.title ?? 'Загрузка…'}
       badges={t && (t.urgent || t.overdue || t.archived || !t.assignee) ? <>
         {t.urgent && <span className="chip crit">срочно</span>}
@@ -295,6 +295,8 @@ export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string;
               )}
             </form>
           )}
+
+          {t?.origin && <TaskOriginBlock task={t} />}
 
           {t && draft && onOpenTask && (
             <ChainBlock task={t} title={draft.title} onOpenTask={onOpenTask} onChanged={() => void qc.invalidateQueries({ queryKey: tkeys.history(id) })} />

@@ -14,6 +14,7 @@ import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/assessment.css';
+import './styles/awareness.css';
 
 initTheme();
 installInputTracking();
