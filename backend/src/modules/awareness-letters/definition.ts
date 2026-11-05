@@ -29,5 +29,5 @@ export const SIGNATURE_CODE = 'signature';
 /** Заглушка «Подписи ИБ»: настоящий текст и контакты вводят на портале. */
 export const SIGNATURE_PLACEHOLDER = {
   htmlRu: '<p>Отдел информационной безопасности</p>',
-  htmlTj: '<p>Отдел информационной безопасности</p>',
+  htmlTj: '<p>Шуъбаи амнияти иттилоотӣ</p>',
 } as const;
