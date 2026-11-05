@@ -97,3 +97,25 @@ export function withoutApprovalComment(reason: string): string {
   const r = reason.trim();
   return r ? (r.startsWith(WITHOUT_APPROVAL_PREFIX) ? r : `${WITHOUT_APPROVAL_PREFIX}${r}`) : '';
 }
+
+// ---------------------------------------------------------------- шаблоны (раздел 17.2)
+
+const VAR_RE = /\{\{([^{}]*)\}\}/g;
+const decodeVar = (s: string) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' })[e] ?? '');
+/** Ключ переменной — как у backend (variables.ts): без регистра, пробелы схлопнуты, «ё» = «е». */
+export const variableKey = (name: string) => name.replace(/\s+/g, ' ').trim().toLowerCase().replace(/ё/g, 'е');
+export const SIGNATURE_VARIABLE = 'подпись';
+
+/** Переменные {{…}} из тем и текстов по порядку появления, без служебной {{подпись}}; подпись поля — первое написание. */
+export function templateVariables(texts: readonly string[]): { key: string; label: string }[] {
+  const seen = new Map<string, { key: string; label: string }>();
+  for (const t of texts) {
+    for (const m of t.matchAll(VAR_RE)) {
+      const label = decodeVar(m[1] ?? '').replace(/\s+/g, ' ').trim();
+      const key = variableKey(label);
+      if (!label || key === SIGNATURE_VARIABLE || seen.has(key)) continue;
+      seen.set(key, { key, label });
+    }
+  }
+  return [...seen.values()];
+}

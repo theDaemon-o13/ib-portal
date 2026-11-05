@@ -403,6 +403,8 @@ table.recs tr.archived td{color:var(--faint)}
 .drawer-backdrop{display:block}
 .drawer{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:max(10px, env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(560px,calc(100vw - 20px));background:var(--sheen),var(--glass-strong);border:1px solid var(--glass-line);border-radius:var(--r-xl);z-index:31;display:flex;flex-direction:column;box-shadow:inset 0 1px 0 var(--hl),var(--shadow-lg);overflow:hidden;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .drawer.wide{width:min(720px,calc(100vw - 20px))}
+/* Окно (подтверждение, форма), открытое из выезжающей панели: портал добавляет его в body после панели — оно над ней. */
+.drawer ~ .backdrop:not(.drawer-backdrop){z-index:32}
 .dr-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--line)}
 .dr-title{font-family:var(--f-display);font-weight:650;font-size:17px;line-height:1.25;letter-spacing:-.015em;display:block;overflow-wrap:anywhere;text-wrap:pretty}
 .dr-b{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:16px 20px 24px;display:grid;gap:20px;align-content:start}

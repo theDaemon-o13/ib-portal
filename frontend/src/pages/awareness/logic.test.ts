@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasChanges, htmlToLines, letterMarks, lineDiff, withoutApprovalComment } from './logic';
+import { hasChanges, htmlToLines, letterMarks, lineDiff, templateVariables, withoutApprovalComment } from './logic';
 
 describe('сравнение версий', () => {
   it('текст из HTML построчно: абзацы, списки, таблица, ссылка, изображение, подпись', () => {
@@ -30,5 +30,15 @@ describe('пометки и причины', () => {
     expect(withoutApprovalComment(' атака идёт сейчас ')).toBe('Отправлено без согласования: атака идёт сейчас');
     expect(withoutApprovalComment('Отправлено без согласования: x')).toBe('Отправлено без согласования: x');
     expect(withoutApprovalComment('  ')).toBe('');
+  });
+});
+
+describe('переменные шаблона', () => {
+  it('из тем и текстов, одинаковое имя (регистр, пробелы, «ё») — одна; {{подпись}} — служебная', () => {
+    expect(templateVariables(['Осторожно: {{Схема}}', 'Эҳтиёт: {{схема}}', '<p>{{Дата  звонка}} от {{ОТПРАВИТЕЛЬ}}</p><p>{{подпись}}</p>', '<p>{{ёлка}} {{елка}} {{a &amp; b}}</p>']))
+      .toEqual([
+        { key: 'схема', label: 'Схема' }, { key: 'дата звонка', label: 'Дата звонка' }, { key: 'отправитель', label: 'ОТПРАВИТЕЛЬ' },
+        { key: 'елка', label: 'ёлка' }, { key: 'a & b', label: 'a & b' },
+      ]);
   });
 });

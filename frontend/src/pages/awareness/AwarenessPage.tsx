@@ -2,9 +2,11 @@
 // Право ib.work; служебная учётная запись раздела не видит (пункта меню нет, backend отвечает 403).
 import { NavLink, useParams } from 'react-router-dom';
 import { LettersTab } from './LettersTab';
+import { TemplatesTab } from './TemplatesTab';
 
 const TABS = [
   { key: 'letters', title: 'Письма' },
+  { key: 'templates', title: 'Шаблоны' },
 ] as const;
 
 export function AwarenessPage() {
@@ -21,6 +23,7 @@ export function AwarenessPage() {
         {TABS.map((t) => <NavLink key={t.key} to={`/awareness/${t.key}`} role="tab" aria-selected={t.key === tab}>{t.title}</NavLink>)}
       </div>
       {tab === 'letters' && <LettersTab />}
+      {tab === 'templates' && <TemplatesTab />}
     </>
   );
 }
