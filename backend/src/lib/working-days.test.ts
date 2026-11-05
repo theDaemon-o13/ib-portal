@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addWorkingDays, isoDate, isWorkingDay, parseIsoDate, workingDaysBetween, type WorkCalendar } from './working-days.js';
+import { addWorkingDays, isoDate, isWorkingDay, onOrPrevWorkingDay, parseIsoDate, workingDaysBetween, type WorkCalendar } from './working-days.js';
 
 const cal = (days: Record<string, 'holiday' | 'workday'> = {}, weekendDays = [6, 7]): WorkCalendar => ({
   weekendDays,
@@ -46,5 +46,31 @@ describe('рабочие дни', () => {
   it('проверяет даты и защищается от недели без рабочих дней', () => {
     expect(() => parseIsoDate('2026-02-30')).toThrow();
     expect(() => addWorkingDays(D('2026-01-01'), 1, cal({}, [1, 2, 3, 4, 5, 6, 7]))).toThrow();
+  });
+});
+
+describe('перенос на предыдущий рабочий день (1.9.0)', () => {
+  it('рабочий день остаётся, суббота и воскресенье — на пятницу', () => {
+    expect(isoDate(onOrPrevWorkingDay(D('2026-11-05'), cal()))).toBe('2026-11-05');
+    expect(isoDate(onOrPrevWorkingDay(D('2026-11-07'), cal()))).toBe('2026-11-06');
+    expect(isoDate(onOrPrevWorkingDay(D('2026-11-08'), cal()))).toBe('2026-11-06');
+  });
+
+  it('праздник и перенос рабочего дня на субботу', () => {
+    expect(isoDate(onOrPrevWorkingDay(D('2026-11-06'), cal({ '2026-11-06': 'holiday' })))).toBe('2026-11-05');
+    expect(isoDate(onOrPrevWorkingDay(D('2026-11-08'), cal({ '2026-11-07': 'workday' })))).toBe('2026-11-07');
+  });
+
+  it('через границу месяца: 1 марта 2026 — воскресенье → 27 февраля', () => {
+    expect(isoDate(onOrPrevWorkingDay(D('2026-03-01'), cal()))).toBe('2026-02-27');
+  });
+
+  it('Навруз 21–24 марта 2026: 24.03 → пятница 20.03', () => {
+    const navruz = cal({ '2026-03-21': 'holiday', '2026-03-22': 'holiday', '2026-03-23': 'holiday', '2026-03-24': 'holiday' });
+    expect(isoDate(onOrPrevWorkingDay(D('2026-03-24'), navruz))).toBe('2026-03-20');
+  });
+
+  it('неделя без рабочих дней — ошибка', () => {
+    expect(() => onOrPrevWorkingDay(D('2026-01-01'), cal({}, [1, 2, 3, 4, 5, 6, 7]))).toThrow();
   });
 });

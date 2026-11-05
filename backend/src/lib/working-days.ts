@@ -68,3 +68,17 @@ export function onOrNextWorkingDay(d: Date, cal: WorkCalendar): Date {
   if (isWorkingDay(d, cal)) return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   return addWorkingDays(d, 1, cal);
 }
+
+/**
+ * Ближайший рабочий день, начиная с самого d, назад: плановая дата рассылки на выходном или празднике переносится
+ * на предыдущий рабочий день (1.9.0, ADR-0040). Перенос может уйти в предыдущий месяц.
+ */
+export function onOrPrevWorkingDay(d: Date, cal: WorkCalendar): Date {
+  if (cal.weekendDays.length >= 7) throw new Error('в неделе нет рабочих дней');
+  let x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  for (let guard = 0; !isWorkingDay(x, cal); guard++) {
+    if (guard > 3660) throw new Error('не удалось найти рабочий день в пределах 10 лет');
+    x = new Date(x.getTime() - DAY_MS);
+  }
+  return x;
+}
