@@ -102,7 +102,7 @@ after(async () => {
   } finally {
     // Отметку «Начальник ИБ» — прежнему держателю, даже если тест или уборка упали.
     await loginAs(admin).catch(() => undefined);
-    console.log(`Начальник ИБ: ${await restoreIbHead(ui, savedHead)}`);
+    await restoreIbHead(ui, savedHead);
     ui.close();
   }
 });

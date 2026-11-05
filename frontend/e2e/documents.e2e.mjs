@@ -216,7 +216,7 @@ after(async () => {
     await cleanup();
   } finally {
     await loginAs(admin).catch(() => undefined);
-    console.log(`Начальник ИБ: ${await restoreIbHead(ui, savedHead)}`);
+    await restoreIbHead(ui, savedHead);
     ui.close();
   }
 });

@@ -433,7 +433,7 @@ describe('Отметка «Является начальником ИБ» (1.4.0
         if (cur?.isActive) await json('POST', `/api/v1/users/${p.id}/disable`, { version: cur.version });
       }
     } finally {
-      console.log(`Начальник ИБ: ${await restoreIbHead(ui, savedHead)}`);
+      await restoreIbHead(ui, savedHead);
     }
   });
 
