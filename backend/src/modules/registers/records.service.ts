@@ -327,7 +327,8 @@ export async function nextNumbers(db: Db, registerId: string, count: number): Pr
   return first;
 }
 
-export async function createRecord(db: Db, actor: Actor, registerId: string, input: { values: Record<string, unknown> }) {
+/** meta — источник создания для журнала (via: «awareness_letter» — отметка «Отправлено» учебного письма, 1.9.0). */
+export async function createRecord(db: Db, actor: Actor, registerId: string, input: { values: Record<string, unknown> }, meta?: Record<string, unknown>) {
   return withTx(db, async (tx) => {
     const reg = await loadRegister(tx, registerId);
     assertNotArchived(reg);
@@ -355,7 +356,7 @@ export async function createRecord(db: Db, actor: Actor, registerId: string, inp
     await auditSettings(tx, actor, {
       action: 'register_record.created', entity: 'register_record', entityId: row.id,
       summary: `«${reg.name}»: создана запись #${number}`,
-      after: { registerId, number, changes },
+      after: { registerId, number, changes, ...meta },
     });
     const [dto] = await toRecordDtos(tx, reg, [row]);
     return dto as RecordDto;

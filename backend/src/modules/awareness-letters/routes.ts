@@ -14,6 +14,7 @@ import * as templates from './templates.service.js';
 import * as exporter from './export.service.js';
 import * as rules from './rules.service.js';
 import { checkRuleNow } from './schedule.service.js';
+import { letterRefs } from './mailings.js';
 import { CadenceSchema, LEAD_DAYS } from './cadence.js';
 import { attachmentDisposition } from './export/eml.js';
 
@@ -514,4 +515,15 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
       : await letters.createLetter(db, actorOf(request), { title: b.title, kind: 'planned' }, deps, link);
     return reply.status(201).send(res);
   });
+
+  // ———————————————————————————————————————— реестр «Рассылки» (раздел 18)
+
+  app.get('/awareness/letters/refs', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Письма по номерам — для ссылки «Письмо» в реестре «Рассылки»: значение «№ N, версия V» — ссылка, только если письмо и версия есть',
+      querystring: z.object({ numbers: z.string().max(2000).regex(/^\d+(,\d+)*$/, 'Номера через запятую') }),
+      response: { 200: z.object({ items: z.array(z.object({ number: z.number().int(), id: z.string(), lastVersionNo: z.number().int() })) }), ...errors },
+    },
+  }, async (request) => letterRefs(db, request.query.numbers.split(',').map(Number).slice(0, 500)));
 };

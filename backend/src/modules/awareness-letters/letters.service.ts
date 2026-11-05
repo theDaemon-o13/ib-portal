@@ -12,6 +12,7 @@ import type { Actor } from '../settings/common.js';
 import { SIGNATURE_CODE } from './definition.js';
 import { substituteSignature, type ExportLang } from './export/html.js';
 import * as flow from './flow.js';
+import { createMailingRecord } from './mailings.js';
 import { createReworkTask, createUrgentTask, noteTaskSent, runForNewLetter } from './letter-tasks.js';
 import { checkLetterSize, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
@@ -599,16 +600,26 @@ export interface SendLetterInput extends flow.SendInput {
 /**
  * «Отметить отправленным». Первая отметка: версия sent (подпись подставлена текстом на момент отправки), письмо
  * замораживается. Повторная — только событие с новой датой и аудиторией, текст не меняется.
- * Задачу письма отметка не закрывает: в её историю — «Письмо № N отмечено отправленным». Запись «Рассылок» — шаг 8.
+ * Задачу письма отметка не закрывает: в её историю — «Письмо № N отмечено отправленным». Каждая отметка — запись
+ * реестра «Рассылки» (mailings.ts), её id — в событии.
  */
 export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLetterInput, deps: LetterDeps = {}) {
   const l = await loadLetter(db, id);
   const d = flow.markSent(await stateOf(db, l), input, todayIso(deps.now?.() ?? new Date()));
   if (!d.firstSend) {
+    const sentTexts = currentTexts(l);
     await withTx(db, async (tx) => {
       await claim(tx, l, input.version);
-      await addEvent(tx, id, actor.id, 'sent', { versionId: l.sentVersionId, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment });
-      await auditLetter(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}`, { sentOn: d.sentOn, audience: d.audience, repeat: true });
+      const record = await createMailingRecord(tx, actor, {
+        letter: { ...l, kind: l.kind as flow.LetterKind }, versionNo: l.currentVersion?.no ?? 0, langMark: langMarkOf(l.kind as flow.LetterKind, sentTexts),
+        subjects: { ru: sentTexts.subjectRu, tj: sentTexts.subjectTj }, sentOn: d.sentOn, audience: d.audience,
+      });
+      await addEvent(tx, id, actor.id, 'sent', {
+        versionId: l.sentVersionId, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, recordId: record?.id ?? null,
+      });
+      await auditLetter(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}${record ? `, «Рассылки» #${record.number}` : ''}`, {
+        sentOn: d.sentOn, audience: d.audience, repeat: true, recordNumber: record?.number ?? null,
+      });
       await noteTaskSent(tx, actor, l, d.sentOn, true);
     });
     return getLetter(db, actor.id, id);
@@ -623,11 +634,15 @@ export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLe
     await claim(tx, l, input.version);
     const v = await addVersion(tx, id, actor.id, 'sent', sent);
     await tx.awarenessLetter.update({ where: { id }, data: { status: 'sent', frozen: true, sentVersionId: v.id, currentVersionId: v.id } });
-    await addEvent(tx, id, actor.id, 'sent', {
-      versionId: v.id, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, withoutApproval: d.withoutApproval,
+    // «Без согласования» в реестр не пишется — он виден в карточке письма и в журнале.
+    const record = await createMailingRecord(tx, actor, {
+      letter: { ...l, kind: l.kind as flow.LetterKind }, versionNo: v.no, langMark, subjects: { ru: t.subjectRu, tj: t.subjectTj }, sentOn: d.sentOn, audience: d.audience,
     });
-    await auditLetter(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}${d.withoutApproval ? ' — без согласования' : ''}`, {
-      versionNo: v.no, sentOn: d.sentOn, audience: d.audience, withoutApproval: d.withoutApproval, comment: d.comment || undefined, langMark,
+    await addEvent(tx, id, actor.id, 'sent', {
+      versionId: v.id, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, withoutApproval: d.withoutApproval, recordId: record?.id ?? null,
+    });
+    await auditLetter(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}${d.withoutApproval ? ' — без согласования' : ''}${record ? `, «Рассылки» #${record.number}` : ''}`, {
+      versionNo: v.no, sentOn: d.sentOn, audience: d.audience, withoutApproval: d.withoutApproval, comment: d.comment || undefined, langMark, recordNumber: record?.number ?? null,
     });
     await noteTaskSent(tx, actor, l, d.sentOn, false);
   });
