@@ -14,6 +14,7 @@ import { BilingualFields, EMPTY_TEXTS, type Texts } from './editor';
 import { FormDialog } from './FormDialog';
 import { EVENT_NAME, KIND_NAME, letterMarks, ru, ruDateTime, STATUS_NAME, STATUS_TONE, withoutApprovalComment } from './logic';
 import { LetterVersions } from './LetterVersions';
+import { LetterExport } from './LetterExport';
 
 interface Draft {
   title: string;
@@ -26,7 +27,7 @@ const draftOf = (l: Letter): Draft => ({ title: l.title, kind: l.kind, reason: l
 const sameTexts = (a: Texts, b: Texts) => a.subjectRu === b.subjectRu && a.subjectTj === b.subjectTj && a.htmlRu === b.htmlRu && a.htmlTj === b.htmlTj;
 const sameDraft = (a: Draft, b: Draft) => a.title === b.title && a.kind === b.kind && a.reason === b.reason && sameTexts(a.texts, b.texts);
 
-type Tab = 'letter' | 'versions' | 'events';
+type Tab = 'letter' | 'versions' | 'events' | 'export';
 type Dialog = null | 'return' | 'send' | 'send_without_approval' | 'resend';
 
 export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () => void; onOpen: (id: string) => void }) {
@@ -219,7 +220,7 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
       {l && draft && (
         <>
           <div className="filters aw-tabs" role="tablist" aria-label="Разделы письма">
-            {([['letter', 'Письмо'], ['versions', `Версии ${l.versions.length}`], ['events', `События ${l.events.length}`]] as const).map(([k, t]) => (
+            {([['letter', 'Письмо'], ['versions', `Версии ${l.versions.length}`], ['events', `События ${l.events.length}`], ['export', 'Экспорт']] as const).map(([k, t]) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} aria-pressed={tab === k} onClick={() => setTab(k)}>{t}</button>
             ))}
           </div>
@@ -256,6 +257,8 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
           )}
 
           {tab === 'versions' && <LetterVersions letter={l} signature={signature} busy={busy || dirty} onRestore={restoreAsk} />}
+
+          {tab === 'export' && <LetterExport letter={l} dirty={dirty} signature={signature} />}
 
           {tab === 'events' && (
             <ol className="aw-events" data-testid="letter-events">

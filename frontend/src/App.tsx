@@ -7,6 +7,7 @@ import { AssessmentPage } from './pages/assessment/AssessmentPage';
 import { AssetsPage } from './pages/assets/AssetsPage';
 import { AuditPage } from './pages/audit/AuditPage';
 import { AwarenessPage } from './pages/awareness/AwarenessPage';
+import { LetterPrintPage } from './pages/awareness/LetterPrintPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ChangePasswordPage } from './pages/change-password/ChangePasswordPage';
 import { DocumentsPage } from './pages/documents/DocumentsPage';
@@ -27,6 +28,8 @@ export function App() {
       <Route path="/change-password" element={<RequireUser>{(me) => <ChangePasswordPage me={me} />}</RequireUser>} />
       {/* Мониторинг — на весь экран, без меню (настенный монитор). */}
       <Route path="/monitor" element={<MonitorRoute />} />
+      {/* Печать учебного письма (1.9.0): без оболочки портала, со входом; права проверяет backend. */}
+      <Route path="/awareness/letters/:id/print" element={<RequireUser>{() => <LetterPrintPage />}</RequireUser>} />
       <Route element={<ProtectedShell />}>
         <Route index element={<HomeRedirect />} />
         {NAV.filter((item) => item.path !== '/monitor').map((item) =>
