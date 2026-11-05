@@ -48,7 +48,7 @@ describe('учебные письма: версии и сохранение', ()
       });
       expect([edited.versionCreated, edited.letter.versionNo]).toEqual([true, 2]);
       expect(edited.letter.content.htmlRu).toBe(`<p>Новый текст</p>${SIGNATURE_BLOCK}`);
-      expect(edited.removed.length).toBe(1);
+      expect([edited.removed, edited.warnings]).toEqual([[], ['Не вставлено изображений: 1. Картинки по ссылке не поддерживаются — сохраните их файлом и вставьте заново']]);
       const a = await lastAudit(tx);
       expect([a.action, a.entity, (a.diff as { versionNo: number }).versionNo]).toEqual(['awareness_letter.updated', 'awareness_letter', 2]);
 

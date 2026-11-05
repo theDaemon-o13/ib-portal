@@ -11,7 +11,7 @@ import { SIGNATURE_CODE } from './definition.js';
 import * as letters from './letters.service.js';
 import { runForNewLetter } from './letter-tasks.js';
 import type { LetterKind } from './flow.js';
-import { checkLetterSize, sanitizeLetterHtml, type LetterLimits } from './sanitize.js';
+import { checkLetterSize, imagesWarning, sanitizeLetterHtml, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
 import { checkTemplate, fillTemplate, SIGNATURE_BLOCK, type TemplateTexts, type TemplateVariable } from './variables.js';
 
@@ -66,7 +66,7 @@ async function cleanTemplateContent(db: Db, input: TemplateTexts, portalUrl?: st
   const variables = checkTemplate(texts);
   const limits = await readPortalParam<LetterLimits>(db, AWARENESS_LETTERS_KEY);
   const size = checkLetterSize([ru.html, tj.html], [...ru.images, ...tj.images], limits);
-  return { texts, variables, size, removed: [...new Set([...ru.removed, ...tj.removed])] };
+  return { texts, variables, size, removed: [...new Set([...ru.removed, ...tj.removed])], warnings: imagesWarning(ru.removedImages + tj.removedImages) };
 }
 
 const templateInclude = { creator: userBrief, updater: userBrief } as const;
@@ -174,7 +174,7 @@ export async function createTemplate(db: Db, actor: Actor, input: TemplateInput,
     });
     return t.id;
   });
-  return { template: await getTemplate(db, id), removed: c.removed };
+  return { template: await getTemplate(db, id), removed: c.removed, warnings: c.warnings };
 }
 
 export async function updateTemplate(db: Db, actor: Actor, id: string, input: TemplateInput & { version: number }, portalUrl?: string) {
@@ -186,7 +186,7 @@ export async function updateTemplate(db: Db, actor: Actor, id: string, input: Te
   const before = textsOf(t);
   const same = title === t.title && JSON.stringify(c.texts) === JSON.stringify(before);
   if (t.version !== input.version) throw versionConflict();
-  if (same) return { template: await getTemplate(db, id), removed: c.removed };
+  if (same) return { template: await getTemplate(db, id), removed: c.removed, warnings: c.warnings };
   await withTx(db, async (tx) => {
     const { count } = await tx.awarenessTemplate.updateMany({
       where: { id, version: input.version }, data: { title, ...c.texts, updatedBy: actor.id, version: { increment: 1 } },
@@ -197,7 +197,7 @@ export async function updateTemplate(db: Db, actor: Actor, id: string, input: Te
       after: { title, ...textTrace(c.texts), variables: c.variables.map((v) => v.label) },
     });
   });
-  return { template: await getTemplate(db, id), removed: c.removed };
+  return { template: await getTemplate(db, id), removed: c.removed, warnings: c.warnings };
 }
 
 /** В архив и обратно. Правила с архивным шаблоном создают задачи без черновика (раздел 19.5). */
@@ -248,7 +248,7 @@ export async function letterFromTemplate(db: Db, actor: Actor, templateId: strin
     await letters.auditLetter(tx, actor, l, 'created', `создано из шаблона «${t.title}»${linked ? ` по задаче #${linked.taskNumber}` : ''}`, { after: head, templateId, templateVersion: t.version });
     return l.id;
   });
-  return { letter: await letters.getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };
+  return { letter: await letters.getLetter(db, actor.id, id), versionCreated: true, removed: content.removed, warnings: content.warnings };
 }
 
 // ———————————————————————————————————————————————— «Подпись ИБ»
@@ -298,5 +298,5 @@ export async function updateSignature(db: Db, actor: Actor & { perms: ReadonlySe
       after: textTrace({ subjectRu: '', subjectTj: '', htmlRu: ru.html, htmlTj: tj.html }),
     });
   });
-  return { signature: await getSignature(db, actor.perms), removed: [...new Set([...ru.removed, ...tj.removed])] };
+  return { signature: await getSignature(db, actor.perms), removed: [...new Set([...ru.removed, ...tj.removed])], warnings: imagesWarning(ru.removedImages + tj.removedImages) };
 }

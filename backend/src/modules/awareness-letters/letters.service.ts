@@ -14,7 +14,7 @@ import { substituteSignature, type ExportLang } from './export/html.js';
 import * as flow from './flow.js';
 import { createMailingRecord } from './mailings.js';
 import { createReworkTask, createUrgentTask, noteTaskSent, runForNewLetter } from './letter-tasks.js';
-import { checkLetterSize, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
+import { checkLetterSize, imagesWarning, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
 import { hasSignatureInSubject, signatureToBlock, unfilledInLetter, type TemplateTexts } from './variables.js';
 
@@ -68,6 +68,8 @@ export interface CleanContent {
   texts: TemplateTexts;
   /** Что санитайзер вырезал — показать пользователю. */
   removed: string[];
+  /** Предупреждения для пользователя: «Не вставлено изображений: N…». */
+  warnings: string[];
   size: { bytes: number; warn: boolean };
 }
 
@@ -83,6 +85,7 @@ export async function cleanContent(db: Db, input: TemplateTexts, deps: LetterDep
   return {
     texts: { subjectRu: cleanSubject(input.subjectRu, 'RU'), subjectTj: cleanSubject(input.subjectTj, 'TJ'), htmlRu: ru.html, htmlTj: tj.html },
     removed: [...new Set([...ru.removed, ...tj.removed])],
+    warnings: imagesWarning(ru.removedImages + tj.removedImages),
     size,
   };
 }
@@ -348,6 +351,7 @@ export interface SaveResult {
   /** Создана ли новая версия (сохранение без изменений версию не создаёт). */
   versionCreated: boolean;
   removed: string[];
+  warnings: string[];
 }
 
 /**
@@ -400,7 +404,7 @@ export async function createLetter(db: Db, actor: Actor, input: CreateLetterInpu
     await auditLetter(tx, actor, l, 'created', `создано «${head.title}» (${head.kind === 'urgent' ? 'срочное' : 'плановое'})${linked ? ` по задаче #${linked.taskNumber}` : ''}`, { after: head });
     return l.id;
   });
-  return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };
+  return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed, warnings: content.warnings };
 }
 
 /**
@@ -428,7 +432,7 @@ export async function urgentMailing(db: Db, actor: Actor, input: { title: string
     });
     return l.id;
   });
-  return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed };
+  return { letter: await getLetter(db, actor.id, id), versionCreated: true, removed: content.removed, warnings: content.warnings };
 }
 
 export interface SaveLetterInput extends LetterContentInput {
@@ -458,7 +462,7 @@ export async function saveLetter(db: Db, actor: Actor, id: string, input: SaveLe
     if (l.version !== input.version) throw versionConflict();
     // Ничего не изменилось — но архивное и замороженное письмо всё равно не «сохраняется».
     flow.assertEditable(s, true);
-    return { letter: await getLetter(db, actor.id, id), versionCreated: false, removed: content.removed };
+    return { letter: await getLetter(db, actor.id, id), versionCreated: false, removed: content.removed, warnings: content.warnings };
   }
   const drops = contentChanged || letterChanged;
   const { dropsApproval } = flow.assertEditable(s, input.confirmDropApproval === true || !drops);
@@ -490,7 +494,7 @@ export async function saveLetter(db: Db, actor: Actor, id: string, input: SaveLe
       after: { title, kind, reason },
     });
   });
-  return { letter: await getLetter(db, actor.id, id), versionCreated: contentChanged, removed: content.removed };
+  return { letter: await getLetter(db, actor.id, id), versionCreated: contentChanged, removed: content.removed, warnings: content.warnings };
 }
 
 /** «Восстановить версию N»: новая версия с содержимым N (restore). В утверждённом — с подтверждением снятия утверждения. */

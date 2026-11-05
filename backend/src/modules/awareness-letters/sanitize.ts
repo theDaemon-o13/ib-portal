@@ -23,8 +23,18 @@ export interface LetterImage {
 export interface SanitizeResult {
   html: string;
   images: LetterImage[];
-  /** Что было вырезано и о чём стоит сказать пользователю (внешние изображения, относительные ссылки). */
+  /** Что было вырезано и о чём стоит сказать пользователю (относительные ссылки). */
   removed: string[];
+  /** Сколько изображений вырезано: по ссылке (cid:, file://, внешний адрес) — их нет в письме. */
+  removedImages: number;
+}
+
+/**
+ * Предупреждение о вырезанных изображениях (решение владельца 05.11.2026): текст прошлого письма копируют из Outlook
+ * или Word, картинки приходят ссылками — они не должны пропадать молча. Тот же текст показывает редактор при вставке.
+ */
+export function imagesWarning(n: number): string[] {
+  return n > 0 ? [`Не вставлено изображений: ${n}. Картинки по ссылке не поддерживаются — сохраните их файлом и вставьте заново`] : [];
 }
 
 /** Пустые атрибуты: новый объект на каждый тег — sanitize-html может менять переданный. */
@@ -69,6 +79,7 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
   const portalHost = opts.portalUrl ? hostOf(opts.portalUrl) : null;
   const images: LetterImage[] = [];
   const removed = new Set<string>();
+  let removedImages = 0;
   let portalLink: string | null = null;
 
   const html = sanitizeHtml(dirty, {
@@ -100,7 +111,7 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
         const src = attribs.src ?? '';
         const img = decodeDataImage(src);
         if (!img) {
-          removed.add('изображение по внешней ссылке — вставьте его в письмо как файл');
+          removedImages++;
           return { tagName, attribs: noAttrs() };
         }
         images.push({ mime: img.mime, bytes: img.data.length, sha256: createHash('sha256').update(img.data).digest('hex') });
@@ -118,7 +129,7 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
   if (portalLink) {
     throw new AppError(400, 'PORTAL_LINK', `В письме ссылка на портал (${portalLink}) — сотрудники банка его не видят. Уберите ссылку`);
   }
-  return { html, images, removed: [...removed] };
+  return { html, images, removed: [...removed], removedImages };
 }
 
 export interface LetterLimits {

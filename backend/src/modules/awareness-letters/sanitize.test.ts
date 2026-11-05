@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AppError } from '../../lib/errors.js';
-import { checkLetterSize, DEFAULT_LETTER_LIMITS, sanitizeLetterHtml, sniffImage } from './sanitize.js';
+import { checkLetterSize, DEFAULT_LETTER_LIMITS, imagesWarning, sanitizeLetterHtml, sniffImage } from './sanitize.js';
 
 // Минимальные настоящие изображения: PNG 1×1 и GIF 1×1.
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -45,13 +45,23 @@ describe('санитайзер писем', () => {
     }
   });
 
-  it('внешние и относительные src изображений вырезаются с пояснением; относительные ссылки — тоже', () => {
+  it('внешние и относительные src изображений вырезаются и считаются; относительные ссылки — с пояснением', () => {
     const r = s('<p><img src="https://tracker.example/pixel.gif"><img src="/api/v1/files/1"><img src="//cdn.example/x.png"></p><a href="/tasks?task=1">задача</a>');
     expect(r.html).toBe('<p></p><a>задача</a>');
-    expect(r.removed).toEqual([
-      'изображение по внешней ссылке — вставьте его в письмо как файл',
-      'ссылка без адреса сайта (относительная или другого вида)',
-    ]);
+    expect(r.removed).toEqual(['ссылка без адреса сайта (относительная или другого вида)']);
+    expect(r.removedImages).toBe(3);
+  });
+
+  it('вставка из Outlook и Word: картинки cid:, file:// и по адресу не пропадают молча — число и предупреждение', () => {
+    const outlook = '<p>Коллеги!</p><p><img src="cid:image001.png@01DA1234.ABCD5678" alt="Логотип"></p>'
+      + '<p><img src="file:///C:/Users/x/AppData/Local/Temp/msohtmlclip1/01/clip_image002.jpg"></p>'
+      + `<p><img src="https://mail.example/img.png"><img src="data:image/png;base64,${PNG}"></p>`;
+    const r = s(outlook);
+    expect(r.removedImages).toBe(3);
+    expect(r.images.length).toBe(1);
+    expect(r.html).not.toMatch(/cid:|file:|mail\.example/);
+    expect(imagesWarning(r.removedImages)).toEqual(['Не вставлено изображений: 3. Картинки по ссылке не поддерживаются — сохраните их файлом и вставьте заново']);
+    expect(imagesWarning(0)).toEqual([]);
   });
 
   it('изображения data: — только PNG, JPEG, GIF, тип сверяется по сигнатуре', () => {

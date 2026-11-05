@@ -15,6 +15,7 @@ import * as exporter from './export.service.js';
 import * as rules from './rules.service.js';
 import { checkRuleNow } from './schedule.service.js';
 import { letterRefs } from './mailings.js';
+import { audienceSuggestions, AUDIENCE_LIMIT } from './audiences.js';
 import { CadenceSchema, LEAD_DAYS } from './cadence.js';
 import { attachmentDisposition } from './export/eml.js';
 
@@ -91,7 +92,8 @@ export const LetterDetail = LetterItem.extend({
   actions: z.array(Action),
 });
 
-const SaveResult = z.object({ letter: LetterDetail, versionCreated: z.boolean(), removed: z.array(z.string()) });
+/** warnings — «Не вставлено изображений: N…» (картинки по ссылке вырезаны санитайзером). */
+const SaveResult = z.object({ letter: LetterDetail, versionCreated: z.boolean(), removed: z.array(z.string()), warnings: z.array(z.string()) });
 
 const Variable = z.object({ key: z.string(), label: z.string() });
 const Limits = z.object({ maxImageKb: z.number().int(), maxLetterKb: z.number().int(), warnLetterKb: z.number().int() });
@@ -117,7 +119,7 @@ export const TemplateDetail = TemplateItem.extend({
   content: Content,
   size: z.object({ bytes: z.number().int(), warn: z.boolean(), limits: Limits }),
 });
-const TemplateSave = z.object({ template: TemplateDetail, removed: z.array(z.string()) });
+const TemplateSave = z.object({ template: TemplateDetail, removed: z.array(z.string()), warnings: z.array(z.string()) });
 const TemplateInput = ContentInput.extend({ title: z.string().max(1000) });
 export const Signature = z.object({
   htmlRu: z.string(), htmlTj: z.string(), version: z.number().int(),
@@ -337,7 +339,7 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
     schema: {
       tags, summary: 'Изменить «Подпись ИБ» (settings.manage и ib.work): санитизация, лимиты, без переменных; version (0 — строки ещё нет)',
       body: z.object({ htmlRu: ContentInput.shape.htmlRu, htmlTj: ContentInput.shape.htmlTj, version: z.number().int().min(0) }),
-      response: { 200: z.object({ signature: Signature, removed: z.array(z.string()) }), ...errors },
+      response: { 200: z.object({ signature: Signature, removed: z.array(z.string()), warnings: z.array(z.string()) }), ...errors },
     },
   }, async (request) => templates.updateSignature(db, { ...actorOf(request), perms: request.user?.permissions ?? new Set<string>() }, request.body, portalUrl));
 
@@ -527,4 +529,16 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
       response: { 200: z.object({ items: z.array(z.object({ number: z.number().int(), id: z.string(), lastVersionNo: z.number().int() })) }), ...errors },
     },
   }, async (request) => letterRefs(db, request.query.numbers.split(',').map(Number).slice(0, 500)));
+
+  app.get('/awareness/audiences', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Подсказки аудитории «Отметить отправленным»: «Все сотрудники», подразделения из «Сотрудников», прежние аудитории',
+      querystring: z.object({ q: z.string().max(200).optional() }),
+      response: {
+        200: z.object({ items: z.array(z.object({ value: z.string(), source: z.enum(['all', 'dept', 'previous']), count: z.number().int() })).max(AUDIENCE_LIMIT) }),
+        ...errors,
+      },
+    },
+  }, async (request) => audienceSuggestions(db, request.query.q));
 };
