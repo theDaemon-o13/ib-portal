@@ -12,6 +12,8 @@ import { LETTER_KINDS, LETTER_STATUSES, COMMENT_MAX, AUDIENCE_MAX } from './flow
 import * as letters from './letters.service.js';
 import * as templates from './templates.service.js';
 import * as exporter from './export.service.js';
+import * as rules from './rules.service.js';
+import { CadenceSchema, LEAD_DAYS } from './cadence.js';
 import { attachmentDisposition } from './export/eml.js';
 
 const tags = ['awareness-letters'];
@@ -378,4 +380,85 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
       },
     },
   }, async (request) => exporter.exportPrint(db, actorOf(request), request.params.id, request.query));
+
+  // ———————————————————————————————————————— расписание: правила (раздел 19.1–19.4)
+
+  const RuleBody = z.object({
+    title: z.string().max(1000),
+    cadence: CadenceSchema,
+    startsOn: IsoDate,
+    leadDays: z.number().int().min(LEAD_DAYS.min).max(LEAD_DAYS.max).optional(),
+    roleId: z.string().uuid(),
+    templateId: z.string().uuid().nullable().optional(),
+    active: z.boolean().optional(),
+  });
+  const PreviewDate = z.object({ nominal: z.string(), planned: z.string(), shifted: z.boolean(), reason: z.string().nullable() });
+  const Rule = z.object({
+    id: z.string(), title: z.string(), cadence: CadenceSchema, cadenceText: z.string(), startsOn: z.string(), leadDays: z.number().int(),
+    role: z.object({ id: z.string(), name: z.string() }), roleHolders: z.number().int(),
+    template: z.object({ id: z.string(), title: z.string(), archived: z.boolean() }).nullable(),
+    active: z.boolean(), archived: z.boolean(), archivedAt: z.string().nullable(),
+    createdBy: Person, createdAt: z.string(), updatedAt: z.string(), version: z.number().int(),
+  });
+  const RuleDetail = Rule.extend({
+    dates: z.array(PreviewDate),
+    runs: z.array(z.object({
+      id: z.string(), nominalDate: z.string(), plannedDate: z.string(), draftDue: z.string(), reviewDue: z.string(), escalatedAt: z.string().nullable(),
+      task: z.object({ id: z.string(), number: z.number().int(), title: z.string(), done: z.boolean(), archived: z.boolean() }).nullable(),
+      letter: z.object({ id: z.string(), number: z.number().int(), status: Status }).nullable(),
+    })),
+  });
+
+  app.get('/awareness/rules', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Правила расписания: активные сверху; у каждого — ближайшая плановая дата', querystring: z.object({ scope: z.enum(['active', 'archived', 'all']).default('active') }),
+      response: { 200: z.object({ items: z.array(Rule.extend({ next: PreviewDate.nullable() })) }), ...errors },
+    },
+  }, async (request) => rules.listRules(db, request.query));
+
+  app.get('/awareness/rules/roles', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Роли для исполнителя правила: с ib.work, без служебной; число держателей, участвующих в работе',
+      response: { 200: z.object({ items: z.array(z.object({ id: z.string(), name: z.string(), holders: z.number().int() })) }), ...errors },
+    },
+  }, async () => rules.listWorkRoles(db));
+
+  app.post('/awareness/rules/preview', {
+    preHandler: work,
+    schema: {
+      tags, summary: `Предпросмотр формы: ближайшие ${rules.PREVIEW_COUNT} дат — номинальная, плановая, перенос и причина`,
+      body: z.object({ cadence: CadenceSchema, startsOn: IsoDate }),
+      response: { 200: z.object({ cadenceText: z.string(), dates: z.array(PreviewDate) }), ...errors },
+    },
+  }, async (request) => rules.previewForm(db, request.body));
+
+  app.post('/awareness/rules', {
+    preHandler: work,
+    schema: { tags, summary: 'Новое правило. Роль не рабочая — 400 BAD_ROLE; шаблон в архиве — 409 TEMPLATE_ARCHIVED', body: RuleBody, response: { 201: RuleDetail, ...errors } },
+  }, async (request, reply) => reply.status(201).send(await rules.createRule(db, actorOf(request), request.body)));
+
+  app.get('/awareness/rules/:id', {
+    preHandler: work,
+    schema: { tags, summary: 'Правило: ближайшие даты и последние запуски', params: IdParams, response: { 200: RuleDetail, ...errors } },
+  }, async (request) => rules.getRule(db, request.params.id));
+
+  app.put('/awareness/rules/:id', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Изменить правило (version), в том числе включить и отключить. Созданные запуски и задачи не меняются',
+      params: IdParams, body: RuleBody.merge(Version), response: { 200: RuleDetail, ...errors },
+    },
+  }, async (request) => rules.updateRule(db, actorOf(request), request.params.id, request.body));
+
+  app.post('/awareness/rules/:id/archive', {
+    preHandler: work,
+    schema: { tags, summary: 'В архив: задач больше не создаёт', params: IdParams, body: Version, response: { 200: RuleDetail, ...errors } },
+  }, async (request) => rules.archiveRule(db, actorOf(request), request.params.id, { version: request.body.version, archived: true }));
+
+  app.post('/awareness/rules/:id/unarchive', {
+    preHandler: work,
+    schema: { tags, summary: 'Вернуть из архива: догоняет только окно', params: IdParams, body: Version, response: { 200: RuleDetail, ...errors } },
+  }, async (request) => rules.archiveRule(db, actorOf(request), request.params.id, { version: request.body.version, archived: false }));
 };

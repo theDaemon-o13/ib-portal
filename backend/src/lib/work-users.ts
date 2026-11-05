@@ -27,3 +27,14 @@ export async function isServiceUser(db: Db, userId: string): Promise<boolean> {
 
 /** Есть ли служебная роль среди кодов ролей. */
 export const hasServiceRole = (roleCodes: readonly (string | null)[]) => roleCodes.includes(SERVICE_ROLE_CODE);
+
+/**
+ * Роли, держатели которых участвуют в работе (1.9.0, ADR-0040): с правом ib.work, кроме служебной. Роль-исполнитель
+ * правила рассылки выбирается только из них; держатели — через workUsersWhere() (служебные и отключённые отсекаются).
+ */
+export function workRolesWhere(): Prisma.RoleWhereInput {
+  return {
+    permissions: { some: { permissionCode: 'ib.work' } },
+    OR: [{ code: null }, { code: { not: SERVICE_ROLE_CODE } }],
+  };
+}

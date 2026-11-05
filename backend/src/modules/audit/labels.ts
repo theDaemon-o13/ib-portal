@@ -34,6 +34,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   awareness_letter: 'Осведомлённость: учебные письма',
   awareness_template: 'Осведомлённость: шаблоны писем',
   awareness_fragment: 'Осведомлённость: «Подпись ИБ»',
+  awareness_rule: 'Осведомлённость: расписание рассылок',
 };
 
 /** Разделы настроек: прежняя вкладка «Настройки → Журнал изменений» — пункт фильтра «Настройки — всё». */
@@ -141,6 +142,10 @@ const ACTION_LABELS: Record<string, string> = {
   'awareness_template.archived': 'Шаблон письма отправлен в архив',
   'awareness_template.unarchived': 'Шаблон письма возвращён из архива',
   'awareness_fragment.updated': '«Подпись ИБ» изменена',
+  'awareness_rule.created': 'Правило рассылки создано',
+  'awareness_rule.updated': 'Правило рассылки изменено',
+  'awareness_rule.archived': 'Правило рассылки отправлено в архив',
+  'awareness_rule.unarchived': 'Правило рассылки возвращено из архива',
 };
 
 type Gender = 'm' | 'f' | 'n';
