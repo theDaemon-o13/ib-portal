@@ -20,6 +20,7 @@ import { DirectorySchema, PARTY_DIRECTORY_KEY } from '../src/modules/party-direc
 import { AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY, EMPLOYEE_FIELDS, RESULT_FIELDS } from '../src/modules/awareness/definition.js';
 import { AWARENESS_GRADES_KEY, GradesSchema } from '../src/modules/awareness/grades.js';
 import { SERVICE_ROLE_CODE } from '../src/lib/work-users.js';
+import { letterIntegrity } from '../src/modules/awareness-letters/integrity.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -405,6 +406,8 @@ async function main() {
   check(inDeleted === 0, 'задачи не ссылаются на удалённые цепочки', `задач: ${inDeleted} — удаление цепочки должно было их отвязать`);
 
   await checkAwareness();
+  // Учебные письма и расписание (1.9.0).
+  for (const c of await letterIntegrity(prisma)) check(c.ok, c.label, c.hint);
   await checkServiceRole();
 
   const admins = await prisma.user.count({
