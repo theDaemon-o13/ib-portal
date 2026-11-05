@@ -131,6 +131,38 @@ function ListWidget({ w }: { w: WidgetData }) {
   );
 }
 
+/**
+ * «Ближайшая рассылка» (1.9.0, docs/specs/awareness.md, раздел 20): строка ближайшей рассылки со ссылкой на задачу,
+ * три этапа (просроченный — красным), счётчики «Отправлено писем за год» и «Рассылки с просрочкой». Вид — list.
+ */
+function NextMailingWidget({ w }: { w: WidgetData }) {
+  const [head, ...counters] = w.stats;
+  const line = head && (
+    <div className={`aw-next${head.tone ? ` tone-${head.tone}` : ''}`} data-testid="next-mailing">{head.label}</div>
+  );
+  return (
+    <div className="grid-gap">
+      {head?.link ? <Link className="stat stat-link" to={head.link}>{line}</Link> : line}
+      {w.items.length > 0 && (
+        <ol className="aw-stages" aria-label="Этапы">
+          {w.items.map((i) => {
+            const late = i.sub.startsWith('просрочен');
+            const done = i.sub.startsWith('выполнен');
+            return (
+              <li key={i.id} className={done ? 'done' : late ? 'late' : ''}>
+                <span className="aw-mark" aria-hidden="true">{done ? '✓' : late ? '!' : '·'}</span>
+                <span className="grow">{i.title}</span>
+                <span className="mono">{i.sub}</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      <Stats w={{ ...w, stats: counters }} />
+    </div>
+  );
+}
+
 const SIZE: Record<WidgetRef['kind'], string> = { deadline: 'w6', timeline: 'w6', distribution: 'w4', metric: 'w4', bars: 'w4', tile: 'w3', basis: 'w6', list: 'w6' };
 
 /** Виджет: свой запрос к серверу (кэш там же, 1 минута), обновление раз в минуту. */
@@ -152,7 +184,7 @@ export function WidgetPanel({ w, bare = false }: { w: WidgetRef; bare?: boolean 
         {d && d.kind === 'timeline' && <Timeline rows={d.rows} />}
         {d && d.kind === 'deadline' && <Deadline w={d} />}
         {d && d.kind === 'basis' && <Basis w={d} />}
-        {d && d.kind === 'list' && <ListWidget w={d} />}
+        {d && d.kind === 'list' && (d.key === 'awareness.next' ? <NextMailingWidget w={d} /> : <ListWidget w={d} />)}
       </div>
     </section>
   );

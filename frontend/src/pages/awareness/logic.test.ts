@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cadenceOf, DEFAULT_CADENCE, formOfCadence, leadDaysProblem, hasChanges, htmlToLines, letterMarks, lineDiff, templateVariables, withoutApprovalComment } from './logic';
+import { cadenceOf, DEFAULT_CADENCE, letterRefHref, parseLetterRef, formOfCadence, leadDaysProblem, hasChanges, htmlToLines, letterMarks, lineDiff, templateVariables, withoutApprovalComment } from './logic';
 
 describe('сравнение версий', () => {
   it('текст из HTML построчно: абзацы, списки, таблица, ссылка, изображение, подпись', () => {
@@ -58,5 +58,16 @@ describe('периодичность правила', () => {
     expect([leadDaysProblem(6), leadDaysProblem(7), leadDaysProblem(90), leadDaysProblem(91)].map((x) => x === null))
       .toEqual([false, true, true, false]);
     expect(leadDaysProblem(6)).toContain('за 7 дней');
+  });
+});
+
+describe('«Письмо» в «Рассылках»', () => {
+  const refs = new Map([[12, { id: 'l12', lastVersionNo: 3 }]]);
+  it('«№ N, версия V» существующего письма — ссылка; иначе текст', () => {
+    expect(parseLetterRef('№ 12, версия 3, только RU')).toEqual({ number: 12, versionNo: 3 });
+    expect(letterRefHref('№ 12, версия 3', refs)).toBe('/awareness/letters?letter=l12');
+    expect(letterRefHref('№ 12, версия 4', refs)).toBeNull();
+    expect(letterRefHref('№ 13, версия 1', refs)).toBeNull();
+    expect(letterRefHref('Рассылка 2023 года', refs)).toBeNull();
   });
 });

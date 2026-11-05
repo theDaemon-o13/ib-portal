@@ -165,3 +165,21 @@ export function leadDaysProblem(n: number): string | null {
   if (n > LEAD_DAYS.max) return `Не больше ${LEAD_DAYS.max} дней`;
   return null;
 }
+
+// ---------------------------------------------------------------- реестр «Рассылки» (раздел 18)
+
+export const MAILINGS_KEY = 'awareness_mailings';
+const REF_RE = /^\s*№\s*(\d{1,9}),\s*версия\s*(\d{1,6})(?:,\s*только\s+(?:RU|TJ))?\s*$/i;
+
+/** «№ 12, версия 3» (и «, только RU») — номер и версия; ручной ввод и история — null, остаются текстом. */
+export function parseLetterRef(text: string): { number: number; versionNo: number } | null {
+  const m = REF_RE.exec(text);
+  return m ? { number: Number(m[1]), versionNo: Number(m[2]) } : null;
+}
+
+/** Ссылка на карточку письма — только если письмо есть и версия не больше последней. */
+export function letterRefHref(text: string, refs: ReadonlyMap<number, { id: string; lastVersionNo: number }>): string | null {
+  const p = parseLetterRef(text);
+  const r = p ? refs.get(p.number) : undefined;
+  return p && r && p.versionNo <= r.lastVersionNo ? `/awareness/letters?letter=${r.id}` : null;
+}

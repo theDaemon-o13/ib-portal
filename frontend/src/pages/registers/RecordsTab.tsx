@@ -15,6 +15,8 @@ import { BASIS_TONES, deadlineChip, deadlineFieldOf, describeFilter, filterFromP
 import { ExportZipDialog } from './ExportZipDialog';
 import { rkeys } from './keys';
 import { RecordDrawer } from './RecordDrawer';
+import { LetterRefText, useLetterRefs, type LetterRefs } from '../awareness/LetterRef';
+import { MAILINGS_KEY } from '../awareness/logic';
 
 interface Col {
   key: string;
@@ -48,7 +50,7 @@ function savePin(id: string, n: number) {
   }
 }
 
-function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
+function Cell({ rec, col, refs }: { rec: RegisterRecord; col: Col; refs?: LetterRefs }) {
   if (col.key === 'number') {
     return (
       <span className="mono">
@@ -72,6 +74,7 @@ function Cell({ rec, col }: { rec: RegisterRecord; col: Col }) {
   if (basis) return <span className={`chip ${BASIS_TONES[basis.state] ?? ''}`} title={basis.text}>{basis.text}</span>;
   const text = rec.display[f.id] ?? '';
   if (!text) return <span className="faint">—</span>;
+  if (refs && f.systemKey === 'letter') return <LetterRefText text={text} refs={refs} />;
   if (f.type === 'number' || f.type === 'date' || f.type === 'calc') return <span className="mono">{text}</span>;
   if (f.type === 'catalog') return <span className="chip">{text}</span>;
   if (f.type === 'select' || f.type === 'decision') {
@@ -170,6 +173,9 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
   const selectable = canEdit || canDelete;
   const nPicked = pickedCount(picked, total);
   const pageIds = rows.map((r) => r.id);
+  // «Рассылки» (1.9.0): «Письмо» — ссылка на карточку существующего письма; номера страницы — одним запросом.
+  const letterField = reg.systemKey === MAILINGS_KEY ? reg.fields.find((f) => f.systemKey === 'letter') : undefined;
+  const letterRefs = useLetterRefs(letterField ? rows.map((r) => r.display[letterField.id] ?? '') : [], !!letterField);
   const pageAllPicked = pageIds.length > 0 && pageIds.every((id) => isPicked(picked, id));
   const startBulk = (mode: BulkMode) => setBulk({
     mode, selection: selectionBody(picked, { q, includeArchived: archived, archivedOnly: archiveView, withTasks, filter }),
@@ -395,7 +401,7 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
                       onChange={() => setPicked(togglePicked(picked, rec.id))} />
                   </td>
                 )}
-                {cols.map((c, i) => <td key={c.key} className={pinClass(i)} style={pinStyle(i)}><Cell rec={rec} col={c} /></td>)}
+                {cols.map((c, i) => <td key={c.key} className={pinClass(i)} style={pinStyle(i)}><Cell rec={rec} col={c} refs={letterField ? letterRefs : undefined} /></td>)}
               </tr>
             ))}
           </tbody>

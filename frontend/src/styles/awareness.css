@@ -119,3 +119,7 @@
 .aw-dates{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .aw-dates li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px}
 .aw-dates li.shifted b{color:var(--high)}
+
+/* Дашборд: «Ближайшая рассылка» */
+.aw-next{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.aw-next.tone-crit{color:var(--crit)}

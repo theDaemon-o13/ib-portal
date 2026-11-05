@@ -15,6 +15,8 @@ import { EventTasks } from './AutomationTab';
 import { DecisionBlock } from './DecisionBlock';
 import { rkeys } from './keys';
 import { useMe } from '../../auth/useMe';
+import { LetterRefLink } from '../awareness/LetterRef';
+import { MAILINGS_KEY } from '../awareness/logic';
 
 const LONG = /описан|коммент|мер|примечан/i;
 // Лимиты — как на backend (lib/field-settings.ts).
@@ -162,6 +164,8 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
       {control}
       {lockNote}
       {f.settings.hint && <small className="field-hint">{f.settings.hint}</small>}
+      {/* «Рассылки» (1.9.0): «№ N, версия V» существующего письма — ссылка на его карточку. */}
+      {reg.systemKey === MAILINGS_KEY && f.systemKey === 'letter' && v && <LetterRefLink text={v} />}
     </label>
   );
 }
