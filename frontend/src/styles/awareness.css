@@ -110,3 +110,12 @@
 .aw-varlist{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .aw-vars{border:0;padding:0;margin:0;display:grid;gap:8px}
 .aw-vars legend{font-size:12.5px;color:var(--muted);margin:0 0 4px}
+
+/* Расписание */
+.aw-cadence{align-items:end}
+.aw-wide{grid-column:1/-1;margin:0}
+.aw-check{align-items:center}
+.aw-block{display:grid;gap:8px;padding:12px;border-radius:var(--r-sm);background:var(--fill-2);min-width:0}
+.aw-dates{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.aw-dates li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px}
+.aw-dates li.shifted b{color:var(--high)}

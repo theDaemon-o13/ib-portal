@@ -11,6 +11,7 @@ import { formatDateTime } from '../settings/logic';
 import { ChainBlock } from './ChainBlock';
 import { ACTION_LABEL, actionNeedsComment, candidatesLabel, initials, needsComment, originText, processHint, type ProcessAction } from './logic';
 import { TaskOriginBlock } from './TaskOriginBlock';
+import { TaskLetterActions } from '../awareness/TaskLetterActions';
 
 interface Draft {
   title: string;
@@ -296,7 +297,10 @@ export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string;
             </form>
           )}
 
-          {t?.origin && <TaskOriginBlock task={t} />}
+          {t?.origin && (
+            <TaskOriginBlock task={t} actions={t.origin.kind === 'schedule' && !t.origin.letter && !t.completedAt && !t.archived && !readOnly
+              ? <TaskLetterActions taskId={t.id} ruleTitle={t.origin.rule.title} plannedDate={t.origin.plannedDate} /> : undefined} />
+          )}
 
           {t && draft && onOpenTask && (
             <ChainBlock task={t} title={draft.title} onOpenTask={onOpenTask} onChanged={() => void qc.invalidateQueries({ queryKey: tkeys.history(id) })} />

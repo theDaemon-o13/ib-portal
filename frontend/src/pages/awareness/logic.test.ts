@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasChanges, htmlToLines, letterMarks, lineDiff, templateVariables, withoutApprovalComment } from './logic';
+import { cadenceOf, DEFAULT_CADENCE, formOfCadence, leadDaysProblem, hasChanges, htmlToLines, letterMarks, lineDiff, templateVariables, withoutApprovalComment } from './logic';
 
 describe('сравнение версий', () => {
   it('текст из HTML построчно: абзацы, списки, таблица, ссылка, изображение, подпись', () => {
@@ -40,5 +40,23 @@ describe('переменные шаблона', () => {
         { key: 'схема', label: 'Схема' }, { key: 'дата звонка', label: 'Дата звонка' }, { key: 'отправитель', label: 'ОТПРАВИТЕЛЬ' },
         { key: 'елка', label: 'ёлка' }, { key: 'a & b', label: 'a & b' },
       ]);
+  });
+});
+
+describe('периодичность правила', () => {
+  it('форма → правило → форма для каждого вида', () => {
+    const kinds = ['monthly', 'twice_monthly', 'quarterly', 'yearly', 'weekly'] as const;
+    for (const kind of kinds) {
+      const f = { ...DEFAULT_CADENCE, kind, day: 31, day2: 15, month: 2, quarterMonth: 3, every: 4, weekday: 5 };
+      expect(formOfCadence(cadenceOf(f))).toMatchObject({ kind });
+      expect(cadenceOf(formOfCadence(cadenceOf(f)))).toEqual(cadenceOf(f));
+    }
+    expect(cadenceOf({ ...DEFAULT_CADENCE, kind: 'twice_monthly', day: 1, day2: 15 })).toEqual({ kind: 'twice_monthly', days: [1, 15] });
+  });
+
+  it('опережение 7–90: меньше 7 — нельзя (этап «черновик» за 7 дней)', () => {
+    expect([leadDaysProblem(6), leadDaysProblem(7), leadDaysProblem(90), leadDaysProblem(91)].map((x) => x === null))
+      .toEqual([false, true, true, false]);
+    expect(leadDaysProblem(6)).toContain('за 7 дней');
   });
 });

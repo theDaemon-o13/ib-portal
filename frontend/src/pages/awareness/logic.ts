@@ -1,5 +1,5 @@
 // Чистые функции раздела «Осведомлённость → учебные письма» (1.9.0): подписи, сравнение версий. Без React, с тестами.
-import type { Letter, LetterItem, LetterStatus } from '../../api/awareness';
+import type { Cadence, Letter, LetterItem, LetterStatus } from '../../api/awareness';
 
 export const STATUS_NAME: Record<LetterStatus, string> = { draft: 'Черновик', review: 'На согласовании', approved: 'Утверждено', sent: 'Отправлено' };
 export const STATUS_TONE: Record<LetterStatus, string> = { draft: '', review: 'high', approved: 'acc', sent: 'low' };
@@ -118,4 +118,50 @@ export function templateVariables(texts: readonly string[]): { key: string; labe
     }
   }
   return [...seen.values()];
+}
+
+// ---------------------------------------------------------------- расписание (раздел 19)
+
+
+export type CadenceKind = Cadence['kind'];
+export const CADENCE_KINDS: { key: CadenceKind; title: string }[] = [
+  { key: 'monthly', title: 'Ежемесячно' },
+  { key: 'twice_monthly', title: 'Дважды в месяц' },
+  { key: 'quarterly', title: 'Ежеквартально' },
+  { key: 'yearly', title: 'Ежегодно' },
+  { key: 'weekly', title: 'Каждую N-ю неделю' },
+];
+export const WEEKDAYS = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
+export const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+
+/** Поля формы периодичности: все сразу, в правило попадают нужные виду. */
+export interface CadenceForm { kind: CadenceKind; day: number; day2: number; month: number; quarterMonth: number; every: number; weekday: number }
+export const DEFAULT_CADENCE: CadenceForm = { kind: 'monthly', day: 10, day2: 25, month: 1, quarterMonth: 1, every: 2, weekday: 3 };
+
+export function cadenceOf(f: CadenceForm): Cadence {
+  switch (f.kind) {
+    case 'monthly': return { kind: 'monthly', day: f.day };
+    case 'twice_monthly': return { kind: 'twice_monthly', days: [f.day, f.day2] };
+    case 'quarterly': return { kind: 'quarterly', month: f.quarterMonth, day: f.day };
+    case 'yearly': return { kind: 'yearly', month: f.month, day: f.day };
+    case 'weekly': return { kind: 'weekly', every: f.every, weekday: f.weekday };
+  }
+}
+
+export function formOfCadence(c: Cadence): CadenceForm {
+  const f = { ...DEFAULT_CADENCE, kind: c.kind };
+  if (c.kind === 'monthly') return { ...f, day: c.day };
+  if (c.kind === 'twice_monthly') return { ...f, day: c.days[0], day2: c.days[1] };
+  if (c.kind === 'quarterly') return { ...f, quarterMonth: c.month, day: c.day };
+  if (c.kind === 'yearly') return { ...f, month: c.month, day: c.day };
+  return { ...f, every: c.every, weekday: c.weekday };
+}
+
+export const LEAD_DAYS = { min: 7, max: 90, default: 10 } as const;
+export function leadDaysProblem(n: number): string | null {
+  if (Number.isNaN(n)) return 'Укажите опережение: от 7 до 90 дней';
+  if (!Number.isInteger(n)) return 'Опережение — целое число дней';
+  if (n < LEAD_DAYS.min) return `Не меньше ${LEAD_DAYS.min} дней: этап «черновик» начинается за 7 дней до отправки`;
+  if (n > LEAD_DAYS.max) return `Не больше ${LEAD_DAYS.max} дней`;
+  return null;
 }
