@@ -13,6 +13,7 @@ import { PROFILE_TYPES, seedVulnGroups } from '../../../prisma/seed/vuln-groups.
 import { assetFacts } from '../assets/service.js';
 import { cancelImport } from '../registers/excel.service.js';
 import { XLSX_TYPE } from '../registers/routes.js';
+import { todayIso } from '../../lib/today.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import * as groups from './groups.service.js';
@@ -190,7 +191,7 @@ describe('регулярность сканирования', () => {
       const x = await vulnRegister(tx);
       const g = await makeGroup(tx, x, 'Windows', 'Linux');
       const by = (l: string) => must(g.nodes.find((n) => n.label === l)).id;
-      await scanAt(tx, x, by('Windows'), new Date().toISOString().slice(0, 10));
+      await scanAt(tx, x, by('Windows'), todayIso()); // «сегодня» портала, как в коде: не UTC
       const ov = await overview(tx);
       expect(ov.scanMaxAgeDays).toBe(90);
       expect(ov.nodes.find((n) => n.nodeId === by('Windows'))).toMatchObject({ scanAgeDays: 0, scanStale: false });
