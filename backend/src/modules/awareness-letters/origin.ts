@@ -44,17 +44,22 @@ const DONE: Record<StageKey, readonly string[]> = {
   send: ['sent'],
 };
 
+/** Этапы запуска по статусу письма; просрочен — невыполненный этап с датой раньше сегодня. Общая для карточки и дашборда. */
+export function runStages(run: { draftDue: Date; reviewDue: Date; plannedDate: Date }, letterStatus: string | null, today: string): Stage[] {
+  return ([['draft', run.draftDue], ['review', run.reviewDue], ['send', run.plannedDate]] as const).map(([key, d]) => {
+    const due = iso(d);
+    const done = letterStatus !== null && DONE[key].includes(letterStatus);
+    return { key, due, done, overdue: !done && due < today };
+  });
+}
+
 export function taskOrigin(rows: OriginRows, today: string): TaskOrigin | null {
   const run = rows.awarenessRun;
   if (run) {
     // Письмо запуска: черновик из шаблона или созданное из задачи — по letterId; на случай старых строк — по task_id.
     const letter = run.letter ?? rows.awarenessLetters[0] ?? null;
     const status = letter?.status ?? null;
-    const stages = ([['draft', run.draftDue], ['review', run.reviewDue], ['send', run.plannedDate]] as const).map(([key, d]) => {
-      const due = iso(d);
-      const done = status !== null && DONE[key].includes(status);
-      return { key, due, done, overdue: !done && due < today };
-    });
+    const stages = runStages(run, status, today);
     return {
       kind: 'schedule', rule: run.rule, plannedDate: iso(run.plannedDate), letter: letter ? brief(letter) : null, stages, letterSent: status === 'sent',
     };

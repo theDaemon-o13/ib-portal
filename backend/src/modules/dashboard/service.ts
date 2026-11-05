@@ -31,12 +31,16 @@ import { VULN_REGISTER_KEY } from '../vulns/definition.js';
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from './incidents.js';
 import { AWARENESS_DEPT_WIDGET, AWARENESS_RETAKE_WIDGET, deptAverages, retakeWidget } from './awareness-widgets.js';
 import { AWARENESS_RESULTS_KEY } from '../awareness/definition.js';
+import { AWARENESS_NEXT_WIDGET, awarenessKpis, nextMailingWidget } from '../awareness-letters/dashboard.js';
 
 // ---------------------------------------------------------------- KPI
 
 export const KPI_KEYS = [
   'vulns_open', 'vulns_overdue', 'vulns_soon', 'incidents_30d', 'tasks_overdue',
   'docs_review', 'risks_no_decision', 'evidence_pending', 'evidence_expiring',
+  // Учебные письма (1.9.0, расхождение 8): только на мониторе, в слайде «Ключевые показатели»; 1.8.0 неизвестные
+  // ключи KPI отбрасывает — откат безопасен.
+  'awareness_next', 'awareness_overdue',
 ] as const;
 export type KpiKey = (typeof KPI_KEYS)[number];
 
@@ -82,7 +86,7 @@ export async function computeKpis(db: Db): Promise<Kpi[]> {
     ? { date: { fieldId: incidentDate.id, from: addDaysIso(today, -(INCIDENT_WINDOW_DAYS - 1)), to: today } }
     : null;
 
-  const [vOpen, vOver, vSoon, inc, risk, tasksOverdue, docs, ev] = await Promise.all([
+  const [vOpen, vOver, vSoon, inc, risk, tasksOverdue, docs, ev, letters] = await Promise.all([
     byFilter(vulns, { state: 'open' }),
     byFilter(vulns, { deadline: ['overdue'] }),
     byFilter(vulns, { deadline: ['soon'] }),
@@ -91,6 +95,7 @@ export async function computeKpis(db: Db): Promise<Kpi[]> {
     db.task.count({ where: overdueTaskWhere(today) }),
     listDocuments(db, DEPARTMENT_VIEW, { archived: false, review: true, limit: 1 }),
     listEvidence(db, { archived: false, limit: 1 }),
+    awarenessKpis(db, today),
   ]);
   const warnIf = (n: number | null) => (n ? 'warn' as const : null);
   const badIf = (n: number | null) => (n ? 'bad' as const : null);
@@ -104,11 +109,14 @@ export async function computeKpis(db: Db): Promise<Kpi[]> {
     { key: 'risks_no_decision', label: 'Риски ИБ без решения ОУР', ...risk, tone: warnIf(risk.value), source: 'реестр рисков ИБ' },
     { key: 'evidence_pending', label: 'Доказательства на проверке', value: ev.counts.pending, link: '/evidence?filter=pending', tone: warnIf(ev.counts.pending), source: 'раздел «Доказательства»' },
     { key: 'evidence_expiring', label: 'Доказательства истекают', value: ev.counts.expiring, link: '/evidence?filter=expiring', tone: warnIf(ev.counts.expiring), source: 'срок действия ≤ 30 дней' },
+    ...letters,
   ];
 }
 
-/** KPI дашборда — восемь из задания; «ближайшие 7 дней» — только на мониторинге. */
-export const DASHBOARD_KPIS: readonly KpiKey[] = KPI_KEYS.filter((k) => k !== 'vulns_soon');
+/** Только на мониторинге: «ближайшие 7 дней» и показатели учебных писем (на дашборде — виджет «Ближайшая рассылка»). */
+const MONITOR_ONLY_KPIS: readonly KpiKey[] = ['vulns_soon', 'awareness_next', 'awareness_overdue'];
+/** KPI дашборда — восемь из задания. */
+export const DASHBOARD_KPIS: readonly KpiKey[] = KPI_KEYS.filter((k) => !MONITOR_ONLY_KPIS.includes(k));
 
 // ---------------------------------------------------------------- виджеты
 
@@ -194,7 +202,9 @@ export async function listWidgets(db: Db): Promise<WidgetRef[]> {
     { key: AWARENESS_RETAKE_WIDGET, title: 'На пересдачу', kind: 'list', source: results.name, registerId: results.id },
     { key: AWARENESS_DEPT_WIDGET, title: 'Средний результат по подразделениям', kind: 'bars', source: results.name, registerId: results.id },
   ] : [];
-  return [...basis, ...fromFields, ...awareness, ...FIXED];
+  // Учебные письма (1.9.0): «Ближайшая рассылка» со счётчиками — всегда (модуль есть у всех сотрудников ИБ).
+  const letters: WidgetRef[] = [{ key: AWARENESS_NEXT_WIDGET, title: 'Ближайшая рассылка', kind: 'list', source: 'Осведомлённость', registerId: null }];
+  return [...basis, ...fromFields, ...awareness, ...letters, ...FIXED];
 }
 
 /** Нет действующего основания: канал открыт, а разрешения нет или оно истекло. */
@@ -397,6 +407,7 @@ export async function widgetData(db: Db, key: string): Promise<WidgetData> {
   const basisReg = /^basis:([0-9a-f-]{36})$/i.exec(key)?.[1];
   if (basisReg) return basisWidget(db, basisReg);
   if (key === AWARENESS_RETAKE_WIDGET || key === AWARENESS_DEPT_WIDGET) return awarenessWidget(db, key);
+  if (key === AWARENESS_NEXT_WIDGET) return nextMailingWidget(db, todayIso());
   const fixed = FIXED.find((w) => w.key === key);
   if (!fixed) throw notFound('Виджет');
   const rows = key === 'tasks.categories' ? await tasksByCategory(db) : key === 'documents.status' ? await documentsByStatus(db) : await evidenceByState(db);
