@@ -135,6 +135,7 @@ const ACTION_LABELS: Record<string, string> = {
   'awareness_letter.copied': 'Создана копия учебного письма',
   'awareness_letter.archived': 'Учебное письмо отправлено в архив',
   'awareness_letter.unarchived': 'Учебное письмо возвращено из архива',
+  'awareness_letter.exported': 'Учебное письмо выгружено',
   'awareness_template.created': 'Шаблон письма создан',
   'awareness_template.updated': 'Шаблон письма изменён',
   'awareness_template.archived': 'Шаблон письма отправлен в архив',

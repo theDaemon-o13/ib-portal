@@ -10,7 +10,7 @@ import { todayIso } from '../../lib/today.js';
 import { readPortalParam } from '../settings/portal-params.js';
 import type { Actor } from '../settings/common.js';
 import { SIGNATURE_CODE } from './definition.js';
-import { substituteSignature } from './export/html.js';
+import { substituteSignature, type ExportLang } from './export/html.js';
 import * as flow from './flow.js';
 import { checkLetterSize, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
@@ -91,6 +91,13 @@ const sameTexts = (a: TemplateTexts, b: TemplateTexts) =>
 const textsOf = (v: TemplateTexts): TemplateTexts => ({ subjectRu: v.subjectRu, subjectTj: v.subjectTj, htmlRu: v.htmlRu, htmlTj: v.htmlTj });
 
 const sizeOf = (t: TemplateTexts) => Buffer.byteLength(t.htmlRu, 'utf8') + Buffer.byteLength(t.htmlTj, 'utf8');
+
+/** Языки, которые можно выгрузить: язык с темой или текстом (у черновика может быть половина языка). */
+export function exportLangs(t: TemplateTexts): ExportLang[] {
+  const ru = flow.langFill(t.subjectRu, t.htmlRu) !== 'empty';
+  const tj = flow.langFill(t.subjectTj, t.htmlTj) !== 'empty';
+  return [...(ru ? ['ru' as const] : []), ...(tj ? ['tj' as const] : []), ...(ru && tj ? ['both' as const] : [])];
+}
 
 /** Пометка «только RU» / «только TJ» — у срочного письма с одним заполненным языком. */
 export function langMarkOf(kind: flow.LetterKind, t: TemplateTexts): flow.LangMark {
@@ -237,6 +244,8 @@ export async function getLetter(db: Db, actorId: string, id: string) {
   return {
     ...listItem(l, { versionNo: l.currentVersion?.no ?? null, langMark: langMarkOf(l.kind as flow.LetterKind, t) }),
     content: t,
+    /** Языки экспорта текущей версии (у срочного с одним языком — только он). */
+    exportLangs: exportLangs(t),
     size: { bytes, warn: bytes >= limits.warnLetterKb * 1024, limits },
     approvedVersionNo: noOf(l.approvedVersionId),
     sentVersionNo: noOf(l.sentVersionId),

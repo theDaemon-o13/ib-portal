@@ -11,6 +11,8 @@ import { actorOf } from '../settings/common.js';
 import { LETTER_KINDS, LETTER_STATUSES, COMMENT_MAX, AUDIENCE_MAX } from './flow.js';
 import * as letters from './letters.service.js';
 import * as templates from './templates.service.js';
+import * as exporter from './export.service.js';
+import { attachmentDisposition } from './export/eml.js';
 
 const tags = ['awareness-letters'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 413: ErrorResponse };
@@ -60,6 +62,7 @@ const Action = z.enum(['save', 'submit', 'withdraw', 'approve', 'return', 'send'
 
 export const LetterDetail = LetterItem.extend({
   content: Content,
+  exportLangs: z.array(z.enum(['ru', 'tj', 'both'])),
   /** Размер HTML обоих языков с изображениями; warn — от warnLetterKb («каждая из 1500+ копий ляжет на сервер»). */
   size: z.object({
     bytes: z.number().int(), warn: z.boolean(),
@@ -330,4 +333,49 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
       response: { 200: z.object({ signature: Signature, removed: z.array(z.string()) }), ...errors },
     },
   }, async (request) => templates.updateSignature(db, { ...actorOf(request), perms: request.user?.permissions ?? new Set<string>() }, request.body, portalUrl));
+
+  // ———————————————————————————————————————— экспорт (раздел 16)
+
+  const ExportQuery = z.object({
+    lang: z.enum(['ru', 'tj', 'both']),
+    /** Номер версии; без него — последняя (у отправленного — версия sent). */
+    version: z.coerce.number().int().positive().optional(),
+  });
+  const exportErrors = 'Язык без текста — 400 LANG_NOT_AVAILABLE. В журнал — awareness_letter.exported';
+
+  app.get('/awareness/letters/:id/export.eml', {
+    preHandler: work,
+    schema: { tags, summary: `Файл .eml (X-Unsent, без From/To/Date; изображения — части по Content-ID). ${exportErrors}`, params: IdParams, querystring: ExportQuery },
+  }, async (request, reply) => {
+    const { title, eml } = await exporter.exportEml(db, actorOf(request), request.params.id, request.query);
+    return reply
+      .header('Content-Type', 'message/rfc822')
+      .header('Content-Disposition', attachmentDisposition(title, 'eml'))
+      .header('Cache-Control', 'no-store')
+      .send(eml);
+  });
+
+  app.get('/awareness/letters/:id/export/html', {
+    preHandler: work,
+    schema: {
+      tags, summary: `«Скопировать с оформлением»: HTML со встроенными стилями (изображения data:) и простой текст. ${exportErrors}`,
+      params: IdParams, querystring: ExportQuery,
+      response: { 200: z.object({ subject: z.string(), html: z.string(), text: z.string(), versionNo: z.number().int() }), ...errors },
+    },
+  }, async (request) => exporter.exportHtml(db, actorOf(request), request.params.id, request.query));
+
+  app.get('/awareness/letters/:id/export/print', {
+    preHandler: work,
+    schema: {
+      tags, summary: `Страница печати (PDF через печать браузера): части по языкам без почтовых стилей. ${exportErrors}`,
+      params: IdParams, querystring: ExportQuery,
+      response: {
+        200: z.object({
+          number: z.number().int(), title: z.string(), versionNo: z.number().int(), lang: z.enum(['ru', 'tj', 'both']),
+          parts: z.array(z.object({ lang: z.enum(['ru', 'tj']), subject: z.string(), html: z.string() })),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => exporter.exportPrint(db, actorOf(request), request.params.id, request.query));
 };
