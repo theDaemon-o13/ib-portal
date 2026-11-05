@@ -23,6 +23,7 @@ const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата в форма�
 
 const Item = z.object({ id: z.string(), value: z.string(), color: z.string().nullable(), systemKey: z.string().nullable() });
 const Person = z.object({ id: z.string(), fullName: z.string() });
+const OriginLetter = z.object({ id: z.string(), number: z.number().int(), status: z.enum(['draft', 'review', 'approved', 'sent']) });
 export const Task = z.object({
   id: z.string(),
   number: z.number().int(),
@@ -39,7 +40,25 @@ export const Task = z.object({
   dueDate: z.string().nullable(),
   overdue: z.boolean(),
   urgent: z.boolean(),
-  source: z.enum(['manual', 'mail', 'automation', 'document', 'evidence']),
+  /**
+   * Откуда задача: manual, mail, automation, document, evidence. Строка, а не перечисление: значение из более новой
+   * версии портала отдаётся как есть, без 500 (1.9.0, «расширить → перенести → сузить»); интерфейс показывает «Другое».
+   */
+  source: z.string(),
+  /** Задача модуля писем (1.9.0): расписание — правило, плановая дата, письмо и этапы; письмо — срочная рассылка или доработка. */
+  origin: z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('schedule'),
+      rule: z.object({ id: z.string(), title: z.string() }),
+      plannedDate: z.string(),
+      letter: OriginLetter.nullable(),
+      /** Этапы: черновик, согласование, отправка — выполнены по статусу письма; просрочен — невыполненный со сроком раньше сегодня. */
+      stages: z.array(z.object({ key: z.enum(['draft', 'review', 'send']), due: z.string(), done: z.boolean(), overdue: z.boolean() })),
+      /** Письмо отмечено отправленным — подсказка «Письмо отправлено — завершите задачу». */
+      letterSent: z.boolean(),
+    }),
+    z.object({ kind: z.literal('letter'), reason: z.enum(['urgent', 'rework']), letter: OriginLetter, letterSent: z.boolean() }),
+  ]).nullable(),
   record: z.object({ id: z.string(), registerId: z.string(), number: z.number().int() }).nullable(),
   automationId: z.string().nullable(),
   /** Метки получателей задачи автоматизации («Руководитель ДИКТ», «Владелец системы»…). */

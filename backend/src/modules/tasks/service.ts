@@ -8,6 +8,7 @@ import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { taskLetterLinks, taskLinkMessage } from '../awareness-letters/links.js';
+import { taskOrigin, taskOriginInclude } from '../awareness-letters/origin.js';
 import { parseMail, type ParsedMail } from '../../lib/mail-parse.js';
 import { reviewerFor } from '../../lib/hierarchy.js';
 import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
@@ -46,6 +47,8 @@ export const taskInclude = {
   candidates: { select: { user: userBrief }, orderBy: { user: { fullName: 'asc' } } },
   chain: { select: { id: true, number: true, title: true, status: true, deletedAt: true } },
   _count: { select: { comments: { where: { deletedAt: null } } } },
+  // Происхождение задач модуля писем (1.9.0, вариант A): по таблицам модуля, source у них 'manual'.
+  ...taskOriginInclude,
 } as const;
 type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
 
@@ -69,7 +72,10 @@ export function toTaskDto(t: TaskRow, today: string) {
     /** Открытая задача со сроком раньше сегодня (архивные не просрочены — они не на доске). */
     overdue: open && t.archivedAt === null && due !== null && due < today,
     urgent: t.priority.systemKey === 'high',
-    source: t.source as TaskSource,
+    /** Строка: известные — TaskSource; неизвестное (задача более новой версии портала) отдаётся как есть, без 500. */
+    source: t.source,
+    /** Задача модуля писем (1.9.0): «Создана расписанием: <правило>» или «Учебное письмо № N»; иначе null. */
+    origin: taskOrigin(t, today),
     record: t.record,
     automationId: t.automationId,
     recipientLabel: t.recipientLabel,
