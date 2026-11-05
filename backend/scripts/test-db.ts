@@ -32,10 +32,10 @@ export interface TestDb {
   appUrl: string;
 }
 
-export function testDbConfig(): TestDb {
+export function testDbConfig(nameOverride?: string): TestDb {
   const env = devEnv();
   const host = process.env.TEST_DB_HOST ?? '127.0.0.1:5433';
-  const name = process.env.TEST_DB_NAME ?? 'ibportal_test';
+  const name = nameOverride ?? process.env.TEST_DB_NAME ?? 'ibportal_test';
   const enc = encodeURIComponent;
   return {
     name,
@@ -45,9 +45,29 @@ export function testDbConfig(): TestDb {
 }
 
 export async function recreateTestDb(): Promise<TestDb> {
-  const cfg = testDbConfig();
-  if (process.env.NODE_ENV === 'production') throw new Error('test:db запрещён при NODE_ENV=production');
-  if (!/^[a-z0-9_]+_test$/.test(cfg.name)) throw new Error(`имя тестовой базы должно оканчиваться на _test: ${cfg.name}`);
+  return recreateScratchDb(testDbConfig(), '_test');
+}
+
+/** Имя одноразовой базы: только с суффиксом _test (test:db) или _e2e (полный e2e), CLAUDE.md, раздел 3.1. */
+function checkScratchName(name: string, suffix: '_test' | '_e2e'): void {
+  if (process.env.NODE_ENV === 'production') throw new Error('одноразовая база запрещена при NODE_ENV=production');
+  if (!new RegExp(`^[a-z0-9_]+${suffix}$`).test(name)) throw new Error(`имя одноразовой базы должно оканчиваться на ${suffix}: ${name}`);
+}
+
+/** Удалить одноразовую базу (_test или _e2e); служебное подключение — к dev-базе того же сервера. */
+export async function dropScratchDb(cfg: TestDb, suffix: '_test' | '_e2e'): Promise<void> {
+  checkScratchName(cfg.name, suffix);
+  const admin = createPrisma(cfg.ownerUrl.replace(/\/[^/]+$/, '/ibportal_dev'));
+  try {
+    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${cfg.name}" WITH (FORCE)`);
+  } finally {
+    await admin.$disconnect();
+  }
+}
+
+/** Пересоздать одноразовую базу: права как в db/init/01-app-role.sh, миграции и seed. */
+export async function recreateScratchDb(cfg: TestDb, suffix: '_test' | '_e2e'): Promise<TestDb> {
+  checkScratchName(cfg.name, suffix);
 
   // Служебное подключение — к dev-базе того же сервера (сама тестовая база будет удалена).
   const admin = createPrisma(cfg.ownerUrl.replace(/\/[^/]+$/, '/ibportal_dev'));

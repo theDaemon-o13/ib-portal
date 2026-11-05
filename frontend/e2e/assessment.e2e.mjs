@@ -146,7 +146,9 @@ describe('Самооценка', () => {
     await ui.click(`[...document.querySelectorAll('nav.nav a')].find((a) => a.textContent.trim() === 'Самооценка')`, 'пункт «Самооценка»');
     await ui.waitFor(`location.pathname.startsWith('/assessment')`, 'раздел «Самооценка»');
 
-    // Новая оценка — с пустого чек-листа.
+    // Новая оценка — с пустого чек-листа. Сначала дождаться списка: пока он грузится, кнопка «Новая оценка»
+    // из заглушки «Оценок пока нет» сменяется кнопкой панели, и щелчок по первой терялся (гонка, 1.10.0).
+    await ui.waitFor(`!document.querySelector('.sa-wait') && !!${$.button('Новая оценка')}`, 'список оценок загружен');
     await ui.click($.button('Новая оценка'), '«Новая оценка»');
     await ui.waitFor(`!!document.querySelector('form.modal')`, 'окно новой оценки');
     await ui.type($.field('Название', `document.querySelector('form.modal')`), TITLE);
@@ -215,7 +217,11 @@ describe('Самооценка', () => {
     assert.match(journal, /Зафиксирована: 48 из 96/);
     assert.match(journal, /1\.1 .*балл — → 3/);
     assert.doesNotMatch(journal, new RegExp(`Самооценка «${TITLE}»`), 'название оценки в её журнале не повторяется');
-    await ui.click(`[...document.querySelectorAll('.sa-list tr')].find((tr) => tr.textContent.includes(${JSON.stringify(TITLE)}))?.querySelector('button.ghost')`, '«В архив»');
+    // «В архив» берёт версию из строки списка: сначала дождаться, что список перечитан после возврата в черновик,
+    // иначе уходит прежняя версия и сервер отвечает 409 (гонка, 1.10.0).
+    const row = `[...document.querySelectorAll('.sa-list tr')].find((tr) => tr.textContent.includes(${JSON.stringify(TITLE)}))`;
+    await ui.waitFor(`${row}?.querySelector('.chip')?.textContent === 'Черновик'`, 'список перечитан: оценка снова черновик');
+    await ui.click(`${row}?.querySelector('button.ghost')`, '«В архив»');
     m = ui.mark();
     await ui.click($.button('В архив', `document.querySelector('form.modal')`));
     assert.equal((await ui.request(m, 'POST', '/archive')).status, 200);

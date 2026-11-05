@@ -58,9 +58,20 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
     else if (msg.method) for (const l of listeners) l(msg);
   });
+  // Своя граница у каждой команды DevTools: страница, заблокированная диалогом или зависшим скриптом, роняет тест
+  // через CDP_TIMEOUT_MS с понятной ошибкой, а не держит прогон часами (так в 1.10.0 висел полный e2e).
+  const CDP_TIMEOUT_MS = Number(process.env.E2E_CDP_TIMEOUT_MS ?? 60_000);
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const id = ++seq;
-    pending.set(id, (m) => (m.error ? reject(new Error(`${method}: ${m.error.message}`)) : resolve(m.result)));
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`${method}: Chrome не ответил за ${CDP_TIMEOUT_MS / 1000} с (страница заблокирована диалогом или зависла)`));
+    }, CDP_TIMEOUT_MS);
+    pending.set(id, (m) => {
+      clearTimeout(timer);
+      if (m.error) reject(new Error(`${method}: ${m.error.message}`));
+      else resolve(m.result);
+    });
     ws.send(JSON.stringify({ id, method, params }));
   });
 

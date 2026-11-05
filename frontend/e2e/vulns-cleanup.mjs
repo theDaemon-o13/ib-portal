@@ -37,7 +37,7 @@ export async function cleanE2eGroups() {
   const env = devEnv();
   const database = process.env.E2E_DB_NAME ?? 'ibportal_dev';
   const host = process.env.E2E_DB_HOST ?? '127.0.0.1';
-  if (!database.endsWith('_dev')) throw new Error(`очистка e2e — только в dev-базе (*_dev), а не «${database}»`);
+  if (!database.endsWith('_dev') && !database.endsWith('_e2e')) throw new Error(`очистка e2e — только в dev-базе (*_dev) или одноразовой e2e (*_e2e), а не «${database}»`);
   if (!['127.0.0.1', 'localhost'].includes(host)) throw new Error(`очистка e2e — только локально, а не ${host}`);
   const db = new Client({ host, port: Number(process.env.E2E_DB_PORT ?? 5433), database, user: env.DB_OWNER_USER, password: env.DB_OWNER_PASSWORD });
   await db.connect();
