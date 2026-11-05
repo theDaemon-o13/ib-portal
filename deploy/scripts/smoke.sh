@@ -69,6 +69,15 @@ UNION ALL SELECT 'триггеры учебных писем (4)', ((SELECT coun
 SQL
 }
 
+# 1.10.0: сессии (ADR-0023, «Изменено в 1.10.0») — колонки remember и public_id в sessions (миграция
+# sessions_remember). Без них backend 1.10.0 не открывает сессии. Каждая строка — ровно 1.
+release_objects_1100() {
+  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "|" -v ON_ERROR_STOP=1' <<'SQL'
+SELECT 'сессии: колонки remember и public_id (sessions_remember)', ((SELECT count(*) FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'sessions' AND column_name IN ('remember', 'public_id')) = 2)::int;
+SQL
+}
+
 if [ "$MODE" = "--before" ]; then
   counts > "$STATE_DIR/counts-before.txt"
   echo "Число записей до выкладки:"
@@ -109,6 +118,11 @@ if [ "$(printf '%s\n' 1.9.0 "$VERSION" | sort -V | head -n1)" = 1.9.0 ]; then
   OBJECTS="$OBJECTS"$'\n'"$(release_objects_190)" || bad "системные объекты 1.9.0: запрос к базе не выполнился"
 else
   echo "· системные объекты 1.9.0 не проверяются: VERSION=$VERSION"
+fi
+if [ "$(printf '%s\n' 1.10.0 "$VERSION" | sort -V | head -n1)" = 1.10.0 ]; then
+  OBJECTS="$OBJECTS"$'\n'"$(release_objects_1100)" || bad "системные объекты 1.10.0: запрос к базе не выполнился"
+else
+  echo "· системные объекты 1.10.0 не проверяются: VERSION=$VERSION"
 fi
 while IFS='|' read -r what n; do
   [ -n "$what" ] || continue
