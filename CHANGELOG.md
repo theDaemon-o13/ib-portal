@@ -4,6 +4,14 @@
 
 ## Не выпущено
 
+### Зависимости (1.9.0, шаг 0; согласовано владельцем 05.11.2026, ADR-0039)
+Нужны для учебных писем: визуальный редактор и санитизация HTML на backend. Версии закреплены точно, lock-файлы обновлены. Всё входит в сборку, CDN нет.
+- **frontend** — TipTap 3.32.0: `@tiptap/core`, `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-table`, `@tiptap/extension-image`. Лицензия MIT.
+    - Вместе с ними в сборку входят 47 транзитивных пакетов, все MIT: остальные `@tiptap/extension-*` 3.32.0 и `@tiptap/extensions` 3.32.0; `prosemirror-model` 1.25.12, `-state` 1.4.4, `-view` 1.42.9, `-transform` 1.12.5, `-commands` 1.7.2, `-keymap` 1.2.3, `-history` 1.5.1, `-inputrules` 1.5.1, `-schema-list` 1.6.0, `-tables` 1.8.5, `-dropcursor` 1.8.4, `-gapcursor` 1.4.1, `-changeset` 2.4.6; `@floating-ui/core` 1.8.0, `@floating-ui/dom` 1.8.0, `@floating-ui/utils` 0.2.12; `linkifyjs` 4.4.0, `orderedmap` 2.1.1, `rope-sequence` 1.3.4, `w3c-keyname` 2.2.8, `fast-equals` 5.4.5, `use-sync-external-store` 1.7.0, `@types/use-sync-external-store` 0.0.6.
+    - Редактор загружается только на экранах писем, шаблонов и подписи: ~145 КБ gzip.
+- **backend** — `sanitize-html` 2.18.1 (MIT). Транзитивные: `htmlparser2` 12.0.0 (MIT), `domhandler` 6.0.1, `domutils` 4.0.2, `domelementtype` 3.0.0, `entities` 8.1.0 (BSD-2-Clause), `dom-serializer` 3.1.1, `launder` 1.7.2, `parse-srcset` 1.0.2, `is-plain-object` 5.1.0 (MIT). `postcss` 8.5, `escape-string-regexp`, `dayjs` уже были в дереве.
+- **Проверка:** `npm audit` новых уязвимостей не показывает. Отчёт тот же, что у 1.8.0: frontend production — 2 moderate (`react-router`), backend production — 4 high (транзитивные Prisma CLI, см. «Запланировано»). Новых install-скриптов нет, `allowScripts` не менялся.
+
 ### Запланировано
 - Глобальный поиск по задачам (номер, название, описание): сейчас строка в меню ищет записи реестров, доказательства, файлы и цепочки задач, но не сами задачи.
 - Выгрузка результата сравнения с реестром в Excel.
