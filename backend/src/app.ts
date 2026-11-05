@@ -18,6 +18,7 @@ import { automationRoutes } from './modules/automations/routes.js';
 import { assetRoutes } from './modules/assets/routes.js';
 import { portalParamRoutes } from './modules/settings/portal-params.routes.js';
 import { awarenessRoutes } from './modules/awareness/routes.js';
+import { letterRoutes } from './modules/awareness-letters/routes.js';
 import { partyDirectoryRoutes } from './modules/party-directory/routes.js';
 import { attentionRoutes } from './modules/attention/routes.js';
 import { notificationRoutes } from './modules/notifications/routes.js';
@@ -136,6 +137,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(searchRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(awarenessRoutes, { prefix: '/api/v1', db: deps.db });
+  await app.register(letterRoutes, { prefix: '/api/v1', db: deps.db, portalUrl: deps.portalUrl });
   await app.register(trashRoutes, { prefix: '/api/v1', db: deps.db });
   // Дашборд и мониторинг делят кэш: KPI считаются раз в минуту для обоих.
   const cache = createCache(CACHE_TTL_MS, deps.now);

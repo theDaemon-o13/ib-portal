@@ -31,6 +31,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   assessment: 'Самооценка',
   assessment_methodology: 'Самооценка',
   presentation: 'Презентация самооценки',
+  awareness_letter: 'Осведомлённость: учебные письма',
 };
 
 /** Разделы настроек: прежняя вкладка «Настройки → Журнал изменений» — пункт фильтра «Настройки — всё». */
@@ -121,6 +122,17 @@ const ACTION_LABELS: Record<string, string> = {
   'dashboard.role_layout.saved': 'Раскладка роли сохранена',
   'dashboard.role_layout.reset': 'Раскладка роли сброшена',
   'audit.exported': 'Журнал выгружен в Excel',
+  'awareness_letter.created': 'Учебное письмо создано',
+  'awareness_letter.updated': 'Учебное письмо сохранено',
+  'awareness_letter.version_restored': 'Учебное письмо: версия восстановлена',
+  'awareness_letter.submitted': 'Учебное письмо отправлено на согласование',
+  'awareness_letter.withdrawn': 'Учебное письмо отозвано с согласования',
+  'awareness_letter.approved': 'Учебное письмо утверждено',
+  'awareness_letter.returned': 'Учебное письмо возвращено на доработку',
+  'awareness_letter.sent': 'Учебное письмо отмечено отправленным',
+  'awareness_letter.copied': 'Создана копия учебного письма',
+  'awareness_letter.archived': 'Учебное письмо отправлено в архив',
+  'awareness_letter.unarchived': 'Учебное письмо возвращено из архива',
 };
 
 type Gender = 'm' | 'f' | 'n';
