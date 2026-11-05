@@ -7,6 +7,10 @@ import {
   AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY, EMPLOYEE_FIELDS, RESULT_FIELDS, type AwarenessFieldSpec,
 } from '../../src/modules/awareness/definition.js';
 import { AWARENESS_GRADES_KEY, DEFAULT_GRADES } from '../../src/modules/awareness/grades.js';
+import {
+  AWARENESS_MAILINGS_KEY, MAILING_FIELDS, MAILINGS_NAME, SIGNATURE_CODE, SIGNATURE_PLACEHOLDER,
+} from '../../src/modules/awareness-letters/definition.js';
+import { AWARENESS_LETTERS_KEY, DEFAULT_LETTERS_SETTINGS } from '../../src/modules/awareness-letters/settings.js';
 import { once } from './registers.js';
 
 type Tx = Prisma.TransactionClient;
@@ -63,5 +67,40 @@ export async function seedAwareness(tx: Tx): Promise<void> {
     const grades = await tx.appSetting.findUnique({ where: { key: AWARENESS_GRADES_KEY } });
     if (!grades) await tx.appSetting.create({ data: { key: AWARENESS_GRADES_KEY, value: { ...DEFAULT_GRADES } } });
     return `Осведомлённость: реестры «${employees.name}» (полей ${EMPLOYEE_FIELDS.length}) и «${results.name}» (полей ${RESULT_FIELDS.length}), пороги оценки`;
+  });
+}
+
+/**
+ * Однократно (отметка awareness.v2, релиз 1.9.0; docs/specs/awareness.md, раздел 11): реестр «Рассылки» без записей,
+ * фрагмент «Подпись ИБ» с заглушкой и лимиты размера писем awareness.letters. Писем, шаблонов и правил seed не
+ * создаёт. Категория задач «Осведомлённость» — системное значение справочника (SYSTEM_ITEMS, seedSystemItems):
+ * одноимённое значение администратора становится системным с записью в журнал (ответ владельца 5).
+ * Уже существующее (повторная выкладка после отката, восстановление из копии без отметки) не меняется.
+ */
+export async function seedAwarenessLetters(tx: Tx): Promise<void> {
+  await once(tx, 'awareness.v2', async () => {
+    const done: string[] = [];
+    const existing = await tx.register.findUnique({ where: { systemKey: AWARENESS_MAILINGS_KEY }, select: { name: true } });
+    if (existing) {
+      done.push(`реестр «${existing.name}» уже есть — seed его не меняет`);
+    } else {
+      const reg = await createRegister(
+        tx, AWARENESS_MAILINGS_KEY, MAILINGS_NAME,
+        'Журнал отправок учебных писем: одна запись — одна отправка. Запись создаёт отметка «Отправлено» в карточке письма; историю прошлых рассылок можно ввести вручную или импортом Excel',
+        MAILING_FIELDS, {},
+      );
+      done.push(`реестр «${reg.name}» (полей ${MAILING_FIELDS.length})`);
+    }
+    const fragment = await tx.awarenessFragment.findUnique({ where: { code: SIGNATURE_CODE } });
+    if (!fragment) {
+      await tx.awarenessFragment.create({ data: { code: SIGNATURE_CODE, ...SIGNATURE_PLACEHOLDER } });
+      done.push('«Подпись ИБ» (заглушка)');
+    }
+    const limits = await tx.appSetting.findUnique({ where: { key: AWARENESS_LETTERS_KEY } });
+    if (!limits) {
+      await tx.appSetting.create({ data: { key: AWARENESS_LETTERS_KEY, value: { ...DEFAULT_LETTERS_SETTINGS } } });
+      done.push('лимиты размера писем');
+    }
+    return `Учебные письма: ${done.join(', ')}`;
   });
 }

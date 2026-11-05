@@ -29,7 +29,7 @@ describe('справочники после seed', () => {
       ]);
       const categories = await svc.listItems(tx, 'task_categories', { includeArchived: false });
       expect(categories.map((c) => [c.value, c.isSystem])).toEqual([
-        ['Почта', true], ['Реестр', true], ['Документы', true], ['Доказательства', true], ['Проект', false], ['Оперплан', false],
+        ['Почта', true], ['Реестр', true], ['Документы', true], ['Доказательства', true], ['Осведомлённость', true], ['Проект', false], ['Оперплан', false],
       ]);
       expect(categories[0]?.systemReason).toBe('задачи из писем создаются с этой категорией');
       // Релиз 1.5.0: «Типы систем» — узлы раздела «Уязвимости».

@@ -13,6 +13,7 @@ import { auditSettings, type Actor } from './common.js';
 import { DEFAULT_STAGE_DAYS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
 import { CHAIN_SUGGEST_KEY, ChainSuggestSchema, DEFAULT_CHAIN_SUGGEST } from '../tasks/chain-settings.js';
 import { AWARENESS_GRADES_KEY, DEFAULT_GRADES, GradesSchema } from '../awareness/grades.js';
+import { AWARENESS_LETTERS_KEY, DEFAULT_LETTERS_SETTINGS, LetterLimitsSchema } from '../awareness-letters/settings.js';
 
 const text = (what: string, max = 200) => z.string().trim().min(1, `${what}: пустое значение`).max(max, `${what}: не длиннее ${max} символов`);
 const uuid = (what: string) => z.string().uuid(`${what}: неверный идентификатор`);
@@ -140,6 +141,10 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
     key: AWARENESS_GRADES_KEY, title: 'Осведомлённость: пороги оценки', form: 'grades',
     description: 'Оценка результата INDIGO по «Результату, %»: «Отлично», «Хорошо» и «Удовлетворительно» — не ниже своего порога, иначе «Провал». «На пересдачу» — процент ниже своего порога, с порогами оценки не связан. Оценка ставится при загрузке отчёта: новые пороги действуют на новые загрузки.',
     schema: GradesSchema, defaults: async () => ({ ...DEFAULT_GRADES }),
+  }, {
+    key: AWARENESS_LETTERS_KEY, title: 'Осведомлённость: размер учебных писем', form: 'json',
+    description: 'Лимиты в килобайтах: maxImageKb — одно изображение, maxLetterKb — письмо целиком (текст обоих языков вместе с изображениями), warnLetterKb — с какого размера редактор предупреждает. Письмо уходит на все ящики банка, каждая копия лежит на почтовом сервере. Формат: { "maxImageKb": 1024, "maxLetterKb": 2048, "warnLetterKb": 1024 }.',
+    schema: LetterLimitsSchema, defaults: async () => ({ ...DEFAULT_LETTERS_SETTINGS }),
   },
 ];
 
