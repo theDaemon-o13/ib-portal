@@ -224,14 +224,16 @@ describe('дашборд: «Настроить» (релиз 1.1.0)', () => {
 });
 
 describe('подпись автора и «О портале»', () => {
-  it('внизу меню — «Портал ИБ <версия> · Разработал: …»; щелчок по версии — окно только с версией и подписью (1.6.4)', async () => {
+  it('внизу меню — «designed by», подпись автора и версия (1.13.0); щелчок по версии — окно только с версией и подписью (1.6.4)', async () => {
     await ui.goto('/dashboard');
     const credit = `document.querySelector('.rail .credit')`;
     await ui.waitFor(`!!${credit}`, 'подпись в меню');
-    const text = await ui.text(credit);
     // E2E_EXPECT_VERSION — при проверке архива релиза: версия берётся из сборки, а не вписана в код.
     const version = process.env.E2E_EXPECT_VERSION;
-    assert.match(text, version ? new RegExp(`^Портал ИБ ${version.replace(/\./g, '\\.')} · Разработал: Машарипов Искандар$`) : /^Портал ИБ \S+ · Разработал: Машарипов Искандар$/);
+    assert.equal(await ui.text(`${credit}.querySelector('.credit-by')`), 'designed by');
+    assert.equal(await ui.evaluate(`${credit}.querySelector('.sig[role=img]')?.getAttribute('aria-label')`), 'Iskandar Masharipov');
+    assert.match(await ui.text(`${credit}.querySelector('.credit-v')`), version ? new RegExp(`^Портал ИБ Версия ${version.replace(/\./g, '\\.')}`) : /^Портал ИБ Версия \S+/);
+    assert.match(await ui.text(`${credit}.querySelector('.credit-a')`), /^Разработал: Машарипов Искандар$/);
     await ui.click(`${credit}.querySelector('.credit-v')`, 'версия');
     const dlg = `document.querySelector('[role=dialog][aria-labelledby=about-title]')`;
     await ui.waitFor(`!!${dlg}`, 'окно «О портале»');
@@ -242,10 +244,13 @@ describe('подпись автора и «О портале»', () => {
     if (version) assert.equal(rows['Версия'], version);
     await ui.press('Escape');
     await ui.waitFor(`!${dlg}`, 'окно закрыто по Esc');
-    // Узкий экран: меню — строкой сверху, видна версия, без горизонтальной прокрутки страницы.
+    // Узкий экран (1.13.0): меню — по кнопке «Меню», в нём версия; страница без горизонтальной прокрутки.
     await ui.viewport(390, 844);
-    await ui.waitFor(`${credit}.querySelector('.credit-v').offsetWidth > 0 && getComputedStyle(${credit}.querySelector('.credit-a')).display === 'none'`, 'версия на узком экране');
     assert.equal(await ui.evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'без горизонтальной прокрутки');
+    await ui.click(`document.querySelector('button.menu-btn')`, 'кнопка «Меню»');
+    await ui.waitFor(`document.querySelector('.app').classList.contains('menu-open') && ${credit}.querySelector('.credit-v').getBoundingClientRect().right > 0`, 'меню открыто, версия видна');
+    await ui.press('Escape');
+    await ui.waitFor(`!document.querySelector('.app').classList.contains('menu-open')`, 'меню закрыто по Esc');
     await ui.viewport(1440, 1000);
   });
 });
@@ -255,7 +260,7 @@ describe('экран мониторинга', () => {
     await ui.goto('/monitor');
     // Первый слайд набора по умолчанию — «Ключевые показатели» (8 KPI стены).
     await ui.waitFor(`document.querySelectorAll('.mon .mon-kpis-big .mk').length === 8`, 'экран мониторинга с данными');
-    assert.equal(await ui.evaluate(`document.documentElement.dataset.theme ?? ''`), 'dark', 'чёрная тема по умолчанию');
+    assert.equal(await ui.evaluate(`document.documentElement.dataset.theme ?? ''`), 'black', '«Чёрный океан» по умолчанию');
     assert.equal(await ui.evaluate(`document.documentElement.scrollHeight <= innerHeight`), true, 'без прокрутки');
     assert.equal(await ui.evaluate(`!!document.querySelector('.credit')`), false, 'на мониторе подписи нет');
 

@@ -13,6 +13,7 @@ import { ToastProvider } from './components/Toast';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/shell.css';
 import './styles/assessment.css';
 import './styles/awareness.css';
 

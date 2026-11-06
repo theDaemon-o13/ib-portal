@@ -98,7 +98,7 @@ export function LoginPage() {
         <div className="auth-foot">
           <ThemeSwitch />
         </div>
-        <PortalCredit />
+        <PortalCredit variant="full" />
       </div>
     </div>
   );

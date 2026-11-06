@@ -385,10 +385,10 @@ describe('Отчёт по задачам', () => {
       const fs = await import('node:fs');
       await ui.goto('/tasks/report');
       await ui.waitFor(`!!document.querySelector('[data-testid=stats-table]')`, 'отчёт для снимка');
-      await ui.evaluate(`document.documentElement.dataset.theme = 'light'`);
-      fs.writeFileSync(`${process.env.E2E_SHOTS}/report-light.png`, await ui.screenshot());
-      await ui.evaluate(`document.documentElement.dataset.theme = 'dark'`);
-      fs.writeFileSync(`${process.env.E2E_SHOTS}/report-dark.png`, await ui.screenshot());
+      await ui.evaluate(`document.documentElement.dataset.theme = 'ocean'`);
+      fs.writeFileSync(`${process.env.E2E_SHOTS}/report-ocean.png`, await ui.screenshot());
+      await ui.evaluate(`document.documentElement.dataset.theme = 'black'`);
+      fs.writeFileSync(`${process.env.E2E_SHOTS}/report-black.png`, await ui.screenshot());
       await ui.evaluate(`delete document.documentElement.dataset.theme`);
     }
   });

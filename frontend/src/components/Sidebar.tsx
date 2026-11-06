@@ -6,17 +6,21 @@ import { isKiosk, visibleNav } from '../nav';
 import { PortalCredit } from './AboutPortal';
 import { Brand } from './Brand';
 import { Icon } from './Icons';
-import { NotificationBell, useAttention } from './NotificationBell';
-import { ThemeSwitch } from './ThemeSwitch';
+import { useAttention } from './NotificationBell';
 
-function initials(fullName: string): string {
-  const letters = fullName.replace(/[^\p{L}\s]/gu, ' ').split(/\s+/).filter(Boolean).map((w) => w[0]);
-  return (letters.slice(-2).join('') || '?').toUpperCase();
-}
-
+// Меню (1.13.0, ADR-0047): плавающая стеклянная панель — бренд, разделы со счётчиками, внизу подпись «designed by»
+// и версия. Поиск, уведомления, тема и профиль — в верхней панели (Topbar). На узком экране меню выезжает по кнопке.
 export function Sidebar({ me }: { me: Me }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  // «Выйти» в меню — на узком экране, где в верхней панели для неё нет места.
+  const logout = useMutation({
+    mutationFn: authApi.logout,
+    onSettled: () => {
+      qc.clear();
+      navigate('/login', { replace: true });
+    },
+  });
   // Цифры в меню (релиз 1.4.0) — только то, что ждёт вашего действия: «Задачи» — на вашей проверке, «Документы» —
   // «ждут вас». Тот же запрос, что у колокольчика. Просроченное — на дашборде и в фильтре доски.
   const attention = useAttention(!isKiosk(me.permissions));
@@ -27,30 +31,11 @@ export function Sidebar({ me }: { me: Me }) {
   // Доказательства на проверке — тем, кто их проверяет.
   const ev = useQuery({ queryKey: ekeys.summary, queryFn: evidenceApi.summary, enabled: me.permissions.includes('evidence.review'), refetchInterval: 60_000 });
   const pendingEvidence = ev.data?.pending ?? 0;
-  const logout = useMutation({
-    mutationFn: authApi.logout,
-    onSettled: () => {
-      qc.clear();
-      navigate('/login', { replace: true });
-    },
-  });
-
   return (
-    <aside className="rail">
+    <aside className="rail" id="portal-menu" aria-label="Меню портала">
       <div className="rail-top">
         <Brand />
-        {!isKiosk(me.permissions) && <NotificationBell />}
       </div>
-      {/* Поиск — всем, кроме монитора (1.2.0) и служебной учётной записи (ADR-0036): что видно, решает backend. */}
-      {!isKiosk(me.permissions) && !me.service && (
-        <form className="rail-search" role="search" onSubmit={(e) => {
-          e.preventDefault();
-          const q = new FormData(e.currentTarget).get('q')?.toString().trim() ?? '';
-          if (q.length >= 2) navigate(`/search?q=${encodeURIComponent(q)}`);
-        }}>
-          <input className="inp" name="q" type="search" minLength={2} placeholder="Поиск по порталу" aria-label="Поиск по порталу" />
-        </form>
-      )}
       <nav className="nav" aria-label="Разделы">
         {visibleNav(me.permissions, me.service).map((item) => (
           <NavLink key={item.path} to={item.path}>
@@ -73,18 +58,7 @@ export function Sidebar({ me }: { me: Me }) {
         ))}
       </nav>
       <div className="rail-foot">
-        <div className="me">
-          <span className="av" aria-hidden="true">{initials(me.fullName)}</span>
-          {/* «Профиль» и «Мои сессии» (1.10.0). */}
-          <NavLink className="me-t" to="/profile" title="Профиль и мои сессии">
-            <b title={me.fullName}>{me.fullName}</b>
-            <small>{me.login}</small>
-          </NavLink>
-          <button type="button" className="btn ghost sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
-            Выйти
-          </button>
-        </div>
-        <ThemeSwitch />
+        <button type="button" className="btn glass sm rail-logout" onClick={() => logout.mutate()} disabled={logout.isPending}>Выйти</button>
         <PortalCredit />
       </div>
     </aside>

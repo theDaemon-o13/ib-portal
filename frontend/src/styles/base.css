@@ -17,37 +17,14 @@ a{color:var(--accent-ink)}
 ::selection{background:var(--accent-soft)}
 
 /* glass material */
-.rail,.panel{-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 
-.app{display:grid;grid-template-columns:clamp(216px,17vw,256px) minmax(0,1fr);min-height:100vh}
-.rail{margin:12px 0 12px 12px;background:var(--sheen),var(--glass);border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 var(--hl),var(--shadow);border-radius:26px;
-  padding:18px 12px;display:flex;flex-direction:column;gap:22px;position:sticky;top:12px;height:calc(100vh - 24px);z-index:5}
-.brand{display:flex;align-items:center;gap:11px;padding:2px 8px}
-.brand-mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(160deg,var(--accent-2),var(--accent));color:var(--accent-fg);display:grid;place-items:center;font-family:var(--f-display);font-size:13px;font-weight:700;letter-spacing:.01em;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 4px 12px var(--accent-soft);flex:none}
-.brand b{font-family:var(--f-display);font-weight:600;font-size:15px;display:block;letter-spacing:-.015em}
-.brand small{color:var(--muted);font-size:11.5px;line-height:1.3;display:block}
-.nav{display:flex;flex-direction:column;gap:2px}
-.nav a{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:11px;text-decoration:none;color:var(--fg);font-weight:500;font-size:13.5px;transition:background .18s}
-.nav a svg{color:var(--accent);width:18px;height:18px;flex:none}
-.nav a:hover{background:var(--hover)}
-/* Выбранный пункт меню, нажатый фильтр, главная кнопка монитора — заливка --accent-btn (1.6.6): белый текст 4,7:1 в обеих темах; наведение — темнее. */
-.nav a[aria-current="page"]{background:var(--accent-btn);color:var(--accent-fg);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 14px var(--accent-soft)}
-.nav a[aria-current="page"] svg{color:currentColor}
-.nav a[aria-current="page"]:hover{background:var(--accent-btn);filter:brightness(.93)}
-.rail-foot{margin-top:auto;font-size:12px;color:var(--muted);padding:0 8px;display:grid;gap:8px}
 
-.me{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:14px;background:var(--fill-2)}
-.av{width:30px;height:30px;border-radius:50%;background:linear-gradient(160deg,var(--accent-2),var(--accent));color:var(--accent-fg);display:inline-grid;place-items:center;font-size:10.5px;font-weight:700;flex:none}
-.me-t{display:grid;min-width:0;gap:1px;flex:1}
-.me-t b{color:var(--fg);font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.me-t small{font-size:11px;line-height:1.3}
 
 /* appearance switch (segmented control) */
 .seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--fill);gap:2px;width:100%}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:4px 6px;font-size:12px;font-weight:500;color:var(--fg);transition:background .18s,box-shadow .18s}
 .seg button[aria-pressed="true"]{background:var(--seg-on);color:var(--seg-on-fg);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
 
-main{padding-block:28px 56px;padding-left:max(28px, env(safe-area-inset-left,0px));padding-right:max(28px, env(safe-area-inset-right,0px));min-width:0}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .head > :first-child{flex:1 1 420px;min-width:0}
 .head h1{font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1.1;margin:0;letter-spacing:-.025em;text-wrap:balance}
@@ -89,11 +66,6 @@ main{padding-block:28px 56px;padding-left:max(28px, env(safe-area-inset-left,0px
 .auth-foot{display:flex;justify-content:center;margin-top:16px}
 .auth-card h1 + .hint{margin:6px 0 0}
 .auth-foot .seg{width:auto}
-.credit{margin:0;font-size:11px;line-height:1.35;color:var(--muted);text-align:center;text-wrap:balance}
-.credit-v{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:var(--faint);text-underline-offset:2px;border-radius:4px}
-.credit-v:hover{color:var(--fg)}
-.credit-v:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.auth-wrap .credit{margin-top:14px}
 .about-kv{margin:0;display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;font-size:13.5px}
 .about-kv dt{color:var(--muted)}
 .about-kv dd{margin:0;overflow-wrap:anywhere}
@@ -104,18 +76,6 @@ main{padding-block:28px 56px;padding-left:max(28px, env(safe-area-inset-left,0px
 .loading{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
 
 @media (max-width:860px){
-  .app{grid-template-columns:1fr}
-  .rail{position:sticky;top:calc(8px + env(safe-area-inset-top,0px));margin:8px max(8px, env(safe-area-inset-left,0px)) 0 max(8px, env(safe-area-inset-left,0px));height:auto;flex-direction:row;align-items:center;padding:8px 10px;gap:12px;border-radius:20px;overflow-x:auto}
-  .brand small,.brand b{display:none}
-  .brand{padding:0}
-  .brand-mark{width:30px;height:30px;font-size:12px}
-  .nav{flex-direction:row}
-  .nav a{white-space:nowrap}
-  .rail-foot{margin-top:0;display:flex;align-items:center;padding:0}
-  .rail-foot .me-t,.rail-foot .seg{display:none}
-  .rail-foot .credit{white-space:nowrap}
-  .rail-foot .credit-a{display:none}
-  main{padding-block:20px 48px;padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
   .head h1{font-size:26px}
 }
 
@@ -467,9 +427,6 @@ table.recs tr.archived td{color:var(--faint)}
 }
 
 /* ---------- этап 5: задачи ---------- */
-.nav-n{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--crit);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
-/* Бейдж на выбранном пункте: белый фон, красный текст — #D70015 в обеих темах (5,4:1; #FF453A на белом — 3,4:1). */
-.nav a[aria-current="page"] .nav-n{background:#fff;color:#D70015}
 .tasks-grid{display:grid;grid-template-columns:minmax(0,1fr) clamp(240px,22vw,304px);gap:12px;align-items:start}
 .tasks-grid > .grid-gap{position:sticky;top:var(--sticky-top)}
 .tasks-grid.wide{grid-template-columns:minmax(0,1fr)}
@@ -574,7 +531,6 @@ textarea.mail-raw{min-height:150px}
 .tone-accent{color:var(--accent-ink)}.w600{font-weight:600}
 .hist-item.returned{color:var(--fg)}
 .nav-n.acc{background:var(--accent)}
-.nav a[aria-current="page"] .nav-n.acc{color:var(--accent-btn)}
 .nav-n + .nav-n{margin-left:4px}
 @media (max-width:1180px){.w4,.w8{grid-column:span 12}}
 @media (max-width:560px){.docs-search{max-width:none}}
@@ -788,8 +744,6 @@ body.mon-idle .mon{cursor:none}
 }
 
 /* Этап 8б: файлы записи, связи, поиск */
-.rail-search{padding:0 8px 8px}
-.rail-search .inp{width:100%}
 .file-card{display:grid;gap:4px;padding:8px 10px;border-radius:9px;background:var(--fill-2)}
 .file-card .fn{min-width:0}
 .file-card .sha{font-size:11px;word-break:break-all}
@@ -828,15 +782,12 @@ body.mon-idle .mon{cursor:none}
 .pick-file label.chk{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400;color:var(--fg)}
 
 /* Уведомления (релиз 1.2.0, ADR-0023) */
-.rail-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
-.rail-top .brand{min-width:0}
 .bell-wrap{position:relative;flex:none}
 .bell{position:relative;width:34px;height:34px;border-radius:50%;border:0;background:var(--fill);color:var(--fg);display:grid;place-items:center;cursor:pointer;transition:background .15s}
 .bell:hover{background:var(--fill-2)}
 .bell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .bell svg{width:18px;height:18px}
 .bell-n{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--crit);color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
-.notif-pop{position:fixed;left:calc(clamp(216px,17vw,256px) + 20px);top:14px;border-radius:var(--r-lg);border:1px solid var(--glass-line);background:var(--sheen),var(--glass-strong);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);width:min(400px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 28px));display:grid;grid-template-rows:auto auto minmax(0,1fr);z-index:60;box-shadow:var(--shadow-lg);overflow:hidden}
 .notif-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .notif-h h3{margin:0}
 .notif-tabs{margin:0 16px 8px;width:auto}

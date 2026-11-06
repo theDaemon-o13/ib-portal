@@ -22,9 +22,9 @@ export function ThemeSwitch() {
   }, [mode]);
 
   return (
-    <div className="seg" role="group" aria-label="Оформление">
+    <div className="seg-top" role="group" aria-label="Оформление">
       {THEME_MODES.map((t) => (
-        <button key={t.mode} type="button" aria-pressed={mode === t.mode} onClick={() => setMode(t.mode)}>
+        <button key={t.mode} type="button" aria-pressed={mode === t.mode} title={t.title} onClick={() => setMode(t.mode)}>
           {t.label}
         </button>
       ))}
