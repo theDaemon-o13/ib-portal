@@ -8,6 +8,7 @@ import * as parties from './parties.js';
 import * as svc from './service.js';
 import { exportApproved } from './export.js';
 import * as controls from './controls.js';
+import * as automations from './automations.js';
 import * as translations from './translations.js';
 import { DOC_ACTIONS, DOC_DUE_FILTERS, DOC_SORTS, DOC_STATUSES, ROUTE_STATES } from './status.js';
 
@@ -38,6 +39,8 @@ const DocItem = z.object({
   onReview: z.boolean(),
   /** Активных механизмов контроля (сотрудникам ИБ). */
   controlsActive: z.number().int(),
+  /** Активных автоматизаций контроля (сотрудникам ИБ). */
+  automationsActive: z.number().int(),
   reviewMonths: z.number().int(),
   reviewDue: z.string().nullable(),
   status: Status,
@@ -595,6 +598,65 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
       body: ControlFields.extend({ version: z.number().int().positive(), active: z.boolean().optional() }), response: { 200: z.object({ item: ControlOut }), ...errors },
     },
   }, async (request) => ({ item: await controls.updateControl(db, actorOf(request), request.params.id, request.params.controlId, request.body) }));
+
+  // ---------------------------------------------------------------- автоматизации механизмов контроля (1.11.0, ADR-0043)
+  const AutomationFields = z.object({
+    title: z.string().max(300),
+    description: z.string().max(4000).optional(),
+    controlId: z.string().uuid().nullable().optional(),
+    cadence: automations.ControlCadenceSchema,
+    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    dueDays: z.number().int().min(1).max(365),
+    dueKind: z.enum(['calendar', 'working']),
+    assigneeId: z.string().uuid(),
+    active: z.boolean().optional(),
+  });
+  const RunOut = z.object({
+    nominalDate: z.string(), plannedDate: z.string(), status: z.enum(['created', 'skipped_late', 'no_assignee', 'doc_archived']), at: z.string(),
+    task: z.object({ id: z.string(), number: z.number().int(), status: z.string(), completed: z.boolean(), archived: z.boolean() }).nullable(),
+  });
+  const AutomationOut = z.object({
+    id: z.string(), title: z.string(), description: z.string(), cadence: automations.ControlCadenceSchema, cadenceLabel: z.string(), startsOn: z.string(),
+    dueDays: z.number().int(), dueKind: z.enum(['calendar', 'working']), assignee: z.object({ id: z.string(), fullName: z.string() }),
+    control: z.object({ id: z.string(), position: z.number().int(), requirement: z.string() }).nullable(), active: z.boolean(), version: z.number().int(),
+    noAssignee: z.boolean(), next: z.object({ nominal: z.string(), planned: z.string() }).nullable(), runs: z.array(RunOut),
+  });
+  const AutomationParams = IdParams.extend({ automationId: z.string().uuid() });
+
+  app.get('/documents/:id/automations', {
+    preHandler: ib,
+    schema: {
+      tags, summary: 'Автоматизации механизмов контроля утверждённого документа: следующий запуск, история запусков (сотрудники ИБ)', params: IdParams,
+      response: { 200: z.object({ items: z.array(AutomationOut), canManage: z.boolean() }), ...errors },
+    },
+  }, async (request) => automations.listAutomations(db, actorOf(request), request.params.id));
+
+  app.post('/documents/:id/automations', {
+    preHandler: ib,
+    schema: {
+      tags, summary: 'Добавить автоматизацию (владелец, начальник ИБ, docs.manage); ответственный — активный сотрудник ИБ', params: IdParams,
+      body: AutomationFields, response: { 200: z.object({ item: AutomationOut }), ...errors },
+    },
+  }, async (request) => ({ item: await automations.createAutomation(db, actorOf(request), request.params.id, request.body) }));
+
+  app.patch('/documents/:id/automations/:automationId', {
+    preHandler: ib,
+    schema: {
+      tags, summary: 'Изменить, отключить или включить автоматизацию (version; чужая — 409). Не удаляется', params: AutomationParams,
+      body: AutomationFields.partial().extend({ version: z.number().int().positive() }), response: { 200: z.object({ item: AutomationOut }), ...errors },
+    },
+  }, async (request) => ({ item: await automations.updateAutomation(db, actorOf(request), request.params.id, request.params.automationId, request.body) }));
+
+  app.post('/documents/:id/automations/:automationId/run', {
+    preHandler: ib,
+    schema: {
+      tags, summary: '«Проверить сейчас»: прогон автоматизации — запуски на сегодня и пропущенные (до 7 дней) создаются, повтор — без дублей', params: AutomationParams,
+      response: { 200: z.object({ ran: z.boolean(), today: z.string(), created: z.number().int(), skipped: z.number().int(), noAssignee: z.number().int() }), ...errors },
+    },
+  }, async (request) => {
+    const r = await automations.runAutomationNow(db, actorOf(request), request.params.id, request.params.automationId);
+    return { ran: r.ran, today: r.today, created: r.created, skipped: r.skipped, noAssignee: r.noAssignee };
+  });
 
   app.post('/documents/:id/blockers', {
     preHandler: anyUser,

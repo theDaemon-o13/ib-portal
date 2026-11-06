@@ -4,6 +4,7 @@
 // Удаление мягкое (deleted_at), только по праву tasks.delete — его проверяет маршрут.
 import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest } from '../../lib/errors.js';
+import { taskControlLinks } from '../documents/control-links.js';
 import { taskLetterLinks } from '../awareness-letters/links.js';
 import { auditSettings, type Actor } from '../settings/common.js';
 
@@ -77,7 +78,9 @@ async function plan(db: Db, action: TaskBulkAction, sel: TaskSelection) {
   const untouched = await untouchedIds(db, rows.map((r) => r.id));
   const candidates = rows.filter((r) => !sel.onlyUntouched || untouched.has(r.id));
   // Удаление пропускает задачи учебных писем и правил расписания (1.9.0) и продолжает с остальными.
-  const linked = action === 'delete' ? await taskLetterLinks(db, candidates.map((r) => r.id)) : new Map();
+  const linked: Map<string, unknown> = action === 'delete' ? await taskLetterLinks(db, candidates.map((r) => r.id)) : new Map();
+  // И задачи автоматизаций контроля документов (1.11.0): удалить нельзя, архив — можно.
+  if (action === 'delete') for (const [id, n] of await taskControlLinks(db, candidates.map((r) => r.id))) linked.set(id, n);
   const affected = action === 'archive' ? candidates.filter((r) => !r.archivedAt) : candidates.filter((r) => !linked.has(r.id));
   const statuses = await db.task.groupBy({ by: ['statusId'], where: { id: { in: rows.map((r) => r.id) } }, _count: { _all: true } });
   const labels = new Map((await db.catalogItem.findMany({ where: { id: { in: statuses.map((s) => s.statusId) } }, select: { id: true, value: true, sortOrder: true } }))

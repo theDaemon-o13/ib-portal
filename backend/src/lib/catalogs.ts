@@ -51,6 +51,7 @@ export const SYSTEM_ITEMS: readonly SystemItemDef[] = [
   { catalog: 'task_categories', key: 'documents', value: 'Документы', color: 'accent', why: 'её ставят пересмотр и возврат документа на доработку' },
   { catalog: 'task_categories', key: 'evidence', value: 'Доказательства', color: 'low', why: 'её ставят отклонение доказательства и окончание срока его действия' },
   { catalog: 'task_categories', key: 'awareness', value: 'Осведомлённость', color: 'med', why: 'её ставят задачи учебных писем и расписания рассылок' },
+  { catalog: 'task_categories', key: 'document_control', value: 'Контроль по документу', color: 'accent', why: 'её ставят автоматизации механизмов контроля документов' },
   // Процесс задач (релиз 1.2.0, ADR-0022): Backlog → Поставленные → В работе → На проверке → Выполнено.
   { catalog: 'task_statuses', key: 'new', value: 'Backlog', why: 'колонка процесса задач: задачи без исполнителя' },
   { catalog: 'task_statuses', key: 'assigned', value: 'Поставленные', why: 'колонка процесса задач: исполнитель назначен, работа не начата' },

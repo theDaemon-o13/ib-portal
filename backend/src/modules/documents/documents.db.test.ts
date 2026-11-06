@@ -19,6 +19,8 @@ import * as svc from './service.js';
 import ExcelJS from 'exceljs';
 import { approvedRows, exportApproved } from './export.js';
 import * as controls from './controls.js';
+import * as autos from './automations.js';
+import * as tasksSvc from '../tasks/service.js';
 import { setIbHead } from '../users/service.js';
 import { updatePortalParam } from '../settings/portal-params.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
@@ -28,6 +30,7 @@ import { addMonthsIso, type DocAction } from './status.js';
 const URL1 = 'https://office.example.local/products/files/doceditor.aspx?fileid=101';
 const URL_TJ = 'https://office.example.local/products/files/doceditor.aspx?fileid=202';
 const SIGNED_ON = '2026-10-20';
+const isoOf = (d: Date | null | undefined) => d?.toISOString().slice(0, 10) ?? null;
 
 async function fixture(tx: Tx) {
   const type = await tx.catalogItem.create({ data: { catalogCode: 'document_types', value: `Политика ${Math.random().toString(36).slice(2)}` } });
@@ -654,7 +657,7 @@ describe('документы: «В работе» и «Утверждённые�
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
       const ws = must(wb.getWorksheet('Утверждённые'));
-      expect((ws.getRow(1).values as unknown[]).slice(1)).toEqual(['№', 'Документ', 'Тип', 'Владелец', 'Действующая версия', 'Утверждён', 'Приказ', 'Пересмотр до', 'Дней до пересмотра', 'Механизмов контроля', 'На пересмотре']);
+      expect((ws.getRow(1).values as unknown[]).slice(1)).toEqual(['№', 'Документ', 'Тип', 'Владелец', 'Действующая версия', 'Утверждён', 'Приказ', 'Пересмотр до', 'Дней до пересмотра', 'Механизмов контроля', 'Автоматизаций', 'На пересмотре']);
       const titles = ws.getColumn(2).values.slice(2);
       expect(titles).toEqual(expect.arrayContaining(['Утверждённый реестра']));
       expect(titles).not.toContain('Черновик реестра');
@@ -748,6 +751,116 @@ describe('документы: механизмы контроля (1.11.0, ADR-0
       await owner.$disconnect();
     }
   });
+});
+
+describe('документы: автоматизации механизмов контроля (1.11.0, ADR-0043)', () => {
+  /** Утверждённый документ с механизмом контроля и автоматизацией; createdAt и startsOn — в прошлом, чтобы прогон «в прошлом» работал. */
+  const setup = async (tx: Tx, input: Partial<autos.AutomationInput> & { createdOn?: string } = {}) => {
+    const x = await fixture(tx);
+    const id = await x.create('Политика паролей');
+    await signAll(tx, x, id);
+    const c = await controls.createControl(tx, await x.as(x.owner), id, { requirement: 'Пароли — не короче 12 символов', mechanism: 'Проверка GPO' });
+    const a = await autos.createAutomation(tx, await x.as(x.owner), id, {
+      title: 'Проверить GPO паролей', controlId: c.id, cadence: { kind: 'monthly', day: 1 }, startsOn: '2026-01-01', dueDays: 3, dueKind: 'working', assigneeId: x.staff.id,
+      ...input,
+    });
+    await tx.documentControlAutomation.update({ where: { id: a.id }, data: { createdAt: new Date(`${input.createdOn ?? input.startsOn ?? '2026-01-01'}T03:00:00Z`) } });
+    return { x, id, c, a };
+  };
+  const at = (iso: string) => new Date(`${iso}T06:00:00Z`);
+  const runs = (tx: Tx, automationId: string) => tx.documentControlRun.findMany({ where: { automationId }, orderBy: { nominalDate: 'asc' }, include: { task: true } });
+
+  it('ведут владелец, начальник ИБ и docs.manage; ответственный — сотрудник ИБ; механизм — этого документа; видят сотрудники ИБ', () =>
+    inTx(async (tx) => {
+      const { x, id, a } = await setup(tx);
+      expect(a).toMatchObject({ cadenceLabel: 'ежемесячно, 1-го', assignee: { fullName: 'Сотрудник ИБ' }, control: { position: 1 }, active: true, noAssignee: false });
+      const base = { title: 't', cadence: { kind: 'daily' } as const, startsOn: '2026-01-01', dueDays: 1, dueKind: 'calendar' as const, assigneeId: x.staff.id };
+      await expectCode(autos.createAutomation(tx, await x.as(x.staff), id, base), 'FORBIDDEN');
+      await expectCode(autos.createAutomation(tx, await x.as(x.owner), id, { ...base, assigneeId: x.legal.id }), 'BAD_ASSIGNEE');
+      await expectCode(autos.createAutomation(tx, await x.as(x.owner), id, { ...base, dueDays: 0 }), 'BAD_DUE_DAYS');
+      const other = await x.create('Другой');
+      await signAll(tx, x, other);
+      const foreign = await controls.createControl(tx, await x.as(x.owner), other, { requirement: 'r', mechanism: 'm' });
+      await expectCode(autos.createAutomation(tx, await x.as(x.owner), id, { ...base, controlId: foreign.id }), 'BAD_CONTROL');
+      await autos.createAutomation(tx, await x.as(x.head), id, base);
+      await autos.createAutomation(tx, await x.as(x.admin), id, base);
+      expect(await autos.listAutomations(tx, await x.as(x.staff), id)).toMatchObject({ canManage: false });
+      expect((await autos.listAutomations(tx, await x.as(x.staff), id)).items).toHaveLength(3);
+      await expectCode(autos.listAutomations(tx, await x.as(x.legal), id), 'FORBIDDEN');
+      await expectCode(autos.runAutomationNow(tx, await x.as(x.staff), id, a.id), 'FORBIDDEN');
+      // Изменение — с version; отключение; журнал.
+      const off = await autos.updateAutomation(tx, await x.as(x.owner), id, a.id, { version: 1, active: false });
+      expect(off).toMatchObject({ active: false, version: 2, next: null });
+      await expectCode(autos.updateAutomation(tx, await x.as(x.owner), id, a.id, { version: 1, dueDays: 5 }), 'VERSION_CONFLICT');
+      expect(await tx.auditLog.count({ where: { entityId: id, action: { startsWith: 'document_control_automation.' } } })).toBe(4);
+      expect((await list(tx, x.staff)).find((d) => d.id === id)?.automationsActive).toBe(2);
+    }));
+
+  it('запуск с выходного — на предыдущий рабочий день; срок — от дня создания через праздник; повторный прогон без дублей; событие сразу обработано', () =>
+    inTx(async (tx) => {
+      const { x, id, a } = await setup(tx);
+      // 03.02.2026 (вторник) — праздник в производственном календаре.
+      await tx.workCalendarDay.create({ data: { day: new Date('2026-02-03T00:00:00Z'), kind: 'holiday', title: 'Тестовый праздник' } });
+      // 01.02.2026 — воскресенье: запуск 30.01 (пятница). 29.01 — рано.
+      // Запуск 01.01 (первый) на 29.01 старше 7 дней — «пропущен»; 01.02 ещё рано.
+      expect(await autos.runControlAutomations(tx, { now: at('2026-01-29'), automationId: a.id })).toMatchObject({ created: 0, skipped: 1 });
+      // 01.02 → 30.01 — задача.
+      expect(await autos.runControlAutomations(tx, { now: at('2026-01-30'), automationId: a.id })).toMatchObject({ ran: true, created: 1, skipped: 0 });
+      expect((await runs(tx, a.id)).map((x2) => [isoOf(x2.nominalDate), x2.status])).toEqual([['2026-01-01', 'skipped_late'], ['2026-02-01', 'created']]);
+      const r = (await runs(tx, a.id)).find((x2) => x2.status === 'created');
+      expect([isoOf(r?.nominalDate), isoOf(r?.plannedDate)]).toEqual(['2026-02-01', '2026-01-30']);
+      // 30.01 + 3 рабочих дня: 02.02, (03.02 праздник), 04.02, 05.02.
+      expect(must(r?.task)).toMatchObject({ source: 'document_control', assigneeId: x.staff.id, title: 'Проверить GPO паролей', documentId: null });
+      expect(isoOf(must(r?.task).dueDate)).toBe('2026-02-05');
+      expect(must(r?.task).description).toContain('Механизм контроля 1: Пароли — не короче 12 символов');
+      const ev = await tx.automationEvent.findFirstOrThrow({ where: { controlAutomationId: a.id } });
+      expect(ev).toMatchObject({ status: 'processed', triggerKey: '2026-02-01' });
+      expect(await tx.notification.count({ where: { userId: x.staff.id, taskId: must(r?.task).id, kind: 'task_assigned' } })).toBe(1);
+      // Повтор — без дублей.
+      expect((await autos.runControlAutomations(tx, { now: at('2026-01-30'), automationId: a.id })).created).toBe(0);
+      expect((await autos.runControlAutomations(tx, { now: at('2026-02-02'), automationId: a.id })).created).toBe(0);
+      expect(await runs(tx, a.id)).toHaveLength(2);
+      // Карточка задачи — происхождение; удалить нельзя, архивировать можно.
+      const dto = await tasksSvc.getTask(tx, must(r?.task).id);
+      expect(dto.origin).toMatchObject({ kind: 'document_control', document: { id, title: 'Политика паролей' }, automation: { title: 'Проверить GPO паролей' }, control: { position: 1 }, nominalDate: '2026-02-01' });
+      const t = await tx.task.findUniqueOrThrow({ where: { id: must(r?.task).id } });
+      await expectCode(tasksSvc.deleteTask(tx, await x.as(x.admin), t.id, t.version), 'TASK_LINKED_TO_CONTROL');
+      await tasksSvc.setTaskArchived(tx, await x.as(x.admin), t.id, t.version, true);
+      // Категория — системная «Контроль по документу».
+      expect((await tx.catalogItem.findUniqueOrThrow({ where: { id: t.categoryId } })).systemKey).toBe('document_control');
+    }));
+
+  it('догон после простоя — до 7 дней задачей, старше — «пропущен»; документ в архиве — запусков нет; пересмотр — работает', () =>
+    inTx(async (tx) => {
+      const { x, id, a } = await setup(tx, { cadence: { kind: 'daily' }, dueKind: 'calendar', dueDays: 1, startsOn: '2026-03-01' });
+      const r = await autos.runControlAutomations(tx, { now: at('2026-03-20'), automationId: a.id });
+      // 01.03–20.03: двадцать дат; не старше 7 дней — 13.03…20.03 (восемь), остальные двенадцать — «пропущен».
+      expect(r).toMatchObject({ created: 8, skipped: 12 });
+      const all = await runs(tx, a.id);
+      expect(all.filter((x2) => x2.status === 'skipped_late').every((x2) => x2.taskId === null)).toBe(true);
+      expect(isoOf(all.find((x2) => x2.status === 'created')?.nominalDate)).toBe('2026-03-13');
+      // Пересмотр (рабочая версия есть) — автоматизация работает.
+      await svc.reviseDocument(tx, await x.as(x.owner), id, { version: (await cur(tx, id)).version });
+      expect((await autos.runControlAutomations(tx, { now: at('2026-03-21'), automationId: a.id })).created).toBe(1);
+      // Архив — не создаётся ничего.
+      await svc.setDocumentArchived(tx, await x.as(x.admin), id, (await cur(tx, id)).version, true);
+      expect(await autos.runControlAutomations(tx, { now: at('2026-03-22'), automationId: a.id })).toMatchObject({ created: 0, automations: 0 });
+    }));
+
+  it('нет ответственного — запуск без задачи, автору одно уведомление; после смены ответственного — снова задачи', () =>
+    inTx(async (tx) => {
+      const { x, id, a } = await setup(tx, { cadence: { kind: 'daily' }, dueKind: 'calendar', dueDays: 1, startsOn: '2026-04-01' });
+      await tx.user.update({ where: { id: x.staff.id }, data: { isActive: false } });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-04-01'), automationId: a.id })).toMatchObject({ created: 0, noAssignee: 1 });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-04-02'), automationId: a.id })).toMatchObject({ created: 0, noAssignee: 1 });
+      const notes = await tx.notification.findMany({ where: { userId: x.owner.id, kind: 'doc_control_no_assignee' } });
+      expect(notes).toHaveLength(1);
+      expect(notes[0]?.title).toMatch(/нет ответственного — задачи не создаются/);
+      expect((await autos.listAutomations(tx, await x.as(x.owner), id)).items[0]).toMatchObject({ noAssignee: true });
+      await autos.updateAutomation(tx, await x.as(x.owner), id, a.id, { version: (await tx.documentControlAutomation.findUniqueOrThrow({ where: { id: a.id } })).version, assigneeId: x.head.id });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-04-03'), automationId: a.id })).toMatchObject({ created: 1, noAssignee: 0 });
+      expect((await autos.listAutomations(tx, await x.as(x.owner), id)).items[0]).toMatchObject({ noAssignee: false, runs: [{ status: 'created' }, { status: 'no_assignee' }, { status: 'no_assignee' }] });
+    }));
 });
 
 describe('документы: задачи этапов маршрута (ADR-0034, маршрут 1.11.0)', () => {

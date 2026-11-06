@@ -72873,6 +72873,91 @@
                                       "letterSent"
                                     ],
                                     "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "document_control"
+                                        ]
+                                      },
+                                      "document": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "number": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "number",
+                                          "title"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "automation": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "title"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "control": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "position": {
+                                                "type": "integer",
+                                                "minimum": -9007199254740991,
+                                                "maximum": 9007199254740991
+                                              },
+                                              "requirement": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "position",
+                                              "requirement"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "nominalDate": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "document",
+                                      "automation",
+                                      "control",
+                                      "nominalDate"
+                                    ],
+                                    "additionalProperties": false
                                   }
                                 ]
                               },
@@ -73879,6 +73964,91 @@
                                 "reason",
                                 "letter",
                                 "letterSent"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
                               ],
                               "additionalProperties": false
                             }
@@ -75965,6 +76135,91 @@
                                 "letterSent"
                               ],
                               "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
+                              ],
+                              "additionalProperties": false
                             }
                           ]
                         },
@@ -76967,6 +77222,91 @@
                                 "letterSent"
                               ],
                               "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
+                              ],
+                              "additionalProperties": false
                             }
                           ]
                         },
@@ -77835,6 +78175,91 @@
                                 "letterSent"
                               ],
                               "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
+                              ],
+                              "additionalProperties": false
                             }
                           ]
                         },
@@ -78693,6 +79118,91 @@
                                 "letterSent"
                               ],
                               "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
+                              ],
+                              "additionalProperties": false
                             }
                           ]
                         },
@@ -79541,6 +80051,91 @@
                                 "letterSent"
                               ],
                               "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
+                              ],
+                              "additionalProperties": false
                             }
                           ]
                         },
@@ -80387,6 +80982,91 @@
                                 "reason",
                                 "letter",
                                 "letterSent"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "document_control"
+                                  ]
+                                },
+                                "document": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "number": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "number",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "automation": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "control": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "requirement": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "requirement"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "nominalDate": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "document",
+                                "automation",
+                                "control",
+                                "nominalDate"
                               ],
                               "additionalProperties": false
                             }
@@ -88891,6 +89571,11 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "automationsActive": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "reviewMonths": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -89016,6 +89701,7 @@
                           "approvedOrderNo",
                           "onReview",
                           "controlsActive",
+                          "automationsActive",
                           "reviewMonths",
                           "reviewDue",
                           "status",
@@ -89462,6 +90148,11 @@
                               "type": "boolean"
                             },
                             "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "automationsActive": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -91197,6 +91888,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -91875,6 +92567,11 @@
                       "type": "boolean"
                     },
                     "controlsActive": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "automationsActive": {
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
@@ -93610,6 +94307,7 @@
                     "approvedOrderNo",
                     "onReview",
                     "controlsActive",
+                    "automationsActive",
                     "reviewMonths",
                     "reviewDue",
                     "status",
@@ -94009,6 +94707,11 @@
                               "type": "boolean"
                             },
                             "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "automationsActive": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -95744,6 +96447,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -96165,6 +96869,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -97896,6 +98605,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -98307,6 +99017,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -100038,6 +100753,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -100457,6 +101173,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -102188,6 +102909,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -102578,6 +103300,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -104309,6 +105036,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -104711,6 +105439,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -106442,6 +107175,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -106843,6 +107577,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -108574,6 +109313,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -108958,6 +109698,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -110689,6 +111434,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -111098,6 +111844,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -112829,6 +113580,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -113251,6 +114003,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -114982,6 +115739,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -115383,6 +116141,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -117114,6 +117877,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -117532,6 +118296,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -119263,6 +120032,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -119673,6 +120443,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -121404,6 +122179,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -121816,6 +122592,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -123547,6 +124328,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -123948,6 +124730,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -125679,6 +126466,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -126088,6 +126876,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -127819,6 +128612,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -128240,6 +129034,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -129971,6 +130770,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -130372,6 +131172,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -132103,6 +132908,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -132515,6 +133321,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -134246,6 +135057,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -134657,6 +135469,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -136388,6 +137205,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -137618,6 +138436,2414 @@
         }
       }
     },
+    "/api/v1/documents/{id}/automations": {
+      "get": {
+        "summary": "Автоматизации механизмов контроля утверждённого документа: следующий запуск, история запусков (сотрудники ИБ)",
+        "tags": [
+          "documents"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "cadence": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "daily"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "weekly"
+                                    ]
+                                  },
+                                  "weekday": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 7
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "weekday"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "monthly"
+                                    ]
+                                  },
+                                  "day": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 31
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "day"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "quarterly"
+                                    ]
+                                  },
+                                  "month": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 3
+                                  },
+                                  "day": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 31
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "month",
+                                  "day"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "semiannual"
+                                    ]
+                                  },
+                                  "month": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 6
+                                  },
+                                  "day": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 31
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "month",
+                                  "day"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "yearly"
+                                    ]
+                                  },
+                                  "month": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 12
+                                  },
+                                  "day": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 31
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "month",
+                                  "day"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "cadenceLabel": {
+                            "type": "string"
+                          },
+                          "startsOn": {
+                            "type": "string"
+                          },
+                          "dueDays": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "dueKind": {
+                            "type": "string",
+                            "enum": [
+                              "calendar",
+                              "working"
+                            ]
+                          },
+                          "assignee": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "control": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "requirement": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "position",
+                                  "requirement"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "noAssignee": {
+                            "type": "boolean"
+                          },
+                          "next": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "nominal": {
+                                    "type": "string"
+                                  },
+                                  "planned": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "nominal",
+                                  "planned"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "runs": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "nominalDate": {
+                                  "type": "string"
+                                },
+                                "plannedDate": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "created",
+                                    "skipped_late",
+                                    "no_assignee",
+                                    "doc_archived"
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string"
+                                },
+                                "task": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "number": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "status": {
+                                          "type": "string"
+                                        },
+                                        "completed": {
+                                          "type": "boolean"
+                                        },
+                                        "archived": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "number",
+                                        "status",
+                                        "completed",
+                                        "archived"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "nominalDate",
+                                "plannedDate",
+                                "status",
+                                "at",
+                                "task"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "description",
+                          "cadence",
+                          "cadenceLabel",
+                          "startsOn",
+                          "dueDays",
+                          "dueKind",
+                          "assignee",
+                          "control",
+                          "active",
+                          "version",
+                          "noAssignee",
+                          "next",
+                          "runs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "canManage": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "canManage"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить автоматизацию (владелец, начальник ИБ, docs.manage); ответственный — активный сотрудник ИБ",
+        "tags": [
+          "documents"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "controlId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cadence": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "daily"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "weekly"
+                            ]
+                          },
+                          "weekday": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 7
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "weekday"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "monthly"
+                            ]
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "day"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "quarterly"
+                            ]
+                          },
+                          "month": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "day"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "semiannual"
+                            ]
+                          },
+                          "month": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 6
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "day"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "yearly"
+                            ]
+                          },
+                          "month": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 12
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "day"
+                        ]
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "dueDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "dueKind": {
+                    "type": "string",
+                    "enum": [
+                      "calendar",
+                      "working"
+                    ]
+                  },
+                  "assigneeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "title",
+                  "cadence",
+                  "startsOn",
+                  "dueDays",
+                  "dueKind",
+                  "assigneeId"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "cadence": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "weekly"
+                                  ]
+                                },
+                                "weekday": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 7
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "weekday"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "monthly"
+                                  ]
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "quarterly"
+                                  ]
+                                },
+                                "month": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "month",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "semiannual"
+                                  ]
+                                },
+                                "month": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 6
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "month",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "yearly"
+                                  ]
+                                },
+                                "month": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 12
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "month",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "cadenceLabel": {
+                          "type": "string"
+                        },
+                        "startsOn": {
+                          "type": "string"
+                        },
+                        "dueDays": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "dueKind": {
+                          "type": "string",
+                          "enum": [
+                            "calendar",
+                            "working"
+                          ]
+                        },
+                        "assignee": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "control": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "requirement": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "position",
+                                "requirement"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "noAssignee": {
+                          "type": "boolean"
+                        },
+                        "next": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "nominal": {
+                                  "type": "string"
+                                },
+                                "planned": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nominal",
+                                "planned"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "runs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "nominalDate": {
+                                "type": "string"
+                              },
+                              "plannedDate": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "created",
+                                  "skipped_late",
+                                  "no_assignee",
+                                  "doc_archived"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              },
+                              "task": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "number": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "status": {
+                                        "type": "string"
+                                      },
+                                      "completed": {
+                                        "type": "boolean"
+                                      },
+                                      "archived": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "number",
+                                      "status",
+                                      "completed",
+                                      "archived"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "nominalDate",
+                              "plannedDate",
+                              "status",
+                              "at",
+                              "task"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "description",
+                        "cadence",
+                        "cadenceLabel",
+                        "startsOn",
+                        "dueDays",
+                        "dueKind",
+                        "assignee",
+                        "control",
+                        "active",
+                        "version",
+                        "noAssignee",
+                        "next",
+                        "runs"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{id}/automations/{automationId}": {
+      "patch": {
+        "summary": "Изменить, отключить или включить автоматизацию (version; чужая — 409). Не удаляется",
+        "tags": [
+          "documents"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "controlId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cadence": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "daily"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "weekly"
+                            ]
+                          },
+                          "weekday": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 7
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "weekday"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "monthly"
+                            ]
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "day"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "quarterly"
+                            ]
+                          },
+                          "month": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "day"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "semiannual"
+                            ]
+                          },
+                          "month": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 6
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "day"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "yearly"
+                            ]
+                          },
+                          "month": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 12
+                          },
+                          "day": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 31
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month",
+                          "day"
+                        ]
+                      }
+                    ]
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "dueDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "dueKind": {
+                    "type": "string",
+                    "enum": [
+                      "calendar",
+                      "working"
+                    ]
+                  },
+                  "assigneeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "automationId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "cadence": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "weekly"
+                                  ]
+                                },
+                                "weekday": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 7
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "weekday"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "monthly"
+                                  ]
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "quarterly"
+                                  ]
+                                },
+                                "month": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 3
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "month",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "semiannual"
+                                  ]
+                                },
+                                "month": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 6
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "month",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "yearly"
+                                  ]
+                                },
+                                "month": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 12
+                                },
+                                "day": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 31
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "month",
+                                "day"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "cadenceLabel": {
+                          "type": "string"
+                        },
+                        "startsOn": {
+                          "type": "string"
+                        },
+                        "dueDays": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "dueKind": {
+                          "type": "string",
+                          "enum": [
+                            "calendar",
+                            "working"
+                          ]
+                        },
+                        "assignee": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "control": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "requirement": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "position",
+                                "requirement"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "noAssignee": {
+                          "type": "boolean"
+                        },
+                        "next": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "nominal": {
+                                  "type": "string"
+                                },
+                                "planned": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "nominal",
+                                "planned"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "runs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "nominalDate": {
+                                "type": "string"
+                              },
+                              "plannedDate": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "created",
+                                  "skipped_late",
+                                  "no_assignee",
+                                  "doc_archived"
+                                ]
+                              },
+                              "at": {
+                                "type": "string"
+                              },
+                              "task": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "number": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "status": {
+                                        "type": "string"
+                                      },
+                                      "completed": {
+                                        "type": "boolean"
+                                      },
+                                      "archived": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "number",
+                                      "status",
+                                      "completed",
+                                      "archived"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "nominalDate",
+                              "plannedDate",
+                              "status",
+                              "at",
+                              "task"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "title",
+                        "description",
+                        "cadence",
+                        "cadenceLabel",
+                        "startsOn",
+                        "dueDays",
+                        "dueKind",
+                        "assignee",
+                        "control",
+                        "active",
+                        "version",
+                        "noAssignee",
+                        "next",
+                        "runs"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{id}/automations/{automationId}/run": {
+      "post": {
+        "summary": "«Проверить сейчас»: прогон автоматизации — запуски на сегодня и пропущенные (до 7 дней) создаются, повтор — без дублей",
+        "tags": [
+          "documents"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "automationId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ran": {
+                      "type": "boolean"
+                    },
+                    "today": {
+                      "type": "string"
+                    },
+                    "created": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "noAssignee": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "ran",
+                    "today",
+                    "created",
+                    "skipped",
+                    "noAssignee"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/documents/{id}/blockers": {
       "post": {
         "summary": "Открыть блокер (автор, старший над автором, начальник ИБ): останавливает шаги вперёд",
@@ -137768,6 +140994,11 @@
                               "type": "boolean"
                             },
                             "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "automationsActive": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -139503,6 +142734,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -139909,6 +143141,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -141640,6 +144877,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -142029,6 +145267,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -143760,6 +147003,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -144161,6 +147405,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -145892,6 +149141,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -146277,6 +149527,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -148008,6 +151263,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -148393,6 +151649,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "automationsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -150124,6 +153385,7 @@
                             "approvedOrderNo",
                             "onReview",
                             "controlsActive",
+                            "automationsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",

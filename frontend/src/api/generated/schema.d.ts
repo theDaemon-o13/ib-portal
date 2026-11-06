@@ -26772,6 +26772,23 @@ export interface paths {
                                         status: "draft" | "review" | "approved" | "sent";
                                     };
                                     letterSent: boolean;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "document_control";
+                                    document: {
+                                        id: string;
+                                        number: number;
+                                        title: string;
+                                    };
+                                    automation: {
+                                        id: string;
+                                        title: string;
+                                    };
+                                    control: {
+                                        position: number;
+                                        requirement: string;
+                                    } | null;
+                                    nominalDate: string;
                                 }) | null;
                                 record: {
                                     id: string;
@@ -27031,6 +27048,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -27759,6 +27793,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -28020,6 +28071,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -28258,6 +28326,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -28501,6 +28586,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -28741,6 +28843,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -28981,6 +29100,23 @@ export interface paths {
                                     status: "draft" | "review" | "approved" | "sent";
                                 };
                                 letterSent: boolean;
+                            } | {
+                                /** @enum {string} */
+                                kind: "document_control";
+                                document: {
+                                    id: string;
+                                    number: number;
+                                    title: string;
+                                };
+                                automation: {
+                                    id: string;
+                                    title: string;
+                                };
+                                control: {
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                nominalDate: string;
                             }) | null;
                             record: {
                                 id: string;
@@ -32310,6 +32446,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -32488,6 +32625,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -33119,6 +33257,7 @@ export interface paths {
                             approvedOrderNo: string;
                             onReview: boolean;
                             controlsActive: number;
+                            automationsActive: number;
                             reviewMonths: number;
                             reviewDue: string | null;
                             /** @enum {string} */
@@ -33591,6 +33730,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -34067,6 +34207,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -34545,6 +34686,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -35025,6 +35167,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -35500,6 +35643,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -35976,6 +36120,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -36452,6 +36597,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -36926,6 +37072,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -37405,6 +37552,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -37890,6 +38038,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -38362,6 +38511,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -38841,6 +38991,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -39319,6 +39470,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -39796,6 +39948,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -40272,6 +40425,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -40751,6 +40905,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -41236,6 +41391,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -41708,6 +41864,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -42185,6 +42342,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -42662,6 +42820,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -43508,6 +43667,780 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/documents/{id}/automations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Автоматизации механизмов контроля утверждённого документа: следующий запуск, история запусков (сотрудники ИБ) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                title: string;
+                                description: string;
+                                cadence: {
+                                    /** @enum {string} */
+                                    kind: "daily";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "weekly";
+                                    weekday: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "monthly";
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "quarterly";
+                                    month: number;
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "semiannual";
+                                    month: number;
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "yearly";
+                                    month: number;
+                                    day: number;
+                                };
+                                cadenceLabel: string;
+                                startsOn: string;
+                                dueDays: number;
+                                /** @enum {string} */
+                                dueKind: "calendar" | "working";
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                control: {
+                                    id: string;
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                active: boolean;
+                                version: number;
+                                noAssignee: boolean;
+                                next: {
+                                    nominal: string;
+                                    planned: string;
+                                } | null;
+                                runs: {
+                                    nominalDate: string;
+                                    plannedDate: string;
+                                    /** @enum {string} */
+                                    status: "created" | "skipped_late" | "no_assignee" | "doc_archived";
+                                    at: string;
+                                    task: {
+                                        id: string;
+                                        number: number;
+                                        status: string;
+                                        completed: boolean;
+                                        archived: boolean;
+                                    } | null;
+                                }[];
+                            }[];
+                            canManage: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Добавить автоматизацию (владелец, начальник ИБ, docs.manage); ответственный — активный сотрудник ИБ */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        description?: string;
+                        controlId?: string | null;
+                        cadence: {
+                            /** @enum {string} */
+                            kind: "daily";
+                        } | {
+                            /** @enum {string} */
+                            kind: "weekly";
+                            weekday: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "monthly";
+                            day: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "quarterly";
+                            month: number;
+                            day: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "semiannual";
+                            month: number;
+                            day: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "yearly";
+                            month: number;
+                            day: number;
+                        };
+                        startsOn: string;
+                        dueDays: number;
+                        /** @enum {string} */
+                        dueKind: "calendar" | "working";
+                        /** Format: uuid */
+                        assigneeId: string;
+                        active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            item: {
+                                id: string;
+                                title: string;
+                                description: string;
+                                cadence: {
+                                    /** @enum {string} */
+                                    kind: "daily";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "weekly";
+                                    weekday: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "monthly";
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "quarterly";
+                                    month: number;
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "semiannual";
+                                    month: number;
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "yearly";
+                                    month: number;
+                                    day: number;
+                                };
+                                cadenceLabel: string;
+                                startsOn: string;
+                                dueDays: number;
+                                /** @enum {string} */
+                                dueKind: "calendar" | "working";
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                control: {
+                                    id: string;
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                active: boolean;
+                                version: number;
+                                noAssignee: boolean;
+                                next: {
+                                    nominal: string;
+                                    planned: string;
+                                } | null;
+                                runs: {
+                                    nominalDate: string;
+                                    plannedDate: string;
+                                    /** @enum {string} */
+                                    status: "created" | "skipped_late" | "no_assignee" | "doc_archived";
+                                    at: string;
+                                    task: {
+                                        id: string;
+                                        number: number;
+                                        status: string;
+                                        completed: boolean;
+                                        archived: boolean;
+                                    } | null;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/automations/{automationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить, отключить или включить автоматизацию (version; чужая — 409). Не удаляется */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    automationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title?: string;
+                        description?: string;
+                        controlId?: string | null;
+                        cadence?: {
+                            /** @enum {string} */
+                            kind: "daily";
+                        } | {
+                            /** @enum {string} */
+                            kind: "weekly";
+                            weekday: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "monthly";
+                            day: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "quarterly";
+                            month: number;
+                            day: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "semiannual";
+                            month: number;
+                            day: number;
+                        } | {
+                            /** @enum {string} */
+                            kind: "yearly";
+                            month: number;
+                            day: number;
+                        };
+                        startsOn?: string;
+                        dueDays?: number;
+                        /** @enum {string} */
+                        dueKind?: "calendar" | "working";
+                        /** Format: uuid */
+                        assigneeId?: string;
+                        active?: boolean;
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            item: {
+                                id: string;
+                                title: string;
+                                description: string;
+                                cadence: {
+                                    /** @enum {string} */
+                                    kind: "daily";
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "weekly";
+                                    weekday: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "monthly";
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "quarterly";
+                                    month: number;
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "semiannual";
+                                    month: number;
+                                    day: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "yearly";
+                                    month: number;
+                                    day: number;
+                                };
+                                cadenceLabel: string;
+                                startsOn: string;
+                                dueDays: number;
+                                /** @enum {string} */
+                                dueKind: "calendar" | "working";
+                                assignee: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                control: {
+                                    id: string;
+                                    position: number;
+                                    requirement: string;
+                                } | null;
+                                active: boolean;
+                                version: number;
+                                noAssignee: boolean;
+                                next: {
+                                    nominal: string;
+                                    planned: string;
+                                } | null;
+                                runs: {
+                                    nominalDate: string;
+                                    plannedDate: string;
+                                    /** @enum {string} */
+                                    status: "created" | "skipped_late" | "no_assignee" | "doc_archived";
+                                    at: string;
+                                    task: {
+                                        id: string;
+                                        number: number;
+                                        status: string;
+                                        completed: boolean;
+                                        archived: boolean;
+                                    } | null;
+                                }[];
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/automations/{automationId}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Проверить сейчас»: прогон автоматизации — запуски на сегодня и пропущенные (до 7 дней) создаются, повтор — без дублей */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    automationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ran: boolean;
+                            today: string;
+                            created: number;
+                            skipped: number;
+                            noAssignee: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{id}/blockers": {
         parameters: {
             query?: never;
@@ -43565,6 +44498,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -44042,6 +44976,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -44517,6 +45452,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -44995,6 +45931,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -45469,6 +46406,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -45943,6 +46881,7 @@ export interface paths {
                                 approvedOrderNo: string;
                                 onReview: boolean;
                                 controlsActive: number;
+                                automationsActive: number;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */

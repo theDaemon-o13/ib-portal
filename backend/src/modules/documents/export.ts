@@ -27,6 +27,7 @@ export async function approvedRows(db: Db, a: DocAccess, f: ApprovedFilter, toda
     daysLeft: x.reviewDue ? daysBetween(today, x.reviewDue) : null,
     onReview: x.onReview,
     controls: x.controlsActive,
+    automations: x.automationsActive,
   }));
 }
 
@@ -46,6 +47,7 @@ export async function exportApproved(db: Db, actor: Actor, a: DocAccess, f: Appr
     { header: 'Пересмотр до', key: 'reviewDue', width: 14 },
     { header: 'Дней до пересмотра', key: 'daysLeft', width: 14 },
     { header: 'Механизмов контроля', key: 'controls', width: 14 },
+    { header: 'Автоматизаций', key: 'automations', width: 14 },
     { header: 'На пересмотре', key: 'onReview', width: 12 },
   ];
   ws.getRow(1).font = { bold: true };

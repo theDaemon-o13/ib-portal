@@ -8,6 +8,7 @@ import type { Db } from '../lib/db.js';
 import type { FileStore } from '../lib/file-store.js';
 import { runAutomations } from '../modules/automations/service.js';
 import { runAwarenessSchedule } from '../modules/awareness-letters/schedule.service.js';
+import { runControlAutomations } from '../modules/documents/automations.js';
 import { processPendingTexts } from '../modules/files/text.js';
 import { notifyReassessment } from '../modules/assessments/service.js';
 import { notifyPartyDeadlines, notifyTranslationDeadlines } from '../modules/documents/notify.js';
@@ -69,6 +70,14 @@ export function installJobs(app: FastifyInstance, opts: JobsOptions): void {
           else if (s.created || s.escalated || s.candidatesUpdated) app.log.info(s, 'расписание рассылок проверено');
         } catch (err) {
           app.log.error({ err }, 'расписание рассылок: прогон не выполнен');
+        }
+        // Автоматизации механизмов контроля документов (1.11.0, ADR-0043): своя транзакция и блокировка.
+        try {
+          const c = await runControlAutomations(opts.db, { now: opts.now?.() });
+          if (!c.ran) app.log.info('автоматизации контроля документов: прогон уже идёт в другом процессе — пропуск');
+          else if (c.created || c.skipped || c.noAssignee) app.log.info(c, 'автоматизации контроля документов проверены');
+        } catch (err) {
+          app.log.error({ err }, 'автоматизации контроля документов: прогон не выполнен');
         }
         // Уведомления (этап В): «срок завтра» и «просрочено» без дублей (уникальный dedupe_key), очистка — раз в сутки.
         const now = opts.now?.() ?? new Date();

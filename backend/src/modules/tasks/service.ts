@@ -9,6 +9,7 @@ import { withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { taskLetterLinks, taskLinkMessage } from '../awareness-letters/links.js';
 import { taskOrigin, taskOriginInclude } from '../awareness-letters/origin.js';
+import { controlLinkMessage, controlOrigin, controlOriginInclude, taskControlLinks } from '../documents/control-links.js';
 import { parseMail, type ParsedMail } from '../../lib/mail-parse.js';
 import { reviewerFor } from '../../lib/hierarchy.js';
 import { formatDateRu, isIsoDate } from '../../lib/register-values.js';
@@ -49,6 +50,8 @@ export const taskInclude = {
   _count: { select: { comments: { where: { deletedAt: null } } } },
   // Происхождение задач модуля писем (1.9.0, вариант A): по таблицам модуля, source у них 'manual'.
   ...taskOriginInclude,
+  // Задача автоматизации контроля документа (1.11.0): документ и механизм — через запуск.
+  ...controlOriginInclude,
 } as const;
 type TaskRow = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
 
@@ -75,7 +78,7 @@ export function toTaskDto(t: TaskRow, today: string) {
     /** Строка: известные — TaskSource; неизвестное (задача более новой версии портала) отдаётся как есть, без 500. */
     source: t.source,
     /** Задача модуля писем (1.9.0): «Создана расписанием: <правило>» или «Учебное письмо № N»; иначе null. */
-    origin: taskOrigin(t, today),
+    origin: taskOrigin(t, today) ?? controlOrigin(t),
     record: t.record,
     automationId: t.automationId,
     recipientLabel: t.recipientLabel,
@@ -539,6 +542,8 @@ export async function deleteTask(db: Db, actor: Actor, id: string, version: numb
     // Задача учебного письма или правила расписания (1.9.0) не удаляется — только архив.
     const link = (await taskLetterLinks(tx, [id])).get(id);
     if (link) throw conflict('TASK_LINKED_TO_LETTER', taskLinkMessage(t.number, link));
+    const control = (await taskControlLinks(tx, [id])).get(id);
+    if (control !== undefined) throw conflict('TASK_LINKED_TO_CONTROL', controlLinkMessage(t.number, control));
     const res = await tx.task.updateMany({ where: { id, version, deletedAt: null }, data: { deletedAt: new Date(), version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.task.findFirst({ where: { id, deletedAt: null } }), 'Задача');
     await auditSettings(tx, actor, {

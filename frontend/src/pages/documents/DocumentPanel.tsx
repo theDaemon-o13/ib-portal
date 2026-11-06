@@ -16,6 +16,7 @@ import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
 import { DocumentBlockers, DocumentParties, DocumentTranslations } from './DocumentParties';
 import { DocumentControls } from './DocumentControls';
+import { DocumentAutomations } from './DocumentAutomations';
 import { HoldersLine, StageWho } from './Holders';
 import { ACTION_DONE, ACTION_LABEL, historyText, isReturn, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
 
@@ -110,7 +111,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   const doc = useQuery({ queryKey: dkeys.detail(id), queryFn: () => docsApi.get(id), retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2 });
   const [mode, setMode] = useState<Mode>('view');
   /** Вкладки утверждённого документа (1.11.0): карточка и механизмы контроля — сотрудникам ИБ. */
-  const [tab, setTab] = useState<'doc' | 'controls'>('doc');
+  const [tab, setTab] = useState<'doc' | 'controls' | 'automations'>('doc');
   const me = useOutletContext<Me | undefined>();
   const ibWork = me?.permissions.includes('ib.work') ?? false;
   const [comment, setComment] = useState('');
@@ -266,9 +267,11 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
           <div className="tabs" role="tablist" aria-label="Разделы документа">
             <button type="button" role="tab" aria-selected={tab === 'doc'} onClick={() => setTab('doc')}>Документ</button>
             <button type="button" role="tab" aria-selected={tab === 'controls'} onClick={() => setTab('controls')}>Механизмы контроля</button>
+            <button type="button" role="tab" aria-selected={tab === 'automations'} onClick={() => setTab('automations')}>Автоматизации</button>
           </div>
         )}
-        {tab === 'controls' && ibWork && d.approvedVersionNo !== null ? <DocumentControls docId={d.id} /> : (
+        {tab === 'controls' && ibWork && d.approvedVersionNo !== null ? <DocumentControls docId={d.id} />
+          : tab === 'automations' && ibWork && d.approvedVersionNo !== null ? <DocumentAutomations docId={d.id} /> : (
         <>
         <div className="row gap-lg">
           <div><div className="eyebrow">Версия</div><div className="mono">{versionLabel(d.current)}</div></div>

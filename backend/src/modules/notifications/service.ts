@@ -13,6 +13,8 @@ export const NOTIFICATION_KINDS = [
   'doc_waiting', 'doc_translation', 'doc_returned', 'doc_commented', 'doc_deadline_changed', 'doc_party_due_tomorrow', 'doc_party_overdue',
   // Маршрут 1.11.0: сроки переводов на этапе «Перевод» — автору.
   'doc_translation_due_tomorrow', 'doc_translation_overdue',
+  // Автоматизация механизма контроля документа без ответственного — автору документа, один раз на состояние.
+  'doc_control_no_assignee',
   // Самооценка (этап Д, правило 11): «Пора провести самооценку»; ссылка — по виду уведомления.
   'assessment_reminder',
   // Служебный администратор (1.8.0, ADR-0036) назначил или снял роль, изменил права роли, сбросил пароль — держателям

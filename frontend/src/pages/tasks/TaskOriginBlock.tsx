@@ -14,6 +14,20 @@ export const letterHref = (id: string) => `/awareness/letters?letter=${id}`;
 export function TaskOriginBlock({ task, actions }: { task: Pick<Task, 'origin' | 'completedAt'>; actions?: ReactNode }) {
   const o = task.origin;
   if (!o) return null;
+  // Задача автоматизации контроля документа (1.11.0, ADR-0043): документ, автоматизация, механизм контроля.
+  if (o.kind === 'document_control') {
+    return (
+      <div className="chain-block aw-origin" aria-label="Контроль по документу" data-testid="task-origin">
+        <div className="eyebrow">Контроль по документу</div>
+        <div className="row">
+          <Link to={`/documents?doc=${o.document.id}`}>Документ #{o.document.number} «{o.document.title}»</Link>
+          <span className="muted">запуск {ru(o.nominalDate)}</span>
+        </div>
+        <div className="row"><span>Автоматизация «{o.automation.title}»</span></div>
+        {o.control && <div className="row"><span className="muted">Механизм контроля {o.control.position}: {o.control.requirement}</span></div>}
+      </div>
+    );
+  }
   const sentHint = o.letterSent && !task.completedAt
     ? <div className="note aw-hint" role="status">Письмо отправлено — завершите задачу</div>
     : null;

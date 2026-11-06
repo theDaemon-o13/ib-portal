@@ -146,6 +146,11 @@ async function main() {
   check(ctlPrivs.every((r) => !r.granted || (r.p === 'UPDATE' && r.t !== 'document_control_runs')),
     'ibportal_app: механизмы и автоматизации — без DELETE, запуски — без UPDATE и DELETE');
 
+  const badRuns = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM document_control_runs r LEFT JOIN tasks t ON t.id = r.task_id
+    WHERE r.status = 'created' AND (t.id IS NULL OR t.source <> 'document_control')`;
+  check(Number(badRuns[0]?.n ?? 0) === 0, 'запуски контроля «создана задача» — со ссылкой на задачу контроля', `без задачи: ${badRuns[0]?.n ?? 0}`);
+
   // Релиз 1.2.0: переходы задач только пополняются (ADR-0022); колонка открытой задачи согласована с исполнителем.
   const transitionPrivs = await prisma.$queryRaw<{ ins: boolean; mod: boolean }[]>`
     SELECT has_table_privilege('ibportal_app', 'public.task_transitions', 'INSERT') AS ins,

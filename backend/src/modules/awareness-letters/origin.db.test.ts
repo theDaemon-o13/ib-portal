@@ -63,7 +63,7 @@ describe('происхождение задач модуля писем', () => 
       const a = await letters.approveLetter(tx, head, letter.id, { version: s.version });
       await letters.sendLetter(tx, worker, letter.id, { version: a.version, sentOn: '2041-01-04', audience: 'Все сотрудники' }, { now: () => NOW });
       const t2 = await dto(tx, run.taskId, NOW);
-      expect([t2.origin?.letterSent, t2.completedAt]).toEqual([true, null]);
+      expect([t2.origin && 'letterSent' in t2.origin ? t2.origin.letterSent : undefined, t2.completedAt]).toEqual([true, null]);
 
       const urgent = await letters.urgentMailing(tx, worker, { title: 'Срочно', reason: 'Инцидент' }, { now: () => NOW });
       const tu = await dto(tx, must(urgent.letter.task).id, NOW);

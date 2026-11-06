@@ -2,11 +2,14 @@
 // Номинальная дата — по периодичности; плановая — номинальная, перенесённая на предыдущий рабочий день.
 // Ключ идемпотентности запуска — «правило + номинальная дата»: смена календаря двигает плановую дату, но не ключ.
 // Все даты — строки YYYY-MM-DD в часовом поясе портала («сегодня» даёт lib/today.ts).
+// Вычисления дат — общие с автоматизациями контроля документов (lib/cadence.ts, 1.11.0, ADR-0041); здесь — свой список
+// видов рассылок (пять, как в 1.9.0) и окно запусков. Поведение рассылок не меняется.
 import { z } from 'zod';
+import { Day, daysInMonth, nominalDates as nominalAny, plannedDate } from '../../lib/cadence.js';
 import { addDaysIso } from '../../lib/today.js';
-import { isoDate, isoWeekday, onOrPrevWorkingDay, parseIsoDate, type WorkCalendar } from '../../lib/working-days.js';
+import type { WorkCalendar } from '../../lib/working-days.js';
 
-const Day = z.number().int().min(1).max(31);
+export { daysInMonth, plannedDate };
 
 export const CadenceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('monthly'), day: Day }),
@@ -27,52 +30,9 @@ export const LeadDaysSchema = z.number().int().min(LEAD_DAYS.min, { message: `О
 /** Этапы задачи рассылки: календарных дней до плановой даты. */
 export const STAGE_OFFSETS = { draft: 7, review: 3 } as const;
 
-export function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-const pad = (n: number) => String(n).padStart(2, '0');
-/** День месяца, которого нет (29–31 в коротком месяце), — последний день месяца. */
-function clampedDate(year: number, month: number, day: number): string {
-  return `${year}-${pad(month)}-${pad(Math.min(day, daysInMonth(year, month)))}`;
-}
-
-/** Номинальные даты периодичности в [from; to] (включительно), не раньше startsOn, по возрастанию. */
+/** Номинальные даты периодичности рассылки в [from; to] (включительно), не раньше startsOn, по возрастанию. */
 export function nominalDates(c: Cadence, startsOn: string, from: string, to: string): string[] {
-  const lo = from > startsOn ? from : startsOn;
-  if (lo > to) return [];
-  const out = new Set<string>();
-  if (c.kind === 'weekly') {
-    // Первая дата — первый такой день недели не раньше даты начала; дальше — шаг N недель.
-    const start = parseIsoDate(startsOn);
-    const first = addDaysIso(startsOn, (c.weekday - isoWeekday(start) + 7) % 7);
-    const step = c.every * 7;
-    const gap = Math.max(0, Math.round((Date.parse(`${lo}T00:00:00Z`) - Date.parse(`${first}T00:00:00Z`)) / 86_400_000));
-    for (let d = addDaysIso(first, Math.ceil(gap / step) * step); d <= to; d = addDaysIso(d, step)) {
-      if (d >= lo) out.add(d);
-    }
-    return [...out].sort();
-  }
-  const [y0, m0] = lo.split('-').map(Number) as [number, number];
-  const [y1, m1] = to.split('-').map(Number) as [number, number];
-  for (let y = y0, m = m0; y < y1 || (y === y1 && m <= m1); m === 12 ? (y++, m = 1) : m++) {
-    const days: number[] = [];
-    if (c.kind === 'monthly') days.push(c.day);
-    else if (c.kind === 'twice_monthly') days.push(...c.days);
-    else if (c.kind === 'quarterly') {
-      if ((m - 1) % 3 === c.month - 1) days.push(c.day);
-    } else if (m === c.month) days.push(c.day);
-    for (const d of days) {
-      const iso = clampedDate(y, m, d);
-      if (iso >= lo && iso <= to) out.add(iso);
-    }
-  }
-  return [...out].sort();
-}
-
-/** Плановая дата: номинальная или предыдущий рабочий день по производственному календарю. */
-export function plannedDate(nominal: string, cal: WorkCalendar): string {
-  return isoDate(onOrPrevWorkingDay(parseIsoDate(nominal), cal));
+  return nominalAny(c, startsOn, from, to);
 }
 
 export interface Occurrence {

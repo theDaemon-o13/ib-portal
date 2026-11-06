@@ -58,6 +58,14 @@ export const Task = z.object({
       letterSent: z.boolean(),
     }),
     z.object({ kind: z.literal('letter'), reason: z.enum(['urgent', 'rework']), letter: OriginLetter, letterSent: z.boolean() }),
+    /** Задача автоматизации контроля документа (1.11.0): документ, автоматизация, механизм контроля, номинальная дата запуска. */
+    z.object({
+      kind: z.literal('document_control'),
+      document: z.object({ id: z.string(), number: z.number().int(), title: z.string() }),
+      automation: z.object({ id: z.string(), title: z.string() }),
+      control: z.object({ position: z.number().int(), requirement: z.string() }).nullable(),
+      nominalDate: z.string(),
+    }),
   ]).nullable(),
   record: z.object({ id: z.string(), registerId: z.string(), number: z.number().int() }).nullable(),
   automationId: z.string().nullable(),

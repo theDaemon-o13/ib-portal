@@ -168,6 +168,7 @@ export function DocumentsPage() {
           {left !== null && <div className="hint">{left < 0 ? `просрочен на ${-left} дн.` : left === 0 ? 'сегодня' : `через ${left} дн.`}</div>}
         </td>
         {ibWork && <td className="mono" data-testid="controls-count">{d.controlsActive || '—'}</td>}
+        {ibWork && <td className="mono" data-testid="automations-count">{d.automationsActive || '—'}</td>}
         <td>{d.onReview ? <span className="chip high" data-testid="on-review">на пересмотре</span> : null}</td>
       </tr>
     );
@@ -304,7 +305,7 @@ export function DocumentsPage() {
             <table className="docs-tbl">
               <thead>
                 {view === 'approved'
-                  ? <tr><th>№</th><th>Документ</th><th>Владелец</th><th>Действующая версия</th><th>Утверждён</th><th>Пересмотр до</th>{ibWork && <th>Механизмов контроля</th>}<th /></tr>
+                  ? <tr><th>№</th><th>Документ</th><th>Владелец</th><th>Действующая версия</th><th>Утверждён</th><th>Пересмотр до</th>{ibWork && <th>Механизмов контроля</th>}{ibWork && <th>Автоматизаций</th>}<th /></tr>
                   : <tr><th>Документ</th><th>Владелец</th><th>Версия</th><th>Утверждён</th><th>Пересмотр до</th><th>Согласование</th><th>Статус</th></tr>}
               </thead>
               <tbody>

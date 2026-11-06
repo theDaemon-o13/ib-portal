@@ -132,12 +132,26 @@ export const controlsApi = {
     request<{ item: DocControl }>('PATCH', `/api/v1/documents/${id}/controls/${controlId}`, body),
 };
 
+/** Автоматизация механизма контроля (1.11.0, ADR-0043). */
+export type DocAutomation = Res<'/api/v1/documents/{id}/automations', 'get'>['items'][number];
+export type DocAutomationFields = Body<'/api/v1/documents/{id}/automations', 'post'>;
+export type ControlCadence = DocAutomationFields['cadence'];
+
+export const automationsApi = {
+  list: (id: string) => request<Res<'/api/v1/documents/{id}/automations', 'get'>>('GET', `/api/v1/documents/${id}/automations`),
+  create: (id: string, body: DocAutomationFields) => request<{ item: DocAutomation }>('POST', `/api/v1/documents/${id}/automations`, body),
+  update: (id: string, automationId: string, body: Partial<DocAutomationFields> & { version: number }) =>
+    request<{ item: DocAutomation }>('PATCH', `/api/v1/documents/${id}/automations/${automationId}`, body),
+  run: (id: string, automationId: string) => request<Res<'/api/v1/documents/{id}/automations/{automationId}/run', 'post'>>('POST', `/api/v1/documents/${id}/automations/${automationId}/run`),
+};
+
 export const dkeys = {
   all: ['documents'] as const,
   list: (q: DocQuery) => ['documents', 'list', q] as const,
   detail: (id: string) => ['documents', 'detail', id] as const,
   partyDirectory: (id: string) => ['documents', 'party-directory', id] as const,
   controls: (id: string) => ['documents', 'controls', id] as const,
+  automations: (id: string) => ['documents', 'automations', id] as const,
   summary: ['documents', 'summary'] as const,
   types: ['settings', 'items', 'document_types'] as const,
 };

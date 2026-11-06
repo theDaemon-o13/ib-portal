@@ -211,6 +211,7 @@ export function columnEntries(items: readonly Task[], group: boolean): ColumnEnt
 /** Источник задачи словами. Неизвестный (задача более новой версии портала) — «другое», без падения. */
 export const SOURCE_LABEL: Readonly<Record<string, string>> = {
   manual: 'поставлена вручную', mail: 'из письма', automation: 'автоматизация реестра', document: 'по документу', evidence: 'по доказательству',
+  document_control: 'контроль по документу',
 };
 export const OTHER_SOURCE = 'другое';
 
@@ -218,6 +219,7 @@ export const OTHER_SOURCE = 'другое';
 export function originText(t: Pick<Task, 'source' | 'origin'>): string {
   if (t.origin?.kind === 'schedule') return `создана расписанием: ${t.origin.rule.title}`;
   if (t.origin?.kind === 'letter') return `учебное письмо № ${t.origin.letter.number}`;
+  if (t.origin?.kind === 'document_control') return `контроль по документу #${t.origin.document.number}`;
   return SOURCE_LABEL[t.source] ?? OTHER_SOURCE;
 }
 
@@ -232,7 +234,9 @@ export function sourceChip(t: Pick<Task, 'source' | 'origin'>): { label: string;
     mail: { label: 'письмо', title: 'Задача из письма' },
     document: { label: 'документ', title: 'Задача по документу' },
     evidence: { label: 'доказательство', title: 'Задача по доказательству' },
+    document_control: { label: 'контроль', title: 'Задача автоматизации контроля документа' },
   };
+  if (t.origin?.kind === 'document_control') return { label: `контроль #${t.origin.document.number}`, title: `Автоматизация «${t.origin.automation.title}» — документ #${t.origin.document.number}` };
   if (t.source === 'manual') return null;
   return known[t.source] ?? { label: OTHER_SOURCE, title: `Источник «${t.source}» — из более новой версии портала` };
 }

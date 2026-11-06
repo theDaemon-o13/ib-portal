@@ -747,7 +747,7 @@ describe('Документы: «В работе» и «Утверждённые�
     await ui.waitFor(`document.querySelector('[role=tablist][aria-label="Подменю документов"] [aria-selected=true]')?.textContent === 'Утверждённые'`, 'вкладка «Утверждённые»');
     await ui.waitFor(`!!${row(`${RUN} Реестр утверждённый`)} && !!${row(`${RUN} Реестр на пересмотре`)}`, 'утверждённые в реестре');
     assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр черновик`)}`), false, 'черновика среди утверждённых нет');
-    assert.deepEqual(await ui.evaluate(`[...document.querySelectorAll('.docs-tbl thead th')].map((t) => t.textContent)`), ['№', 'Документ', 'Владелец', 'Действующая версия', 'Утверждён', 'Пересмотр до', 'Механизмов контроля', '']);
+    assert.deepEqual(await ui.evaluate(`[...document.querySelectorAll('.docs-tbl thead th')].map((t) => t.textContent)`), ['№', 'Документ', 'Владелец', 'Действующая версия', 'Утверждён', 'Пересмотр до', 'Механизмов контроля', 'Автоматизаций', '']);
     assert.match(await ui.text(`${row(`${RUN} Реестр утверждённый`)}.querySelector('[data-testid=review-due]')`), new RegExp(`${ru(plusYear()).replace(/\./g, '\\.')}через \\d+ дн\\.`));
     assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр на пересмотре`)}.querySelector('[data-testid=on-review]')`), true, 'отметка «на пересмотре»');
     await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent === 'На пересмотре')`, 'фильтр «На пересмотре»');
@@ -820,5 +820,52 @@ describe('Документы: механизмы контроля (1.11.0)', () 
     await openDocs(doc.id);
     await ui.waitFor(`!!${panel}?.querySelector('.dr-title')`, 'карточка у читателя');
     assert.equal(await ui.evaluate(`!!${panel}.querySelector('[role=tablist][aria-label="Разделы документа"]')`), false, 'у читателя вкладок нет');
+  });
+});
+
+describe('Документы: автоматизации контроля (1.11.0)', () => {
+  it('автоматизация в карточке → «Проверить сейчас» → задача ответственному на доске с блоком документа; удалить нельзя', async () => {
+    const doc = await makeDoc('Автоматизация контроля');
+    await signAllViaApi(doc.id);
+    let d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
+    await api('POST', `/api/v1/documents/${doc.id}/controls`, { requirement: 'Журналы хранятся год', mechanism: 'Проверка SIEM' });
+    await loginAs(users.owner);
+    await openDocs(doc.id);
+    await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((t) => t.textContent === 'Автоматизации')`, 'вкладка «Автоматизации»');
+    const box = `${panel}.querySelector('[data-testid=doc-automations]')`;
+    await ui.waitFor(`${box}?.textContent.includes('Автоматизаций нет')`, 'пустой список');
+    await ui.click($.button('Добавить автоматизацию', panel));
+    const form = `${panel}.querySelector('form[aria-label="Новая автоматизация"]')`;
+    await ui.type(label('Название задачи', form), `${RUN} Проверить журналы SIEM`);
+    await ui.waitFor(`[...${label('Механизм контроля (необязательно)', form)}.options].length > 1`, 'механизмы в выборе');
+    await ui.select(label('Механизм контроля (необязательно)', form), `${await ui.evaluate(`[...${label('Механизм контроля (необязательно)', form)}.options][1].value`)}`);
+    await ui.select(label('Периодичность', form), 'daily');
+    await ui.select(label('Дни', form), 'calendar');
+    await ui.waitFor(`[...${label('Ответственный', form)}.options].some((o) => o.value === ${JSON.stringify(users.staff.id)})`, 'сотрудник в выборе');
+    await ui.select(label('Ответственный', form), users.staff.id);
+    let req = await act('Добавить', 'POST', `/api/v1/documents/${doc.id}/automations`);
+    assert.deepEqual(req.json.cadence, { kind: 'daily' });
+    const item = `${box}.querySelector('[data-automation="${RUN} Проверить журналы SIEM"]')`;
+    await ui.waitFor(`${item}?.querySelector('[data-testid=next-run]')?.textContent.startsWith('Следующий запуск: ${ru(portalToday())}')`, 'следующий запуск — сегодня');
+    await ui.click($.button('Проверить сейчас', item));
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Создано задач: 1'`, 'задача создана');
+    await ui.waitFor(`${item}?.querySelector('[data-testid=runs]')?.textContent.includes('задача создана')`, 'запуск в истории');
+    // Повтор — без дублей.
+    await ui.click($.button('Проверить сейчас', item));
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Сейчас запусков нет — следующий по расписанию'`, 'повтор без дублей');
+
+    // Ответственный: задача на доске с блоком «Контроль по документу».
+    await loginAs(users.staff);
+    const drawer = await openTask(`${RUN} Проверить журналы SIEM`, users.staff);
+    await ui.waitFor(`${drawer}.querySelector('[data-testid=task-origin]')?.textContent.includes('Контроль по документу')`, 'блок происхождения');
+    assert.match(await ui.text(`${drawer}.querySelector('[data-testid=task-origin]')`), new RegExp(`Документ #${doc.number}.*Механизм контроля 1: Журналы хранятся год`));
+    // Удалить нельзя (API, администратор с правом удаления).
+    await loginAs(admin);
+    const t = (await allTasks()).find((x) => x.title === `${RUN} Проверить журналы SIEM`);
+    const del = await ui.evaluate(`fetch('/api/v1/tasks/${t.id}/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: ${t.version} }) }).then(async (r) => [r.status, (await r.json()).error?.code])`);
+    assert.deepEqual(del, [409, 'TASK_LINKED_TO_CONTROL']);
+    d = await api('GET', `/api/v1/documents?view=approved&limit=500`);
+    assert.equal(d.items.find((x) => x.id === doc.id).automationsActive, 1);
+    assert.ok(req);
   });
 });
