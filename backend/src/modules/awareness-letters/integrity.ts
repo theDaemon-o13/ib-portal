@@ -3,7 +3,7 @@
 // Большая часть правил закреплена триггерами и ограничениями в БД — здесь вторая линия и то, что триггером не выразить.
 import type { Db } from '../../lib/db.js';
 import { workRolesWhere } from '../../lib/work-users.js';
-import { AWARENESS_MAILINGS_KEY, MAILING_FIELDS, SIGNATURE_CODE } from './definition.js';
+import { AWARENESS_MAILINGS_KEY, MAILING_FIELDS, MAILING_FIELDS_V3, SIGNATURE_CODE } from './definition.js';
 import { AWARENESS_LETTERS_KEY, LetterLimitsSchema } from './settings.js';
 
 export interface IntegrityCheck {
@@ -94,11 +94,19 @@ export async function letterIntegrity(db: Db): Promise<IntegrityCheck[]> {
     select: { name: true, fields: { where: { deletedAt: null, archivedAt: null }, select: { systemKey: true } } },
   });
   const have = new Set(reg?.fields.map((f) => f.systemKey) ?? []);
-  const missing = MAILING_FIELDS.filter((f) => !have.has(f.key)).map((f) => f.label);
+  const missing = [...MAILING_FIELDS, ...MAILING_FIELDS_V3].filter((f) => !have.has(f.key)).map((f) => f.label);
   check(!!reg && missing.length === 0, `учебные письма: системные поля реестра «${reg?.name ?? 'Рассылки'}»`,
     reg ? `нет полей: ${missing.join(', ')}` : 'реестра нет — выполните migrate (seed awareness.v2)');
   const signature = await db.awarenessFragment.findUnique({ where: { code: SIGNATURE_CODE }, select: { code: true } });
   check(!!signature, 'учебные письма: «Подпись ИБ» на месте', 'выполните migrate (seed awareness.v2)');
+
+  // 1.12.0: «Оформление писем» и выгрузки, на которые ссылаются отметки «Отправлено».
+  const layout = await db.awarenessLayout.findUnique({ where: { id: 1 }, select: { id: true } });
+  check(!!layout, 'учебные письма: «Оформление писем» на месте', 'выполните migrate (seed awareness.v3)');
+  const badSends = await db.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM awareness_letter_events e JOIN awareness_letter_exports x ON x.id = e.export_id WHERE x.letter_id <> e.letter_id`;
+  const bad = Number(badSends[0]?.n ?? 0);
+  check(bad === 0, 'учебные письма: файл отметки «Отправлено» — выгрузка этого письма', `расхождений: ${bad}`);
 
   const limits = await db.appSetting.findUnique({ where: { key: AWARENESS_LETTERS_KEY } });
   const parsed = limits ? LetterLimitsSchema.safeParse(limits.value) : null;

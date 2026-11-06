@@ -70,7 +70,7 @@ export const fileRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }> = a
       tags, summary: 'Метаданные файла и к чему он привязан (только если файл вам виден)', params: IdParams,
       response: {
         200: FileOut.extend({
-          refs: z.array(z.object({ kind: z.enum(['evidence', 'decision', 'document_pdf', 'document_file', 'record', 'compare', 'vuln_scan', 'vuln_extension']), id: z.string(), label: z.string() })),
+          refs: z.array(z.object({ kind: z.enum(['evidence', 'decision', 'document_pdf', 'document_file', 'record', 'compare', 'vuln_scan', 'vuln_extension', 'awareness_letter', 'awareness_layout']), id: z.string(), label: z.string() })),
           /** Текст PDF для поиска (этап 8б); null — не PDF. */
           text: z.object({ status: z.enum(['pending', 'text', 'no_text', 'failed']), pages: z.number().int().nullable() }).nullable(),
         }),

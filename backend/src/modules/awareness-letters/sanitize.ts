@@ -89,7 +89,7 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
       img: ['src', 'alt', 'width', 'height'],
       td: ['colspan', 'rowspan'],
       th: ['colspan', 'rowspan'],
-      div: ['data-ib-fragment'],
+      div: ['data-ib-fragment', 'data-callout'],
     },
     allowedSchemes: ['http', 'https', 'mailto'],
     allowedSchemesByTag: { img: ['data'] },
@@ -120,7 +120,12 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
         for (const k of ['width', 'height'] as const) if (/^\d{1,4}$/.test(attribs[k] ?? '')) out[k] = attribs[k] as string;
         return { tagName, attribs: out };
       },
-      div: (tagName, attribs) => ({ tagName, attribs: attribs['data-ib-fragment'] === 'signature' ? { 'data-ib-fragment': 'signature' } : noAttrs() }),
+      // Блок «Подпись ИБ» и выделенный блок (1.12.0): только эти значения, остальные атрибуты div вырезаются.
+      div: (tagName, attribs) => ({
+        tagName,
+        attribs: attribs['data-ib-fragment'] === 'signature' ? { 'data-ib-fragment': 'signature' }
+          : attribs['data-callout'] === 'info' || attribs['data-callout'] === 'warn' ? { 'data-callout': attribs['data-callout'] } : noAttrs(),
+      }),
     },
     // Изображение без src (внешнее, вырезанное) не оставляем пустым тегом.
     exclusiveFilter: (frame) => frame.tag === 'img' && !frame.attribs.src,

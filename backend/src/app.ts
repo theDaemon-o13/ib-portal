@@ -138,7 +138,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(evidenceRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(searchRoutes, { prefix: '/api/v1', db: deps.db });
   await app.register(awarenessRoutes, { prefix: '/api/v1', db: deps.db });
-  await app.register(letterRoutes, { prefix: '/api/v1', db: deps.db, portalUrl: deps.portalUrl });
+  await app.register(letterRoutes, { prefix: '/api/v1', db: deps.db, portalUrl: deps.portalUrl, store: deps.files });
   await app.register(trashRoutes, { prefix: '/api/v1', db: deps.db });
   // Дашборд и мониторинг делят кэш: KPI считаются раз в минуту для обоих.
   const cache = createCache(CACHE_TTL_MS, deps.now);

@@ -18,6 +18,7 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:create": "prisma migrate dev --create-only",
     "seed": "tsx prisma/seed/index.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "create-admin": "tsx scripts/create-admin.ts",
     "check:integrity": "tsx scripts/check-integrity.ts",
     "check:schema": "tsx scripts/check-schema.ts",

@@ -164321,7 +164321,9 @@
                               "record",
                               "compare",
                               "vuln_scan",
-                              "vuln_extension"
+                              "vuln_extension",
+                              "awareness_letter",
+                              "awareness_layout"
                             ]
                           },
                           "id": {
@@ -173556,6 +173558,26 @@
                     "type": "string",
                     "maxLength": 25165824
                   },
+                  "headerRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "headerTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "subjectBoth": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
                   "title": {
                     "type": "string",
                     "maxLength": 1000
@@ -173753,13 +173775,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -174041,6 +174083,54 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "langs": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "ru",
+                                      "tj",
+                                      "both"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipients": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "file": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "sha256"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -174055,7 +174145,10 @@
                               "sentOn",
                               "audience",
                               "task",
-                              "record"
+                              "record",
+                              "langs",
+                              "recipients",
+                              "file"
                             ],
                             "additionalProperties": false
                           }
@@ -174564,13 +174657,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -174852,6 +174965,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -174866,7 +175027,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -175190,6 +175354,26 @@
                     "type": "string",
                     "maxLength": 25165824
                   },
+                  "headerRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "headerTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "subjectBoth": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
                   "version": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
@@ -175410,13 +175594,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -175698,6 +175902,54 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "langs": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "ru",
+                                      "tj",
+                                      "both"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipients": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "file": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "sha256"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -175712,7 +175964,10 @@
                               "sentOn",
                               "audience",
                               "task",
-                              "record"
+                              "record",
+                              "langs",
+                              "recipients",
+                              "file"
                             ],
                             "additionalProperties": false
                           }
@@ -176131,13 +176386,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     }
@@ -176612,13 +176887,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -176900,6 +177195,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -176914,7 +177257,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -177419,13 +177765,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -177707,6 +178073,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -177721,7 +178135,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -178226,13 +178643,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -178514,6 +178951,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -178528,7 +179013,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -179037,13 +179525,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -179325,6 +179833,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -179339,7 +179895,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -179849,13 +180408,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -180137,6 +180716,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -180151,7 +180778,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -180451,7 +181081,7 @@
     },
     "/api/v1/awareness/letters/{id}/send": {
       "post": {
-        "summary": "«Отметить отправленным»: дата (не позже сегодня) и аудитория. Утверждённое — если последняя версия утверждена; срочное без согласования — с комментарием-причиной. Первая отметка создаёт версию sent и замораживает письмо; повторная — новая дата и аудитория, текст не меняется",
+        "summary": "«Отметить отправленным»: дата (не позже сегодня и не раньше утверждения), аудитория, языки, получатели, файл письма. Утверждённое — если последняя версия утверждена; срочное без согласования — с комментарием-причиной. Первая отметка создаёт версию sent и замораживает письмо; повторная — новая дата и аудитория, текст не меняется",
         "tags": [
           "awareness-letters"
         ],
@@ -180477,6 +181107,23 @@
                   "comment": {
                     "type": "string",
                     "maxLength": 4000
+                  },
+                  "langs": {
+                    "type": "string",
+                    "enum": [
+                      "ru",
+                      "tj",
+                      "both"
+                    ]
+                  },
+                  "recipients": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "exportId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -180670,13 +181317,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -180958,6 +181625,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -180972,7 +181687,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -181464,13 +182182,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -181752,6 +182490,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -181766,7 +182552,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -182271,13 +183060,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -182559,6 +183368,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -182573,7 +183430,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -183078,13 +183938,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -183366,6 +184246,54 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "langs": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tj",
+                                  "both"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipients": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "file": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "sha256"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -183380,7 +184308,10 @@
                           "sentOn",
                           "audience",
                           "task",
-                          "record"
+                          "record",
+                          "langs",
+                          "recipients",
+                          "file"
                         ],
                         "additionalProperties": false
                       }
@@ -184141,6 +185072,26 @@
                     "type": "string",
                     "maxLength": 25165824
                   },
+                  "headerRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "headerTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "subjectBoth": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
                   "title": {
                     "type": "string",
                     "maxLength": 1000
@@ -184277,13 +185228,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -184747,13 +185718,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -185089,6 +186080,26 @@
                     "type": "string",
                     "maxLength": 25165824
                   },
+                  "headerRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "headerTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "subjectBoth": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
                   "title": {
                     "type": "string",
                     "maxLength": 1000
@@ -185243,13 +186254,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -185733,13 +186764,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -186203,13 +187254,33 @@
                         },
                         "htmlTj": {
                           "type": "string"
+                        },
+                        "headerRu": {
+                          "type": "string"
+                        },
+                        "headerTj": {
+                          "type": "string"
+                        },
+                        "labelRu": {
+                          "type": "string"
+                        },
+                        "labelTj": {
+                          "type": "string"
+                        },
+                        "subjectBoth": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "subjectRu",
                         "subjectTj",
                         "htmlRu",
-                        "htmlTj"
+                        "htmlTj",
+                        "headerRu",
+                        "headerTj",
+                        "labelRu",
+                        "labelTj",
+                        "subjectBoth"
                       ],
                       "additionalProperties": false
                     },
@@ -186752,13 +187823,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -187040,6 +188131,54 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "langs": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "ru",
+                                      "tj",
+                                      "both"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipients": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "file": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "sha256"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -187054,7 +188193,10 @@
                               "sentOn",
                               "audience",
                               "task",
-                              "record"
+                              "record",
+                              "langs",
+                              "recipients",
+                              "file"
                             ],
                             "additionalProperties": false
                           }
@@ -188045,7 +189187,7 @@
     },
     "/api/v1/awareness/letters/{id}/export.eml": {
       "get": {
-        "summary": "Файл .eml (X-Unsent, без From/To/Date; изображения — части по Content-ID). Язык без текста — 400 LANG_NOT_AVAILABLE. В журнал — awareness_letter.exported",
+        "summary": "«Скачать для Outlook»: .eml по макету (X-Unsent, Content-Language, без From/To/Cc/Date; логотип и изображения — по Content-ID). Выгрузка сохраняется файлом — её возьмёт «Отметить отправленным»; размер — по готовому файлу (413). Язык без текста — 400 LANG_NOT_AVAILABLE. В журнал — awareness_letter.exported",
         "tags": [
           "awareness-letters"
         ],
@@ -188160,6 +189302,1554 @@
                     "html",
                     "text",
                     "versionNo"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/awareness/letters/{id}/exports": {
+      "get": {
+        "summary": "Выгрузки .eml письма (для «Отметить отправленным») и «Получатели» последней отметки — значение по умолчанию",
+        "tags": [
+          "awareness-letters"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "langs": {
+                            "type": "string",
+                            "enum": [
+                              "ru",
+                              "tj",
+                              "both"
+                            ]
+                          },
+                          "versionNo": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fileName": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "sha256": {
+                            "type": "string"
+                          },
+                          "createdBy": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "langs",
+                          "versionNo",
+                          "fileName",
+                          "size",
+                          "sha256",
+                          "createdBy",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "lastRecipients": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "lastRecipients"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/awareness/mail-preview": {
+      "post": {
+        "summary": "«Предпросмотр как в почте» из несохранённого содержимого письма или шаблона: тот же HTML, что уйдёт в .eml (изображения — data:). Санитайзер и лимиты как при сохранении; ничего не сохраняется",
+        "tags": [
+          "awareness-letters"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subjectRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "subjectTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "htmlRu": {
+                    "type": "string",
+                    "maxLength": 25165824
+                  },
+                  "htmlTj": {
+                    "type": "string",
+                    "maxLength": 25165824
+                  },
+                  "headerRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "headerTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelRu": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "labelTj": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "subjectBoth": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "planned",
+                      "urgent"
+                    ]
+                  },
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "ru",
+                      "tj",
+                      "both"
+                    ]
+                  }
+                },
+                "required": [
+                  "subjectRu",
+                  "subjectTj",
+                  "htmlRu",
+                  "htmlTj",
+                  "kind",
+                  "lang"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject": {
+                      "type": "string"
+                    },
+                    "html": {
+                      "type": "string"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "removed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "subject",
+                    "html",
+                    "warnings",
+                    "removed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/awareness/layout": {
+      "get": {
+        "summary": "«Оформление писем»: логотип, отдел, адрес ИБ, прощание, подвал, метки по типу, подсказка о таджикском тексте",
+        "tags": [
+          "awareness-letters"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deptRu": {
+                      "type": "string"
+                    },
+                    "deptTj": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "closingRu": {
+                      "type": "string"
+                    },
+                    "closingTj": {
+                      "type": "string"
+                    },
+                    "footerRu": {
+                      "type": "string"
+                    },
+                    "footerTj": {
+                      "type": "string"
+                    },
+                    "labelUrgentRu": {
+                      "type": "string"
+                    },
+                    "labelUrgentTj": {
+                      "type": "string"
+                    },
+                    "labelPlannedRu": {
+                      "type": "string"
+                    },
+                    "labelPlannedTj": {
+                      "type": "string"
+                    },
+                    "tjHint": {
+                      "type": "string"
+                    },
+                    "logo": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "sha256": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "size",
+                            "sha256"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedBy": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "updatedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "canEdit": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deptRu",
+                    "deptTj",
+                    "email",
+                    "closingRu",
+                    "closingTj",
+                    "footerRu",
+                    "footerTj",
+                    "labelUrgentRu",
+                    "labelUrgentTj",
+                    "labelPlannedRu",
+                    "labelPlannedTj",
+                    "tjHint",
+                    "logo",
+                    "version",
+                    "updatedBy",
+                    "updatedAt",
+                    "canEdit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Изменить «Оформление писем» (settings.manage и ib.work): логотип — PNG до 100 КБ из POST /files; version (0 — строки ещё нет)",
+        "tags": [
+          "awareness-letters"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deptRu": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "deptTj": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "closingRu": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "closingTj": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "footerRu": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "footerTj": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "labelUrgentRu": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "labelUrgentTj": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "labelPlannedRu": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "labelPlannedTj": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "tjHint": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "logoFileId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "deptRu",
+                  "deptTj",
+                  "email",
+                  "closingRu",
+                  "closingTj",
+                  "footerRu",
+                  "footerTj",
+                  "labelUrgentRu",
+                  "labelUrgentTj",
+                  "labelPlannedRu",
+                  "labelPlannedTj",
+                  "tjHint",
+                  "logoFileId",
+                  "version"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deptRu": {
+                      "type": "string"
+                    },
+                    "deptTj": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "closingRu": {
+                      "type": "string"
+                    },
+                    "closingTj": {
+                      "type": "string"
+                    },
+                    "footerRu": {
+                      "type": "string"
+                    },
+                    "footerTj": {
+                      "type": "string"
+                    },
+                    "labelUrgentRu": {
+                      "type": "string"
+                    },
+                    "labelUrgentTj": {
+                      "type": "string"
+                    },
+                    "labelPlannedRu": {
+                      "type": "string"
+                    },
+                    "labelPlannedTj": {
+                      "type": "string"
+                    },
+                    "tjHint": {
+                      "type": "string"
+                    },
+                    "logo": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "sha256": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "size",
+                            "sha256"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedBy": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "updatedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "canEdit": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deptRu",
+                    "deptTj",
+                    "email",
+                    "closingRu",
+                    "closingTj",
+                    "footerRu",
+                    "footerTj",
+                    "labelUrgentRu",
+                    "labelUrgentTj",
+                    "labelPlannedRu",
+                    "labelPlannedTj",
+                    "tjHint",
+                    "logo",
+                    "version",
+                    "updatedBy",
+                    "updatedAt",
+                    "canEdit"
                   ],
                   "additionalProperties": false
                 }
@@ -194366,13 +197056,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -194654,6 +197364,54 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "langs": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "ru",
+                                      "tj",
+                                      "both"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipients": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "file": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "sha256"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -194668,7 +197426,10 @@
                               "sentOn",
                               "audience",
                               "task",
-                              "record"
+                              "record",
+                              "langs",
+                              "recipients",
+                              "file"
                             ],
                             "additionalProperties": false
                           }
@@ -195215,13 +197976,33 @@
                             },
                             "htmlTj": {
                               "type": "string"
+                            },
+                            "headerRu": {
+                              "type": "string"
+                            },
+                            "headerTj": {
+                              "type": "string"
+                            },
+                            "labelRu": {
+                              "type": "string"
+                            },
+                            "labelTj": {
+                              "type": "string"
+                            },
+                            "subjectBoth": {
+                              "type": "string"
                             }
                           },
                           "required": [
                             "subjectRu",
                             "subjectTj",
                             "htmlRu",
-                            "htmlTj"
+                            "htmlTj",
+                            "headerRu",
+                            "headerTj",
+                            "labelRu",
+                            "labelTj",
+                            "subjectBoth"
                           ],
                           "additionalProperties": false
                         },
@@ -195503,6 +198284,54 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "langs": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "ru",
+                                      "tj",
+                                      "both"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipients": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "file": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "sha256"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -195517,7 +198346,10 @@
                               "sentOn",
                               "audience",
                               "task",
-                              "record"
+                              "record",
+                              "langs",
+                              "recipients",
+                              "file"
                             ],
                             "additionalProperties": false
                           }

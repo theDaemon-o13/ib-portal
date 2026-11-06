@@ -17,7 +17,9 @@ import { checkRuleNow } from './schedule.service.js';
 import { letterRefs } from './mailings.js';
 import { audienceSuggestions, AUDIENCE_LIMIT } from './audiences.js';
 import { CadenceSchema, LEAD_DAYS } from './cadence.js';
-import { attachmentDisposition } from './export/eml.js';
+import type { FileStore } from '../../lib/file-store.js';
+import { fileDisposition } from './export/eml.js';
+import * as layout from './layout.service.js';
 
 const tags = ['awareness-letters'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 413: ErrorResponse };
@@ -29,13 +31,22 @@ const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата в форма�
 /** Письмо целиком с изображениями (data:) — до лимита maxLetterKb (не больше 20 МБ) плюс запас на JSON. */
 export const LETTER_BODY_LIMIT = 24 * 1024 * 1024;
 
-const Content = z.object({ subjectRu: z.string(), subjectTj: z.string(), htmlRu: z.string(), htmlTj: z.string() });
+/** Шапка письма (1.12.0): «Заголовок» и «Метка» языка, «Тема общая» — простой текст, пусто — по умолчанию. */
+const Head = z.object({ headerRu: z.string(), headerTj: z.string(), labelRu: z.string(), labelTj: z.string(), subjectBoth: z.string() });
+const Content = z.object({ subjectRu: z.string(), subjectTj: z.string(), htmlRu: z.string(), htmlTj: z.string() }).merge(Head);
+const HeadInput = z.object({
+  headerRu: z.string().max(10_000).optional(),
+  headerTj: z.string().max(10_000).optional(),
+  labelRu: z.string().max(10_000).optional(),
+  labelTj: z.string().max(10_000).optional(),
+  subjectBoth: z.string().max(10_000).optional(),
+});
 const ContentInput = z.object({
   subjectRu: z.string().max(10_000),
   subjectTj: z.string().max(10_000),
   htmlRu: z.string().max(LETTER_BODY_LIMIT),
   htmlTj: z.string().max(LETTER_BODY_LIMIT),
-});
+}).merge(HeadInput);
 const Kind = z.enum(LETTER_KINDS);
 const Status = z.enum(LETTER_STATUSES);
 const LangMark = z.enum(['only_ru', 'only_tj']).nullable();
@@ -87,6 +98,10 @@ export const LetterDetail = LetterItem.extend({
     selfApproved: z.boolean(), withoutApproval: z.boolean(), sentOn: z.string().nullable(), audience: z.string().nullable(),
     task: z.object({ id: z.string(), number: z.number().int() }).nullable(),
     record: z.object({ id: z.string(), number: z.number().int(), registerId: z.string() }).nullable(),
+    /** Отметка «Отправлено» (1.12.0): языки, получатели, файл письма. */
+    langs: z.enum(['ru', 'tj', 'both']).nullable(),
+    recipients: z.string().nullable(),
+    file: z.object({ id: z.string(), name: z.string(), sha256: z.string() }).nullable(),
   })),
   /** Кнопки для текущего пользователя (подсказка интерфейсу; решает backend). */
   actions: z.array(Action),
@@ -126,9 +141,9 @@ export const Signature = z.object({
   updatedBy: Person.nullable(), updatedAt: z.string().nullable(), canEdit: z.boolean(),
 });
 
-export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> = async (app, { db, portalUrl }) => {
+export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string; store?: FileStore }> = async (app, { db, portalUrl, store }) => {
   const work = requirePerm('ib.work');
-  const deps: letters.LetterDeps = { portalUrl };
+  const deps: letters.LetterDeps = { portalUrl, store };
 
   app.get('/awareness/letters', {
     preHandler: work,
@@ -234,11 +249,17 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
     preHandler: work,
     schema: {
       tags,
-      summary: '«Отметить отправленным»: дата (не позже сегодня) и аудитория. Утверждённое — если последняя версия утверждена; '
+      summary: '«Отметить отправленным»: дата (не позже сегодня и не раньше утверждения), аудитория, языки, получатели, файл письма. Утверждённое — если последняя версия утверждена; '
         + 'срочное без согласования — с комментарием-причиной. Первая отметка создаёт версию sent и замораживает письмо; '
         + 'повторная — новая дата и аудитория, текст не меняется',
       params: IdParams,
-      body: Version.extend({ sentOn: IsoDate, audience: z.string().max(AUDIENCE_MAX * 2), comment: z.string().max(COMMENT_MAX * 2).optional() }),
+      body: Version.extend({
+        sentOn: IsoDate, audience: z.string().max(AUDIENCE_MAX * 2), comment: z.string().max(COMMENT_MAX * 2).optional(),
+        /** 1.12.0: языки (по умолчанию — последней выгрузки), получатели, выгрузка (нет — последняя с этими языками или собрать). */
+        langs: z.enum(['ru', 'tj', 'both']).optional(),
+        recipients: z.string().max(letters.RECIPIENTS_MAX * 2).optional(),
+        exportId: z.string().uuid().optional(),
+      }),
       /** warnings — что не получилось рядом с отметкой: «Запись в „Рассылках“ не создана: реестр в архиве». */
       response: { 200: LetterDetail.extend({ warnings: z.array(z.string()) }), ...errors },
     },
@@ -354,12 +375,18 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
 
   app.get('/awareness/letters/:id/export.eml', {
     preHandler: work,
-    schema: { tags, summary: `Файл .eml (X-Unsent, без From/To/Date; изображения — части по Content-ID). ${exportErrors}`, params: IdParams, querystring: ExportQuery },
+    schema: {
+      tags,
+      summary: `«Скачать для Outlook»: .eml по макету (X-Unsent, Content-Language, без From/To/Cc/Date; логотип и изображения — по Content-ID). `
+        + `Выгрузка сохраняется файлом — её возьмёт «Отметить отправленным»; размер — по готовому файлу (413). ${exportErrors}`,
+      params: IdParams, querystring: ExportQuery,
+    },
   }, async (request, reply) => {
-    const { title, eml } = await exporter.exportEml(db, actorOf(request), request.params.id, request.query);
+    const { fileName, eml } = await exporter.exportEml(db, store, actorOf(request), request.params.id, request.query, deps);
     return reply
       .header('Content-Type', 'message/rfc822')
-      .header('Content-Disposition', attachmentDisposition(title, 'eml'))
+      .header('Content-Disposition', fileDisposition(fileName))
+      .header('X-Content-Type-Options', 'nosniff')
       .header('Cache-Control', 'no-store')
       .send(eml);
   });
@@ -371,7 +398,66 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string }> 
       params: IdParams, querystring: ExportQuery,
       response: { 200: z.object({ subject: z.string(), html: z.string(), text: z.string(), versionNo: z.number().int() }), ...errors },
     },
-  }, async (request) => exporter.exportHtml(db, actorOf(request), request.params.id, request.query));
+  }, async (request) => exporter.exportHtml(db, store, actorOf(request), request.params.id, request.query));
+
+  app.get('/awareness/letters/:id/exports', {
+    preHandler: work,
+    schema: {
+      tags, summary: 'Выгрузки .eml письма (для «Отметить отправленным») и «Получатели» последней отметки — значение по умолчанию',
+      params: IdParams,
+      response: {
+        200: z.object({
+          items: z.array(z.object({
+            id: z.string(), langs: z.enum(['ru', 'tj', 'both']), versionNo: z.number().int(), fileName: z.string(), size: z.number().int(), sha256: z.string(),
+            createdBy: Person, createdAt: z.string(),
+          })),
+          lastRecipients: z.string(),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => ({ ...(await exporter.listExports(db, request.params.id)), lastRecipients: await letters.lastRecipients(db) }));
+
+  app.post('/awareness/mail-preview', {
+    preHandler: work,
+    bodyLimit: LETTER_BODY_LIMIT,
+    schema: {
+      tags,
+      summary: '«Предпросмотр как в почте» из несохранённого содержимого письма или шаблона: тот же HTML, что уйдёт в .eml '
+        + '(изображения — data:). Санитайзер и лимиты как при сохранении; ничего не сохраняется',
+      body: ContentInput.extend({ kind: Kind, lang: z.enum(['ru', 'tj', 'both']) }),
+      response: { 200: z.object({ subject: z.string(), html: z.string(), warnings: z.array(z.string()), removed: z.array(z.string()) }), ...errors },
+    },
+  }, async (request) => exporter.previewMail(db, store, request.body, deps));
+
+  // ———————————————————————————————————————— «Оформление писем» (1.12.0, раздел 22)
+
+  const LayoutFields = {
+    deptRu: z.string(), deptTj: z.string(), email: z.string(), closingRu: z.string(), closingTj: z.string(), footerRu: z.string(), footerTj: z.string(),
+    labelUrgentRu: z.string(), labelUrgentTj: z.string(), labelPlannedRu: z.string(), labelPlannedTj: z.string(), tjHint: z.string(),
+  };
+  const Layout = z.object({
+    ...LayoutFields,
+    logo: z.object({ id: z.string(), name: z.string(), size: z.number().int(), sha256: z.string() }).nullable(),
+    version: z.number().int(), updatedBy: Person.nullable(), updatedAt: z.string().nullable(), canEdit: z.boolean(),
+  });
+
+  app.get('/awareness/layout', {
+    preHandler: work,
+    schema: { tags, summary: '«Оформление писем»: логотип, отдел, адрес ИБ, прощание, подвал, метки по типу, подсказка о таджикском тексте', response: { 200: Layout, ...errors } },
+  }, async (request) => layout.getLayout(db, request.user?.permissions ?? new Set<string>()));
+
+  app.put('/awareness/layout', {
+    preHandler: requireAllPerms(['settings.manage', 'ib.work']),
+    schema: {
+      tags, summary: 'Изменить «Оформление писем» (settings.manage и ib.work): логотип — PNG до 100 КБ из POST /files; version (0 — строки ещё нет)',
+      body: z.object({ ...Object.fromEntries(Object.keys(LayoutFields).map((k) => [k, z.string().max(5000)])) as Record<keyof typeof LayoutFields, z.ZodString>, logoFileId: z.string().uuid().nullable(), version: z.number().int().min(0) }),
+      response: { 200: Layout, ...errors },
+    },
+  }, async (request) => {
+    await layout.updateLayout(db, actorOf(request), request.body);
+    return layout.getLayout(db, request.user?.permissions ?? new Set<string>());
+  });
 
   app.get('/awareness/letters/:id/export/print', {
     preHandler: work,

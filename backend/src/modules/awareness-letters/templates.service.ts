@@ -13,7 +13,7 @@ import { runForNewLetter } from './letter-tasks.js';
 import type { LetterKind } from './flow.js';
 import { checkLetterSize, imagesWarning, sanitizeLetterHtml, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
-import { checkTemplate, fillTemplate, SIGNATURE_BLOCK, type TemplateTexts, type TemplateVariable } from './variables.js';
+import { checkTemplate, fillTemplate, HEAD_FIELDS, SIGNATURE_BLOCK, withHead, type TemplateTexts, type TemplateVariable, type TextsInput } from './variables.js';
 
 export const TEMPLATE_ENTITY = 'awareness_template';
 export const FRAGMENT_ENTITY = 'awareness_fragment';
@@ -35,8 +35,8 @@ async function auditEntry(tx: Db, actor: Actor, entity: string, entityId: string
 }
 
 /** Сведения о тексте для журнала: без HTML и изображений (они могут быть большими), с отпечатком для сравнения. */
-const textTrace = (t: TemplateTexts) => ({
-  subjectRu: t.subjectRu, subjectTj: t.subjectTj,
+const textTrace = (t: TextsInput) => ({
+  subjectRu: t.subjectRu, subjectTj: t.subjectTj, ...Object.fromEntries(HEAD_FIELDS.filter((k) => t[k]).map((k) => [k, t[k]])),
   htmlRu: { bytes: Buffer.byteLength(t.htmlRu, 'utf8'), sha256: sha(t.htmlRu) },
   htmlTj: { bytes: Buffer.byteLength(t.htmlTj, 'utf8'), sha256: sha(t.htmlTj) },
 });
@@ -54,7 +54,8 @@ function cleanTemplateTitle(raw: string): string {
  * Содержимое шаблона: темы — одна строка, тексты — санитайзер и лимиты письма. `{{подпись}}` остаётся переменной
  * (блоком станет в письме), переменные проверяет checkTemplate (400 BAD_TEMPLATE).
  */
-async function cleanTemplateContent(db: Db, input: TemplateTexts, portalUrl?: string) {
+async function cleanTemplateContent(db: Db, raw: TextsInput, portalUrl?: string) {
+  const input = withHead(raw);
   const ru = sanitizeLetterHtml(input.htmlRu, { portalUrl });
   const tj = sanitizeLetterHtml(input.htmlTj, { portalUrl });
   const subject = (s: string, lang: string) => {
@@ -62,7 +63,17 @@ async function cleanTemplateContent(db: Db, input: TemplateTexts, portalUrl?: st
     if (v.length > letters.SUBJECT_MAX) throw badRequest('SUBJECT_TOO_LONG', `Тема ${lang} длиннее ${letters.SUBJECT_MAX} символов`);
     return v;
   };
-  const texts: TemplateTexts = { subjectRu: subject(input.subjectRu, 'RU'), subjectTj: subject(input.subjectTj, 'TJ'), htmlRu: ru.html, htmlTj: tj.html };
+  const head = (s: string, name: string, max = letters.SUBJECT_MAX) => {
+    const v = oneLine(s);
+    if (v.length > max) throw badRequest('HEAD_TOO_LONG', `${name}: длиннее ${max} символов`);
+    return v;
+  };
+  const texts: TemplateTexts = {
+    subjectRu: subject(input.subjectRu, 'RU'), subjectTj: subject(input.subjectTj, 'TJ'), htmlRu: ru.html, htmlTj: tj.html,
+    headerRu: head(input.headerRu, 'Заголовок RU'), headerTj: head(input.headerTj, 'Заголовок TJ'),
+    labelRu: head(input.labelRu, 'Метка RU'), labelTj: head(input.labelTj, 'Метка TJ'),
+    subjectBoth: head(input.subjectBoth, 'Тема общая', letters.SUBJECT_MAX * 2 + 10),
+  };
   const variables = checkTemplate(texts);
   const limits = await readPortalParam<LetterLimits>(db, AWARENESS_LETTERS_KEY);
   const size = checkLetterSize([ru.html, tj.html], [...ru.images, ...tj.images], limits);
@@ -72,7 +83,7 @@ async function cleanTemplateContent(db: Db, input: TemplateTexts, portalUrl?: st
 const templateInclude = { creator: userBrief, updater: userBrief } as const;
 type TemplateRow = Prisma.AwarenessTemplateGetPayload<{ include: typeof templateInclude }>;
 
-const textsOf = (t: TemplateTexts): TemplateTexts => ({ subjectRu: t.subjectRu, subjectTj: t.subjectTj, htmlRu: t.htmlRu, htmlTj: t.htmlTj });
+const textsOf = (t: TemplateTexts): TemplateTexts => withHead(t);
 
 /** Переменные сохранённого шаблона. Шаблон прошёл checkTemplate при сохранении; сломанный — пустой список. */
 function variablesOf(t: TemplateTexts): TemplateVariable[] {
@@ -160,9 +171,9 @@ export async function getTemplate(db: Db, id: string) {
 }
 export type TemplateDetail = Awaited<ReturnType<typeof getTemplate>>;
 
-export interface TemplateInput extends TemplateTexts {
+export type TemplateInput = TextsInput & {
   title: string;
-}
+};
 
 export async function createTemplate(db: Db, actor: Actor, input: TemplateInput, portalUrl?: string) {
   const title = cleanTemplateTitle(input.title);

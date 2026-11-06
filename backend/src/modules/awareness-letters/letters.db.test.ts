@@ -59,11 +59,12 @@ describe('учебные письма: версии и сохранение', ()
       // Изображение в пределах лимита сохраняется; версия 1 читается как была.
       const img = await letters.saveLetter(tx, author, l.id, { version: edited.letter.version, ...both, htmlTj: `<p><img src="data:image/png;base64,${PNG}" alt="x"></p>` });
       expect(img.letter.content.htmlTj).toContain('data:image/png;base64,');
-      expect((await letters.getVersion(tx, l.id, 1)).content).toEqual(both);
+      expect((await letters.getVersion(tx, l.id, 1)).content).toMatchObject(both);
 
       // Восстановить версию 1 — новая версия 4 (restore), старые не меняются.
       const restored = await letters.restoreVersion(tx, author, l.id, { version: img.letter.version, no: 1 });
-      expect([restored.versionNo, restored.versions[0]?.reason, restored.versions[0]?.restoredFrom, restored.content]).toEqual([4, 'restore', 1, both]);
+      expect([restored.versionNo, restored.versions[0]?.reason, restored.versions[0]?.restoredFrom]).toEqual([4, 'restore', 1]);
+      expect(restored.content).toMatchObject(both);
       await expectCode(letters.restoreVersion(tx, author, l.id, { version: restored.version, no: 4 }), 'VERSION_IS_CURRENT');
 
       const list = await letters.listLetters(tx, { scope: 'active', q: String(l.number), limit: 10 });
@@ -134,7 +135,7 @@ describe('учебные письма: отправка и заморозка', 
 
       const sent = await letters.sendLetter(tx, author, letter.id, { version: a.version, sentOn: todayIso, audience: 'Все сотрудники' }, { now: () => today });
       expect([sent.status, sent.frozen, sent.sentVersionNo, sent.versionNo, sent.actions]).toEqual(['sent', true, must(a.versionNo) + 1, must(a.versionNo) + 1, ['resend', 'copy', 'archive']]);
-      expect(sent.content.htmlRu).toBe('<p>Не открывайте вложения.</p><div><p>Подпись RU</p></div>');
+      expect(sent.content.htmlRu).toBe('<p>Не открывайте вложения.</p><div data-ib-fragment="signature-sent"><p>Подпись RU</p></div>');
       expect(sent.content.htmlTj).toContain('<p>Имзо TJ</p>');
       expect(sent.events[0]).toMatchObject({ action: 'sent', sentOn: todayIso, audience: 'Все сотрудники', withoutApproval: false });
 
@@ -154,9 +155,10 @@ describe('учебные письма: отправка и заморозка', 
 
       // Копия отправленного — содержимое до подстановки подписи: блок «Подпись ИБ» живой.
       const copy = await letters.copyLetter(tx, author, letter.id);
-      expect([copy.status, copy.frozen, copy.title, copy.versions.map((v) => v.reason), copy.events, copy.task, copy.content]).toEqual(
-        ['draft', false, 'К отправке (копия)', ['copy'], [], null, both],
+      expect([copy.status, copy.frozen, copy.title, copy.versions.map((v) => v.reason), copy.events, copy.task]).toEqual(
+        ['draft', false, 'К отправке (копия)', ['copy'], [], null],
       );
+      expect(copy.content).toMatchObject(both);
     }));
 
   it('срочное — без согласования только с причиной; один язык — «только RU»; плановое без утверждения — 409', () =>
@@ -185,11 +187,11 @@ describe('учебные письма: переменные', () => {
       const { author, head } = await people(tx);
       const typed = { ...both, htmlRu: '<p>Не открывайте вложения.</p><p>{{подпись}}</p>', htmlTj: '<p>Замимаҳоро накушоед.</p><p>{{Подпись}}</p>' };
       const { letter } = await letters.createLetter(tx, author, { title: 'Подпись вручную', kind: 'planned', ...typed });
-      expect(letter.content).toEqual(both);
+      expect(letter.content).toMatchObject(both);
       const s = await letters.submitLetter(tx, author, letter.id, { version: letter.version });
       const a = await letters.approveLetter(tx, head, letter.id, { version: s.version });
       const sent = await letters.sendLetter(tx, author, letter.id, { version: a.version, sentOn: todayIso, audience: 'Все сотрудники' }, { now: () => today });
-      expect([sent.content.htmlRu, sent.content.htmlTj]).toEqual(['<p>Не открывайте вложения.</p><div><p>Подпись RU</p></div>', '<p>Замимаҳоро накушоед.</p><div><p>Имзо TJ</p></div>']);
+      expect([sent.content.htmlRu, sent.content.htmlTj]).toEqual(['<p>Не открывайте вложения.</p><div data-ib-fragment="signature-sent"><p>Подпись RU</p></div>', '<p>Замимаҳоро накушоед.</p><div data-ib-fragment="signature-sent"><p>Имзо TJ</p></div>']);
       await expectCode(letters.createLetter(tx, author, { title: 'Тема с подписью', kind: 'planned', ...both, subjectRu: 'Тема {{подпись}}' }), 'SIGNATURE_IN_SUBJECT');
     }));
 

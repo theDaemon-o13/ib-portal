@@ -42,14 +42,14 @@ export async function uploadFile(db: Db, store: FileStore, actor: Actor, rawName
 const DOC_FILE_KIND: Record<string, string> = { draft: 'Файл драфта', head_approved: 'Одобренная начальником ИБ', final: 'Финальная', response: 'Ответ ответственного лица', translation: 'Перевод' };
 
 export interface FileRef {
-  kind: 'evidence' | 'decision' | 'document_pdf' | 'document_file' | 'record' | 'compare' | 'vuln_scan' | 'vuln_extension';
+  kind: 'evidence' | 'decision' | 'document_pdf' | 'document_file' | 'record' | 'compare' | 'vuln_scan' | 'vuln_extension' | 'awareness_letter' | 'awareness_layout';
   id: string;
   label: string;
 }
 
 /** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
 export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
-  const [links, decisions, versions, records, compares, docFiles, returnNotes, scans, handovers, extensions, versionDocx, translationFiles] = await Promise.all([
+  const [links, decisions, versions, records, compares, docFiles, returnNotes, scans, handovers, extensions, versionDocx, translationFiles, letterExports, logos] = await Promise.all([
     db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
     db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
     db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
@@ -73,6 +73,9 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
       where: { OR: [{ sourceDocxFileId: fileId }, { signedPdfFileId: fileId }] },
       select: { language: true, documentId: true, versionId: true, sourceDocxFileId: true, version: { select: { no: true, title: true } } },
     }),
+    // Учебные письма (1.12.0, ADR-0046): выгрузка .eml и логотип «Оформления писем» — для сотрудников ИБ.
+    db.awarenessLetterExport.findMany({ where: { fileId }, select: { letter: { select: { id: true, number: true } }, version: { select: { no: true } } } }),
+    db.awarenessLayout.findMany({ where: { logoFileId: fileId }, select: { id: true } }),
   ]);
   return [
     ...records.map((r) => ({ kind: 'record' as const, id: r.record.id, label: `«${r.record.register.name}», запись #${r.record.number}: ${r.field.label}` })),
@@ -99,6 +102,8 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
     ...scans.map((x) => ({ kind: 'vuln_scan' as const, id: x.id, label: `Скан «${x.fileName}»` })),
     ...handovers.map((x) => ({ kind: 'vuln_scan' as const, id: x.id, label: `Передача ИКТ скана «${x.fileName}»` })),
     ...extensions.map((x) => ({ kind: 'vuln_extension' as const, id: x.id, label: `Обоснование ОИКТ № ${x.basisNumber}` })),
+    ...letterExports.map((x) => ({ kind: 'awareness_letter' as const, id: x.letter.id, label: `Учебное письмо № ${x.letter.number}, версия ${x.version.no}: файл .eml` })),
+    ...logos.map(() => ({ kind: 'awareness_layout' as const, id: '1', label: 'Логотип «Оформления писем»' })),
   ];
 }
 

@@ -5,5 +5,5 @@
     "sourceMap": false
   },
   "include": ["src", "scripts", "prisma/seed"],
-  "exclude": ["**/*.test.ts", "src/test", "scripts/test-db.ts", "scripts/e2e-db.ts", "scripts/check-schema.ts", "scripts/export-openapi.ts"]
+  "exclude": ["**/*.test.ts", "src/test", "scripts/test-db.ts", "scripts/e2e-db.ts", "scripts/seed-demo.ts", "scripts/check-schema.ts", "scripts/export-openapi.ts"]
 }

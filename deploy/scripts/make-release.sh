@@ -100,7 +100,7 @@ in_image() { docker run --rm --network none --entrypoint sh "$1:$VERSION" -c "$2
 leaks="$(in_image ibportal-backend '
   find / -xdev \( -name ".env" -o -name ".env.*" \) 2>/dev/null
   find /app -name "*.ts" ! -name "*.d.ts" ! -path "/app/node_modules/*" ! -path /app/prisma.config.ts
-  for p in src prisma/seed dist/scripts/test-db.js node_modules/vitest node_modules/tsx node_modules/typescript node_modules/eslint; do
+  for p in src prisma/seed dist/scripts/test-db.js dist/scripts/seed-demo.js node_modules/vitest node_modules/tsx node_modules/typescript node_modules/eslint; do
     [ -e "/app/$p" ] && echo "/app/$p"
   done; true')"
 [ -z "$leaks" ] || die "в образе ibportal-backend лишнее: $leaks"

@@ -196,7 +196,9 @@ export async function exportRegister(db: Db, registerId: string, opts: ExportOpt
         if (typeof v === 'number') return v;
         return typeof v === 'string' ? new Date(`${v}T00:00:00Z`) : null;
       }
-      if (f.type === 'decision' || f.type === 'file') return rec.display[f.id] ?? '';
+      // Поле «Файл» (1.12.0): имя и sha256 каждого файла — содержимое в Excel не попадает, по sha256 файл сверяется.
+      if (f.type === 'file') return (rec.files?.[f.id] ?? []).map((x) => `${x.file.name}; sha256: ${x.file.sha256}`).join('\n');
+      if (f.type === 'decision') return rec.display[f.id] ?? '';
       const v = values[f.id];
       if (v === undefined) return null;
       if (f.type === 'number') return typeof v === 'number' ? v : Number(v);

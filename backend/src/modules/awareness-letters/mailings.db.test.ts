@@ -36,15 +36,15 @@ async function approved(tx: Tx, title: string, extra: Partial<typeof both> = {})
 }
 
 describe('реестр «Рассылки»', () => {
-  it('отметка «Отправлено» — запись: дата, «№ N, версия V», тема «RU / TJ», тип, аудитория, подготовил; повтор — новая запись', () =>
+  it('отметка «Отправлено» — запись: дата, «№ N, версия V», тема «RU | TJ», тип, аудитория, подготовил; повтор — новая запись', () =>
     inTx(async (tx) => {
       const { author, letter } = await approved(tx, 'Январская');
       const sent = await letters.sendLetter(tx, author, letter.id, { version: letter.version, sentOn: '2041-01-04', audience: 'Все сотрудники' }, deps);
       const ev = must(sent.events[0]);
       const r1 = await mailing(tx, must(ev.record).id);
       expect(r1.values).toEqual({
-        sentOn: '2041-01-04', letter: `№ ${letter.number}, версия ${sent.sentVersionNo}`, subject: 'Поддельные письма / Мактубҳои қалбакӣ',
-        kind: 'Плановое', audience: 'Все сотрудники', preparedBy: author.id, approval: 'Согласовано',
+        sentOn: '2041-01-04', letter: `№ ${letter.number}, версия ${sent.sentVersionNo}`, subject: 'Поддельные письма | Мактубҳои қалбакӣ',
+        kind: 'Плановое', audience: 'Все сотрудники', preparedBy: author.id, approval: 'Согласовано', template: 'Без шаблона', langs: 'RU+TJ',
       });
       expect(sent.warnings).toEqual([]);
       const a = await tx.auditLog.findFirstOrThrow({ where: { entity: 'register_record', entityId: must(ev.record).id } });
@@ -70,7 +70,7 @@ describe('реестр «Рассылки»', () => {
       expect(r.values).toEqual({
         sentOn: '2041-01-04', letter: `№ ${u.letter.number}, версия ${sent.sentVersionNo}, только RU`, subject: 'Внимание', kind: 'Срочное',
         reason: 'Новая схема мошенничества', audience: 'Все сотрудники', task: `Задача #${must(u.letter.task).number}`,
-        approval: 'Без согласования',
+        approval: 'Без согласования', template: 'Без шаблона', langs: 'RU',
       });
       // Повторная отметка того же письма — тоже «Без согласования».
       const again = await letters.sendLetter(tx, sender, u.letter.id, { version: sent.version, sentOn: '2041-01-04', audience: 'Отдел кадров' }, deps);

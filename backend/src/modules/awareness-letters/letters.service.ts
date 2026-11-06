@@ -9,14 +9,17 @@ import { AppError, badRequest, notFound, versionConflict } from '../../lib/error
 import { todayIso } from '../../lib/today.js';
 import { readPortalParam } from '../settings/portal-params.js';
 import type { Actor } from '../settings/common.js';
-import { SIGNATURE_CODE } from './definition.js';
+import { NO_TEMPLATE, SIGNATURE_CODE } from './definition.js';
 import { substituteSignature, type ExportLang } from './export/html.js';
+import { bothSubject, defaultLabel } from './export/mail.js';
+import { exportForSend } from './export.service.js';
+import { readLayout } from './layout.service.js';
 import * as flow from './flow.js';
 import { createMailingRecord } from './mailings.js';
 import { createReworkTask, createUrgentTask, noteTaskSent, runForNewLetter } from './letter-tasks.js';
 import { checkLetterSize, imagesWarning, sanitizeLetterHtml, type LetterImage, type LetterLimits } from './sanitize.js';
 import { AWARENESS_LETTERS_KEY } from './settings.js';
-import { hasSignatureInSubject, signatureToBlock, unfilledInLetter, type TemplateTexts } from './variables.js';
+import { HEAD_FIELDS, hasSignatureInSubject, plainTexts, signatureToBlock, unfilledInLetter, withHead, type TemplateTexts, type TextsInput } from './variables.js';
 
 export const LETTER_ENTITY = 'awareness_letter';
 export const TITLE_MAX = 200;
@@ -36,6 +39,8 @@ export interface LetterDeps {
   /** Адрес портала (PORTAL_URL): ссылки на него в письме — 400 PORTAL_LINK. */
   portalUrl?: string;
   now?: () => Date;
+  /** Хранилище файлов: выгрузка .eml и «Файл письма» при отметке (1.12.0). */
+  store?: import('../../lib/file-store.js').FileStore;
 }
 
 const userBrief = { select: { id: true, fullName: true } } as const;
@@ -64,6 +69,13 @@ function cleanSubject(raw: string, lang: 'RU' | 'TJ'): string {
   return s;
 }
 
+/** Поле шапки (1.12.0): одна строка простого текста, по умолчанию до 300 символов. */
+function cleanHead(raw: string, name: string, max = SUBJECT_MAX): string {
+  const s = oneLine(raw);
+  if (s.length > max) throw badRequest('HEAD_TOO_LONG', `${name}: длиннее ${max} символов`);
+  return s;
+}
+
 export interface CleanContent {
   texts: TemplateTexts;
   /** Что санитайзер вырезал — показать пользователю. */
@@ -74,8 +86,9 @@ export interface CleanContent {
 }
 
 /** Тема — одна строка до 300 символов, без `{{подпись}}`; текст — через санитайзер; размер — по лимитам «Параметров портала». */
-export async function cleanContent(db: Db, input: TemplateTexts, deps: LetterDeps): Promise<CleanContent> {
-  if ([input.subjectRu, input.subjectTj].some(hasSignatureInSubject)) throw badRequest('SIGNATURE_IN_SUBJECT', 'Подпись ИБ не ставится в тему письма');
+export async function cleanContent(db: Db, raw: TextsInput, deps: LetterDeps): Promise<CleanContent> {
+  const input = withHead(raw);
+  if (plainTexts(input).some(hasSignatureInSubject)) throw badRequest('SIGNATURE_IN_SUBJECT', 'Подпись ИБ не ставится в тему, заголовок и метку письма');
   // `{{подпись}}`, набранная вручную, — блок «Подпись ИБ», как в письме из шаблона: её подставляет система.
   const ru = sanitizeLetterHtml(signatureToBlock(input.htmlRu), { portalUrl: deps.portalUrl });
   const tj = sanitizeLetterHtml(signatureToBlock(input.htmlTj), { portalUrl: deps.portalUrl });
@@ -83,7 +96,12 @@ export async function cleanContent(db: Db, input: TemplateTexts, deps: LetterDep
   const limits = await readPortalParam<LetterLimits>(db, AWARENESS_LETTERS_KEY);
   const size = checkLetterSize([ru.html, tj.html], images, limits);
   return {
-    texts: { subjectRu: cleanSubject(input.subjectRu, 'RU'), subjectTj: cleanSubject(input.subjectTj, 'TJ'), htmlRu: ru.html, htmlTj: tj.html },
+    texts: {
+      subjectRu: cleanSubject(input.subjectRu, 'RU'), subjectTj: cleanSubject(input.subjectTj, 'TJ'), htmlRu: ru.html, htmlTj: tj.html,
+      headerRu: cleanHead(input.headerRu, 'Заголовок RU'), headerTj: cleanHead(input.headerTj, 'Заголовок TJ'),
+      labelRu: cleanHead(input.labelRu, 'Метка RU'), labelTj: cleanHead(input.labelTj, 'Метка TJ'),
+      subjectBoth: cleanHead(input.subjectBoth, 'Тема общая', SUBJECT_MAX * 2 + 10),
+    },
     removed: [...new Set([...ru.removed, ...tj.removed])],
     warnings: imagesWarning(ru.removedImages + tj.removedImages),
     size,
@@ -91,21 +109,22 @@ export async function cleanContent(db: Db, input: TemplateTexts, deps: LetterDep
 }
 
 const sameTexts = (a: TemplateTexts, b: TemplateTexts) =>
-  a.subjectRu === b.subjectRu && a.subjectTj === b.subjectTj && a.htmlRu === b.htmlRu && a.htmlTj === b.htmlTj;
+  a.subjectRu === b.subjectRu && a.subjectTj === b.subjectTj && a.htmlRu === b.htmlRu && a.htmlTj === b.htmlTj
+  && HEAD_FIELDS.every((k) => a[k] === b[k]);
 
-const textsOf = (v: TemplateTexts): TemplateTexts => ({ subjectRu: v.subjectRu, subjectTj: v.subjectTj, htmlRu: v.htmlRu, htmlTj: v.htmlTj });
+const textsOf = (v: TemplateTexts): TemplateTexts => withHead(v);
 
 const sizeOf = (t: TemplateTexts) => Buffer.byteLength(t.htmlRu, 'utf8') + Buffer.byteLength(t.htmlTj, 'utf8');
 
 /** Языки, которые можно выгрузить: язык с темой или текстом (у черновика может быть половина языка). */
-export function exportLangs(t: TemplateTexts): ExportLang[] {
+export function exportLangs(t: TextsInput): ExportLang[] {
   const ru = flow.langFill(t.subjectRu, t.htmlRu) !== 'empty';
   const tj = flow.langFill(t.subjectTj, t.htmlTj) !== 'empty';
   return [...(ru ? ['ru' as const] : []), ...(tj ? ['tj' as const] : []), ...(ru && tj ? ['both' as const] : [])];
 }
 
 /** Пометка «только RU» / «только TJ» — у срочного письма с одним заполненным языком. */
-export function langMarkOf(kind: flow.LetterKind, t: TemplateTexts): flow.LangMark {
+export function langMarkOf(kind: flow.LetterKind, t: TextsInput): flow.LangMark {
   if (kind !== 'urgent') return null;
   const ru = flow.langFill(t.subjectRu, t.htmlRu);
   const tj = flow.langFill(t.subjectTj, t.htmlTj);
@@ -239,7 +258,7 @@ export async function getLetter(db: Db, actorId: string, id: string) {
     }),
     db.awarenessLetterEvent.findMany({
       where: { letterId: id }, orderBy: [{ at: 'desc' }, { id: 'desc' }],
-      include: { actor: userBrief, version: { select: { no: true } }, task: { select: { id: true, number: true } }, record: { select: { id: true, number: true, registerId: true } } },
+      include: { actor: userBrief, version: { select: { no: true } }, task: { select: { id: true, number: true } }, record: { select: { id: true, number: true, registerId: true } }, export: { select: { sha256: true, file: { select: { id: true, originalName: true } } } } },
     }),
   ]);
   const t = currentTexts(l);
@@ -275,6 +294,9 @@ export async function getLetter(db: Db, actorId: string, id: string) {
       audience: e.audience,
       task: e.task,
       record: e.record,
+      langs: (e.langs ?? null) as ExportLang | null,
+      recipients: e.recipients,
+      file: e.export ? { id: e.export.file.id, name: e.export.file.originalName, sha256: e.export.sha256 } : null,
     })),
     actions: actionsFor(s, { id: actorId, isIbHead: head }),
   };
@@ -338,7 +360,7 @@ export async function getVersion(db: Db, id: string, no: number) {
 
 // ———————————————————————————————————————————————— создание и сохранение
 
-export type LetterContentInput = TemplateTexts;
+export type LetterContentInput = TextsInput;
 
 export interface CreateLetterInput extends Partial<LetterContentInput> {
   title: string;
@@ -394,8 +416,12 @@ export async function linkNewLetterToTask(tx: Db, link: TaskLink | undefined, le
 /** Новое письмо — черновик с версией 1 (created). link — «Создать письмо» из задачи рассылки. */
 export async function createLetter(db: Db, actor: Actor, input: CreateLetterInput, deps: LetterDeps = {}, link?: TaskLink): Promise<SaveResult> {
   const head = cleanLetterHead(input);
+  const layout = await readLayout(db);
   const content = await cleanContent(db, {
     subjectRu: input.subjectRu ?? '', subjectTj: input.subjectTj ?? '', htmlRu: input.htmlRu ?? '', htmlTj: input.htmlTj ?? '',
+    headerRu: input.headerRu ?? '', headerTj: input.headerTj ?? '', subjectBoth: input.subjectBoth ?? '',
+    // Метка нового письма — из «Оформления писем» по типу (её можно изменить).
+    labelRu: input.labelRu || defaultLabel(layout, input.kind, 'ru'), labelTj: input.labelTj || defaultLabel(layout, input.kind, 'tj'),
   }, deps);
   const id = await withTx(db, async (tx) => {
     if (link) await runForNewLetter(tx, link.taskId);
@@ -413,7 +439,7 @@ export async function createLetter(db: Db, actor: Actor, input: CreateLetterInpu
  */
 export async function urgentMailing(db: Db, actor: Actor, input: { title: string; reason: string; templateId?: string | null }, deps: LetterDeps = {}): Promise<SaveResult> {
   const head = cleanLetterHead({ title: input.title, kind: 'urgent', reason: input.reason });
-  let texts: TemplateTexts = { subjectRu: '', subjectTj: '', htmlRu: '', htmlTj: '' };
+  let texts: TemplateTexts = withHead({ subjectRu: '', subjectTj: '', htmlRu: '', htmlTj: '' });
   let template: { id: string; title: string } | null = null;
   if (input.templateId) {
     const t = await db.awarenessTemplate.findUnique({ where: { id: input.templateId } });
@@ -455,7 +481,10 @@ export async function saveLetter(db: Db, actor: Actor, id: string, input: SaveLe
   const kind = input.kind ?? (l.kind as flow.LetterKind);
   const title = input.title === undefined ? l.title : cleanTitle(input.title);
   const reason = input.reason === undefined ? l.reason : input.reason.trim();
-  const content = await cleanContent(db, input, deps);
+  // Поля шапки, которых нет в запросе (клиенты 1.11.0 и раньше), — как в текущей версии.
+  const cur = l.currentVersion ? withHead(l.currentVersion) : null;
+  const head = Object.fromEntries(HEAD_FIELDS.map((k) => [k, input[k] ?? cur?.[k] ?? ''])) as Pick<TemplateTexts, (typeof HEAD_FIELDS)[number]>;
+  const content = await cleanContent(db, { ...input, ...head }, deps);
   const contentChanged = !sameTexts(content.texts, currentTexts(l));
   const letterChanged = kind !== l.kind || reason !== l.reason;
   if (!contentChanged && !letterChanged && title === l.title) {
@@ -599,60 +628,125 @@ export async function currentSignature(db: Db): Promise<{ htmlRu: string; htmlTj
 
 export interface SendLetterInput extends flow.SendInput {
   version: number;
+  /** Языки отправки (1.12.0): по умолчанию — последней выгрузки текущей версии, иначе RU+TJ или единственный язык. */
+  langs?: ExportLang;
+  /** Получатели — текст (адрес общей рассылки и т. п.), необязательно. */
+  recipients?: string;
+  /** Выгрузка, которую отправили; нет — последняя выгрузка с этими языками, иначе файл собирается при отметке. */
+  exportId?: string;
+}
+
+export const RECIPIENTS_MAX = 500;
+
+/** Дата утверждения письма (по APP_TZ): отправка не может быть раньше неё. null — письмо не утверждалось. */
+async function approvedOn(db: Db, l: { id: string; approvedVersionId: string | null }): Promise<string | null> {
+  if (!l.approvedVersionId) return null;
+  const e = await db.awarenessLetterEvent.findFirst({ where: { letterId: l.id, action: 'approved', versionId: l.approvedVersionId }, orderBy: { at: 'desc' }, select: { at: true } });
+  return e ? todayIso(e.at) : null;
+}
+
+async function sendLangs(db: Db, l: LetterRow, t: TemplateTexts, wanted: ExportLang | undefined): Promise<ExportLang> {
+  const allowed = exportLangs(t);
+  if (wanted) {
+    if (!allowed.includes(wanted)) throw badRequest('LANG_NOT_AVAILABLE', `Языки ${wanted === 'both' ? 'RU+TJ' : wanted.toUpperCase()} отметить нельзя: в письме их нет`);
+    return wanted;
+  }
+  const last = l.currentVersionId
+    ? await db.awarenessLetterExport.findFirst({ where: { letterId: l.id, versionId: l.currentVersionId }, orderBy: { createdAt: 'desc' }, select: { langs: true } })
+    : null;
+  if (last && allowed.includes(last.langs as ExportLang)) return last.langs as ExportLang;
+  return allowed.includes('both') ? 'both' : allowed[0] ?? 'ru';
+}
+
+const cleanRecipients = (raw: string | undefined): string | null => {
+  const r = (raw ?? '').replace(/\s+/g, ' ').trim();
+  if (r.length > RECIPIENTS_MAX) throw badRequest('RECIPIENTS_TOO_LONG', `Получатели: длиннее ${RECIPIENTS_MAX} символов`);
+  return r || null;
+};
+
+/** Название шаблона на момент отправки (снимок для «Рассылок»): письмо не из шаблона — «Без шаблона». */
+async function templateTitle(tx: Db, templateId: string | null): Promise<string> {
+  if (!templateId) return NO_TEMPLATE;
+  const t = await tx.awarenessTemplate.findUnique({ where: { id: templateId }, select: { title: true } });
+  return t?.title ?? NO_TEMPLATE;
 }
 
 /**
  * «Отметить отправленным». Первая отметка: версия sent (подпись подставлена текстом на момент отправки), письмо
  * замораживается. Повторная — только событие с новой датой и аудиторией, текст не меняется.
- * Задачу письма отметка не закрывает: в её историю — «Письмо № N отмечено отправленным». Каждая отметка — запись
- * реестра «Рассылки» (mailings.ts), её id — в событии.
+ * 1.12.0: дата не раньше утверждения; языки, получатели и «Файл письма» (выгрузка .eml; нет — собирается сейчас) —
+ * в событии и записи «Рассылок». Задачу письма отметка не закрывает: в её историю — «Письмо № N отмечено отправленным».
  */
 export async function sendLetter(db: Db, actor: Actor, id: string, input: SendLetterInput, deps: LetterDeps = {}) {
   const l = await loadLetter(db, id);
-  const d = flow.markSent(await stateOf(db, l), input, todayIso(deps.now?.() ?? new Date()));
+  const now = deps.now?.() ?? new Date();
+  const d = flow.markSent(await stateOf(db, l), input, todayIso(now));
+  const minDate = await approvedOn(db, l);
+  if (minDate && d.sentOn < minDate) throw new AppError(400, 'BAD_DATE', `Дата отправки не может быть раньше утверждения письма (${minDate.split('-').reverse().join('.')})`);
+  const recipients = cleanRecipients(input.recipients);
+  const t = currentTexts(l);
+  const langs = await sendLangs(db, l, t, input.langs);
+  const versionNo = l.currentVersion?.no ?? 0;
+
   if (!d.firstSend) {
-    const sentTexts = currentTexts(l);
     const warning = await withTx(db, async (tx) => {
       await claim(tx, l, input.version);
+      const file = await exportForSend(tx, deps.store, actor, id, versionNo, langs, input.exportId, now);
       const { record, warning } = await createMailingRecord(tx, actor, {
-        letter: { ...l, kind: l.kind as flow.LetterKind }, withoutApproval: false, versionNo: l.currentVersion?.no ?? 0, langMark: langMarkOf(l.kind as flow.LetterKind, sentTexts),
-        subjects: { ru: sentTexts.subjectRu, tj: sentTexts.subjectTj }, sentOn: d.sentOn, audience: d.audience,
+        letter: { ...l, kind: l.kind as flow.LetterKind }, withoutApproval: false, versionNo, langMark: langMarkOf(l.kind as flow.LetterKind, t),
+        subjects: { ru: t.subjectRu, tj: t.subjectTj, both: bothSubject(t) }, sentOn: d.sentOn, audience: d.audience,
+        template: await templateTitle(tx, l.templateId), langs, recipients, fileId: file?.export.fileId ?? null,
       });
       await addEvent(tx, id, actor.id, 'sent', {
         versionId: l.sentVersionId, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, recordId: record?.id ?? null,
+        langs, recipients, exportId: file?.export.id ?? null,
       });
-      await auditLetter(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}${record ? `, «Рассылки» #${record.number}` : ''}`, {
-        sentOn: d.sentOn, audience: d.audience, repeat: true, recordNumber: record?.number ?? null,
+      await auditLetter(tx, actor, l, 'sent', `отмечено отправленным ещё раз: ${d.sentOn}, ${d.audience}, ${LANG_NAME[langs]}${record ? `, «Рассылки» #${record.number}` : ''}`, {
+        sentOn: d.sentOn, audience: d.audience, repeat: true, recordNumber: record?.number ?? null, langs, recipients, fileId: file?.export.fileId ?? null, sha256: file?.export.sha256 ?? null,
       });
       await noteTaskSent(tx, actor, l, d.sentOn, true);
       return warning;
     });
     return { ...(await getLetter(db, actor.id, id)), warnings: warning ? [warning] : [] };
   }
-  const t = currentTexts(l);
   const unfilled = unfilledInLetter(t);
   if (unfilled.length) throw badRequest('UNFILLED_VARIABLES', `Заполните переменные: ${unfilled.map((u) => `«${u}»`).join(', ')}`);
   const langMark = flow.checkLanguages(l.kind as flow.LetterKind, t);
   const sig = await currentSignature(db);
-  const sent: TemplateTexts = { ...t, htmlRu: substituteSignature(t.htmlRu, sig.htmlRu), htmlTj: substituteSignature(t.htmlTj, sig.htmlTj) };
+  // Блок «Подпись ИБ» — текстом на дату отправки, с пометкой: макет не добавит вторую подпись при повторной выгрузке.
+  const sent: TemplateTexts = { ...t, htmlRu: substituteSignature(t.htmlRu, sig.htmlRu, true), htmlTj: substituteSignature(t.htmlTj, sig.htmlTj, true) };
   const warning = await withTx(db, async (tx) => {
     await claim(tx, l, input.version);
+    // Файл — с версии, которую утвердили и выгружали (до версии sent).
+    const file = await exportForSend(tx, deps.store, actor, id, versionNo, langs, input.exportId, now);
     const v = await addVersion(tx, id, actor.id, 'sent', sent);
     await tx.awarenessLetter.update({ where: { id }, data: { status: 'sent', frozen: true, sentVersionId: v.id, currentVersionId: v.id } });
     // «Без согласования» в реестр не пишется — он виден в карточке письма и в журнале.
     const { record, warning } = await createMailingRecord(tx, actor, {
-      letter: { ...l, kind: l.kind as flow.LetterKind }, withoutApproval: d.withoutApproval, versionNo: v.no, langMark, subjects: { ru: t.subjectRu, tj: t.subjectTj }, sentOn: d.sentOn, audience: d.audience,
+      letter: { ...l, kind: l.kind as flow.LetterKind }, withoutApproval: d.withoutApproval, versionNo: v.no, langMark,
+      subjects: { ru: t.subjectRu, tj: t.subjectTj, both: bothSubject(t) }, sentOn: d.sentOn, audience: d.audience,
+      template: await templateTitle(tx, l.templateId), langs, recipients, fileId: file?.export.fileId ?? null,
     });
     await addEvent(tx, id, actor.id, 'sent', {
       versionId: v.id, sentOn: new Date(`${d.sentOn}T00:00:00Z`), audience: d.audience, comment: d.comment, withoutApproval: d.withoutApproval, recordId: record?.id ?? null,
+      langs, recipients, exportId: file?.export.id ?? null,
     });
-    await auditLetter(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}${d.withoutApproval ? ' — без согласования' : ''}${record ? `, «Рассылки» #${record.number}` : ''}`, {
+    await auditLetter(tx, actor, l, 'sent', `отмечено отправленным: ${d.sentOn}, ${d.audience}, ${LANG_NAME[langs]}${d.withoutApproval ? ' — без согласования' : ''}${record ? `, «Рассылки» #${record.number}` : ''}`, {
       versionNo: v.no, sentOn: d.sentOn, audience: d.audience, withoutApproval: d.withoutApproval, comment: d.comment || undefined, langMark, recordNumber: record?.number ?? null,
+      langs, recipients, fileId: file?.export.fileId ?? null, sha256: file?.export.sha256 ?? null,
     });
     await noteTaskSent(tx, actor, l, d.sentOn, false);
     return warning;
   });
   return { ...(await getLetter(db, actor.id, id)), warnings: warning ? [warning] : [] };
+}
+
+const LANG_NAME: Record<ExportLang, string> = { both: 'RU+TJ', ru: 'RU', tj: 'TJ' };
+
+/** Последние «Получатели» любой отметки — значение по умолчанию в диалоге. */
+export async function lastRecipients(db: Db): Promise<string> {
+  const e = await db.awarenessLetterEvent.findFirst({ where: { action: 'sent', recipients: { not: null } }, orderBy: { at: 'desc' }, select: { recipients: true } });
+  return e?.recipients ?? '';
 }
 
 // ———————————————————————————————————————————————— копия и архив

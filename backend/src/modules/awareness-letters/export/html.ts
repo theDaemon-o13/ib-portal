@@ -20,9 +20,12 @@ export interface Signature {
 
 const SIGNATURE_RE = /<div data-ib-fragment="signature">\s*<\/div>/g;
 
-/** Подставить текст подписи вместо блока «Подпись ИБ» (просмотр, экспорт, версия sent при отправке). */
-export function substituteSignature(html: string, signatureHtml: string): string {
-  return html.replace(SIGNATURE_RE, () => `<div>${signatureHtml}</div>`);
+/**
+ * Подставить текст подписи вместо блока «Подпись ИБ» (просмотр, экспорт, версия sent при отправке).
+ * sent — версия sent 1.12.0: блок с пометкой signature-sent, макет по ней не добавляет вторую подпись.
+ */
+export function substituteSignature(html: string, signatureHtml: string, sent = false): string {
+  return html.replace(SIGNATURE_RE, () => (sent ? `<div data-ib-fragment="signature-sent">${signatureHtml}</div>` : `<div>${signatureHtml}</div>`));
 }
 
 const FONT = "font-family:Segoe UI,Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#1d1d1f";

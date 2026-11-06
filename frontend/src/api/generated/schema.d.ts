@@ -50601,7 +50601,7 @@ export interface paths {
                             deleted: boolean;
                             refs: {
                                 /** @enum {string} */
-                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare" | "vuln_scan" | "vuln_extension";
+                                kind: "evidence" | "decision" | "document_pdf" | "document_file" | "record" | "compare" | "vuln_scan" | "vuln_extension" | "awareness_letter" | "awareness_layout";
                                 id: string;
                                 label: string;
                             }[];
@@ -53633,6 +53633,11 @@ export interface paths {
                         subjectTj?: string;
                         htmlRu?: string;
                         htmlTj?: string;
+                        headerRu?: string;
+                        headerTj?: string;
+                        labelRu?: string;
+                        labelTj?: string;
+                        subjectBoth?: string;
                         title: string;
                         /** @enum {string} */
                         kind: "planned" | "urgent";
@@ -53683,6 +53688,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 exportLangs: ("ru" | "tj" | "both")[];
                                 size: {
@@ -53733,6 +53743,13 @@ export interface paths {
                                         id: string;
                                         number: number;
                                         registerId: string;
+                                    } | null;
+                                    langs: ("ru" | "tj" | "both") | null;
+                                    recipients: string | null;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
                                     } | null;
                                 }[];
                                 actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -53913,6 +53930,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -53963,6 +53985,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -54090,6 +54119,11 @@ export interface paths {
                         subjectTj: string;
                         htmlRu: string;
                         htmlTj: string;
+                        headerRu?: string;
+                        headerTj?: string;
+                        labelRu?: string;
+                        labelTj?: string;
+                        subjectBoth?: string;
                         version: number;
                         title?: string;
                         /** @enum {string} */
@@ -54142,6 +54176,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 exportLangs: ("ru" | "tj" | "both")[];
                                 size: {
@@ -54192,6 +54231,13 @@ export interface paths {
                                         id: string;
                                         number: number;
                                         registerId: string;
+                                    } | null;
+                                    langs: ("ru" | "tj" | "both") | null;
+                                    recipients: string | null;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
                                     } | null;
                                 }[];
                                 actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -54354,6 +54400,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                         };
                     };
@@ -54540,6 +54591,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -54590,6 +54646,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -54774,6 +54837,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -54824,6 +54892,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -55008,6 +55083,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -55058,6 +55138,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -55243,6 +55330,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -55293,6 +55385,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -55478,6 +55577,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -55528,6 +55632,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -55653,7 +55764,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** «Отметить отправленным»: дата (не позже сегодня) и аудитория. Утверждённое — если последняя версия утверждена; срочное без согласования — с комментарием-причиной. Первая отметка создаёт версию sent и замораживает письмо; повторная — новая дата и аудитория, текст не меняется */
+        /** «Отметить отправленным»: дата (не позже сегодня и не раньше утверждения), аудитория, языки, получатели, файл письма. Утверждённое — если последняя версия утверждена; срочное без согласования — с комментарием-причиной. Первая отметка создаёт версию sent и замораживает письмо; повторная — новая дата и аудитория, текст не меняется */
         post: {
             parameters: {
                 query?: never;
@@ -55670,6 +55781,11 @@ export interface paths {
                         sentOn: string;
                         audience: string;
                         comment?: string;
+                        /** @enum {string} */
+                        langs?: "ru" | "tj" | "both";
+                        recipients?: string;
+                        /** Format: uuid */
+                        exportId?: string;
                     };
                 };
             };
@@ -55715,6 +55831,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -55765,6 +55886,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -55944,6 +56072,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -55994,6 +56127,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -56178,6 +56318,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -56228,6 +56373,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -56412,6 +56564,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             exportLangs: ("ru" | "tj" | "both")[];
                             size: {
@@ -56462,6 +56619,13 @@ export interface paths {
                                     id: string;
                                     number: number;
                                     registerId: string;
+                                } | null;
+                                langs: ("ru" | "tj" | "both") | null;
+                                recipients: string | null;
+                                file: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -56757,6 +56921,11 @@ export interface paths {
                         subjectTj: string;
                         htmlRu: string;
                         htmlTj: string;
+                        headerRu?: string;
+                        headerTj?: string;
+                        labelRu?: string;
+                        labelTj?: string;
+                        subjectBoth?: string;
                         title: string;
                     };
                 };
@@ -56798,6 +56967,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 size: {
                                     bytes: number;
@@ -56978,6 +57152,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             size: {
                                 bytes: number;
@@ -57112,6 +57291,11 @@ export interface paths {
                         subjectTj: string;
                         htmlRu: string;
                         htmlTj: string;
+                        headerRu?: string;
+                        headerTj?: string;
+                        labelRu?: string;
+                        labelTj?: string;
+                        subjectBoth?: string;
                         title: string;
                         version: number;
                     };
@@ -57154,6 +57338,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 size: {
                                     bytes: number;
@@ -57343,6 +57532,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             size: {
                                 bytes: number;
@@ -57528,6 +57722,11 @@ export interface paths {
                                 subjectTj: string;
                                 htmlRu: string;
                                 htmlTj: string;
+                                headerRu: string;
+                                headerTj: string;
+                                labelRu: string;
+                                labelTj: string;
+                                subjectBoth: string;
                             };
                             size: {
                                 bytes: number;
@@ -57726,6 +57925,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 exportLangs: ("ru" | "tj" | "both")[];
                                 size: {
@@ -57776,6 +57980,13 @@ export interface paths {
                                         id: string;
                                         number: number;
                                         registerId: string;
+                                    } | null;
+                                    langs: ("ru" | "tj" | "both") | null;
+                                    recipients: string | null;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
                                     } | null;
                                 }[];
                                 actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -58195,7 +58406,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Файл .eml (X-Unsent, без From/To/Date; изображения — части по Content-ID). Язык без текста — 400 LANG_NOT_AVAILABLE. В журнал — awareness_letter.exported */
+        /** «Скачать для Outlook»: .eml по макету (X-Unsent, Content-Language, без From/To/Cc/Date; логотип и изображения — по Content-ID). Выгрузка сохраняется файлом — её возьмёт «Отметить отправленным»; размер — по готовому файлу (413). Язык без текста — 400 LANG_NOT_AVAILABLE. В журнал — awareness_letter.exported */
         get: {
             parameters: {
                 query: {
@@ -58368,6 +58579,654 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/awareness/letters/{id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Выгрузки .eml письма (для «Отметить отправленным») и «Получатели» последней отметки — значение по умолчанию */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                /** @enum {string} */
+                                langs: "ru" | "tj" | "both";
+                                versionNo: number;
+                                fileName: string;
+                                size: number;
+                                sha256: string;
+                                createdBy: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                createdAt: string;
+                            }[];
+                            lastRecipients: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/awareness/mail-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Предпросмотр как в почте» из несохранённого содержимого письма или шаблона: тот же HTML, что уйдёт в .eml (изображения — data:). Санитайзер и лимиты как при сохранении; ничего не сохраняется */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        subjectRu: string;
+                        subjectTj: string;
+                        htmlRu: string;
+                        htmlTj: string;
+                        headerRu?: string;
+                        headerTj?: string;
+                        labelRu?: string;
+                        labelTj?: string;
+                        subjectBoth?: string;
+                        /** @enum {string} */
+                        kind: "planned" | "urgent";
+                        /** @enum {string} */
+                        lang: "ru" | "tj" | "both";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            subject: string;
+                            html: string;
+                            warnings: string[];
+                            removed: string[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/awareness/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Оформление писем»: логотип, отдел, адрес ИБ, прощание, подвал, метки по типу, подсказка о таджикском тексте */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deptRu: string;
+                            deptTj: string;
+                            email: string;
+                            closingRu: string;
+                            closingTj: string;
+                            footerRu: string;
+                            footerTj: string;
+                            labelUrgentRu: string;
+                            labelUrgentTj: string;
+                            labelPlannedRu: string;
+                            labelPlannedTj: string;
+                            tjHint: string;
+                            logo: {
+                                id: string;
+                                name: string;
+                                size: number;
+                                sha256: string;
+                            } | null;
+                            version: number;
+                            updatedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            updatedAt: string | null;
+                            canEdit: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        /** Изменить «Оформление писем» (settings.manage и ib.work): логотип — PNG до 100 КБ из POST /files; version (0 — строки ещё нет) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        deptRu: string;
+                        deptTj: string;
+                        email: string;
+                        closingRu: string;
+                        closingTj: string;
+                        footerRu: string;
+                        footerTj: string;
+                        labelUrgentRu: string;
+                        labelUrgentTj: string;
+                        labelPlannedRu: string;
+                        labelPlannedTj: string;
+                        tjHint: string;
+                        logoFileId: string | null;
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deptRu: string;
+                            deptTj: string;
+                            email: string;
+                            closingRu: string;
+                            closingTj: string;
+                            footerRu: string;
+                            footerTj: string;
+                            labelUrgentRu: string;
+                            labelUrgentTj: string;
+                            labelPlannedRu: string;
+                            labelPlannedTj: string;
+                            tjHint: string;
+                            logo: {
+                                id: string;
+                                name: string;
+                                size: number;
+                                sha256: string;
+                            } | null;
+                            version: number;
+                            updatedBy: {
+                                id: string;
+                                fullName: string;
+                            } | null;
+                            updatedAt: string | null;
+                            canEdit: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -60428,6 +61287,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 exportLangs: ("ru" | "tj" | "both")[];
                                 size: {
@@ -60478,6 +61342,13 @@ export interface paths {
                                         id: string;
                                         number: number;
                                         registerId: string;
+                                    } | null;
+                                    langs: ("ru" | "tj" | "both") | null;
+                                    recipients: string | null;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
                                     } | null;
                                 }[];
                                 actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
@@ -60672,6 +61543,11 @@ export interface paths {
                                     subjectTj: string;
                                     htmlRu: string;
                                     htmlTj: string;
+                                    headerRu: string;
+                                    headerTj: string;
+                                    labelRu: string;
+                                    labelTj: string;
+                                    subjectBoth: string;
                                 };
                                 exportLangs: ("ru" | "tj" | "both")[];
                                 size: {
@@ -60722,6 +61598,13 @@ export interface paths {
                                         id: string;
                                         number: number;
                                         registerId: string;
+                                    } | null;
+                                    langs: ("ru" | "tj" | "both") | null;
+                                    recipients: string | null;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
                                     } | null;
                                 }[];
                                 actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];

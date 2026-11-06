@@ -3,7 +3,7 @@
 // Черновик → На согласовании → Утверждено → Отправлено; отправленное заморожено (дублируется триггером в БД).
 import { AppError } from '../../lib/errors.js';
 import { htmlToText } from './export/text.js';
-import { SIGNATURE_BLOCK, type TemplateTexts } from './variables.js';
+import { SIGNATURE_BLOCK, type TextsInput } from './variables.js';
 
 export const LETTER_STATUSES = ['draft', 'review', 'approved', 'sent'] as const;
 export type LetterStatus = (typeof LETTER_STATUSES)[number];
@@ -59,7 +59,7 @@ export function langFill(subject: string, html: string): 'full' | 'half' | 'empt
  * Плановому письму обязательны оба языка, срочному — хотя бы один. Половина языка (только тема или только текст) —
  * всегда ошибка. Возвращает пометку одноязычного срочного письма.
  */
-export function checkLanguages(kind: LetterKind, v: TemplateTexts): LangMark {
+export function checkLanguages(kind: LetterKind, v: TextsInput): LangMark {
   const ru = langFill(v.subjectRu, v.htmlRu);
   const tj = langFill(v.subjectTj, v.htmlTj);
   const half = [ru === 'half' ? 'русском' : null, tj === 'half' ? 'таджикском' : null].filter(Boolean);
@@ -85,7 +85,7 @@ export function assertEditable(s: LetterState, confirmDropApproval = false): { d
 }
 
 /** На согласование: только черновик, без незаполненных переменных, с нужными языками. */
-export function submit(s: LetterState, v: TemplateTexts, unfilled: readonly string[]): { langMark: LangMark } {
+export function submit(s: LetterState, v: TextsInput, unfilled: readonly string[]): { langMark: LangMark } {
   assertLive(s);
   if (s.status !== 'draft') throw state('LETTER_STATE', `На согласование отправляется черновик, а письмо — «${STATUS_NAMES[s.status]}»`);
   if (unfilled.length) throw new AppError(400, 'UNFILLED_VARIABLES', `Заполните переменные: ${unfilled.map((u) => `«${u}»`).join(', ')}`);

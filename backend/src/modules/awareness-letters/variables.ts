@@ -25,7 +25,28 @@ export interface TemplateTexts {
   subjectTj: string;
   htmlRu: string;
   htmlTj: string;
+  /** Шапка письма (1.12.0): «Заголовок» и «Метка» языка, «Тема общая» RU+TJ — простой текст, пусто — по умолчанию. */
+  headerRu: string;
+  headerTj: string;
+  labelRu: string;
+  labelTj: string;
+  subjectBoth: string;
 }
+
+/** Поля шапки 1.12.0 — простой текст, как тема. */
+export const HEAD_FIELDS = ['headerRu', 'headerTj', 'labelRu', 'labelTj', 'subjectBoth'] as const;
+export type HeadField = (typeof HEAD_FIELDS)[number];
+export const EMPTY_HEAD: Record<HeadField, string> = { headerRu: '', headerTj: '', labelRu: '', labelTj: '', subjectBoth: '' };
+/** Вход сервисов и чистых функций: поля шапки необязательны (письма, шаблоны и тесты 1.9.0), пусто — ''. */
+export type TextsInput = Omit<TemplateTexts, HeadField> & Partial<Record<HeadField, string>>;
+export const withHead = (t: TextsInput): TemplateTexts => ({
+  subjectRu: t.subjectRu, subjectTj: t.subjectTj, htmlRu: t.htmlRu, htmlTj: t.htmlTj,
+  headerRu: t.headerRu ?? '', headerTj: t.headerTj ?? '', labelRu: t.labelRu ?? '', labelTj: t.labelTj ?? '', subjectBoth: t.subjectBoth ?? '',
+});
+/** Простые текстовые поля письма: темы и шапка — где переменные подставляются без HTML. */
+export const plainTexts = (t: TextsInput): string[] => [t.subjectRu, t.subjectTj, ...HEAD_FIELDS.map((k) => t[k] ?? '')];
+/** Все поля с переменными: простые и HTML. */
+export const allTexts = (t: TextsInput): string[] => [...plainTexts(t), t.htmlRu, t.htmlTj];
 
 /** Все `{{…}}` из текстов по порядку появления, без служебной `{{подпись}}`. Ошибки — пустое и слишком длинное имя. */
 export function extractVariables(texts: readonly string[]): { variables: TemplateVariable[]; problems: string[] } {
@@ -54,9 +75,9 @@ export function extractVariables(texts: readonly string[]): { variables: Templat
 }
 
 /** Шаблон при сохранении: переменные разбираются, `{{подпись}}` в теме запрещена. */
-export function checkTemplate(t: TemplateTexts): TemplateVariable[] {
-  const { variables, problems } = extractVariables([t.subjectRu, t.subjectTj, t.htmlRu, t.htmlTj]);
-  if ([t.subjectRu, t.subjectTj].some(hasSignatureInSubject)) problems.push('Подпись ИБ не ставится в тему письма');
+export function checkTemplate(t: TextsInput): TemplateVariable[] {
+  const { variables, problems } = extractVariables(allTexts(t));
+  if (plainTexts(t).some(hasSignatureInSubject)) problems.push('Подпись ИБ не ставится в тему, заголовок и метку письма');
   if (problems.length) throw new AppError(400, 'BAD_TEMPLATE', [...new Set(problems)].join('. '));
   return variables;
 }
@@ -89,9 +110,10 @@ export function hasSignatureInSubject(subject: string): boolean {
  * Значения — простой текст: в HTML экранируются. `{{подпись}}` в тексте становится блоком «Подпись ИБ»,
  * абзац из одной подписи заменяется блоком целиком. Результат HTML затем проходит санитайзер, как любое сохранение.
  */
-export function fillTemplate(t: TemplateTexts, values: Readonly<Record<string, string>>): TemplateTexts {
+export function fillTemplate(input: TextsInput, values: Readonly<Record<string, string>>): TemplateTexts {
+  const t = withHead(input);
   const given = new Map(Object.entries(values).map(([k, v]) => [variableKey(k), v.trim()]));
-  const { variables } = extractVariables([t.subjectRu, t.subjectTj, t.htmlRu, t.htmlTj]);
+  const { variables } = extractVariables(allTexts(t));
   const unfilled = variables.filter((v) => !given.get(v.key));
   if (unfilled.length) {
     throw new AppError(400, 'UNFILLED_VARIABLES', `Заполните переменные: ${unfilled.map((v) => `«${v.label}»`).join(', ')}`);
@@ -101,13 +123,16 @@ export function fillTemplate(t: TemplateTexts, values: Readonly<Record<string, s
     const v = given.get(variableKey(decodeEntities(name)));
     return v === undefined ? all : escapeHtml(v);
   });
-  return { subjectRu: subject(t.subjectRu), subjectTj: subject(t.subjectTj), htmlRu: html(t.htmlRu), htmlTj: html(t.htmlTj) };
+  return {
+    subjectRu: subject(t.subjectRu), subjectTj: subject(t.subjectTj), htmlRu: html(t.htmlRu), htmlTj: html(t.htmlTj),
+    headerRu: subject(t.headerRu), headerTj: subject(t.headerTj), labelRu: subject(t.labelRu), labelTj: subject(t.labelTj), subjectBoth: subject(t.subjectBoth),
+  };
 }
 
 /**
  * Незаполненные переменные в письме, кроме служебной `{{подпись}}`: с ними нельзя «На согласование» и первую отметку
  * «Отправлено» (черновик из расписания, срочное без согласования).
  */
-export function unfilledInLetter(t: TemplateTexts): string[] {
-  return extractVariables([t.subjectRu, t.subjectTj, t.htmlRu, t.htmlTj]).variables.map((v) => v.label);
+export function unfilledInLetter(t: TextsInput): string[] {
+  return extractVariables(allTexts(t)).variables.map((v) => v.label);
 }

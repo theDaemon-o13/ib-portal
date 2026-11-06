@@ -1,7 +1,8 @@
 // Файл .eml учебного письма (1.9.0; docs/specs/awareness.md, раздел 16). Без зависимостей.
 // Структура: multipart/alternative → text/plain + multipart/related → text/html + изображения (Content-ID).
 // Без From, To и Date — их ставит почтовый клиент; X-Unsent: 1 — Outlook открывает файл как новое письмо.
-import { createHash, randomBytes } from 'node:crypto';
+// 1.12.0 (ADR-0045): Content-Language; разделители частей — из sha256 содержимого: одинаковое письмо — одинаковый файл.
+import { createHash } from 'node:crypto';
 
 const CRLF = '\r\n';
 
@@ -37,7 +38,9 @@ export interface EmlInput {
   /** HTML-документ письма; изображения — data: (их заменят ссылки cid:). */
   html: string;
   text: string;
-  /** Разделители частей; в тестах — постоянные. */
+  /** Content-Language: «ru», «tg» или «ru, tg». */
+  language?: string;
+  /** Разделители частей; по умолчанию — из sha256 темы, HTML и текста (детерминированно). */
   boundary?: () => string;
 }
 
@@ -46,7 +49,10 @@ const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', '
 
 /** Собрать .eml: изображения вкладываются частями multipart/related, одинаковые — один раз. */
 export function buildEml(input: EmlInput): string {
-  const boundary = input.boundary ?? (() => `=_ibportal_${randomBytes(12).toString('hex')}`);
+  const seed = createHash('sha256').update(input.subject).update('\0').update(input.html).update('\0').update(input.text).digest('hex');
+  let n = 0;
+  // «=_» не встречается в base64 и в заголовках частей — разделитель не совпадёт с содержимым.
+  const boundary = input.boundary ?? (() => `=_ibportal_${seed.slice(0, 24)}_${++n}`);
   const images = new Map<string, { cid: string; mime: string; data: Buffer; n: number }>();
   const html = input.html.replace(IMG_SRC_RE, (_, mime: string, b64: string) => {
     const data = Buffer.from(b64, 'base64');
@@ -64,6 +70,7 @@ export function buildEml(input: EmlInput): string {
     'MIME-Version: 1.0',
     'X-Unsent: 1',
     encodeHeader('Subject', input.subject),
+    ...(input.language ? [`Content-Language: ${input.language}`] : []),
     `Content-Type: multipart/alternative; boundary="${alt}"`,
     '',
     `--${alt}`,
@@ -101,4 +108,24 @@ export function attachmentDisposition(title: string, ext: string): string {
   const base = [...title].filter((c) => c >= ' ').join('').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Письмо';
   const ascii = base.replace(/[^\x20-\x7e]/g, '_');
   return `attachment; filename="${ascii}.${ext}"; filename*=UTF-8''${encodeURIComponent(`${base}.${ext}`)}`;
+}
+
+/** Запрещённые в именах файлов Windows символы и управляющие — «_» (1.12.0). */
+export function safeFileName(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\u0000-\u001f\u007f\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '');
+}
+
+const LANG_FILE: Record<'both' | 'ru' | 'tj', string> = { both: 'RU-TJ', ru: 'RU', tj: 'TJ' };
+
+/** Имя файла готового письма: «<Тема RU>_<RU-TJ|RU|TJ>_<ГГГГ-ММ-ДД>.eml» (у письма только на TJ — тема TJ). */
+export function emlFileName(subject: string, lang: 'both' | 'ru' | 'tj', date: string): string {
+  const base = safeFileName(subject).slice(0, 120) || 'Письмо';
+  return `${base}_${LANG_FILE[lang]}_${date}.eml`;
+}
+
+/** Content-Disposition вложения с готовым именем файла (RFC 6266 / RFC 5987). */
+export function fileDisposition(fileName: string): string {
+  const ascii = fileName.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

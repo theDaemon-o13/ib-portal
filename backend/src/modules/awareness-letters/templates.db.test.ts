@@ -65,7 +65,7 @@ describe('«Письмо из шаблона»', () => {
 
       const { letter } = await templates.letterFromTemplate(tx, staff, t.id, { title: 'Март', kind: 'planned', values });
       expect([letter.status, letter.template, letter.versions.map((v) => v.reason)]).toEqual(['draft', { id: t.id, title: tpl.title }, ['template']]);
-      expect(letter.content).toEqual({
+      expect(letter.content).toMatchObject({
         subjectRu: 'Осторожно: звонок «из банка»', subjectTj: 'Эҳтиёт: занги «аз бонк»',
         htmlRu: `<p>Вам звонят от имени &lt;b&gt;Банка&lt;/b&gt; &amp; Co.</p>${SIGNATURE_BLOCK}`,
         htmlTj: `<p>Аз номи &lt;b&gt;Банка&lt;/b&gt; &amp; Co занг мезананд.</p>${SIGNATURE_BLOCK}`,
@@ -106,7 +106,7 @@ describe('«Подпись ИБ»', () => {
       expect([au.action, au.entity, au.entityId]).toEqual(['awareness_fragment.updated', 'awareness_fragment', 'signature']);
       await expectCode(templates.updateSignature(tx, admin, { htmlRu: '<p>x</p>', htmlTj: '<p>y</p>', version: sig0.version }), 'VERSION_CONFLICT');
 
-      expect((await letters.getLetter(tx, head.id, letter.id)).content.htmlRu).toBe('<p>Текст</p><div><p>Старая подпись</p></div>');
+      expect((await letters.getLetter(tx, head.id, letter.id)).content.htmlRu).toBe('<p>Текст</p><div data-ib-fragment="signature-sent"><p>Старая подпись</p></div>');
     }));
 
   it('по HTTP: читает ib.work, правит settings.manage + ib.work; служебная учётная запись — 403 SERVICE_ACCOUNT', () =>

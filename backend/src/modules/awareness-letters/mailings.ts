@@ -8,6 +8,7 @@ import { loadRegister } from '../registers/definition.js';
 import { createRecord } from '../registers/records.service.js';
 import type { Actor } from '../settings/common.js';
 import { AWARENESS_MAILINGS_KEY, type MailingApproval } from './definition.js';
+import type { ExportLang } from './export/html.js';
 import { LANG_MARK_TEXT, type LangMark, type LetterKind } from './flow.js';
 
 /** «№ 12, версия 3» или «№ 12, версия 3, только RU». */
@@ -34,11 +35,11 @@ export async function letterRefs(db: Db, numbers: readonly number[]) {
   return { items: rows.map((r) => ({ number: r.number, id: r.id, lastVersionNo: r.versions[0]?.no ?? 0 })) };
 }
 
-/** Тема записи: тема отправленного языка; оба языка — «RU / TJ». */
-export function mailingSubject(subjects: { ru: string; tj: string }, mark: LangMark): string {
-  if (mark === 'only_ru') return subjects.ru.trim();
-  if (mark === 'only_tj') return subjects.tj.trim();
-  return [subjects.ru.trim(), subjects.tj.trim()].filter(Boolean).join(' / ');
+/** Тема записи: тема отправленного языка; оба языка — «Тема общая» (1.12.0: по умолчанию «RU | TJ»). */
+export function mailingSubject(subjects: { ru: string; tj: string; both?: string }, mark: LangMark, langs?: ExportLang): string {
+  if (mark === 'only_ru' || langs === 'ru') return subjects.ru.trim();
+  if (mark === 'only_tj' || langs === 'tj') return subjects.tj.trim();
+  return subjects.both?.trim() || [subjects.ru.trim(), subjects.tj.trim()].filter(Boolean).join(' | ');
 }
 
 /** Версии, которые пишет человек (как у самосогласования): ручное создание, правка, восстановление. */
@@ -77,9 +78,14 @@ export interface MailingInput {
   withoutApproval: boolean;
   versionNo: number;
   langMark: LangMark;
-  subjects: { ru: string; tj: string };
+  subjects: { ru: string; tj: string; both?: string };
   sentOn: string;
   audience: string;
+  /** 1.12.0: название шаблона на момент отправки или «Без шаблона»; языки; получатели; файл .eml. */
+  template?: string;
+  langs?: ExportLang;
+  recipients?: string | null;
+  fileId?: string | null;
 }
 
 /** Почему записи «Рассылок» нет: интерфейс показывает предупреждение. */
@@ -107,7 +113,7 @@ export async function createMailingRecord(tx: Db, actor: Actor, input: MailingIn
   };
   put('sentOn', input.sentOn);
   put('letter', letterRef(input.letter.number, input.versionNo, input.langMark));
-  put('subject', mailingSubject(input.subjects, input.langMark));
+  put('subject', mailingSubject(input.subjects, input.langMark, input.langs));
   put('kind', field('kind')?.options.find((o) => o.systemKey === input.letter.kind && !o.archived)?.id);
   put('reason', input.letter.reason);
   put('audience', input.audience);
@@ -118,6 +124,14 @@ export async function createMailingRecord(tx: Db, actor: Actor, input: MailingIn
     const task = await tx.task.findUnique({ where: { id: input.letter.taskId }, select: { number: true, deletedAt: true } });
     if (task && !task.deletedAt) put('task', `Задача #${task.number}`);
   }
+  put('template', input.template);
+  put('langs', input.langs ? field('langs')?.options.find((o) => o.systemKey === input.langs && !o.archived)?.id : undefined);
+  put('recipients', input.recipients);
   const rec = await createRecord(tx, actor, reg.id, { values }, { via: 'awareness_letter', letterNumber: input.letter.number });
+  // «Файл письма» — тот же файл .eml (ссылка поля «Файл»): отправленное письмо как доказательство (ADR-0046).
+  const fileField = field('file');
+  if (fileField && input.fileId) {
+    await tx.registerRecordFile.create({ data: { recordId: rec.id, fieldId: fileField.id, fileId: input.fileId, addedBy: actor.id } });
+  }
   return { record: { id: rec.id, number: rec.number }, warning: null };
 }
