@@ -183,3 +183,7 @@ body.sa-ps-open{overflow:hidden}
   .sa-zl b{font-size:10.5px}
 }
 @media (max-width:560px){.sa-opts,.sa-doms{grid-template-columns:1fr}.sa-dbar{grid-template-columns:minmax(0,1fr) 70px 32px 40px}}
+/* 1.13.0: «designed by» в левом нижнем углу презентации — инициалы автора дизайна (signature-initials). */
+.sa-ps-by{position:fixed;left:max(2.2vw,env(safe-area-inset-left,0px));bottom:calc(2.2vh + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;font-size:.78em;color:var(--muted)}
+.sa-ps-by .sig{color:var(--fg);height:30px}
+@media (max-width:860px){.sa-ps-by span{display:none}}

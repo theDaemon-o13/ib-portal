@@ -343,7 +343,7 @@ describe('Самооценка', () => {
     await openPresentation();
     await slideIs(0);
     assert.match(await ui.evaluate(`document.querySelector('.sa-pres').textContent`), /предварительно/, 'черновик — «предварительно» на первом слайде');
-    assert.equal(await sign(), `Спроектировано: ${signature}\nПодготовил: Владелец самооценки ${RUN}`);
+    assert.equal(await sign(), `Спроектировано: ${signature}\nПодготовил: Владелец самооценки ${RUN} · ${new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
     // Клавиша за клавишей: каждое нажатие — следующий слайд, иначе быстрые нажатия могли бы слиться.
     let n = 0;
     for (const key of ['ArrowRight', 'Space', 'ArrowRight', 'ArrowRight', 'ArrowRight']) {
@@ -359,6 +359,7 @@ describe('Самооценка', () => {
     await ui.press('ArrowLeft');
     await slideIs(4, 'назад — пятый слайд');
     assert.ok(await ui.evaluate(`document.querySelector('[data-testid=sa-signature]').querySelectorAll('button').length === 0`), 'у подписи нет кнопок');
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=sa-designed-by]')?.innerText.trim()`), 'designed by Iskandar Masharipov');
     await ui.press('Escape');
     await ui.waitFor(`!document.querySelector('.sa-pres')`, 'Esc закрывает презентацию');
     assert.equal((await api('PUT', '/api/v1/settings/presentation', { signature: 'Чужая подпись', version: 1 })).status, 403, 'владелец подпись не меняет');
@@ -375,7 +376,7 @@ describe('Самооценка', () => {
 
     users.owner.password = await loginAs(users.owner.login, users.owner.password);
     await openPresentation();
-    assert.equal(await sign(), `Спроектировано: ${next}\nПодготовил: Владелец самооценки ${RUN}`);
+    assert.equal(await sign(), `Спроектировано: ${next}\nПодготовил: Владелец самооценки ${RUN} · ${new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
     await ui.click(`document.querySelector('.sa-ps-ctl button.x')`, 'кнопка «Закрыть»');
     await ui.waitFor(`!document.querySelector('.sa-pres')`, 'презентация закрыта');
   });

@@ -155,3 +155,6 @@ table tbody tr:hover > td{background:var(--hover)}
 .mon *,.mon{animation:none!important}
 .mon tr:hover > td{background:transparent}
 .mon .mk:hover,.mon .mp:hover{transform:none}
+/* Профиль открыт — подсветка фоном, а не цветом ссылки. */
+.me-t[aria-current="page"]{background:var(--side-hover)}
+.me-t[aria-current="page"] b{color:var(--side-text)}

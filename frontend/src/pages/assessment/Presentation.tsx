@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { akeys, assessmentsApi, type Assessment } from '../../api/assessments';
 import { Overlay } from '../../components/Overlay';
+import { Signature } from '../../components/Signature';
 import { dateRu } from '../dashboard/logic';
 import { DomainBars, Donut, LevelPill, Radar, RadarLegend, Scale } from './Charts';
 import { deltaTone, flipSlide, PRESENTATION_SLIDES, shortTitle, signed, taskState, weakSections } from './logic';
@@ -149,9 +150,14 @@ export function Presentation({ a, preparedBy, onClose }: { a: Assessment; prepar
     <Overlay>
       <div className="sa-pres" role="dialog" aria-modal="true" aria-label="Презентация самооценки" data-slide={i}>
         <div className="sa-ps-slide"><Slides a={a} i={i} /></div>
+        {/* 1.13.0: «designed by» с инициалами автора дизайна; «Подготовил» — ФИО открывшего и дата показа. */}
+        <div className="sa-ps-by" data-testid="sa-designed-by">
+          <Signature variant="initials" />
+          <span>designed by Iskandar Masharipov</span>
+        </div>
         <div className="sa-ps-sign" data-testid="sa-signature">
           <div>Спроектировано: {sign.data?.signature ?? ''}</div>
-          <div>Подготовил: {preparedBy}</div>
+          <div>Подготовил: {preparedBy} · {new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
         </div>
         <div className="sa-ps-ctl mon-ctl" role="toolbar" aria-label="Управление презентацией">
           <button type="button" aria-label="Назад" disabled={i === 0} onClick={() => flip(-1)}>{icons.prev}</button>
