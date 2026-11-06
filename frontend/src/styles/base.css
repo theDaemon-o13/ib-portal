@@ -7,13 +7,7 @@ html,body{height:100%;margin:0}
 /* Место под полосу прокрутки всегда занято: переключатели и панели не сдвигаются, когда страница становится выше окна */
 html{scrollbar-gutter:stable}
 #root{min-height:100%}
-body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-/* ambient light field the glass refracts */
-body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(60vw 50vh at 8% 0%,var(--amb-a),transparent 70%),
-    radial-gradient(50vw 45vh at 100% 30%,var(--amb-b),transparent 70%),
-    radial-gradient(55vw 50vh at 45% 105%,var(--amb-c),transparent 70%)}
+body{background:var(--page-bg-color);background-image:var(--page-bg);background-attachment:fixed;color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
 button{cursor:pointer}
 button:disabled{cursor:default;opacity:.55}
@@ -51,7 +45,7 @@ a{color:var(--accent-ink)}
 /* appearance switch (segmented control) */
 .seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--fill);gap:2px;width:100%}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:4px 6px;font-size:12px;font-weight:500;color:var(--fg);transition:background .18s,box-shadow .18s}
-.seg button[aria-pressed="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
+.seg button[aria-pressed="true"]{background:var(--seg-on);color:var(--seg-on-fg);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
 
 main{padding-block:28px 56px;padding-left:max(28px, env(safe-area-inset-left,0px));padding-right:max(28px, env(safe-area-inset-right,0px));min-width:0}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
@@ -211,7 +205,7 @@ select.inp{appearance:auto}
 /* Вкладки в теле панели (карточка документа, 1.11.0): тело — сетка, а элемент сетки с прокруткой схлопывается до 0 — без прокрутки. */
 .dr-b > .tabs{overflow:visible}
 .tabs a,.tabs button{border:0;background:none;padding:6px 14px;color:var(--fg);font-weight:500;font-size:13px;border-radius:9px;white-space:nowrap;text-decoration:none;transition:background .18s,box-shadow .18s}
-.tabs [aria-selected="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04);font-weight:600}
+.tabs [aria-selected="true"]{background:var(--seg-on);color:var(--seg-on-fg);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04);font-weight:600}
 
 .filters{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
 .filters button{border:0;background:var(--fill);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:500;color:var(--fg);white-space:nowrap;flex:none;transition:background var(--dur-1)}

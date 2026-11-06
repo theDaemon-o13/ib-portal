@@ -1,75 +1,130 @@
-/* Токены оформления из docs/prototype/portal-demo.html (:root). Светлая тема, чёрная тема:
-   авто по системе (prefers-color-scheme) или явно через data-theme="light" | "dark" на <html>.
-   Inter входит в сборку (fonts.css) и заменяет SF Pro там, где его нет (Windows).
-   1.6.5 (docs/ui-audit-1.6.5.md): текстовые цвета — не ниже AA (4,5:1) в обеих темах; --accent остаётся
-   заливкой и фокусом (#007AFF / #0A84FF), текст ссылок и кнопок без заливки — --accent-ink,
-   заливка главной кнопки — --accent-btn #0071E3 в обеих темах (белый текст 4,7:1).
-   Глубина стекла — три уровня: скругления --r-xl, --r-lg, --r-md и тени --shadow-lg, --shadow, --shadow-1 по уровню, а не одно скругление на всём. */
+/* Токены оформления «Океан» (1.13.0, ADR-0047; эталон — docs/design/ocean/ocean.css). Две темы: «Океан» (по умолчанию)
+   и «Чёрный океан» — авто по системе (prefers-color-scheme) или явно data-theme="ocean" | "black" на <html>.
+   Значения эталона подобраны под WCAG AA над худшим местом градиента (план 1.13.0, раздел 5): тёмное стекло меню,
+   более плотные сцена и карточки, приглушённый #3B4E5F. Компоненты берут цвета только отсюда.
+   Прежние имена токенов (--fg, --glass, --line …) сохранены — экраны 1.0–1.12 получают новый вид без правки. */
 :root{
-  --bg:#F2F2F7;
-  --amb-a:rgba(0,122,255,.20); --amb-b:rgba(90,200,250,.18); --amb-c:rgba(175,82,222,.12);
-  --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.80);
-  --sheen:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 42%);
-  --glass-line:rgba(255,255,255,.80); --hl:rgba(255,255,255,.95);
-  --line:rgba(60,60,67,.12); --line-2:rgba(60,60,67,.20);
-  --shadow:0 1px 2px rgba(20,30,60,.04),0 12px 32px rgba(20,40,80,.07);
-  --shadow-lg:0 24px 70px rgba(20,40,80,.20),0 2px 8px rgba(20,40,80,.06);
-  --fill:rgba(118,118,128,.12); --fill-2:rgba(118,118,128,.07); --hover:rgba(118,118,128,.08);
-  --solid:#FAFAFC; --solid-2:#F3F3F7; --solid-hover:#EEEEF3; --seg-on:#FFFFFF;
-  --fg:#1D1D1F; --muted:#636366; --faint:#AEAEB2; --faint-text:#636366;
-  --accent:#007AFF; --accent-2:#3395FF; --accent-soft:rgba(0,122,255,.12); --accent-fg:#FFFFFF; --accent-ink:#0062C4; --accent-btn:#0071E3;
-  --crit:#D70015; --high:#C93400; --med:#8F5F00; --low:#1E7B36; --info:#5856D6;
-  --col-bg:#EDEDF2; --col-head:#EDEDF2; --sel-ring:rgba(0,122,255,.55);
-  --shadow-1:0 1px 1px rgba(20,30,60,.04),0 2px 8px rgba(20,40,80,.06);
-  --crit-soft:rgba(255,59,48,.12); --high-soft:rgba(255,149,0,.14); --med-soft:rgba(255,204,0,.18); --low-soft:rgba(52,199,89,.14);
-  --paper:#FFFFFF; --paper-fg:#1D1D1F; --scrim:rgba(0,0,0,.20); --toast-bg:rgba(29,29,31,.86); --toast-fg:#FFFFFF;
-  --f-display:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
-  --f-body:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",system-ui,sans-serif;
-  --f-mono:"SF Mono",ui-monospace,Menlo,"Cascadia Mono",Consolas,monospace;
-  --blur:blur(28px) saturate(180%);
-  /* Скругление по уровню: окно и выезжающая панель → панель → карточка внутри панели → поле. */
-  --r-xl:28px; --r-lg:22px; --r-md:14px; --r-sm:10px; --r-xs:7px;
+  --f-display:"Inter",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --f-mono:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+  /* Размытие — только у меню, верхней панели, модальных окон и выезжающих панелей (план 1.13.0, раздел 4). */
+  --blur:blur(28px) saturate(165%);
+  /* Скругление по уровню: сцена → карточка и выезжающая панель → вложенный блок → поле. */
+  --r-stage:32px; --r-xl:28px; --r-lg:24px; --r-md:16px; --r-sm:12px; --r-xs:8px;
   --ease-out:cubic-bezier(.2,.8,.2,1); --dur-1:.16s; --dur-2:.26s;
-  /* Отступ прилипших панелей от верха окна; на узком окне под прилипшим меню — больше (base.css). */
   --sticky-top:16px;
   --detail-w:clamp(380px,34vw,540px);
+  /* Фон страницы: глубокий сине-бирюзовый с мягкими световыми пятнами (эталон ocean.css, .t-ocean). */
+  --page-bg:
+    radial-gradient(55% 45% at 12% 6%,#22A7BC 0%,rgba(34,167,188,0) 62%),
+    radial-gradient(45% 55% at 88% 24%,#1F64C8 0%,rgba(31,100,200,0) 64%),
+    radial-gradient(65% 55% at 45% 104%,#0F8296 0%,rgba(15,130,150,0) 70%),
+    linear-gradient(160deg,#08304C 0%,#0B4A6E 48%,#0A375F 100%);
+  --page-bg-color:#0A3A5E;
+  /* Меню и верхняя панель — тёмное стекло: белый текст не ниже AA над светлыми пятнами (план, раздел 5). */
+  --side-bg:rgba(3,22,42,.46); --side-border:rgba(255,255,255,.18); --side-text:#FFFFFF; --side-muted:rgba(255,255,255,.84);
+  --side-hover:rgba(255,255,255,.10); --field-bg:rgba(255,255,255,.10); --field-border:rgba(255,255,255,.18);
+  /* Сцена и карточки. */
+  --stage-bg:rgba(233,244,250,.82); --stage-border:rgba(255,255,255,.55);
+  --card-bg:rgba(250,253,255,.88); --card-border:rgba(255,255,255,.75); --card-hl:rgba(255,255,255,.65);
+  --card-shadow:0 10px 30px rgba(3,24,40,.14); --card-shadow-hover:0 22px 44px rgba(3,24,40,.22);
+  --primary-bg:#0B1118; --primary-fg:#FFFFFF;
+  --accent:#007AFF; --accent-2:#3395FF; --accent-glow:rgba(0,122,255,.45); --accent-soft:rgba(0,122,255,.12);
+  --accent-fg:#FFFFFF; --accent-ink:#0058C2; --accent-btn:#0071E3;
+  --red:#FF3B30; --red-text:#B42318; --red-bg:rgba(255,59,48,.12);
+  --amber:#FF9500; --amber-text:#8A4B00; --amber-bg:rgba(255,149,0,.14);
+  --green:#34C759; --green-text:#16692E; --green-bg:rgba(52,199,89,.15);
+  --blue:#007AFF; --blue-text:#0058C2; --blue-bg:rgba(0,122,255,.10);
+  /* Прежние имена (компоненты 1.0–1.12) — значения «Океана». */
+  --bg:#E9F4FA;
+  --glass:var(--card-bg); --glass-strong:rgba(247,251,254,.96);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 42%);
+  --glass-line:var(--card-border); --hl:var(--card-hl);
+  --line:rgba(11,28,44,.10); --line-2:rgba(11,28,44,.18);
+  --shadow:var(--card-shadow); --shadow-lg:0 24px 70px rgba(3,24,40,.30),0 2px 8px rgba(3,24,40,.10);
+  --shadow-1:0 1px 1px rgba(3,24,40,.05),0 2px 8px rgba(3,24,40,.08);
+  --fill:rgba(11,28,44,.065); --fill-2:rgba(11,28,44,.04); --hover:rgba(11,28,44,.05);
+  --solid:#F2F8FB; --solid-2:#E9F2F7; --solid-hover:#E1EDF4; --seg-on:#0B1118; --seg-on-fg:#FFFFFF;
+  --fg:#0B1C2C; --muted:#3B4E5F; --faint:#8396A6; --faint-text:#3B4E5F;
+  --crit:#B42318; --high:#A63A00; --med:#7A5300; --low:#16692E; --info:#4B3FC0;
+  --crit-soft:var(--red-bg); --high-soft:var(--amber-bg); --med-soft:rgba(255,204,0,.20); --low-soft:var(--green-bg);
+  --col-bg:rgba(11,28,44,.045); --col-head:transparent; --sel-ring:rgba(0,122,255,.55);
+  --paper:#FFFFFF; --paper-fg:#0B1C2C; --scrim:rgba(3,15,28,.45); --toast-bg:rgba(11,17,24,.92); --toast-fg:#FFFFFF;
+  --amb-a:transparent; --amb-b:transparent; --amb-c:transparent;
+  color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+@media (prefers-color-scheme: dark){:root:not([data-theme="ocean"]){
+  /* «Чёрный океан»: тот же свет на чистом чёрном (эталон ocean.css, .t-black). */
+  --page-bg:
+    radial-gradient(50% 42% at 10% 4%,rgba(22,150,178,.42) 0%,rgba(22,150,178,0) 62%),
+    radial-gradient(42% 52% at 90% 22%,rgba(12,92,214,.36) 0%,rgba(12,92,214,0) 64%),
+    radial-gradient(60% 50% at 45% 106%,rgba(14,118,138,.32) 0%,rgba(14,118,138,0) 70%),
+    linear-gradient(#000,#000);
+  --page-bg-color:#000000;
+  --side-bg:rgba(255,255,255,.05); --side-border:rgba(255,255,255,.10); --side-text:#F2F6F8; --side-muted:rgba(255,255,255,.62);
+  --side-hover:rgba(255,255,255,.07); --field-bg:rgba(255,255,255,.06); --field-border:rgba(255,255,255,.10);
+  --stage-bg:rgba(255,255,255,.035); --stage-border:rgba(255,255,255,.09);
+  --card-bg:rgba(20,28,36,.62); --card-border:rgba(255,255,255,.09); --card-hl:rgba(255,255,255,.06);
+  --card-shadow:0 10px 30px rgba(0,0,0,.45); --card-shadow-hover:0 22px 44px rgba(0,0,0,.6);
+  --primary-bg:#F2F6F8; --primary-fg:#000000;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-glow:rgba(10,132,255,.50); --accent-soft:rgba(10,132,255,.22);
+  --accent-fg:#FFFFFF; --accent-ink:#6CB4FF; --accent-btn:#0071E3;
+  --red:#FF453A; --red-text:#FF7A70; --red-bg:rgba(255,69,58,.16);
+  --amber:#FF9F0A; --amber-text:#FFB547; --amber-bg:rgba(255,159,10,.16);
+  --green:#30D158; --green-text:#5BE07F; --green-bg:rgba(48,209,88,.15);
+  --blue:#0A84FF; --blue-text:#6CB4FF; --blue-bg:rgba(10,132,255,.16);
   --bg:#000000;
-  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
-  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.86);
-  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
-  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --glass:var(--card-bg); --glass-strong:rgba(14,20,27,.94);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 40%);
+  --glass-line:var(--card-border); --hl:var(--card-hl);
   --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
-  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
-  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
-  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
-  --solid:#0E0E10; --solid-2:#141416; --solid-hover:#19191C; --seg-on:#3A3A3C;
-  --fg:#F5F5F7; --muted:#98989D; --faint:#636366; --faint-text:#8E8E93;
-  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF; --accent-ink:#409CFF; --accent-btn:#0071E3;
-  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
-  --col-bg:#000000; --col-head:#000000; --sel-ring:rgba(10,132,255,.7);
+  --shadow:var(--card-shadow); --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
   --shadow-1:0 1px 0 rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06);
-  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
-  --paper:#1C1C1E; --paper-fg:#F5F5F7; --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
-  color-scheme:dark}}
-/* .wall-dark — тёмная стена в предпросмотре слайда мониторинга (релиз 1.1.0) при любой теме страницы. */
-:root[data-theme="dark"],.wall-dark{
+  --fill:rgba(255,255,255,.07); --fill-2:rgba(255,255,255,.045); --hover:rgba(255,255,255,.06);
+  --solid:#0E151C; --solid-2:#121A22; --solid-hover:#17212B; --seg-on:#F2F6F8; --seg-on-fg:#000000;
+  --fg:#F2F6F8; --muted:#9AACB9; --faint:#5E6E7B; --faint-text:#9AACB9;
+  --crit:#FF7A70; --high:#FFB547; --med:#FFD60A; --low:#5BE07F; --info:#A29BFF;
+  --crit-soft:var(--red-bg); --high-soft:var(--amber-bg); --med-soft:rgba(255,214,10,.16); --low-soft:var(--green-bg);
+  --col-bg:rgba(255,255,255,.03); --col-head:transparent; --sel-ring:rgba(10,132,255,.7);
+  --paper:#141C24; --paper-fg:#F2F6F8; --scrim:rgba(0,0,0,.62); --toast-bg:rgba(36,44,52,.95); --toast-fg:#F2F6F8;
+  --amb-a:transparent; --amb-b:transparent; --amb-c:transparent;
+  color-scheme:dark;
+}}
+/* .wall-dark — экран мониторинга и предпросмотр его слайда: всегда «Чёрный океан». */
+:root[data-theme="black"],.wall-dark{
+  /* «Чёрный океан»: тот же свет на чистом чёрном (эталон ocean.css, .t-black). */
+  --page-bg:
+    radial-gradient(50% 42% at 10% 4%,rgba(22,150,178,.42) 0%,rgba(22,150,178,0) 62%),
+    radial-gradient(42% 52% at 90% 22%,rgba(12,92,214,.36) 0%,rgba(12,92,214,0) 64%),
+    radial-gradient(60% 50% at 45% 106%,rgba(14,118,138,.32) 0%,rgba(14,118,138,0) 70%),
+    linear-gradient(#000,#000);
+  --page-bg-color:#000000;
+  --side-bg:rgba(255,255,255,.05); --side-border:rgba(255,255,255,.10); --side-text:#F2F6F8; --side-muted:rgba(255,255,255,.62);
+  --side-hover:rgba(255,255,255,.07); --field-bg:rgba(255,255,255,.06); --field-border:rgba(255,255,255,.10);
+  --stage-bg:rgba(255,255,255,.035); --stage-border:rgba(255,255,255,.09);
+  --card-bg:rgba(20,28,36,.62); --card-border:rgba(255,255,255,.09); --card-hl:rgba(255,255,255,.06);
+  --card-shadow:0 10px 30px rgba(0,0,0,.45); --card-shadow-hover:0 22px 44px rgba(0,0,0,.6);
+  --primary-bg:#F2F6F8; --primary-fg:#000000;
+  --accent:#0A84FF; --accent-2:#409CFF; --accent-glow:rgba(10,132,255,.50); --accent-soft:rgba(10,132,255,.22);
+  --accent-fg:#FFFFFF; --accent-ink:#6CB4FF; --accent-btn:#0071E3;
+  --red:#FF453A; --red-text:#FF7A70; --red-bg:rgba(255,69,58,.16);
+  --amber:#FF9F0A; --amber-text:#FFB547; --amber-bg:rgba(255,159,10,.16);
+  --green:#30D158; --green-text:#5BE07F; --green-bg:rgba(48,209,88,.15);
+  --blue:#0A84FF; --blue-text:#6CB4FF; --blue-bg:rgba(10,132,255,.16);
   --bg:#000000;
-  --amb-a:rgba(10,132,255,.16); --amb-b:rgba(100,210,255,.06); --amb-c:rgba(94,92,230,.09);
-  --glass:rgba(255,255,255,.055); --glass-strong:rgba(28,28,30,.86);
-  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 40%);
-  --glass-line:rgba(255,255,255,.10); --hl:rgba(255,255,255,.12);
+  --glass:var(--card-bg); --glass-strong:rgba(14,20,27,.94);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 40%);
+  --glass-line:var(--card-border); --hl:var(--card-hl);
   --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
-  --shadow:0 1px 0 rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.55);
-  --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
-  --fill:rgba(118,118,128,.24); --fill-2:rgba(118,118,128,.14); --hover:rgba(255,255,255,.05);
-  --solid:#0E0E10; --solid-2:#141416; --solid-hover:#19191C; --seg-on:#3A3A3C;
-  --fg:#F5F5F7; --muted:#98989D; --faint:#636366; --faint-text:#8E8E93;
-  --accent:#0A84FF; --accent-2:#409CFF; --accent-soft:rgba(10,132,255,.22); --accent-fg:#FFFFFF; --accent-ink:#409CFF; --accent-btn:#0071E3;
-  --crit:#FF453A; --high:#FF9F0A; --med:#FFD60A; --low:#30D158; --info:#7D7AFF;
-  --col-bg:#000000; --col-head:#000000; --sel-ring:rgba(10,132,255,.7);
+  --shadow:var(--card-shadow); --shadow-lg:0 24px 70px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.06);
   --shadow-1:0 1px 0 rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06);
-  --crit-soft:rgba(255,69,58,.18); --high-soft:rgba(255,159,10,.18); --med-soft:rgba(255,214,10,.16); --low-soft:rgba(48,209,88,.16);
-  --paper:#1C1C1E; --paper-fg:#F5F5F7; --scrim:rgba(0,0,0,.55); --toast-bg:rgba(44,44,46,.92); --toast-fg:#F5F5F7;
-  color-scheme:dark}
+  --fill:rgba(255,255,255,.07); --fill-2:rgba(255,255,255,.045); --hover:rgba(255,255,255,.06);
+  --solid:#0E151C; --solid-2:#121A22; --solid-hover:#17212B; --seg-on:#F2F6F8; --seg-on-fg:#000000;
+  --fg:#F2F6F8; --muted:#9AACB9; --faint:#5E6E7B; --faint-text:#9AACB9;
+  --crit:#FF7A70; --high:#FFB547; --med:#FFD60A; --low:#5BE07F; --info:#A29BFF;
+  --crit-soft:var(--red-bg); --high-soft:var(--amber-bg); --med-soft:rgba(255,214,10,.16); --low-soft:var(--green-bg);
+  --col-bg:rgba(255,255,255,.03); --col-head:transparent; --sel-ring:rgba(10,132,255,.7);
+  --paper:#141C24; --paper-fg:#F2F6F8; --scrim:rgba(0,0,0,.62); --toast-bg:rgba(36,44,52,.95); --toast-fg:#F2F6F8;
+  --amb-a:transparent; --amb-b:transparent; --amb-c:transparent;
+  color-scheme:dark;
+}

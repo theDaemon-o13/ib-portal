@@ -1,11 +1,12 @@
-// Оформление: «Авто / Светлая / Чёрная». Хранится только в localStorage (UI-состояние).
+// Оформление (1.13.0, ADR-0047): «Авто / Океан / Чёрный». Хранится только в localStorage (UI-состояние), на сервере
+// темы нет. Значения тем до 1.13.0 читаются как новые: «light» → «Океан», «dark» и «black» → «Чёрный океан».
 
-export type ThemeMode = 'auto' | 'light' | 'dark';
+export type ThemeMode = 'auto' | 'ocean' | 'black';
 
-export const THEME_MODES: { mode: ThemeMode; label: string }[] = [
-  { mode: 'auto', label: 'Авто' },
-  { mode: 'light', label: 'Светлая' },
-  { mode: 'dark', label: 'Чёрная' },
+export const THEME_MODES: { mode: ThemeMode; label: string; title: string }[] = [
+  { mode: 'auto', label: 'Авто', title: 'Как в системе: светлая — «Океан», тёмная — «Чёрный океан»' },
+  { mode: 'ocean', label: 'Океан', title: 'Тема «Океан»' },
+  { mode: 'black', label: 'Чёрный', title: 'Тема «Чёрный океан»' },
 ];
 
 const STORAGE_KEY = 'ibportal.theme';
@@ -20,8 +21,11 @@ interface ThemeRoot {
   removeAttribute(name: string): void;
 }
 
+/** Прочитать выбор: новые значения и значения тем до 1.13.0; неизвестное — «Авто». */
 export function parseThemeMode(value: string | null | undefined): ThemeMode {
-  return value === 'light' || value === 'dark' ? value : 'auto';
+  if (value === 'ocean' || value === 'light') return 'ocean';
+  if (value === 'black' || value === 'dark') return 'black';
+  return 'auto';
 }
 
 export function loadThemeMode(store: KeyValueStore | undefined): ThemeMode {

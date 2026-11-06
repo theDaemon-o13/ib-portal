@@ -53,7 +53,8 @@ function useWallTheme() {
   useEffect(() => {
     const root = document.documentElement;
     const mode = loadThemeMode(window.localStorage);
-    if (mode === 'auto') applyThemeMode(root, 'dark');
+    // Монитор — «Чёрный океан» по умолчанию (1.13.0); явный выбор пользователя сохраняется.
+    if (mode === 'auto') applyThemeMode(root, 'black');
     return () => applyThemeMode(root, mode);
   }, []);
 }

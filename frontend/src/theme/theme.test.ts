@@ -16,6 +16,15 @@ function fakeRoot() {
 }
 
 describe('тема', () => {
+  it('значения тем до 1.13.0 читаются как новые: light → «Океан», dark и black → «Чёрный океан»', () => {
+    expect(parseThemeMode('light')).toBe('ocean');
+    expect(parseThemeMode('dark')).toBe('black');
+    expect(parseThemeMode('black')).toBe('black');
+    const store = memoryStore();
+    store.setItem('ibportal.theme', 'dark');
+    expect(loadThemeMode(store)).toBe('black');
+  });
+
   it('по умолчанию «Авто», неизвестное значение тоже «Авто»', () => {
     expect(parseThemeMode(null)).toBe('auto');
     expect(parseThemeMode('sepia')).toBe('auto');
@@ -24,8 +33,10 @@ describe('тема', () => {
 
   it('сохраняет и читает выбор', () => {
     const store = memoryStore();
-    saveThemeMode(store, 'dark');
-    expect(loadThemeMode(store)).toBe('dark');
+    saveThemeMode(store, 'black');
+    expect(loadThemeMode(store)).toBe('black');
+    saveThemeMode(store, 'ocean');
+    expect(loadThemeMode(store)).toBe('ocean');
   });
 
   it('не падает, если хранилище недоступно', () => {
@@ -34,15 +45,15 @@ describe('тема', () => {
       setItem: () => { throw new Error('denied'); },
     };
     expect(loadThemeMode(broken)).toBe('auto');
-    expect(() => saveThemeMode(broken, 'light')).not.toThrow();
+    expect(() => saveThemeMode(broken, 'ocean')).not.toThrow();
   });
 
-  it('«Чёрная» и «Светлая» ставят data-theme, «Авто» снимает', () => {
+  it('«Чёрный» и «Океан» ставят data-theme, «Авто» снимает', () => {
     const root = fakeRoot();
-    applyThemeMode(root, 'dark');
-    expect(root.attrs.get('data-theme')).toBe('dark');
-    applyThemeMode(root, 'light');
-    expect(root.attrs.get('data-theme')).toBe('light');
+    applyThemeMode(root, 'black');
+    expect(root.attrs.get('data-theme')).toBe('black');
+    applyThemeMode(root, 'ocean');
+    expect(root.attrs.get('data-theme')).toBe('ocean');
     applyThemeMode(root, 'auto');
     expect(root.attrs.has('data-theme')).toBe(false);
   });
