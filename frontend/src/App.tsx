@@ -47,7 +47,7 @@ export function App() {
               <Route path="/tasks/chains" element={<Section item={item}><TaskChainsPage /></Section>} />
             </Fragment>
           ) : item.path === '/documents' ? (
-            <Route key={item.path} path="/documents" element={<Section item={item}><DocumentsPage /></Section>} />
+            <Route key={item.path} path="/documents/:view?" element={<Section item={item}><DocumentsPage /></Section>} />
           ) : item.path === '/evidence' ? (
             <Route key={item.path} path="/evidence" element={<Section item={item}><EvidencePage /></Section>} />
           ) : item.path === '/awareness' ? (

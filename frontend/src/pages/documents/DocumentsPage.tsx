@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useCallback, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { NavLink, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import type { Me } from '../../api/client';
-import { docsApi, dkeys, type DocItem, type DocQuery, type DocSort, type DocStatus } from '../../api/documents';
+import { docsApi, dkeys, type DocItem, type DocQuery, type DocSort, type DocStatus, type DocView } from '../../api/documents';
+import { useToast } from '../../components/Toast';
 import { ChipScroller } from '../../components/ChipScroller';
 import { DETAIL_NARROW_QUERY, DetailPanel, useMediaQuery } from '../../components/DetailPanel';
 import { formatDate } from '../registers/logic';
+import { todayLocal } from '../tasks/logic';
 import { DocumentPanel } from './DocumentPanel';
 import { HoldersLine } from './Holders';
 import { DUE_FILTERS, groupByType, isDocDue, parseSort, reviewLabel, SORTS, STATUS_TONE, stageHint, versionLabel } from './logic';
@@ -36,12 +38,22 @@ function saveSort(sort: DocSort) {
   }
 }
 
-/** Этапы маршрута 1.2.0 (ADR-0024): 11 «Драфт» … 16 «Подписание». */
-const ROUTE_STAGES = [11, 12, 13, 14, 15, 16];
+/** Этапы маршрута 1.11.0 (ADR-0042): 21 «Драфт» … 24 «Утверждение». */
+const ROUTE_STAGES = [21, 22, 23, 24];
+const STAGE_FILTERS: { stage: number; title: string }[] = [
+  { stage: 21, title: 'Драфт' }, { stage: 22, title: 'Согласование' }, { stage: 23, title: 'Перевод' }, { stage: 24, title: 'Утверждение' },
+];
+/** Подменю раздела (1.11.0): все документы, «В работе», «Утверждённые». */
+const VIEWS: { key: DocView | null; path: string; title: string }[] = [
+  { key: null, path: '/documents', title: 'Все документы' },
+  { key: 'work', path: '/documents/work', title: 'В работе' },
+  { key: 'approved', path: '/documents/approved', title: 'Утверждённые' },
+];
+const daysTo = (iso: string, today: string) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
 
 /** Точки маршрута в строке реестра: пройденные этапы — зелёные, текущий — синий. */
 function RouteDots({ d }: { d: DocItem }) {
-  if (d.stage === null) return null;
+  if (d.stage === null || !ROUTE_STAGES.includes(d.stage)) return null;
   const stage = d.stage;
   return (
     <span className="route" aria-label={`Этап ${ROUTE_STAGES.indexOf(stage) + 1} из ${ROUTE_STAGES.length}: ${d.stageName ?? ''}`}>
@@ -58,6 +70,10 @@ function RouteDots({ d }: { d: DocItem }) {
 export function DocumentsPage() {
   const me = useOutletContext<Me>();
   const [params, setParams] = useSearchParams();
+  const { view: viewParam } = useParams();
+  const view: DocView | null = viewParam === 'work' || viewParam === 'approved' ? viewParam : null;
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
   const ibWork = me.permissions.includes('ib.work');
   const canManage = me.permissions.includes('docs.manage');
   const filter = params.get('filter') ?? '';
@@ -75,11 +91,16 @@ export function DocumentsPage() {
   const dueMode = due ?? (dueParam === 'to' || dueTo ? 'to' : '');
   const narrowed = !!(typeId || ownerId || due || dueTo);
 
+  const stageParam = Number(params.get('stage'));
+  const stage = view === 'work' && STAGE_FILTERS.some((f) => f.stage === stageParam) ? stageParam : undefined;
   const query: DocQuery = {
-    archived,
+    archived: archived && !view,
     waiting: filter === 'waiting',
-    review: filter === 'review',
+    review: filter === 'review' && !view,
     status: STATUS_FILTERS.some((s) => s.key === filter) ? (filter as DocStatus) : undefined,
+    view: view ?? undefined,
+    stage,
+    onReview: view === 'approved' && filter === 'on_review',
     q: search,
     typeId,
     ownerId,
@@ -112,6 +133,44 @@ export function DocumentsPage() {
     }, { preventScrollReset: true });
   }, [setParams]);
   const setSort = (s: DocSort) => { setSortState(s); saveSort(s); };
+  const today = todayLocal();
+  const exportApproved = async () => {
+    setExporting(true);
+    try {
+      const { blob, fileName } = await docsApi.exportApproved(query);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast(`Выгружено: ${fileName}`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Не удалось выгрузить реестр', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+  const approvedRow = (d: DocItem) => {
+    const left = d.reviewDue ? daysTo(d.reviewDue, today) : null;
+    return (
+      <tr key={d.id} data-doc={d.id} className={d.id === selected ? 'sel' : undefined} tabIndex={0} aria-selected={d.id === selected}
+        onClick={() => select(d.id)} onKeyDown={(e) => { if (e.key === 'Enter') select(d.id); }}>
+        <td className="mono">{d.number}</td>
+        <td><div className="w500">{d.title}</div>{sort !== 'type' && <div className="hint">{d.type.value}</div>}</td>
+        <td>{d.owner.fullName}</td>
+        <td className="mono">{versionLabel({ no: d.approvedVersionNo ?? d.versionNo, edition: d.approvedEdition ?? '' })}{d.approvedOrderNo && <div className="hint">приказ № {d.approvedOrderNo}</div>}</td>
+        <td className="mono">{d.signedOn ? formatDate(d.signedOn) : d.approvedAt ? formatDate(d.approvedAt.slice(0, 10)) : '—'}</td>
+        <td className={`mono${left !== null && left < 0 ? ' late-t' : ''}`} data-testid="review-due">
+          {d.reviewDue ? formatDate(d.reviewDue) : '—'}
+          {left !== null && <div className="hint">{left < 0 ? `просрочен на ${-left} дн.` : left === 0 ? 'сегодня' : `через ${left} дн.`}</div>}
+        </td>
+        <td>{d.onReview ? <span className="chip high" data-testid="on-review">на пересмотре</span> : null}</td>
+      </tr>
+    );
+  };
   const toggleType = (id: string) => setCollapsed((c) => {
     const n = new Set(c);
     if (n.has(id)) n.delete(id); else n.add(id);
@@ -144,18 +203,44 @@ export function DocumentsPage() {
           <h1>Внутренние документы ИБ</h1>
           <p>
             {ibWork
-              ? 'Реестр нормативных документов отдела. Файлы остаются в OnlyOffice, здесь ведутся маршрут и контроль сроков пересмотра: драфт → проверка сотрудниками → начальник ИБ → ответственные лица → перевод → подписание.'
-              : 'Подписанные документы отдела ИБ и документы, которые ждут вашего действия. Файлы открываются в OnlyOffice.'}
+              ? 'Реестр нормативных документов отдела. Документ до утверждения — ссылка OnlyOffice, здесь ведутся маршрут и контроль сроков пересмотра: драфт → согласование → перевод → утверждение.'
+              : 'Утверждённые документы отдела ИБ и документы, которые ждут вашего действия.'}
           </p>
         </div>
-        {canManage && (
-          <div className="row">
-            <button className="btn primary" type="button" onClick={() => setNewOpen(true)}>Новый документ</button>
-          </div>
-        )}
+        <div className="row">
+          {view === 'approved' && (
+            <button className="btn" type="button" disabled={exporting} onClick={() => void exportApproved()}>Выгрузить в Excel</button>
+          )}
+          {canManage && <button className="btn primary" type="button" onClick={() => setNewOpen(true)}>Новый документ</button>}
+        </div>
+      </div>
+
+      <div className="tabs page-tabs" role="tablist" aria-label="Подменю документов">
+        {VIEWS.filter((v) => ibWork || v.key !== 'work').map((v) => (
+          <NavLink key={v.path} to={v.path} end role="tab" aria-selected={view === v.key}>{v.title}</NavLink>
+        ))}
       </div>
 
       <div className="row docs-bar">
+        {view === 'work' ? (
+          <ChipScroller label="Фильтр документов в работе" className="toolbar-grow">
+            <button type="button" aria-pressed={!filter && !stage} onClick={() => setParam({ filter: null, stage: null, doc: null })}>Все</button>
+            <button type="button" aria-pressed={filter === 'waiting'} onClick={() => setParam({ filter: 'waiting', stage: null, doc: null })}>
+              Ждут вас <span className="mono">{summary.data?.waitingForMe ?? 0}</span>
+            </button>
+            {STAGE_FILTERS.map((f) => (
+              <button key={f.stage} type="button" aria-pressed={stage === f.stage} onClick={() => setParam({ stage: String(f.stage), filter: null, doc: null })}>{f.title}</button>
+            ))}
+          </ChipScroller>
+        ) : view === 'approved' ? (
+          <ChipScroller label="Фильтр утверждённых документов" className="toolbar-grow">
+            <button type="button" aria-pressed={!filter} onClick={() => setParam({ filter: null, doc: null })}>Все</button>
+            <button type="button" aria-pressed={filter === 'on_review'} onClick={() => setParam({ filter: 'on_review', doc: null })}>На пересмотре</button>
+            <button type="button" aria-pressed={filter === 'review_overdue'} onClick={() => setParam({ filter: 'review_overdue', doc: null })}>
+              Пересмотр просрочен <span className="mono">{summary.data?.reviewOverdue ?? 0}</span>
+            </button>
+          </ChipScroller>
+        ) : (
         <ChipScroller label="Фильтр документов" className="toolbar-grow">
           <button type="button" aria-pressed={!filter} onClick={() => setParam({ filter: null, doc: null })}>Все</button>
           <button type="button" aria-pressed={filter === 'waiting'} onClick={() => setParam({ filter: 'waiting', doc: null })}>
@@ -177,6 +262,7 @@ export function DocumentsPage() {
             </button>
           )}
         </ChipScroller>
+        )}
         <input className="inp docs-search" type="search" placeholder="Поиск по названию" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Поиск по названию" />
       </div>
 
@@ -216,7 +302,9 @@ export function DocumentsPage() {
           <div className="tbl-wrap">
             <table className="docs-tbl">
               <thead>
-                <tr><th>Документ</th><th>Владелец</th><th>Версия</th><th>Утверждён</th><th>Пересмотр до</th><th>Согласование</th><th>Статус</th></tr>
+                {view === 'approved'
+                  ? <tr><th>№</th><th>Документ</th><th>Владелец</th><th>Действующая версия</th><th>Утверждён</th><th>Пересмотр до</th><th /></tr>
+                  : <tr><th>Документ</th><th>Владелец</th><th>Версия</th><th>Утверждён</th><th>Пересмотр до</th><th>Согласование</th><th>Статус</th></tr>}
               </thead>
               <tbody>
                 {sort === 'type'
@@ -231,14 +319,15 @@ export function DocumentsPage() {
                             </button>
                           </td>
                         </tr>
-                        {open && g.items.map(row)}
+                        {open && g.items.map(view === 'approved' ? approvedRow : row)}
                       </Fragment>
                     );
                   })
-                  : items.map(row)}
+                  : items.map(view === 'approved' ? approvedRow : row)}
                 {docs.isSuccess && items.length === 0 && (
                   <tr><td colSpan={7} className="hint">
-                    {filter === 'waiting' ? 'Сейчас ничего не ждёт вашего согласования' : search || narrowed ? 'Ничего не найдено' : 'Документов пока нет'}
+                    {filter === 'waiting' ? 'Сейчас ничего не ждёт вашего согласования' : search || narrowed ? 'Ничего не найдено'
+                      : view === 'approved' ? 'Утверждённых документов пока нет' : view === 'work' ? 'Документов в работе нет' : 'Документов пока нет'}
                   </td></tr>
                 )}
               </tbody>

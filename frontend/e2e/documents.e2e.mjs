@@ -729,3 +729,44 @@ describe('Документы: задачи этапов маршрута (ADR-00
     assert.deepEqual(owners, [`Согласовать с ответственными лицами: документ #${doc.number} «${RUN} Положение о задачах этапов»`]);
   });
 });
+
+describe('Документы: «В работе» и «Утверждённые» (1.11.0)', () => {
+  it('подменю: утверждённые — реестр с пересмотром и «на пересмотре», выгрузка в Excel; в работе — по этапам', async () => {
+    const signed = await makeDoc('Реестр утверждённый');
+    await signAllViaApi(signed.id);
+    const revised = await makeDoc('Реестр на пересмотре');
+    await signAllViaApi(revised.id);
+    let d = await apiAs(users.owner, 'GET', `/api/v1/documents/${revised.id}`);
+    await api('POST', `/api/v1/documents/${revised.id}/revise`, { version: d.version, edition: '2.0' });
+    const draft = await makeDoc('Реестр черновик');
+    await moveViaApi(draft.id, '21:head_review');
+
+    await loginAs(admin);
+    await ui.goto(`/documents/approved?n=${++navSeq}`);
+    await ui.waitFor(`!!document.querySelector('.docs-tbl')`, 'реестр утверждённых');
+    await ui.waitFor(`document.querySelector('[role=tablist][aria-label="Подменю документов"] [aria-selected=true]')?.textContent === 'Утверждённые'`, 'вкладка «Утверждённые»');
+    await ui.waitFor(`!!${row(`${RUN} Реестр утверждённый`)} && !!${row(`${RUN} Реестр на пересмотре`)}`, 'утверждённые в реестре');
+    assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр черновик`)}`), false, 'черновика среди утверждённых нет');
+    assert.deepEqual(await ui.evaluate(`[...document.querySelectorAll('.docs-tbl thead th')].map((t) => t.textContent)`), ['№', 'Документ', 'Владелец', 'Действующая версия', 'Утверждён', 'Пересмотр до', '']);
+    assert.match(await ui.text(`${row(`${RUN} Реестр утверждённый`)}.querySelector('[data-testid=review-due]')`), new RegExp(`${ru(plusYear()).replace(/\./g, '\\.')}через \\d+ дн\\.`));
+    assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр на пересмотре`)}.querySelector('[data-testid=on-review]')`), true, 'отметка «на пересмотре»');
+    await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent === 'На пересмотре')`, 'фильтр «На пересмотре»');
+    await ui.waitFor(`!${row(`${RUN} Реестр утверждённый`)} && !!${row(`${RUN} Реестр на пересмотре`)}`, 'только на пересмотре');
+    const m = ui.mark();
+    await ui.click($.button('Выгрузить в Excel'), '«Выгрузить в Excel»');
+    const x = await ui.request(m, 'GET', '/api/v1/documents/approved.xlsx');
+    assert.equal(x.status, 200);
+    assert.ok(x.url.includes('onReview=true'), x.url);
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent.startsWith('Выгружено: Утверждённые документы')`, 'уведомление о выгрузке');
+
+    // «В работе»: чипы этапов; документ на проверке — в «Драфт».
+    await ui.click(`document.querySelector('[role=tablist][aria-label="Подменю документов"] a[href="/documents/work"]')`, 'вкладка «В работе»');
+    await ui.waitFor(`location.pathname === '/documents/work' && !!${row(`${RUN} Реестр черновик`)}`, 'черновик в работе');
+    await ui.waitFor(`!!${row(`${RUN} Реестр на пересмотре`)}`, 'пересмотр — тоже в работе');
+    assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр утверждённый`)}`), false, 'утверждённый без рабочей версии — не в работе');
+    await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent === 'Согласование')`, 'этап «Согласование»');
+    await ui.waitFor(`!${row(`${RUN} Реестр черновик`)}`, 'фильтр этапа');
+    d = await api('GET', `/api/v1/documents/${draft.id}`);
+    assert.equal(d.working.stage, 21);
+  });
+});

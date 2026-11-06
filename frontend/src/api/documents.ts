@@ -1,5 +1,6 @@
 // Запросы раздела «Документы». Типы — из сгенерированной схемы OpenAPI.
-import { request, type JsonOf } from './client';
+import { ApiError, request, type JsonOf } from './client';
+import { fileNameFrom } from './audit';
 import type { paths } from './generated/schema';
 
 type Res<P extends keyof paths, M extends keyof paths[P], S extends number = 200> = paths[P][M] extends { responses: infer R }
@@ -44,7 +45,15 @@ export interface DocQuery {
   /** Пересмотр не позже даты (YYYY-MM-DD). */
   dueTo?: string;
   sort?: DocSort;
+  /** Подменю (1.11.0): «В работе» или «Утверждённые»; без него — все документы. */
+  view?: DocView;
+  /** «В работе»: этап 21–24. */
+  stage?: number;
+  /** «Утверждённые»: только на пересмотре. */
+  onReview?: boolean;
 }
+
+export type DocView = NonNullable<DocListParams['view']>;
 
 function qs(q: DocQuery): string {
   const p = new URLSearchParams({ archived: String(q.archived) });
@@ -57,11 +66,25 @@ function qs(q: DocQuery): string {
   if (q.due) p.set('due', q.due);
   if (q.dueTo) p.set('dueTo', q.dueTo);
   if (q.sort) p.set('sort', q.sort);
+  if (q.view) p.set('view', q.view);
+  if (q.stage) p.set('stage', String(q.stage));
+  if (q.onReview) p.set('onReview', 'true');
   return p.toString();
 }
 
 export const docsApi = {
   list: (q: DocQuery) => request<DocPage>('GET', `/api/v1/documents?${qs(q)}`),
+  /** Реестр утверждённых в Excel (1.11.0): те же фильтры, что у «Утверждённых». */
+  async exportApproved(q: DocQuery): Promise<{ blob: Blob; fileName: string }> {
+    const p = new URLSearchParams(qs({ ...q, view: undefined, stage: undefined }));
+    p.delete('archived');
+    const res = await fetch(`/api/v1/documents/approved.xlsx?${p.toString()}`, { credentials: 'same-origin' });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+      throw new ApiError(res.status, data?.error?.code ?? 'UNKNOWN', data?.error?.message ?? 'Не удалось выгрузить реестр');
+    }
+    return { blob: await res.blob(), fileName: fileNameFrom(res.headers.get('Content-Disposition'), 'Утверждённые документы.xlsx') };
+  },
   summary: () => request<DocSummary>('GET', '/api/v1/documents/summary'),
   get: (id: string) => request<DocDetail>('GET', `/api/v1/documents/${id}`),
   create: (body: NewDoc) => request<DocResult>('POST', '/api/v1/documents', body),

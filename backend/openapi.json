@@ -88734,6 +88734,39 @@
           },
           {
             "schema": {
+              "type": "string",
+              "enum": [
+                "work",
+                "approved"
+              ]
+            },
+            "in": "query",
+            "name": "view",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 21,
+              "maximum": 24
+            },
+            "in": "query",
+            "name": "stage",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "in": "query",
+            "name": "onReview",
+            "required": false
+          },
+          {
+            "schema": {
               "default": 200,
               "type": "integer",
               "minimum": 1,
@@ -88840,6 +88873,18 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "approvedEdition": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedOrderNo": {
+                            "type": "string"
+                          },
+                          "onReview": {
+                            "type": "boolean"
                           },
                           "reviewMonths": {
                             "type": "integer",
@@ -88962,6 +89007,9 @@
                           "approvedVersionNo",
                           "approvedAt",
                           "signedOn",
+                          "approvedEdition",
+                          "approvedOrderNo",
+                          "onReview",
                           "reviewMonths",
                           "reviewDue",
                           "status",
@@ -89394,6 +89442,18 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
                             },
                             "reviewMonths": {
                               "type": "integer",
@@ -91122,6 +91182,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -91360,6 +91423,96 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/approved.xlsx": {
+      "get": {
+        "summary": "Реестр утверждённых документов в Excel (1.11.0): те же фильтры, что у списка «Утверждённые»; выгрузка — в журнал",
+        "tags": [
+          "documents"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "typeId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "ownerId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "overdue",
+                "d30",
+                "d90",
+                "d365"
+              ]
+            },
+            "in": "query",
+            "name": "due",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "dueTo",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "in": "query",
+            "name": "q",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "in": "query",
+            "name": "onReview",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "type",
+                "title"
+              ]
+            },
+            "in": "query",
+            "name": "sort",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
           }
         }
       }
@@ -91696,6 +91849,18 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "approvedEdition": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedOrderNo": {
+                      "type": "string"
+                    },
+                    "onReview": {
+                      "type": "boolean"
                     },
                     "reviewMonths": {
                       "type": "integer",
@@ -93424,6 +93589,9 @@
                     "approvedVersionNo",
                     "approvedAt",
                     "signedOn",
+                    "approvedEdition",
+                    "approvedOrderNo",
+                    "onReview",
                     "reviewMonths",
                     "reviewDue",
                     "status",
@@ -93809,6 +93977,18 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
                             },
                             "reviewMonths": {
                               "type": "integer",
@@ -95537,6 +95717,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -95941,6 +96124,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -97668,6 +97863,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -98062,6 +98260,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -99789,6 +99999,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -100191,6 +100404,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -101918,6 +102143,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -102291,6 +102519,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -104018,6 +104258,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -104403,6 +104646,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -106130,6 +106385,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -106514,6 +106772,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -108241,6 +108511,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -108608,6 +108881,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -110335,6 +110620,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -110727,6 +111015,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -112454,6 +112754,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -112859,6 +113162,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -114586,6 +114901,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -114970,6 +115288,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -116697,6 +117027,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -117098,6 +117431,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -118825,6 +119170,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -119218,6 +119566,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -120945,6 +121305,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -121340,6 +121703,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -123067,6 +123442,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -123451,6 +123829,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -125178,6 +125568,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -125570,6 +125963,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -127297,6 +127702,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -127701,6 +128109,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -129428,6 +129848,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -129812,6 +130235,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -131539,6 +131974,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -131934,6 +132372,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -133661,6 +134111,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -134055,6 +134508,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -135782,6 +136247,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -136161,6 +136629,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -137888,6 +138368,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -138277,6 +138760,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -140004,6 +140499,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -140376,6 +140874,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -142103,6 +142613,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -142487,6 +143000,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -144214,6 +144739,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -144582,6 +145110,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -146309,6 +146849,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -146677,6 +147220,18 @@
                                 "null"
                               ]
                             },
+                            "approvedEdition": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "approvedOrderNo": {
+                              "type": "string"
+                            },
+                            "onReview": {
+                              "type": "boolean"
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -148404,6 +148959,9 @@
                             "approvedVersionNo",
                             "approvedAt",
                             "signedOn",
+                            "approvedEdition",
+                            "approvedOrderNo",
+                            "onReview",
                             "reviewMonths",
                             "reviewDue",
                             "status",

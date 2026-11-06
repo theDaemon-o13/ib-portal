@@ -355,6 +355,10 @@ function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
     approvedVersionNo: d.approvedVersion?.no ?? null,
     approvedAt: iso(d.approvedVersion?.approvedAt ?? null),
     signedOn: isoDay(d.approvedVersion?.signedOn ?? null),
+    /** Реестр утверждённых (1.11.0): редакция и приказ действующей версии; «на пересмотре» — есть рабочая версия. */
+    approvedEdition: d.approvedVersion?.edition ?? null,
+    approvedOrderNo: d.approvedVersion?.orderNo ?? '',
+    onReview: d.approvedVersion !== null && activeWorking(d) !== null,
     reviewMonths: d.reviewMonths,
     reviewDue,
     status,
@@ -527,6 +531,10 @@ export async function syncAllStageTasks(db: Db): Promise<void> {
 
 // ---------------------------------------------------------------- реестр
 
+/** Подменю раздела «Документы» (1.11.0). */
+export const DOC_VIEWS = ['work', 'approved'] as const;
+export type DocView = (typeof DOC_VIEWS)[number];
+
 export interface DocListQuery {
   archived: boolean;
   status?: DocStatus;
@@ -542,6 +550,12 @@ export interface DocListQuery {
   review?: boolean;
   /** Порядок: по типам (сначала «Политика») или по алфавиту; без него — сначала «ждёт вас», затем просроченный пересмотр. */
   sort?: DocSort;
+  /** Подменю (1.11.0): «В работе» — рабочие версии на маршруте; «Утверждённые» — реестр действующих документов. */
+  view?: DocView;
+  /** «В работе»: этап 21–24. */
+  stage?: number;
+  /** «Утверждённые»: только на пересмотре (есть рабочая версия). */
+  onReview?: boolean;
   limit: number;
   cursor?: string;
 }
@@ -568,7 +582,9 @@ export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
   const items = all
     .filter((x) => (!q.typeId || x.type.id === q.typeId) && (!q.ownerId || x.owner.id === q.ownerId)
       && (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle))
-      && (!q.review || needsReview(x, today)) && dueMatches(x.reviewDue, today, q.due, q.dueTo))
+      && (!q.review || needsReview(x, today)) && dueMatches(x.reviewDue, today, q.due, q.dueTo)
+      && (q.view !== 'work' || x.stage !== null) && (q.view !== 'approved' || x.approvedVersionNo !== null)
+      && (!q.stage || x.stage === q.stage) && (!q.onReview || x.onReview))
     .sort(q.sort ? docComparator(q.sort)
       // Сначала то, что ждёт вас, затем просроченный пересмотр, дальше по названию.
       : (x, y) => Number(y.waitingForMe) - Number(x.waitingForMe)

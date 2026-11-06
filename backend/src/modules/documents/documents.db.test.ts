@@ -16,6 +16,8 @@ import { notifyPartyDeadlines, notifyTranslationDeadlines } from './notify.js';
 import { listNotifications } from '../notifications/service.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
+import ExcelJS from 'exceljs';
+import { approvedRows, exportApproved } from './export.js';
 import { setIbHead } from '../users/service.js';
 import { updatePortalParam } from '../settings/portal-params.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
@@ -615,6 +617,51 @@ describe('документы: фильтры и порядок реестра', 
       expect(page.facets.owners.map((o) => o.id)).toEqual(expect.arrayContaining([x.owner.id, x.staff.id]));
       const reader = await svc.listDocuments(tx, await svc.accessOf(tx, x.legal.id), { archived: false, limit: 500 });
       expect(reader.facets.owners.some((o) => o.id === x.staff.id)).toBe(false);
+    }));
+});
+
+describe('документы: «В работе» и «Утверждённые» (1.11.0, план — раздел 4)', () => {
+  it('подменю фильтрует рабочие и утверждённые; реестр — редакция, приказ, дни до пересмотра, «на пересмотре»; Excel и журнал; читатель — только видимое', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const draft = await x.create('Черновик реестра');
+      const atParties = await x.create('На согласовании реестра');
+      await moveTo(tx, x, atParties, '22:parties');
+      const signed = await x.create('Утверждённый реестра');
+      await moveTo(tx, x, signed, '24');
+      await attachApproval(tx, x.owner, signed);
+      await sign(tx, x.owner, signed, { orderNo: '15-ИБ', signedOn: SIGNED_ON });
+      const revised = await x.create('Пересмотр реестра');
+      await signAll(tx, x, revised);
+      await svc.reviseDocument(tx, await x.as(x.owner), revised, { version: (await cur(tx, revised)).version, edition: '2.0' });
+      const mine = [draft, atParties, signed, revised];
+      const ids = async (u: User, q: Partial<svc.DocListQuery>) =>
+        (await svc.listDocuments(tx, await svc.accessOf(tx, u.id), { archived: false, limit: 500, sort: 'title', ...q })).items.map((d) => d.id).filter((id) => mine.includes(id));
+
+      expect(await ids(x.staff, { view: 'work' })).toEqual([atParties, revised, draft]);
+      expect(await ids(x.staff, { view: 'work', stage: 22 })).toEqual([atParties]);
+      expect(await ids(x.staff, { view: 'approved' })).toEqual([revised, signed]);
+      expect(await ids(x.staff, { view: 'approved', onReview: true })).toEqual([revised]);
+
+      const rows = await approvedRows(tx, await svc.accessOf(tx, x.staff.id), {}, '2027-10-25');
+      const row = must(rows.find((r) => r.title === 'Утверждённый реестра'));
+      expect(row).toMatchObject({ version: '1 · ред. 1.0', approvedOn: SIGNED_ON, orderNo: '15-ИБ', reviewDue: addMonthsIso(SIGNED_ON, 12), daysLeft: -5, onReview: false });
+      expect(rows.filter((r) => r.onReview).map((r) => r.title)).toEqual(['Пересмотр реестра']);
+
+      const { fileName, buffer } = await exportApproved(tx, await x.as(x.staff), await svc.accessOf(tx, x.staff.id), { onReview: false });
+      expect(fileName).toMatch(/^Утверждённые документы \d{4}-\d{2}-\d{2}\.xlsx$/);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+      const ws = must(wb.getWorksheet('Утверждённые'));
+      expect((ws.getRow(1).values as unknown[]).slice(1)).toEqual(['№', 'Документ', 'Тип', 'Владелец', 'Действующая версия', 'Утверждён', 'Приказ', 'Пересмотр до', 'Дней до пересмотра', 'На пересмотре']);
+      const titles = ws.getColumn(2).values.slice(2);
+      expect(titles).toEqual(expect.arrayContaining(['Утверждённый реестра']));
+      expect(titles).not.toContain('Черновик реестра');
+      expect(await tx.auditLog.count({ where: { action: 'documents.approved_exported', userId: x.staff.id } })).toBe(1);
+
+      // Читатель без ib.work: в реестре утверждённых — те же утверждённые; рабочих версий нет.
+      expect(await ids(x.legal, { view: 'approved' })).toEqual([revised, signed]);
+      expect(await ids(x.legal, { view: 'work' })).toEqual([]);
     }));
 });
 

@@ -6,6 +6,7 @@ import { requireAuth, requirePerm } from '../../plugins/rbac.js';
 import { actorOf } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as svc from './service.js';
+import { exportApproved } from './export.js';
 import * as translations from './translations.js';
 import { DOC_ACTIONS, DOC_DUE_FILTERS, DOC_SORTS, DOC_STATUSES, ROUTE_STATES } from './status.js';
 
@@ -30,6 +31,10 @@ const DocItem = z.object({
   approvedAt: z.string().nullable(),
   /** Дата подписания действующей версии (маршрут 1.2.0); null — утверждена до 1.2.0 или не подписана. */
   signedOn: z.string().nullable(),
+  /** Реестр утверждённых (1.11.0): редакция и номер приказа действующей версии; есть ли рабочая версия (на пересмотре). */
+  approvedEdition: z.string().nullable(),
+  approvedOrderNo: z.string(),
+  onReview: z.boolean(),
   reviewMonths: z.number().int(),
   reviewDue: z.string().nullable(),
   status: Status,
@@ -194,6 +199,9 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
         waiting: z.enum(['me']).optional(),
         review: z.enum(['due']).optional(),
         sort: z.enum(DOC_SORTS).optional(),
+        view: z.enum(svc.DOC_VIEWS).optional(),
+        stage: z.coerce.number().int().min(21).max(24).optional(),
+        onReview: z.enum(['true']).optional(),
         limit: z.coerce.number().int().min(1).max(svc.LIST_LIMIT).default(200),
         cursor: z.string().max(20).optional(),
       }),
@@ -211,7 +219,34 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     return svc.listDocuments(db, await access(request), {
       archived: q.archived === 'true', status: q.status, typeId: q.typeId, ownerId: q.ownerId, due: q.due, dueTo: q.dueTo, q: q.q,
       waiting: q.waiting === 'me', review: q.review === 'due', sort: q.sort, limit: q.limit, cursor: q.cursor,
+      view: q.view, stage: q.stage, onReview: q.onReview === 'true',
     });
+  });
+
+  app.get('/documents/approved.xlsx', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Реестр утверждённых документов в Excel (1.11.0): те же фильтры, что у списка «Утверждённые»; выгрузка — в журнал',
+      querystring: z.object({
+        typeId: z.string().uuid().optional(),
+        ownerId: z.string().uuid().optional(),
+        due: z.enum(DOC_DUE_FILTERS).optional(),
+        dueTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        q: z.string().max(200).optional(),
+        onReview: z.enum(['true']).optional(),
+        sort: z.enum(DOC_SORTS).optional(),
+      }),
+    },
+  }, async (request, reply) => {
+    const q = request.query;
+    const { fileName, buffer } = await exportApproved(db, actorOf(request), await access(request), {
+      typeId: q.typeId, ownerId: q.ownerId, due: q.due, dueTo: q.dueTo, q: q.q, onReview: q.onReview === 'true', sort: q.sort,
+    });
+    return reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="documents-approved.xlsx"; filename*=UTF-8''${encodeURIComponent(fileName)}`)
+      .header('Cache-Control', 'no-store')
+      .send(buffer);
   });
 
   app.get('/documents/summary', {

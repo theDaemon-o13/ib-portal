@@ -32270,6 +32270,9 @@ export interface paths {
                     waiting?: "me";
                     review?: "due";
                     sort?: "type" | "title";
+                    view?: "work" | "approved";
+                    stage?: number;
+                    onReview?: "true";
                     limit?: number;
                     cursor?: string;
                 };
@@ -32303,6 +32306,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -32477,6 +32483,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -32896,6 +32905,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/approved.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Реестр утверждённых документов в Excel (1.11.0): те же фильтры, что у списка «Утверждённые»; выгрузка — в журнал */
+        get: {
+            parameters: {
+                query?: {
+                    typeId?: string;
+                    ownerId?: string;
+                    due?: "overdue" | "d30" | "d90" | "d365";
+                    dueTo?: string;
+                    q?: string;
+                    onReview?: "true";
+                    sort?: "type" | "title";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/summary": {
         parameters: {
             query?: never;
@@ -33062,6 +33113,9 @@ export interface paths {
                             approvedVersionNo: number | null;
                             approvedAt: string | null;
                             signedOn: string | null;
+                            approvedEdition: string | null;
+                            approvedOrderNo: string;
+                            onReview: boolean;
                             reviewMonths: number;
                             reviewDue: string | null;
                             /** @enum {string} */
@@ -33530,6 +33584,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -34002,6 +34059,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -34476,6 +34536,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -34952,6 +35015,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -35423,6 +35489,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -35895,6 +35964,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -36367,6 +36439,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -36837,6 +36912,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -37312,6 +37390,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -37793,6 +37874,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -38261,6 +38345,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -38736,6 +38823,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -39210,6 +39300,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -39683,6 +39776,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -40155,6 +40251,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -40630,6 +40729,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -41111,6 +41213,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -41579,6 +41684,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -42052,6 +42160,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -42525,6 +42636,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -42997,6 +43111,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -43470,6 +43587,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -43941,6 +44061,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -44415,6 +44538,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -44885,6 +45011,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
@@ -45355,6 +45484,9 @@ export interface paths {
                                 approvedVersionNo: number | null;
                                 approvedAt: string | null;
                                 signedOn: string | null;
+                                approvedEdition: string | null;
+                                approvedOrderNo: string;
+                                onReview: boolean;
                                 reviewMonths: number;
                                 reviewDue: string | null;
                                 /** @enum {string} */
