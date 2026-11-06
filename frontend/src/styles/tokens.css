@@ -29,6 +29,9 @@
   --card-bg:rgba(250,253,255,.88); --card-border:rgba(255,255,255,.75); --card-hl:rgba(255,255,255,.65);
   --card-shadow:0 10px 30px rgba(3,24,40,.14); --card-shadow-hover:0 22px 44px rgba(3,24,40,.22);
   --primary-bg:#0B1118; --primary-fg:#FFFFFF;
+  /* Сплошные «опасно» и «готово» с текстом: счётчики, опасная кнопка, тост ошибки, пройденный шаг (AA в обеих темах). */
+  --danger-bg:#B42318; --danger-fg:#FFFFFF; --ok-bg:#16692E; --ok-fg:#FFFFFF;
+  --inp-bg:rgba(255,255,255,.62); --inp-border:rgba(11,28,44,.12); --chip-strong:rgba(255,255,255,.72);
   --accent:#007AFF; --accent-2:#3395FF; --accent-glow:rgba(0,122,255,.45); --accent-soft:rgba(0,122,255,.12);
   --accent-fg:#FFFFFF; --accent-ink:#0058C2; --accent-btn:#0071E3;
   --red:#FF3B30; --red-text:#B42318; --red-bg:rgba(255,59,48,.12);
@@ -67,6 +70,8 @@
   --card-bg:rgba(20,28,36,.62); --card-border:rgba(255,255,255,.09); --card-hl:rgba(255,255,255,.06);
   --card-shadow:0 10px 30px rgba(0,0,0,.45); --card-shadow-hover:0 22px 44px rgba(0,0,0,.6);
   --primary-bg:#F2F6F8; --primary-fg:#000000;
+  --danger-bg:#FF7A70; --danger-fg:#1A0505; --ok-bg:#5BE07F; --ok-fg:#04210E;
+  --inp-bg:rgba(255,255,255,.05); --inp-border:rgba(255,255,255,.10); --chip-strong:rgba(255,255,255,.08);
   --accent:#0A84FF; --accent-2:#409CFF; --accent-glow:rgba(10,132,255,.50); --accent-soft:rgba(10,132,255,.22);
   --accent-fg:#FFFFFF; --accent-ink:#6CB4FF; --accent-btn:#0071E3;
   --red:#FF453A; --red-text:#FF7A70; --red-bg:rgba(255,69,58,.16);
@@ -105,6 +110,8 @@
   --card-bg:rgba(20,28,36,.62); --card-border:rgba(255,255,255,.09); --card-hl:rgba(255,255,255,.06);
   --card-shadow:0 10px 30px rgba(0,0,0,.45); --card-shadow-hover:0 22px 44px rgba(0,0,0,.6);
   --primary-bg:#F2F6F8; --primary-fg:#000000;
+  --danger-bg:#FF7A70; --danger-fg:#1A0505; --ok-bg:#5BE07F; --ok-fg:#04210E;
+  --inp-bg:rgba(255,255,255,.05); --inp-border:rgba(255,255,255,.10); --chip-strong:rgba(255,255,255,.08);
   --accent:#0A84FF; --accent-2:#409CFF; --accent-glow:rgba(10,132,255,.50); --accent-soft:rgba(10,132,255,.22);
   --accent-fg:#FFFFFF; --accent-ink:#6CB4FF; --accent-btn:#0071E3;
   --red:#FF453A; --red-text:#FF7A70; --red-bg:rgba(255,69,58,.16);

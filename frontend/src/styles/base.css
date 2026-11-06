@@ -94,8 +94,8 @@ a{color:var(--accent-ink)}
 .panel-h h3{margin:0;font-family:var(--f-display);font-size:15px;font-weight:600;letter-spacing:-.015em}
 .panel-h .sub{color:var(--muted);font-size:12px;display:block}
 
-.btn.danger{background:var(--crit);color:#FFFFFF}
-.btn.danger:hover{background:var(--crit);filter:brightness(1.08)}
+.btn.danger{background:var(--danger-bg);color:var(--danger-fg)}
+.btn.danger:hover{background:var(--danger-bg);filter:brightness(.94)}
 .btn.danger-t{color:var(--crit)}
 .btn.danger-t:hover{background:var(--crit-soft)}
 
@@ -198,7 +198,7 @@ select.inp{appearance:auto}
 /* уведомление и модальное окно */
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);background:var(--toast-bg);color:var(--toast-fg);padding:10px 18px;border-radius:20px;overflow-wrap:anywhere;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);transform:translate(-50%,16px) scale(.96);opacity:0;transition:transform .3s cubic-bezier(.2,.9,.3,1.2),opacity .2s;pointer-events:none;z-index:50;max-width:min(520px,calc(100vw - 40px));text-align:center}
 .toast.on{transform:translate(-50%,0) scale(1);opacity:1}
-.toast.err{background:var(--crit);color:#FFFFFF;border-radius:16px}
+.toast.err{background:var(--danger-bg);color:var(--danger-fg);border-radius:16px}
 .backdrop{position:fixed;inset:0;background:var(--scrim);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);z-index:30;display:grid;place-items:center;padding:16px}
 .modal{width:min(460px,100%);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;border-radius:var(--r-xl);padding:22px;display:grid;gap:12px;background:var(--sheen),var(--glass-strong);box-shadow:inset 0 1px 0 var(--hl),var(--shadow-lg);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .modal h2{margin:0;font-family:var(--f-display);font-size:19px;font-weight:700}
@@ -393,7 +393,7 @@ table.recs tr.archived td{color:var(--faint)}
 .imp-kpis .bad b{color:var(--crit)}
 
 /* Реестр уязвимостей и автоматизации (этап 4) */
-.ev-dot{display:inline-grid;place-items:center;min-width:16px;height:16px;padding:0 4px;margin-left:6px;border-radius:999px;background:var(--crit);color:#fff;font-size:10px;font-weight:700;vertical-align:1px}
+.ev-dot{display:inline-grid;place-items:center;min-width:16px;height:16px;padding:0 4px;margin-left:6px;border-radius:999px;background:var(--danger-bg);color:var(--danger-fg);font-size:10px;font-weight:700;vertical-align:1px}
 .scan-dates{align-items:end}
 .scan-dates .fd-label{width:180px}
 .rule-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end;padding:8px 0}
@@ -643,10 +643,7 @@ a.btn svg{width:16px;height:16px}
 @media (max-width:700px){.w3,.w4,.w6,.w8{grid-column:span 12}.tile-m{grid-column:auto}}
 
 /* Экран мониторинга: один экран, размеры в единицах окна, ничего не прокручивается. */
-.mon{position:fixed;inset:0;z-index:40;background:
-    radial-gradient(60vw 55vh at 5% 0%,var(--amb-a),transparent 70%),
-    radial-gradient(50vw 50vh at 100% 100%,var(--amb-c),transparent 70%),
-    var(--bg);
+.mon{position:fixed;inset:0;z-index:40;background:var(--page-bg-color);background-image:var(--page-bg);
   color:var(--fg);display:flex;flex-direction:column;gap:1.4vh;overflow:hidden;
   padding:calc(2.2vh + env(safe-area-inset-top,0px)) max(2vw, env(safe-area-inset-right,0px)) calc(1.4vh + env(safe-area-inset-bottom,0px)) max(2vw, env(safe-area-inset-left,0px));
   font-size:clamp(12px, calc(1.25vh + .35vw), 22px)}
@@ -787,7 +784,7 @@ body.mon-idle .mon{cursor:none}
 .bell:hover{background:var(--fill-2)}
 .bell:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .bell svg{width:18px;height:18px}
-.bell-n{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--crit);color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.bell-n{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--danger-bg);color:var(--danger-fg);font-size:10.5px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
 .notif-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
 .notif-h h3{margin:0}
 .notif-tabs{margin:0 16px 8px;width:auto}
@@ -941,7 +938,7 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .vstep .step{width:26px;height:26px;margin-top:0;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;
   border:1.5px dashed var(--line-2);background:var(--solid);color:var(--muted);position:relative;z-index:1}
 .vstep .step svg{width:14px;height:14px}
-.vstep .step.done{border:0;background:var(--low);color:#FFFFFF}
+.vstep .step.done{border:0;background:var(--ok-bg);color:var(--ok-fg)}
 .vstep .step.cur{border:0;background:var(--accent);color:var(--accent-fg);box-shadow:0 0 0 5px var(--accent-soft)}
 .vstep.is-cur{background:linear-gradient(90deg,var(--accent-soft),transparent 85%);border-radius:var(--r-sm);margin:2px -10px;padding:9px 10px}
 .vstep.is-cur::before{left:22px;top:calc(9px + 26px)}

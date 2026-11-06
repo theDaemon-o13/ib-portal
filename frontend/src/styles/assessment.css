@@ -66,8 +66,9 @@ td.sa-delta{text-align:left}
 .sa-donut-l > div{display:flex;gap:10px;align-items:center;font-size:13px}
 .sa-donut-l .nm{min-width:96px}
 .sa-pill{display:inline-flex;align-items:center}
-.sa-pill i{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;color:#FFFFFF}
-.sa-l1{background:var(--crit)}.sa-l2{background:var(--high)}.sa-l3{background:var(--accent)}.sa-l4{background:var(--low)}.sa-l0{background:var(--faint)}
+.sa-pill i{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-style:normal;font-size:11px;font-weight:700}
+/* Уровень — цифрой на мягком фоне тона (1.13.0): текст тона на своём фоне — AA в обеих темах (план, раздел 5). */
+.sa-l1{background:var(--red-bg);color:var(--red-text)}.sa-l2{background:var(--amber-bg);color:var(--amber-text)}.sa-l3{background:var(--blue-bg);color:var(--blue-text)}.sa-l4{background:var(--green-bg);color:var(--green-text)}.sa-l0{background:var(--fill);color:var(--muted)}
 
 .sa-weak{display:grid}
 .sa-weak button{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;border:0;background:none;border-bottom:1px solid var(--line);padding:9px 2px;text-align:left;color:var(--fg);font-size:13px}

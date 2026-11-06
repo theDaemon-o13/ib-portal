@@ -25,6 +25,7 @@ const SCREENS = [
   ['profile', '/profile'],
   ['search', '/search?q=пароль'],
   ['not-found', '/no-such-page'],
+  ['monitor', '/monitor'],
 ].filter(([name]) => !ONLY.length || ONLY.includes(name));
 
 let ui;
