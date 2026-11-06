@@ -56,6 +56,35 @@ const SignatureBlock = Node.create<{ html: () => string }>({
   },
 });
 
+/**
+ * «Выделенный блок» (1.12.0): `<div data-callout="info|warn">` с абзацами — «Просьба» или «Предупреждение».
+ * В письме — таблица с полосой слева (макет backend); санитайзер пропускает только эти два значения.
+ */
+type CalloutKind = 'info' | 'warn';
+const Callout = Node.create({
+  name: 'callout',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return {
+      kind: {
+        default: 'info',
+        parseHTML: (el) => (el.getAttribute('data-callout') === 'warn' ? 'warn' : 'info'),
+        renderHTML: (attrs) => ({ 'data-callout': attrs.kind === 'warn' ? 'warn' : 'info' }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-callout]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes), 0];
+  },
+});
+
+const CALLOUT_TITLE: Record<CalloutKind, string> = { info: 'Просьба:', warn: 'Предупреждение:' };
+
 const isEmptyDoc = (e: Editor) => e.isEmpty && !e.getHTML().includes('<img') && !e.getHTML().includes('data-ib-fragment');
 
 function Btn({ on, title, onClick, children, disabled }: { on?: boolean; title: string; onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
@@ -103,6 +132,7 @@ export default function LetterEditor(p: LetterEditorProps) {
       TableKit.configure({ table: { resizable: false } }),
       Image.configure({ allowBase64: true, inline: false }),
       SignatureBlock.configure({ html: () => sigRef.current }),
+      Callout,
     ],
     editorProps: {
       attributes: { class: 'aw-doc', 'aria-label': p.label, role: 'textbox', 'aria-multiline': 'true' },
@@ -168,6 +198,7 @@ export default function LetterEditor(p: LetterEditorProps) {
       bold: e.isActive('bold'), italic: e.isActive('italic'), underline: e.isActive('underline'), strike: e.isActive('strike'),
       bullet: e.isActive('bulletList'), ordered: e.isActive('orderedList'), quote: e.isActive('blockquote'), link: e.isActive('link'),
       table: e.isActive('table'), undo: e.can().undo(), redo: e.can().redo(),
+      callout: e.isActive('callout') ? ((e.getAttributes('callout').kind as CalloutKind | undefined) ?? 'info') : null,
     } : null),
   });
 
@@ -207,6 +238,21 @@ export default function LetterEditor(p: LetterEditorProps) {
           <Btn title="Изображение из файла" onClick={() => fileInput.current?.click()}>🖼</Btn>
           <Btn title="Таблица 3 × 3 с заголовком" onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>▦</Btn>
           {p.allowSignature !== false && <Btn title="Вставить блок «Подпись ИБ»" onClick={() => c().insertContent({ type: 'ibSignature' }).run()}>✍</Btn>}
+          {p.allowSignature !== false && (['info', 'warn'] as const).map((k) => (
+            <Btn key={k} on={s.callout === k} title={`Выделенный блок «${k === 'info' ? 'Просьба' : 'Предупреждение'}»`}
+              onClick={() => (s.callout
+                ? c().updateAttributes('callout', { kind: k }).run()
+                : c().insertContent({
+                  type: 'callout', attrs: { kind: k },
+                  content: [
+                    { type: 'paragraph', content: [{ type: 'text', marks: [{ type: 'bold' }], text: CALLOUT_TITLE[k] }] },
+                    { type: 'paragraph', content: [{ type: 'text', text: 'Текст блока' }] },
+                  ],
+                }).run())}>
+              <span className={`aw-callout-ico ${k}`} aria-hidden="true">▍</span>{k === 'info' ? 'Просьба' : 'Внимание'}
+            </Btn>
+          ))}
+          {s.callout && <Btn title="Убрать выделенный блок (текст останется)" onClick={() => c().lift('callout').run()}>убрать блок</Btn>}
           <span className="aw-sep" />
           <Btn title="Отменить" disabled={!s.undo} onClick={() => c().undo().run()}>↶</Btn>
           <Btn title="Повторить" disabled={!s.redo} onClick={() => c().redo().run()}>↷</Btn>

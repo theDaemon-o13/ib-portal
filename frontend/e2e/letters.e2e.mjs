@@ -213,25 +213,57 @@ describe('Учебные письма: от правила до «Отправл
     await ui.waitFor(`${statusChip} === 'Утверждено'`, 'утверждено');
     assert.equal(await ui.evaluate(`[...${panel}.querySelectorAll('[data-testid=letter-mark]')].length`), 0);
 
-    // Исполнитель отмечает отправку: дата сегодня, аудитория.
+    // 1.12.0: исполнитель смотрит письмо «как в почте» и скачивает .eml для Outlook.
     await loginAs(users.staff);
     await openLetter(letterId);
+    await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((b) => b.textContent === 'Экспорт')`, 'вкладка «Экспорт»');
+    const frame = `${panel}.querySelector('[data-testid=mail-preview] iframe')`;
+    await ui.waitFor(`!!${frame}?.getAttribute('src')`, 'предпросмотр как в почте');
+    assert.equal(await ui.evaluate(`${frame}.getAttribute('sandbox')`), '', 'iframe без скриптов');
+    const doc = await ui.evaluate(`fetch(${frame}.getAttribute('src')).then(async (r) => ({ csp: r.headers.get('content-security-policy'), body: await r.text() }))`);
+    assert.match(doc.csp, /^sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-ancestors 'self'$/);
+    assert.match(doc.body, /background:#1E3A8A/);
+    assert.match(doc.body, /href="#tj"/, 'RU+TJ — ссылка на таджикскую часть');
+    assert.match(await ui.text(`${panel}.querySelector('[data-testid=mail-preview-subject]')`), /звонок «службы безопасности» \| Эҳтиёт/);
+    await ui.click(`[...${panel}.querySelectorAll('[data-testid=mail-preview] .filters button')].find((b) => b.textContent === 'Телефон')`, 'ширина «Телефон»');
+    await ui.waitFor(`${frame}?.style.width === '375px'`, 'предпросмотр 375 px');
+    await ui.click($.button('Скачать для Outlook (.eml)', panel));
+    await ui.waitFor(`(document.querySelector('.toast.on')?.textContent ?? '').includes('.eml скачан')`, 'файл скачан');
+    await ui.waitFor(`!!${panel}.querySelector('[data-testid=after-download]')`, 'подсказка «Отметить отправленным»');
+    const exported = await api('GET', `/api/v1/awareness/letters/${letterId}/exports`);
+    assert.equal(exported.items.length, 1, 'выгрузка сохранена');
+    assert.equal(exported.items[0].langs, 'both');
+    assert.equal((await api('GET', `/api/v1/awareness/letters/${letterId}`)).events.filter((e) => e.action === 'sent').length, 0, 'выгрузка — не отправка');
+
+    // Отметка: дата сегодня, аудитория, получатели; «Файл письма» — последняя выгрузка.
     await ui.click($.button('Отметить отправленным', panel));
     const dlg = `document.querySelector('[data-testid=send-dialog]')`;
-    await ui.waitFor(`!!${dlg}`, 'окно отправки');
+    await ui.waitFor(`!!${dlg}?.querySelector('[data-testid=send-file] option')?.textContent.startsWith('Последняя выгрузка:')`, 'окно отправки с файлом письма');
     await ui.type($.field('Аудитория', dlg), 'Все сотрудники');
+    await ui.type($.field('Получатели', dlg), `all-${RUN}@example.org`);
     await ui.click(`${dlg}.querySelector('button[type=submit]')`, 'Отметить');
     await ui.waitFor(`${statusChip} === 'Отправлено'`, 'отправлено');
 
     // Заморожено: правки нет, редактор только для чтения, «Создать копию» есть.
+    await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((b) => b.textContent === 'Письмо')`, 'вкладка «Письмо»');
+    await ui.waitFor(`!!${visibleDoc}`, 'редактор письма');
     assert.equal(await ui.evaluate(`!!${$.button('Сохранить', panel)}`), false);
     assert.equal(await ui.evaluate(`${visibleDoc}.getAttribute('contenteditable')`), 'false');
     assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /отправлено — его нельзя изменить/);
 
-    // Запись «Рассылок»: «Письмо» ссылкой, «Согласование» — «Согласовано».
+    // Запись «Рассылок»: «Письмо» ссылкой, «Согласование» — «Согласовано»; 1.12.0 — шаблон, языки, получатели, файл.
     const sent = await api('GET', `/api/v1/awareness/letters/${letterId}`);
-    const rec = sent.events.find((e) => e.action === 'sent').record;
+    const sentEvent = sent.events.find((e) => e.action === 'sent');
+    const rec = sentEvent.record;
     assert.ok(rec, 'запись «Рассылок» в событии отправки');
+    assert.equal(sentEvent.langs, 'both');
+    assert.equal(sentEvent.recipients, `all-${RUN}@example.org`);
+    assert.equal(sentEvent.file?.name, exported.items[0].fileName, 'файл письма — скачанная выгрузка');
+    const record = await api('GET', `/api/v1/register-records/${rec.id}`);
+    const shown = Object.values(record.display).join(' | ');
+    assert.ok(shown.includes(`${RUN} Шаблон звонков`), `«Шаблон» в записи: ${shown}`);
+    assert.ok(shown.includes('RU+TJ'), '«Языки» в записи');
+    assert.ok(shown.includes(exported.items[0].fileName), '«Файл письма» в записи');
     ids.records.add(rec.id);
     await ui.goto(`/registers/${rec.registerId}/records?n=${++navSeq}`);
     const row = `[...document.querySelectorAll('tbody tr')].find((tr) => tr.textContent.includes('звонок «службы безопасности»'))`;
@@ -250,26 +282,27 @@ describe('Учебные письма: от правила до «Отправл
     assert.equal(t2.origin.letterSent, true);
   });
 
-  it('экспорт .eml: X-Unsent, тема RU / TJ по RFC 2047, multipart/alternative, текст с подписью', async () => {
+  it('экспорт .eml: X-Unsent, тема RU | TJ по RFC 2047, multipart/alternative, текст с подписью; отправленный — тот же файл', async () => {
     await loginAs(users.staff);
     const letter = (await api('GET', `/api/v1/awareness/letters?scope=all&q=${encodeURIComponent(`${RUN} Ежегодная`)}`)).items.find((l) => l.status === 'sent');
     assert.ok(letter, 'отправленное письмо прогона');
     await openLetter(letter.id);
     await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((b) => b.textContent === 'Экспорт')`, 'вкладка «Экспорт»');
-    await ui.waitFor(`!!${panel}.querySelector('[data-testid=export-preview]')`, 'предпросмотр');
+    await ui.waitFor(`!!${panel}.querySelector('[data-testid=mail-preview] iframe')`, 'предпросмотр');
     await ui.click(`[...${panel}.querySelectorAll('[data-testid=letter-export] .filters button')].find((b) => b.textContent === 'RU + TJ')`, 'RU + TJ');
-    await ui.click($.button('Скачать .eml', panel));
+    await ui.click($.button('Скачать для Outlook (.eml)', panel));
     await ui.waitFor(`(document.querySelector('.toast.on')?.textContent ?? '').includes('.eml скачан')`, 'файл скачан');
 
     // Содержимое — тот же файл, что скачал браузер.
     const eml = await ui.evaluate(`fetch('/api/v1/awareness/letters/${letter.id}/export.eml?lang=both').then(async (r) => ({ type: r.headers.get('content-type'), name: r.headers.get('content-disposition'), body: await r.text() }))`);
     assert.match(eml.type, /message\/rfc822/);
-    assert.match(eml.name, /filename\*=UTF-8''/);
+    assert.match(eml.name, /^attachment; .*filename\*=UTF-8''.*_RU-TJ_\d{4}-\d{2}-\d{2}\.eml/);
     const [head, ...rest] = eml.body.split('\r\n\r\n');
     assert.match(head, /^MIME-Version: 1\.0\r\nX-Unsent: 1\r\nSubject: =\?UTF-8\?B\?/);
     assert.doesNotMatch(head, /^(From|To|Date):/m);
     const subject = [...head.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g)].map((m) => Buffer.from(m[1], 'base64').toString('utf8')).join('');
-    assert.equal(subject, 'Осторожно: звонок «службы безопасности» / Эҳтиёт: занг аз «хадамоти амният»');
+    assert.equal(subject, 'Осторожно: звонок «службы безопасности» | Эҳтиёт: занг аз «хадамоти амният»');
+    assert.match(head, /Content-Language: ru, tg/);
     assert.match(head, /Content-Type: multipart\/alternative; boundary=/);
     const body = rest.join('\r\n\r\n');
     const plain = Buffer.from(body.split('Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n')[1].split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString('utf8');
@@ -286,13 +319,15 @@ describe('Учебные письма: права', () => {
   it('«Подпись ИБ» — только при settings.manage и ib.work; без ib.work и служебной учётной записи раздела нет', async () => {
     await loginAs(admin);
     await ui.goto(`/settings/signature?n=${++navSeq}`);
-    await ui.waitFor(`!!document.querySelector('[data-testid=signature-settings]')`, 'вкладка «Подпись ИБ» у администратора');
+    await ui.waitFor(`!!document.querySelector('[data-testid=signature-settings]') && !!document.querySelector('[data-testid=layout-settings]')`, 'вкладка «Оформление писем» у администратора');
+    assert.equal(await ui.evaluate(`[...document.querySelectorAll('[role=tablist] a, [role=tablist] button')].some((t) => t.textContent === 'Оформление писем')`), true);
 
     await loginAs(users.staff);
     await ui.goto(`/settings/catalogs?n=${++navSeq}`);
     await ui.waitFor(`!!document.querySelector('[role=tablist]')`, 'настройки сотрудника');
-    assert.equal(await ui.evaluate(`[...document.querySelectorAll('[role=tablist] a, [role=tablist] button')].some((t) => t.textContent === 'Подпись ИБ')`), false, 'у сотрудника нет «Подписи ИБ»');
+    assert.equal(await ui.evaluate(`[...document.querySelectorAll('[role=tablist] a, [role=tablist] button')].some((t) => t.textContent === 'Оформление писем')`), false, 'у сотрудника нет «Оформления писем»');
     assert.equal((await status('PUT', '/api/v1/awareness/signature')).status >= 400, true);
+    assert.equal((await status('PUT', '/api/v1/awareness/layout')).status >= 400, true);
 
     for (const u of [users.reader, users.service]) {
       await loginAs(u);
@@ -305,7 +340,7 @@ describe('Учебные письма: права', () => {
         assert.match(r.body, /SERVICE_ACCOUNT/);
         await ui.goto(`/settings/catalogs?n=${++navSeq}`);
         await ui.waitFor(`!!document.querySelector('[role=tablist]')`, 'настройки служебной учётной записи');
-        assert.equal(await ui.evaluate(`[...document.querySelectorAll('[role=tablist] a, [role=tablist] button')].some((t) => t.textContent === 'Подпись ИБ')`), false, 'у служебной нет «Подписи ИБ»');
+        assert.equal(await ui.evaluate(`[...document.querySelectorAll('[role=tablist] a, [role=tablist] button')].some((t) => t.textContent === 'Оформление писем')`), false, 'у служебной нет «Оформления писем»');
       }
     }
   });

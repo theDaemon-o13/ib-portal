@@ -2,6 +2,7 @@
 // вернуть — пользователь с отметкой «Является начальником ИБ» (проверяет flow.ts). Шаблоны — ib.work; «Подпись ИБ»
 // читает ib.work (редактор и предпросмотр), правит settings.manage и ib.work. Модуль вне группы open (app.ts):
 // служебной учётной записи — 403 SERVICE_ACCOUNT.
+import type { FastifyReply } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
@@ -20,6 +21,8 @@ import { CadenceSchema, LEAD_DAYS } from './cadence.js';
 import type { FileStore } from '../../lib/file-store.js';
 import { fileDisposition } from './export/eml.js';
 import * as layout from './layout.service.js';
+import { PREVIEW_CSP, putPreview, takePreview } from './preview-store.js';
+import { notFound } from '../../lib/errors.js';
 
 const tags = ['awareness-letters'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 413: ErrorResponse };
@@ -400,6 +403,37 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string; st
     },
   }, async (request) => exporter.exportHtml(db, store, actorOf(request), request.params.id, request.query));
 
+  app.get('/awareness/letters/:id/export/preview', {
+    preHandler: work,
+    schema: {
+      tags, summary: `«Предпросмотр как в почте» сохранённой версии: HTML, который уйдёт в .eml (изображения data:); не экспорт, без журнала. ${exportErrors}`,
+      params: IdParams, querystring: ExportQuery,
+      response: { 200: z.object({ subject: z.string(), html: z.string(), versionNo: z.number().int() }), ...errors },
+    },
+  }, async (request) => exporter.previewVersion(db, store, request.params.id, request.query));
+
+  /** Документ предпросмотра для iframe: свой CSP (стили письма inline), без скриптов, только в окне портала. */
+  const sendPreview = (reply: FastifyReply, html: string) => reply
+    .header('Content-Type', 'text/html; charset=utf-8')
+    .header('Content-Security-Policy', PREVIEW_CSP)
+    .header('X-Content-Type-Options', 'nosniff')
+    .header('Cache-Control', 'no-store')
+    .send(html);
+
+  app.get('/awareness/letters/:id/export/preview.html', {
+    preHandler: work,
+    schema: { tags, summary: 'Документ «Предпросмотр как в почте» сохранённой версии для iframe (CSP sandbox, стили inline)', params: IdParams, querystring: ExportQuery },
+  }, async (request, reply) => sendPreview(reply, (await exporter.previewVersion(db, store, request.params.id, request.query)).html));
+
+  app.get('/awareness/mail-preview/:token', {
+    preHandler: work,
+    schema: { tags, summary: 'Документ предпросмотра несохранённого содержимого (ключ из POST /awareness/mail-preview, 10 минут, только автор)', params: z.object({ token: z.string().max(64) }) },
+  }, async (request, reply) => {
+    const html = takePreview(actorOf(request).id, request.params.token);
+    if (html === null) throw notFound('Предпросмотр');
+    return sendPreview(reply, html);
+  });
+
   app.get('/awareness/letters/:id/exports', {
     preHandler: work,
     schema: {
@@ -426,9 +460,12 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string; st
       summary: '«Предпросмотр как в почте» из несохранённого содержимого письма или шаблона: тот же HTML, что уйдёт в .eml '
         + '(изображения — data:). Санитайзер и лимиты как при сохранении; ничего не сохраняется',
       body: ContentInput.extend({ kind: Kind, lang: z.enum(['ru', 'tj', 'both']) }),
-      response: { 200: z.object({ subject: z.string(), html: z.string(), warnings: z.array(z.string()), removed: z.array(z.string()) }), ...errors },
+      response: { 200: z.object({ subject: z.string(), html: z.string(), token: z.string(), warnings: z.array(z.string()), removed: z.array(z.string()) }), ...errors },
     },
-  }, async (request) => exporter.previewMail(db, store, request.body, deps));
+  }, async (request) => {
+    const r = await exporter.previewMail(db, store, request.body, deps);
+    return { ...r, token: putPreview(actorOf(request).id, r.html) };
+  });
 
   // ———————————————————————————————————————— «Оформление писем» (1.12.0, раздел 22)
 

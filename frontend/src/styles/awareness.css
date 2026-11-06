@@ -123,3 +123,17 @@
 /* Дашборд: «Ближайшая рассылка» */
 .aw-next{font-size:15px;font-weight:600;overflow-wrap:anywhere}
 .aw-next.tone-crit{color:var(--crit)}
+
+/* 1.12.0: выделенный блок в редакторе и просмотре версий — полоса слева и мягкий фон (в письме — таблица макета). */
+.aw-doc div[data-callout],.aw-html div[data-callout],.aw-preview div[data-callout],.aw-print div[data-callout]{margin:4px 0 12px;padding:10px 14px;border-left:4px solid var(--accent);border-radius:0 var(--r-xs) var(--r-xs) 0;background:var(--accent-soft)}
+.aw-doc div[data-callout="warn"],.aw-html div[data-callout="warn"],.aw-preview div[data-callout="warn"],.aw-print div[data-callout="warn"]{border-left-color:var(--crit);background:var(--crit-soft)}
+.aw-doc div[data-callout] p:last-child,.aw-html div[data-callout] p:last-child{margin-bottom:0}
+.aw-callout-ico{font-weight:700;margin-right:2px;color:var(--accent-ink)}
+.aw-callout-ico.warn{color:var(--crit)}
+.aw-head-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+@media (max-width:640px){.aw-head-fields{grid-template-columns:minmax(0,1fr)}}
+/* «Предпросмотр как в почте»: документ письма в iframe на светлом фоне, ширина — переключатель. */
+.aw-mail-preview{display:grid;gap:10px;min-width:0}
+.aw-mail-frame-wrap{overflow-x:auto;padding:8px;border-radius:var(--r-sm);background:#F1F5F9;box-shadow:inset 0 0 0 1px var(--line-2)}
+.aw-mail-frame{display:block;max-width:none;height:720px;margin:0 auto;border:0;background:#F1F5F9}
+.aw-mail-subject{overflow-wrap:anywhere}

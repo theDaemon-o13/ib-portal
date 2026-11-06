@@ -165,5 +165,20 @@ describe('экспорт учебного письма', () => {
       expect([denied.statusCode, denied.json().error.code]).toEqual([403, 'SERVICE_ACCOUNT']);
       const layoutDenied = await app.inject({ url: '/api/v1/awareness/layout', headers: { cookie: await login(svc.login) } });
       expect(layoutDenied.statusCode).toBe(403);
+      // Предпросмотр — отдельный документ со своим CSP: стили письма inline, без скриптов, только в окне портала.
+      const doc = await app.inject({ url: `/api/v1/awareness/letters/${letter.id}/export/preview.html?lang=both`, headers: { cookie: await login(staff.login) } });
+      expect(doc.statusCode).toBe(200);
+      expect(doc.headers['content-security-policy']).toBe("sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-ancestors 'self'");
+      expect(doc.body).toContain('background:#1E3A8A');
+      const other = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
+      const posted = await app.inject({
+        method: 'POST', url: '/api/v1/awareness/mail-preview', headers: { cookie: await login(staff.login), origin: TEST_PORTAL_URL },
+        payload: { ...content, kind: 'planned', lang: 'ru' },
+      });
+      const token = (posted.json() as { token: string }).token;
+      const mine = await app.inject({ url: `/api/v1/awareness/mail-preview/${token}`, headers: { cookie: await login(staff.login) } });
+      expect([mine.statusCode, mine.headers['content-security-policy']?.startsWith('sandbox;')]).toEqual([200, true]);
+      const foreign = await app.inject({ url: `/api/v1/awareness/mail-preview/${token}`, headers: { cookie: await login(other.login) } });
+      expect(foreign.statusCode).toBe(404);
     }));
 });

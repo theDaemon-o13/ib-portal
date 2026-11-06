@@ -10,8 +10,19 @@ export interface Texts {
   subjectTj: string;
   htmlRu: string;
   htmlTj: string;
+  /** Шапка письма (1.12.0): «Заголовок» и «Метка» языка, «Тема общая» RU+TJ; пусто — по умолчанию. */
+  headerRu: string;
+  headerTj: string;
+  labelRu: string;
+  labelTj: string;
+  subjectBoth: string;
 }
-export const EMPTY_TEXTS: Texts = { subjectRu: '', subjectTj: '', htmlRu: '', htmlTj: '' };
+export const HEAD_KEYS = ['headerRu', 'headerTj', 'labelRu', 'labelTj', 'subjectBoth'] as const;
+export const EMPTY_TEXTS: Texts = { subjectRu: '', subjectTj: '', htmlRu: '', htmlTj: '', headerRu: '', headerTj: '', labelRu: '', labelTj: '', subjectBoth: '' };
+export const sameTexts = (a: Texts, b: Texts) =>
+  a.subjectRu === b.subjectRu && a.subjectTj === b.subjectTj && a.htmlRu === b.htmlRu && a.htmlTj === b.htmlTj && HEAD_KEYS.every((k) => a[k] === b[k]);
+/** Тексты из ответа API: у прежних писем и шаблонов поля шапки пустые. */
+export const textsOf = (c: Partial<Texts> & Pick<Texts, 'subjectRu' | 'subjectTj' | 'htmlRu' | 'htmlTj'>): Texts => ({ ...EMPTY_TEXTS, ...c });
 export interface Limits { maxImageKb: number; maxLetterKb: number; warnLetterKb: number }
 
 export function EditorFallback() {
@@ -40,11 +51,16 @@ export function BilingualFields(p: {
   onWarning: (text: string) => void;
   /** Подсказка под темой: в шаблоне — про переменные. */
   subjectHint?: string;
+  /** Метки по умолчанию из «Оформления писем» — подсказка в пустом поле. */
+  defaultLabels?: { ru: string; tj: string };
 }) {
   const [lang, setLang] = useState<'ru' | 'tj'>('ru');
   const bytes = letterBytes(p.value.htmlRu, p.value.htmlTj);
   const size = sizeWarning(bytes, p.limits);
   const subjectKey = lang === 'ru' ? 'subjectRu' : 'subjectTj';
+  const headerKey = lang === 'ru' ? 'headerRu' : 'headerTj';
+  const labelKey = lang === 'ru' ? 'labelRu' : 'labelTj';
+  const L = lang === 'ru' ? 'RU' : 'TJ';
   return (
     <div className="aw-bilingual">
       <div className="row aw-langs" role="tablist" aria-label="Язык письма">
@@ -67,6 +83,22 @@ export function BilingualFields(p: {
         <input className="inp" maxLength={300} value={p.value[subjectKey]} disabled={p.readOnly}
           onChange={(e) => p.onChange({ ...p.value, [subjectKey]: e.target.value })} />
         {p.subjectHint && <span className="hint">{p.subjectHint}</span>}
+      </label>
+      <div className="aw-head-fields">
+        <label>Заголовок в шапке ({L})
+          <input className="inp" maxLength={300} value={p.value[headerKey]} disabled={p.readOnly} placeholder={p.value[subjectKey] || 'По умолчанию — тема'}
+            onChange={(e) => p.onChange({ ...p.value, [headerKey]: e.target.value })} />
+        </label>
+        <label>Метка ({L})
+          <input className="inp" maxLength={300} value={p.value[labelKey]} disabled={p.readOnly} placeholder={p.defaultLabels?.[lang] ?? 'По умолчанию — из «Оформления писем»'}
+            onChange={(e) => p.onChange({ ...p.value, [labelKey]: e.target.value })} />
+        </label>
+      </div>
+      <label className="aw-subject">Тема общая (RU+TJ)
+        <input className="inp" maxLength={610} value={p.value.subjectBoth} disabled={p.readOnly}
+          placeholder={[p.value.subjectRu.trim(), p.value.subjectTj.trim()].filter(Boolean).join(' | ') || 'Тема RU | Тема TJ'}
+          onChange={(e) => p.onChange({ ...p.value, subjectBoth: e.target.value })} />
+        <span className="hint">Тема письма, когда отправляются оба языка. Пусто — «тема RU | тема TJ».</span>
       </label>
       {/* Оба редактора живут одновременно (скрыт неактивный): история правок и курсор не теряются при переключении. */}
       {LANGS.map((l) => (

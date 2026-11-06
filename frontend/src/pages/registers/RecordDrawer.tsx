@@ -17,6 +17,7 @@ import { rkeys } from './keys';
 import { useMe } from '../../auth/useMe';
 import { LetterRefLink } from '../awareness/LetterRef';
 import { MAILINGS_KEY } from '../awareness/logic';
+import { awarenessApi } from '../../api/awareness';
 
 const LONG = /описан|коммент|мер|примечан/i;
 // Лимиты — как на backend (lib/field-settings.ts).
@@ -140,7 +141,8 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
         ? <AutoTextarea id={id} value={v} disabled={disabled} maxLength={TEXT_MAX_MULTILINE} onChange={(e) => set(e.target.value)} />
         : LONG.test(f.label)
           ? <textarea id={id} className="inp" value={v} disabled={disabled} maxLength={TEXT_MAX} onChange={(e) => set(e.target.value)} />
-          : <input id={id} className="inp" value={v} disabled={disabled} maxLength={TEXT_MAX} required={f.isTitle} onChange={(e) => set(e.target.value)} />;
+          : <input id={id} className="inp" value={v} disabled={disabled} maxLength={TEXT_MAX} required={f.isTitle} onChange={(e) => set(e.target.value)}
+            list={reg.systemKey === MAILINGS_KEY && f.systemKey === 'template' ? 'aw-template-titles' : undefined} />;
   }
   const wide = f.isTitle || f.type === 'decision' || f.type === 'calc' || f.type === 'file' || f.type === 'link'
     || (f.type === 'text' && (!!f.settings.text?.multiline || LONG.test(f.label)));
@@ -166,6 +168,8 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
       {f.settings.hint && <small className="field-hint">{f.settings.hint}</small>}
       {/* «Рассылки» (1.9.0): «№ N, версия V» существующего письма — ссылка на его карточку. */}
       {reg.systemKey === MAILINGS_KEY && f.systemKey === 'letter' && v && <LetterRefLink text={v} />}
+      {/* «Рассылки» (1.12.0): ручной ввод «Шаблона» — подсказки из названий шаблонов писем. */}
+      {reg.systemKey === MAILINGS_KEY && f.systemKey === 'template' && !disabled && <TemplateTitles />}
     </label>
   );
 }
@@ -415,5 +419,16 @@ export function RecordDrawer({ reg, recordId, canEdit, canDelete, onClose, onCre
             </div>
           )}
     </DetailPanel>
+  );
+}
+
+/** Названия шаблонов учебных писем — подсказки поля «Шаблон» в «Рассылках» (и «Без шаблона»). */
+function TemplateTitles() {
+  const q = useQuery({ queryKey: ['awareness', 'templates', 'titles'], queryFn: () => awarenessApi.templates({ scope: 'all' }), staleTime: 60_000 });
+  return (
+    <datalist id="aw-template-titles">
+      <option value="Без шаблона" />
+      {q.data?.items.map((t) => <option key={t.id} value={t.title} />)}
+    </datalist>
   );
 }

@@ -175,6 +175,13 @@ export async function listExports(db: Db, letterId: string) {
   };
 }
 
+/** Предпросмотр сохранённой версии «как в почте» — тот же HTML, что .eml (изображения data:); не экспорт, без журнала. */
+export async function previewVersion(db: Db, store: FileStore | undefined, id: string, q: { lang: ExportLang; version?: number }) {
+  const p = await pick(db, id, q.lang, q.version);
+  const mail = await compose(db, store, p, q.lang);
+  return { subject: mail.subject, html: mail.html, versionNo: p.version.no };
+}
+
 /** «Скопировать с оформлением»: HTML макета (изображения data:) и простой текст для буфера обмена. */
 export async function exportHtml(db: Db, store: FileStore | undefined, actor: Actor, id: string, q: { lang: ExportLang; version?: number }) {
   const p = await pick(db, id, q.lang, q.version);

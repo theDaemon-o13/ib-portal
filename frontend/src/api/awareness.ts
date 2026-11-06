@@ -35,6 +35,13 @@ export type TemplateBody = Body<'/api/v1/awareness/templates', 'post'>;
 export type FromTemplateBody = Body<'/api/v1/awareness/templates/{id}/letter', 'post'>;
 export type Signature = Res<'/api/v1/awareness/signature', 'get'>;
 export type SignatureSave = Res<'/api/v1/awareness/signature', 'put'>;
+export type Layout = Res<'/api/v1/awareness/layout', 'get'>;
+export type LayoutBody = Body<'/api/v1/awareness/layout', 'put'>;
+export type MailPreviewBody = Body<'/api/v1/awareness/mail-preview', 'post'>;
+export type MailPreview = Res<'/api/v1/awareness/mail-preview', 'post'>;
+export type LetterExports = Res<'/api/v1/awareness/letters/{id}/exports', 'get'>;
+export type LetterExportItem = LetterExports['items'][number];
+export type SendBody = Body<'/api/v1/awareness/letters/{id}/send', 'post'>;
 
 export type RulePage = Res<'/api/v1/awareness/rules', 'get'>;
 export type RuleItem = RulePage['items'][number];
@@ -66,7 +73,7 @@ export const awarenessApi = {
   approve: (id: string, version: number, comment?: string) =>
     request<Letter>('POST', `/api/v1/awareness/letters/${id}/approve`, { version, ...(comment ? { comment } : {}) }),
   returnLetter: (id: string, version: number, comment: string) => request<Letter>('POST', `/api/v1/awareness/letters/${id}/return`, { version, comment }),
-  send: (id: string, body: { version: number; sentOn: string; audience: string; comment?: string }) =>
+  send: (id: string, body: SendBody) =>
     request<LetterSent>('POST', `/api/v1/awareness/letters/${id}/send`, body),
   copy: (id: string) => request<Letter>('POST', `/api/v1/awareness/letters/${id}/copy`),
   archive: (id: string, version: number, archived: boolean) =>
@@ -82,7 +89,12 @@ export const awarenessApi = {
     request<ExportHtml>('GET', `/api/v1/awareness/letters/${id}/export/html${qs({ lang, version })}`),
   exportPrint: (id: string, lang: ExportLang, version?: number) =>
     request<ExportPrint>('GET', `/api/v1/awareness/letters/${id}/export/print${qs({ lang, version })}`),
-  /** .eml файлом: имя — из Content-Disposition (название письма). */
+  exports: (id: string) => request<LetterExports>('GET', `/api/v1/awareness/letters/${id}/exports`),
+  versionPreview: (id: string, lang: ExportLang, version?: number) =>
+    request<{ subject: string; html: string; versionNo: number }>('GET', `/api/v1/awareness/letters/${id}/export/preview${qs({ lang, version })}`),
+  /** «Предпросмотр как в почте» из несохранённого содержимого (1.12.0). */
+  mailPreview: (body: MailPreviewBody) => request<MailPreview>('POST', '/api/v1/awareness/mail-preview', body),
+  /** .eml файлом: имя — из Content-Disposition («Тема_RU-TJ_дата.eml»). */
   exportEml: async (id: string, lang: ExportLang, version?: number): Promise<{ blob: Blob; fileName: string }> => {
     const res = await fetch(`/api/v1/awareness/letters/${id}/export.eml${qs({ lang, version })}`, { credentials: 'same-origin' });
     if (!res.ok) {
@@ -102,6 +114,8 @@ export const awarenessApi = {
   fromTemplate: (id: string, body: FromTemplateBody) => request<LetterSave>('POST', `/api/v1/awareness/templates/${id}/letter`, body),
   signature: () => request<Signature>('GET', '/api/v1/awareness/signature'),
   saveSignature: (body: { htmlRu: string; htmlTj: string; version: number }) => request<SignatureSave>('PUT', '/api/v1/awareness/signature', body),
+  layout: () => request<Layout>('GET', '/api/v1/awareness/layout'),
+  saveLayout: (body: LayoutBody) => request<Layout>('PUT', '/api/v1/awareness/layout', body),
 
   // ——— расписание
   rules: (scope: Scope = 'active') => request<RulePage>('GET', `/api/v1/awareness/rules${qs({ scope })}`),
@@ -123,6 +137,8 @@ export const awarenessKeys = {
   templates: ['awareness', 'templates'] as const,
   template: (id: string) => ['awareness', 'template', id] as const,
   signature: ['awareness', 'signature'] as const,
+  layout: ['awareness', 'layout'] as const,
+  exports: (id: string) => ['awareness', 'exports', id] as const,
   rules: ['awareness', 'rules'] as const,
   rule: (id: string) => ['awareness', 'rule', id] as const,
   roles: ['awareness', 'roles'] as const,

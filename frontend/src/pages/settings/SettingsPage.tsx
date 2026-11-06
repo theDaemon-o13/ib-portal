@@ -12,6 +12,7 @@ import { PresentationSettings } from './PresentationSettings';
 import { RolesMatrix } from './RolesMatrix';
 import { TrashTab } from './TrashTab';
 import { UsersTable } from './UsersTable';
+import { LayoutSettings } from '../awareness/LayoutSettings';
 import { SignatureSettings } from '../awareness/SignatureSettings';
 import { keys } from './useAction';
 
@@ -23,8 +24,9 @@ const TABS = [
   { key: 'monitor', title: 'Экран мониторинга', perms: ['settings.manage', 'ib.work'] },
   // Подпись в презентации самооценки (этап Д5): только право «Настройки».
   { key: 'presentation', title: 'Презентация', perm: 'settings.manage' },
-  // «Подпись ИБ» учебных писем (1.9.0): содержимое ИБ, а не настройка портала — settings.manage и ib.work.
-  { key: 'signature', title: 'Подпись ИБ', perms: ['settings.manage', 'ib.work'] },
+  // «Оформление писем» (1.12.0) с «Подписью ИБ» (1.9.0): содержимое ИБ, а не настройка портала — settings.manage и ib.work.
+  // Ключ вкладки прежний — ссылки «Настройки → Подпись ИБ» продолжают работать.
+  { key: 'signature', title: 'Оформление писем', perms: ['settings.manage', 'ib.work'] },
   // Параметры портала (релиз 1.6.0): роль, а не право; решает backend.
   { key: 'params', title: 'Параметры портала', role: 'Супер-администратор' },
   // Корзина (релиз 1.6.1): просмотр — сотрудник ИБ, восстановление — супер-администратор.
@@ -125,7 +127,7 @@ export function SettingsPage() {
       )}
       {tab === 'monitor' && <MonitorSlides />}
       {tab === 'presentation' && <PresentationSettings />}
-      {tab === 'signature' && <SignatureSettings />}
+      {tab === 'signature' && <><LayoutSettings /><SignatureSettings /></>}
       {tab === 'params' && <PortalParams />}
       {tab === 'trash' && <TrashTab canRestore={me.roles.includes('Супер-администратор')} />}
     </>

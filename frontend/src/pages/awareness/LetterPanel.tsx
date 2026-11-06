@@ -5,16 +5,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
-import { awarenessApi, awarenessKeys, type Letter, type LetterKind } from '../../api/awareness';
+import { awarenessApi, awarenessKeys, type ExportLang, type Letter, type LetterKind } from '../../api/awareness';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog, type ConfirmAsk } from '../settings/ConfirmDialog';
 import { todayLocal } from '../tasks/logic';
-import { BilingualFields, EMPTY_TEXTS, type Texts } from './editor';
+import { BilingualFields, EMPTY_TEXTS, sameTexts, textsOf, type Texts } from './editor';
 import { FormDialog } from './FormDialog';
 import { EVENT_NAME, KIND_NAME, letterMarks, ru, ruDateTime, STATUS_NAME, STATUS_TONE, withoutApprovalComment } from './logic';
 import { LetterVersions } from './LetterVersions';
 import { LetterExport } from './LetterExport';
+import { MailPreview } from './MailPreview';
 
 interface Draft {
   title: string;
@@ -23,18 +24,23 @@ interface Draft {
   texts: Texts;
 }
 
-const draftOf = (l: Letter): Draft => ({ title: l.title, kind: l.kind, reason: l.reason, texts: { ...l.content } });
-const sameTexts = (a: Texts, b: Texts) => a.subjectRu === b.subjectRu && a.subjectTj === b.subjectTj && a.htmlRu === b.htmlRu && a.htmlTj === b.htmlTj;
+const draftOf = (l: Letter): Draft => ({ title: l.title, kind: l.kind, reason: l.reason, texts: textsOf(l.content) });
 const sameDraft = (a: Draft, b: Draft) => a.title === b.title && a.kind === b.kind && a.reason === b.reason && sameTexts(a.texts, b.texts);
 
 type Tab = 'letter' | 'versions' | 'events' | 'export';
 type Dialog = null | 'return' | 'send' | 'send_without_approval' | 'resend';
+
+/** Форма «Отметить отправленным» (1.12.0): языки, получатели, файл письма — выгрузка ('' — последняя или собрать). */
+interface SendForm { comment: string; sentOn: string; audience: string; langs: ExportLang | ''; recipients: string; exportId: string }
+const EMPTY_FORM: SendForm = { comment: '', sentOn: todayLocal(), audience: '', langs: '', recipients: '', exportId: '' };
+const LANGS_NAME: Record<ExportLang, string> = { both: 'RU+TJ', ru: 'RU', tj: 'TJ' };
 
 export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () => void; onOpen: (id: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const q = useQuery({ queryKey: awarenessKeys.letter(id), queryFn: () => awarenessApi.letter(id) });
   const sig = useQuery({ queryKey: awarenessKeys.signature, queryFn: awarenessApi.signature, staleTime: 60_000 });
+  const layout = useQuery({ queryKey: awarenessKeys.layout, queryFn: awarenessApi.layout, staleTime: 60_000 });
   const l = q.data;
   const [draft, setDraft] = useState<Draft | null>(null);
   const [resetKey, setResetKey] = useState('');
@@ -42,7 +48,8 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
   const [tab, setTab] = useState<Tab>('letter');
   const [ask, setAsk] = useState<ConfirmAsk | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [form, setForm] = useState({ comment: '', sentOn: todayLocal(), audience: '' });
+  const [form, setForm] = useState<SendForm>(EMPTY_FORM);
+  const [preview, setPreview] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   // Письмо загрузилось или его перечитали — черновик формы из ответа, редактор — с этим содержимым.
@@ -89,7 +96,7 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
     onSuccess: async (r) => {
       setAsk(null);
       // Санитайзер мог изменить текст (вырезал лишнее) — редактор показывает сохранённое.
-      if (!draft || !sameTexts(draft.texts, r.letter.content)) reset(r.letter);
+      if (!draft || !sameTexts(draft.texts, textsOf(r.letter.content))) reset(r.letter);
       else setDraft(draftOf(r.letter));
       await afterChange(r.letter, r.versionCreated ? `Сохранено, версия ${r.letter.versionNo}` : 'Сохранено', r.warnings);
     },
@@ -148,10 +155,25 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
   };
 
   const openDialog = (d: Exclude<Dialog, null>) => {
-    setForm({ comment: '', sentOn: todayLocal(), audience: '' });
+    setForm({ ...EMPTY_FORM, sentOn: todayLocal() });
     setDialogError(null);
     setDialog(d);
   };
+
+  const exportsQ = useQuery({
+    queryKey: awarenessKeys.exports(id),
+    queryFn: () => awarenessApi.exports(id),
+    enabled: dialog === 'send' || dialog === 'send_without_approval' || dialog === 'resend',
+  });
+  // Значения по умолчанию, когда выгрузки загрузились: языки последней выгрузки текущей версии, получатели прошлой отметки.
+  const versionExports = (exportsQ.data?.items ?? []).filter((e) => e.versionNo === l?.versionNo);
+  const formLangs: ExportLang = form.langs || (versionExports[0]?.langs && l?.exportLangs.includes(versionExports[0].langs) ? versionExports[0].langs
+    : l?.exportLangs.includes('both') ? 'both' : l?.exportLangs[0] ?? 'ru');
+  const langExports = versionExports.filter((e) => e.langs === formLangs);
+  useEffect(() => {
+    if (exportsQ.data && !form.recipients) setForm((f) => (f.recipients ? f : { ...f, recipients: exportsQ.data.lastRecipients }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exportsQ.data]);
 
   const audiences = useQuery({
     queryKey: ['awareness', 'audiences', form.audience],
@@ -252,13 +274,33 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
                 </div>
               )}
               <BilingualFields value={draft.texts ?? EMPTY_TEXTS} resetKey={resetKey} readOnly={!editable} signature={signature} limits={limits}
+                defaultLabels={layout.data ? (draft.kind === 'urgent' ? { ru: layout.data.labelUrgentRu, tj: layout.data.labelUrgentTj } : { ru: layout.data.labelPlannedRu, tj: layout.data.labelPlannedTj }) : undefined}
                 onWarning={warn} onChange={(texts) => setDraft((d) => (d ? { ...d, texts } : d))} />
+              <div className="row mt6">
+                <button className="btn" type="button" aria-expanded={preview} onClick={() => setPreview((x) => !x)}>
+                  {preview ? 'Скрыть предпросмотр' : 'Предпросмотр как в почте'}
+                </button>
+              </div>
+              {preview && (
+                <MailPreview
+                  langs={(['both', 'ru', 'tj'] as const).filter((x) => {
+                    const ru = !!(draft.texts.subjectRu.trim() || draft.texts.htmlRu.replace(/<[^>]+>/g, '').trim());
+                    const tj = !!(draft.texts.subjectTj.trim() || draft.texts.htmlTj.replace(/<[^>]+>/g, '').trim());
+                    return x === 'both' ? ru && tj : x === 'ru' ? ru : tj;
+                  })}
+                  reloadKey={JSON.stringify(draft.texts) + draft.kind}
+                  load={async (lang) => {
+                    const r = await awarenessApi.mailPreview({ ...draft.texts, kind: draft.kind, lang });
+                    return { subject: r.subject, src: `/api/v1/awareness/mail-preview/${r.token}`, warnings: r.warnings };
+                  }}
+                />
+              )}
             </div>
           )}
 
           {tab === 'versions' && <LetterVersions letter={l} signature={signature} busy={busy || dirty} onRestore={restoreAsk} />}
 
-          {tab === 'export' && <LetterExport letter={l} dirty={dirty} signature={signature} />}
+          {tab === 'export' && <LetterExport letter={l} dirty={dirty} />}
 
           {tab === 'events' && (
             <ol className="aw-events" data-testid="letter-events">
@@ -270,7 +312,9 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
                     {e.withoutApproval && <span className="chip high">без согласования</span>}
                   </div>
                   <div className="hint">{e.actor.fullName} · {ruDateTime(e.at)}</div>
-                  {e.sentOn && <div>Отправлено {ru(e.sentOn)} · {e.audience}{e.record && <> · <Link to={`/registers?record=${e.record.id}#${e.record.registerId}/records`}>«Рассылки» #{e.record.number}</Link></>}</div>}
+                  {e.sentOn && <div>Отправлено {ru(e.sentOn)} · {e.audience}{e.langs && ` · ${LANGS_NAME[e.langs]}`}{e.record && <> · <Link to={`/registers?record=${e.record.id}#${e.record.registerId}/records`}>«Рассылки» #{e.record.number}</Link></>}</div>}
+                  {e.recipients && <div className="hint">Получатели: {e.recipients}</div>}
+                  {e.file && <div className="hint">Файл письма: <a href={`/api/v1/files/${e.file.id}/content`} download>{e.file.name}</a> <span className="mono" title={e.file.sha256}>sha256 {e.file.sha256.slice(0, 12)}…</span></div>}
                   {e.task && <div><Link to={`/tasks?task=${e.task.id}`}>Задача #{e.task.number}</Link></div>}
                   {e.comment && <div className="aw-comment">{e.comment}</div>}
                 </li>
@@ -298,7 +342,10 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
           disabled={!form.audience.trim() || !form.sentOn || (dialog === 'send_without_approval' && !sendComment)}
           onClose={() => setDialog(null)}
           onSubmit={() => act.mutate({
-            run: (v) => awarenessApi.send(id, { version: v, sentOn: form.sentOn, audience: form.audience.trim(), ...(sendComment ? { comment: sendComment } : {}) }),
+            run: (v) => awarenessApi.send(id, {
+              version: v, sentOn: form.sentOn, audience: form.audience.trim(), langs: formLangs, recipients: form.recipients.trim(),
+              ...(form.exportId ? { exportId: form.exportId } : {}), ...(sendComment ? { comment: sendComment } : {}),
+            }),
             done: dialog === 'resend' ? 'Отправка отмечена ещё раз' : 'Письмо отмечено отправленным',
           })}>
           {dialog === 'resend'
@@ -316,6 +363,24 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
               </datalist>
             </label>
           </div>
+          <div className="fgrid">
+            <label>Языки
+              <select className="inp" value={formLangs} onChange={(e) => setForm({ ...form, langs: e.target.value as ExportLang, exportId: '' })}>
+                {l.exportLangs.map((x) => <option key={x} value={x}>{LANGS_NAME[x]}</option>)}
+              </select>
+            </label>
+            <label>Получатели
+              <input className="inp" maxLength={500} placeholder="Например, адрес общей рассылки" value={form.recipients}
+                onChange={(e) => setForm({ ...form, recipients: e.target.value })} />
+            </label>
+          </div>
+          <label>Файл письма
+            <select className="inp" value={form.exportId} onChange={(e) => setForm({ ...form, exportId: e.target.value })} data-testid="send-file">
+              <option value="">{langExports[0] ? `Последняя выгрузка: ${langExports[0].fileName}` : 'Выгрузки с этими языками нет — собрать при отметке'}</option>
+              {langExports.slice(1).map((x) => <option key={x.id} value={x.id}>{x.fileName} · {ruDateTime(x.createdAt)}</option>)}
+            </select>
+            <span className="hint">Файл .eml, который отправили, сохраняется в записи «Рассылок» как доказательство.</span>
+          </label>
           {dialog === 'send_without_approval' && (
             <label>Причина отправки без согласования
               <textarea className="inp" rows={3} required maxLength={1900} value={form.comment} placeholder="Например: атака идёт сейчас, начальник ИБ недоступен"

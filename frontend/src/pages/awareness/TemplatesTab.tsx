@@ -9,8 +9,9 @@ import { awarenessApi, awarenessKeys, type Template, type TemplateItem } from '.
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 import { ConfirmDialog, type ConfirmAsk } from '../settings/ConfirmDialog';
-import { BilingualFields, EMPTY_TEXTS, type Texts } from './editor';
+import { BilingualFields, EMPTY_TEXTS, HEAD_KEYS, sameTexts, textsOf, type Texts } from './editor';
 import { FromTemplateDialog } from './FromTemplateDialog';
+import { MailPreview } from './MailPreview';
 import { ruDateTime, templateVariables } from './logic';
 
 const NEW = 'new';
@@ -25,13 +26,14 @@ function TemplatePanel({ id, onClose, onOpen }: { id: string; onClose: () => voi
   const t = q.data;
   const [title, setTitle] = useState('');
   const [texts, setTexts] = useState<Texts>(EMPTY_TEXTS);
+  const [preview, setPreview] = useState(false);
   const [resetKey, setResetKey] = useState(id);
   const [conflict, setConflict] = useState(false);
   const [ask, setAsk] = useState<ConfirmAsk | null>(null);
   const [fromOpen, setFromOpen] = useState(false);
   const reset = (x: Template) => {
     setTitle(x.title);
-    setTexts({ ...x.content });
+    setTexts(textsOf(x.content));
     setResetKey(`${x.id}:${x.version}:${Date.now()}`);
     setConflict(false);
   };
@@ -40,9 +42,9 @@ function TemplatePanel({ id, onClose, onOpen }: { id: string; onClose: () => voi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t?.id, t?.version]);
 
-  const dirty = isNew ? !!(title.trim() || texts.subjectRu || texts.subjectTj || texts.htmlRu || texts.htmlTj)
-    : !!t && (title !== t.title || texts.subjectRu !== t.content.subjectRu || texts.subjectTj !== t.content.subjectTj || texts.htmlRu !== t.content.htmlRu || texts.htmlTj !== t.content.htmlTj);
-  const vars = useMemo(() => templateVariables([texts.subjectRu, texts.subjectTj, texts.htmlRu, texts.htmlTj]), [texts]);
+  const dirty = isNew ? !!(title.trim() || texts.subjectRu || texts.subjectTj || texts.htmlRu || texts.htmlTj || HEAD_KEYS.some((k) => texts[k]))
+    : !!t && (title !== t.title || !sameTexts(texts, textsOf(t.content)));
+  const vars = useMemo(() => templateVariables([texts.subjectRu, texts.subjectTj, ...HEAD_KEYS.map((k) => texts[k]), texts.htmlRu, texts.htmlTj]), [texts]);
   const editable = isNew || (!!t && !t.archived && !conflict);
   const limits = t?.size.limits ?? { maxImageKb: 1024, maxLetterKb: 2048, warnLetterKb: 1024 };
 
@@ -122,6 +124,23 @@ function TemplatePanel({ id, onClose, onOpen }: { id: string; onClose: () => voi
             <span className="eyebrow">Переменные</span>
             {vars.length ? vars.map((v) => <span key={v.key} className="chip acc">{v.label}</span>) : <span className="hint">нет — письмо из шаблона будет его копией</span>}
           </div>
+          <div className="row">
+            <button className="btn" type="button" aria-expanded={preview} onClick={() => setPreview((x) => !x)}>{preview ? 'Скрыть предпросмотр' : 'Предпросмотр как в почте'}</button>
+          </div>
+          {preview && (
+            <MailPreview
+              langs={(['both', 'ru', 'tj'] as const).filter((x) => {
+                const ru = !!(texts.subjectRu.trim() || texts.htmlRu.replace(/<[^>]+>/g, '').trim());
+                const tj = !!(texts.subjectTj.trim() || texts.htmlTj.replace(/<[^>]+>/g, '').trim());
+                return x === 'both' ? ru && tj : x === 'ru' ? ru : tj;
+              })}
+              reloadKey={JSON.stringify(texts)}
+              load={async (lang) => {
+                const r = await awarenessApi.mailPreview({ ...texts, kind: 'planned', lang });
+                return { subject: r.subject, src: `/api/v1/awareness/mail-preview/${r.token}`, warnings: r.warnings };
+              }}
+            />
+          )}
         </div>
       )}
       {ask && <ConfirmDialog ask={ask} busy={archive.isPending} onClose={() => setAsk(null)} />}
