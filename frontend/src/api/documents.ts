@@ -121,11 +121,23 @@ export const docsApi = {
   restore: (id: string, version: number) => request<DocResult>('POST', `/api/v1/documents/${id}/restore`, { version }),
 };
 
+/** Механизм контроля документа (1.11.0, ADR-0043). */
+export type DocControl = Res<'/api/v1/documents/{id}/controls', 'get'>['items'][number];
+export type DocControlFields = Body<'/api/v1/documents/{id}/controls', 'post'>;
+
+export const controlsApi = {
+  list: (id: string) => request<Res<'/api/v1/documents/{id}/controls', 'get'>>('GET', `/api/v1/documents/${id}/controls`),
+  create: (id: string, body: DocControlFields) => request<{ item: DocControl }>('POST', `/api/v1/documents/${id}/controls`, body),
+  update: (id: string, controlId: string, body: DocControlFields & { version: number; active?: boolean }) =>
+    request<{ item: DocControl }>('PATCH', `/api/v1/documents/${id}/controls/${controlId}`, body),
+};
+
 export const dkeys = {
   all: ['documents'] as const,
   list: (q: DocQuery) => ['documents', 'list', q] as const,
   detail: (id: string) => ['documents', 'detail', id] as const,
   partyDirectory: (id: string) => ['documents', 'party-directory', id] as const,
+  controls: (id: string) => ['documents', 'controls', id] as const,
   summary: ['documents', 'summary'] as const,
   types: ['settings', 'items', 'document_types'] as const,
 };

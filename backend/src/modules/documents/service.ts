@@ -359,6 +359,8 @@ function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
     approvedEdition: d.approvedVersion?.edition ?? null,
     approvedOrderNo: d.approvedVersion?.orderNo ?? '',
     onReview: d.approvedVersion !== null && activeWorking(d) !== null,
+    /** Активных механизмов контроля (сотрудникам ИБ; заполняет listDocuments). */
+    controlsActive: 0,
     reviewMonths: d.reviewMonths,
     reviewDue,
     status,
@@ -579,6 +581,12 @@ export async function listDocuments(db: Db, a: DocAccess, q: DocListQuery) {
   const { rows, who } = await loadVisible(db, a, { archivedAt: q.archived ? { not: null } : null });
   const needle = q.q?.trim().toLowerCase();
   const all = rows.map(({ d, shown }) => toItem(who, d, shown, today));
+  if (a.ibWork && all.length) {
+    // Реестр утверждённых (1.11.0): активные механизмы контроля — одним запросом на видимые документы.
+    const counts = await db.documentControl.groupBy({ by: ['documentId'], where: { active: true, documentId: { in: all.map((x) => x.id) } }, _count: { _all: true } });
+    const byDoc = new Map(counts.map((c) => [c.documentId, c._count._all]));
+    for (const x of all) x.controlsActive = byDoc.get(x.id) ?? 0;
+  }
   const items = all
     .filter((x) => (!q.typeId || x.type.id === q.typeId) && (!q.ownerId || x.owner.id === q.ownerId)
       && (!q.status || x.status === q.status) && (!q.waiting || x.waitingForMe) && (!needle || x.title.toLowerCase().includes(needle))

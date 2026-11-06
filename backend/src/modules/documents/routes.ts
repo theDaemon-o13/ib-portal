@@ -7,6 +7,7 @@ import { actorOf } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as svc from './service.js';
 import { exportApproved } from './export.js';
+import * as controls from './controls.js';
 import * as translations from './translations.js';
 import { DOC_ACTIONS, DOC_DUE_FILTERS, DOC_SORTS, DOC_STATUSES, ROUTE_STATES } from './status.js';
 
@@ -35,6 +36,8 @@ const DocItem = z.object({
   approvedEdition: z.string().nullable(),
   approvedOrderNo: z.string(),
   onReview: z.boolean(),
+  /** Активных механизмов контроля (сотрудникам ИБ). */
+  controlsActive: z.number().int(),
   reviewMonths: z.number().int(),
   reviewDue: z.string().nullable(),
   status: Status,
@@ -552,6 +555,46 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     await translations.removeTranslationFile(db, actorOf(request), request.params.id, request.params.translationId, request.params.linkId, request.body);
     return result(request, request.params.id);
   });
+
+  // ---------------------------------------------------------------- механизмы контроля (1.11.0, ADR-0043)
+  const ControlFields = z.object({
+    clause: z.string().max(controls.CONTROL_LIMITS.clause).optional(),
+    requirement: z.string().max(controls.CONTROL_LIMITS.requirement).optional(),
+    mechanism: z.string().max(controls.CONTROL_LIMITS.mechanism).optional(),
+    checkMethod: z.string().max(controls.CONTROL_LIMITS.checkMethod).optional(),
+    expectedEvidence: z.string().max(controls.CONTROL_LIMITS.expectedEvidence).optional(),
+    executorUnit: z.string().max(controls.CONTROL_LIMITS.executorUnit).optional(),
+  });
+  const ControlOut = z.object({
+    id: z.string(), position: z.number().int(), clause: z.string(), requirement: z.string(), mechanism: z.string(), checkMethod: z.string(),
+    expectedEvidence: z.string(), executorUnit: z.string(), active: z.boolean(), version: z.number().int(), creator: z.string(),
+    createdAt: z.string(), updatedAt: z.string(),
+  });
+  const ib = requirePerm('ib.work');
+
+  app.get('/documents/:id/controls', {
+    preHandler: ib,
+    schema: {
+      tags, summary: 'Механизмы контроля утверждённого документа (сотрудники ИБ); canManage — владелец, начальник ИБ, docs.manage', params: IdParams,
+      response: { 200: z.object({ items: z.array(ControlOut), canManage: z.boolean() }), ...errors },
+    },
+  }, async (request) => controls.listControls(db, actorOf(request), request.params.id));
+
+  app.post('/documents/:id/controls', {
+    preHandler: ib,
+    schema: {
+      tags, summary: 'Добавить механизм контроля (владелец, начальник ИБ, docs.manage); требование и механизм обязательны', params: IdParams,
+      body: ControlFields, response: { 200: z.object({ item: ControlOut }), ...errors },
+    },
+  }, async (request) => ({ item: await controls.createControl(db, actorOf(request), request.params.id, request.body) }));
+
+  app.patch('/documents/:id/controls/:controlId', {
+    preHandler: ib,
+    schema: {
+      tags, summary: 'Изменить или отключить механизм контроля (version; чужая — 409). Физически не удаляется', params: IdParams.extend({ controlId: z.string().uuid() }),
+      body: ControlFields.extend({ version: z.number().int().positive(), active: z.boolean().optional() }), response: { 200: z.object({ item: ControlOut }), ...errors },
+    },
+  }, async (request) => ({ item: await controls.updateControl(db, actorOf(request), request.params.id, request.params.controlId, request.body) }));
 
   app.post('/documents/:id/blockers', {
     preHandler: anyUser,

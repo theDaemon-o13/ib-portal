@@ -747,7 +747,7 @@ describe('Документы: «В работе» и «Утверждённые�
     await ui.waitFor(`document.querySelector('[role=tablist][aria-label="Подменю документов"] [aria-selected=true]')?.textContent === 'Утверждённые'`, 'вкладка «Утверждённые»');
     await ui.waitFor(`!!${row(`${RUN} Реестр утверждённый`)} && !!${row(`${RUN} Реестр на пересмотре`)}`, 'утверждённые в реестре');
     assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр черновик`)}`), false, 'черновика среди утверждённых нет');
-    assert.deepEqual(await ui.evaluate(`[...document.querySelectorAll('.docs-tbl thead th')].map((t) => t.textContent)`), ['№', 'Документ', 'Владелец', 'Действующая версия', 'Утверждён', 'Пересмотр до', '']);
+    assert.deepEqual(await ui.evaluate(`[...document.querySelectorAll('.docs-tbl thead th')].map((t) => t.textContent)`), ['№', 'Документ', 'Владелец', 'Действующая версия', 'Утверждён', 'Пересмотр до', 'Механизмов контроля', '']);
     assert.match(await ui.text(`${row(`${RUN} Реестр утверждённый`)}.querySelector('[data-testid=review-due]')`), new RegExp(`${ru(plusYear()).replace(/\./g, '\\.')}через \\d+ дн\\.`));
     assert.equal(await ui.evaluate(`!!${row(`${RUN} Реестр на пересмотре`)}.querySelector('[data-testid=on-review]')`), true, 'отметка «на пересмотре»');
     await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent === 'На пересмотре')`, 'фильтр «На пересмотре»');
@@ -768,5 +768,57 @@ describe('Документы: «В работе» и «Утверждённые�
     await ui.waitFor(`!${row(`${RUN} Реестр черновик`)}`, 'фильтр этапа');
     d = await api('GET', `/api/v1/documents/${draft.id}`);
     assert.equal(d.working.stage, 21);
+  });
+});
+
+describe('Документы: механизмы контроля (1.11.0)', () => {
+  it('у утверждённого: владелец добавляет, правит и отключает; сотрудник ИБ только читает; в реестре — число активных', async () => {
+    const doc = await makeDoc('Контроль паролей');
+    await signAllViaApi(doc.id);
+    await loginAs(users.owner);
+    await openDocs(doc.id);
+    await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((t) => t.textContent === 'Механизмы контроля')`, 'вкладка «Механизмы контроля»');
+    const box = `${panel}.querySelector('[data-testid=doc-controls]')`;
+    await ui.waitFor(`${box}?.textContent.includes('Механизмов контроля пока нет')`, 'пустой список');
+    await ui.click($.button('Добавить механизм контроля', panel));
+    const form = `${panel}.querySelector('form[aria-label="Новый механизм контроля"]')`;
+    await ui.type(label('Пункт или раздел документа', form), 'п. 4.2');
+    await ui.type(`${form}.querySelector('input[aria-label="Новый механизм: требование"]')`, 'Пароли — не короче 12 символов');
+    await ui.type(label('Механизм контроля со стороны ИБ', form), 'Проверка групповой политики AD раз в квартал');
+    await ui.type(label('Ожидаемое доказательство', form), 'Скриншот GPO');
+    let req = await act('Добавить', 'POST', `/api/v1/documents/${doc.id}/controls`);
+    assert.equal(req.json.requirement, 'Пароли — не короче 12 символов');
+    const item = `${box}.querySelector('[data-control="1"]')`;
+    await ui.waitFor(`${item}?.textContent.includes('1. Пароли — не короче 12 символов') && ${item}.textContent.includes('Доказательство: Скриншот GPO')`, 'механизм в списке');
+    await ui.click($.button('Изменить', item));
+    const ef = `${panel}.querySelector('form[aria-label="Механизм контроля"]')`;
+    await ui.type(label('Способ проверки', ef), 'Отчёт RSoP');
+    req = await act('Сохранить', 'PATCH', '/controls/');
+    assert.equal(req.json.version, 1);
+    await ui.waitFor(`${item}?.textContent.includes('Способ проверки: Отчёт RSoP')`, 'изменение в списке');
+
+    // В реестре утверждённых — 1 активный механизм.
+    await ui.goto(`/documents/approved?n=${++navSeq}`);
+    await ui.waitFor(`${row(`${RUN} Контроль паролей`)}?.querySelector('[data-testid=controls-count]')?.textContent === '1'`, 'число механизмов в реестре');
+
+    // Сотрудник ИБ видит, но не меняет.
+    await loginAs(users.staff);
+    await openDocs(doc.id);
+    await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((t) => t.textContent === 'Механизмы контроля')`, 'вкладка у сотрудника');
+    await ui.waitFor(`${box}?.textContent.includes('Пароли — не короче 12 символов')`, 'сотрудник видит механизм');
+    assert.equal(await ui.evaluate(`!!${$.button('Добавить механизм контроля', panel)} || !!${$.button('Изменить', box)}`), false, 'у сотрудника кнопок нет');
+
+    // Владелец отключает механизм.
+    await loginAs(users.owner);
+    await openDocs(doc.id);
+    await ui.click(`[...${panel}.querySelectorAll('[role=tab]')].find((t) => t.textContent === 'Механизмы контроля')`, 'вкладка');
+    await ui.waitFor(`!!${$.button('Отключить', `${box}.querySelector('[data-control="1"]')`)}`, 'кнопка «Отключить»');
+    await act('Отключить', 'PATCH', '/controls/');
+    await ui.waitFor(`${box}.querySelector('[data-control="1"]')?.textContent.includes('отключён')`, 'механизм отключён');
+    // Читатель вкладки не видит.
+    await loginAs(users.legal);
+    await openDocs(doc.id);
+    await ui.waitFor(`!!${panel}?.querySelector('.dr-title')`, 'карточка у читателя');
+    assert.equal(await ui.evaluate(`!!${panel}.querySelector('[role=tablist][aria-label="Разделы документа"]')`), false, 'у читателя вкладок нет');
   });
 });

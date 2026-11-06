@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import type { Me } from '../../api/client';
 import { ApiError } from '../../api/client';
 import { docsApi, dkeys, type ApprovalSlot, type DocAction, type DocDetail, type DocResult } from '../../api/documents';
 import type { FileInfo } from '../../api/files';
@@ -13,6 +15,7 @@ import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
 import { DocumentBlockers, DocumentParties, DocumentTranslations } from './DocumentParties';
+import { DocumentControls } from './DocumentControls';
 import { HoldersLine, StageWho } from './Holders';
 import { ACTION_DONE, ACTION_LABEL, historyText, isReturn, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
 
@@ -106,6 +109,10 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   const toast = useToast();
   const doc = useQuery({ queryKey: dkeys.detail(id), queryFn: () => docsApi.get(id), retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2 });
   const [mode, setMode] = useState<Mode>('view');
+  /** Вкладки утверждённого документа (1.11.0): карточка и механизмы контроля — сотрудникам ИБ. */
+  const [tab, setTab] = useState<'doc' | 'controls'>('doc');
+  const me = useOutletContext<Me | undefined>();
+  const ibWork = me?.permissions.includes('ib.work') ?? false;
   const [comment, setComment] = useState('');
   const [note, setNote] = useState('');
   const [content, setContent] = useState<ContentDraft | null>(null);
@@ -229,7 +236,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   const cancelBtn = <button className="btn" type="button" onClick={() => setMode('view')}>Отмена</button>;
 
   // Подвал: главные действия этапа и файл документа — на виду при любой длине маршрута и истории.
-  const footer = mode === 'view' ? (
+  const footer = mode === 'view' && tab === 'doc' ? (
     <div className="row">
       {d.can.actions.filter((a) => !isReturn(a)).map((a) => (
         <button key={a} className="btn primary" type="button" disabled={busy} onClick={() => open(a)}>{ACTION_LABEL[a]}</button>
@@ -255,6 +262,14 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
             <div className="row mt6"><button className="btn sm primary" type="button" onClick={() => void reload()}>Обновить документ</button></div>
           </div>
         )}
+        {ibWork && d.approvedVersionNo !== null && (
+          <div className="tabs" role="tablist" aria-label="Разделы документа">
+            <button type="button" role="tab" aria-selected={tab === 'doc'} onClick={() => setTab('doc')}>Документ</button>
+            <button type="button" role="tab" aria-selected={tab === 'controls'} onClick={() => setTab('controls')}>Механизмы контроля</button>
+          </div>
+        )}
+        {tab === 'controls' && ibWork && d.approvedVersionNo !== null ? <DocumentControls docId={d.id} /> : (
+        <>
         <div className="row gap-lg">
           <div><div className="eyebrow">Версия</div><div className="mono">{versionLabel(d.current)}</div></div>
           <div><div className="eyebrow">Цикл пересмотра</div><div>{d.reviewMonths} мес.</div></div>
@@ -503,6 +518,8 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
           </div>
         )}
         <div className="hint">За 30 дней до даты пересмотра владельцу ставится задача «Пересмотреть документ».</div>
+        </>
+        )}
     </DetailPanel>
   );
 }

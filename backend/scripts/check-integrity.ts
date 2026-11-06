@@ -131,6 +131,21 @@ async function main() {
     WHERE v.stage IN (21, 22) AND v.route_state IS NULL`;
   check(Number(badState[0]?.n ?? 0) === 0, 'рабочие версии на этапах 21–22 — с состоянием этапа (route_state)', `без состояния: ${badState[0]?.n ?? 0}`);
 
+  // Механизмы контроля (1.11.0, ADR-0043): не удаляются, запуски только пополняются.
+  const ctlTriggers = (await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger WHERE tgrelid IN ('public.document_controls'::regclass, 'public.document_control_automations'::regclass,
+      'public.document_control_runs'::regclass) AND NOT tgisinternal`).map((t) => t.tgname);
+  check(
+    ['document_controls_no_delete', 'document_control_automations_no_delete', 'document_control_runs_append_only', 'document_control_runs_no_truncate']
+      .every((n) => ctlTriggers.includes(n)),
+    'триггеры механизмов контроля на месте: механизмы и автоматизации не удаляются, запуски только пополняются',
+  );
+  const ctlPrivs = await prisma.$queryRaw<{ t: string; p: string; granted: boolean }[]>`
+    SELECT t, p, has_table_privilege('ibportal_app', 'public.' || t, p) AS granted
+    FROM unnest(ARRAY['document_controls', 'document_control_automations', 'document_control_runs']) AS t, unnest(ARRAY['UPDATE', 'DELETE']) AS p`;
+  check(ctlPrivs.every((r) => !r.granted || (r.p === 'UPDATE' && r.t !== 'document_control_runs')),
+    'ibportal_app: механизмы и автоматизации — без DELETE, запуски — без UPDATE и DELETE');
+
   // Релиз 1.2.0: переходы задач только пополняются (ADR-0022); колонка открытой задачи согласована с исполнителем.
   const transitionPrivs = await prisma.$queryRaw<{ ins: boolean; mod: boolean }[]>`
     SELECT has_table_privilege('ibportal_app', 'public.task_transitions', 'INSERT') AS ins,

@@ -18,6 +18,7 @@ import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
 import ExcelJS from 'exceljs';
 import { approvedRows, exportApproved } from './export.js';
+import * as controls from './controls.js';
 import { setIbHead } from '../users/service.js';
 import { updatePortalParam } from '../settings/portal-params.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
@@ -653,7 +654,7 @@ describe('документы: «В работе» и «Утверждённые�
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
       const ws = must(wb.getWorksheet('Утверждённые'));
-      expect((ws.getRow(1).values as unknown[]).slice(1)).toEqual(['№', 'Документ', 'Тип', 'Владелец', 'Действующая версия', 'Утверждён', 'Приказ', 'Пересмотр до', 'Дней до пересмотра', 'На пересмотре']);
+      expect((ws.getRow(1).values as unknown[]).slice(1)).toEqual(['№', 'Документ', 'Тип', 'Владелец', 'Действующая версия', 'Утверждён', 'Приказ', 'Пересмотр до', 'Дней до пересмотра', 'Механизмов контроля', 'На пересмотре']);
       const titles = ws.getColumn(2).values.slice(2);
       expect(titles).toEqual(expect.arrayContaining(['Утверждённый реестра']));
       expect(titles).not.toContain('Черновик реестра');
@@ -663,6 +664,90 @@ describe('документы: «В работе» и «Утверждённые�
       expect(await ids(x.legal, { view: 'approved' })).toEqual([revised, signed]);
       expect(await ids(x.legal, { view: 'work' })).toEqual([]);
     }));
+});
+
+describe('документы: механизмы контроля (1.11.0, ADR-0043)', () => {
+  const fields = { clause: 'п. 4.2', requirement: 'Пароли — не короче 12 символов', mechanism: 'Проверка групповой политики AD\nраз в квартал', checkMethod: 'Выгрузка GPO', expectedEvidence: 'Скриншот политики', executorUnit: 'ДИКТ' };
+
+  it('ведут владелец, начальник ИБ и docs.manage; сотрудник ИБ — только читает; без ib.work — 403; только у утверждённого', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const draft = await x.create('Черновик с контролем');
+      await expectCode(controls.createControl(tx, await x.as(x.owner), draft, fields), 'NOT_APPROVED');
+      const id = await x.create();
+      await signAll(tx, x, id);
+      const c1 = await controls.createControl(tx, await x.as(x.owner), id, fields);
+      expect(c1).toMatchObject({ position: 1, mechanism: 'Проверка групповой политики AD\nраз в квартал', active: true, version: 1, creator: 'Автор Документа' });
+      const c2 = await controls.createControl(tx, await x.as(x.head), id, { requirement: '  Журналы  хранятся год ', mechanism: 'Проверка SIEM' });
+      expect(c2).toMatchObject({ position: 2, requirement: 'Журналы хранятся год', clause: '' });
+      await controls.createControl(tx, await x.as(x.admin), id, { requirement: 'Резервные копии', mechanism: 'Тест восстановления' });
+      await expectCode(controls.createControl(tx, await x.as(x.staff), id, fields), 'FORBIDDEN');
+      await expectCode(controls.createControl(tx, await x.as(x.owner), id, { requirement: ' ', mechanism: 'x' }), 'EMPTY');
+      await expectCode(controls.createControl(tx, await x.as(x.owner), id, { requirement: 'x', mechanism: 'y', clause: 'п'.repeat(301) }), 'TOO_LONG');
+      expect(await controls.listControls(tx, await x.as(x.staff), id)).toMatchObject({ canManage: false, items: [{ position: 1 }, { position: 2 }, { position: 3 }] });
+      expect((await controls.listControls(tx, await x.as(x.owner), id)).canManage).toBe(true);
+      await expectCode(controls.listControls(tx, await x.as(x.legal), id), 'FORBIDDEN');
+      // Пересмотр: механизмы — у документа, сохраняются.
+      await svc.reviseDocument(tx, await x.as(x.owner), id, { version: (await cur(tx, id)).version });
+      expect((await controls.listControls(tx, await x.as(x.owner), id)).items).toHaveLength(3);
+      // Архив — только чтение.
+      await svc.setDocumentArchived(tx, await x.as(x.admin), id, (await cur(tx, id)).version, true);
+      expect((await controls.listControls(tx, await x.as(x.owner), id)).canManage).toBe(false);
+      await expectCode(controls.createControl(tx, await x.as(x.owner), id, fields), 'DOC_ARCHIVED');
+    }));
+
+  it('изменение — с version (409), отключение вместо удаления, журнал «было → стало»; в реестре — число активных; DELETE запрещён', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await signAll(tx, x, id);
+      const c = await controls.createControl(tx, await x.as(x.owner), id, fields);
+      await controls.createControl(tx, await x.as(x.owner), id, { requirement: 'Второе', mechanism: 'Второй механизм' });
+      const upd = await controls.updateControl(tx, await x.as(x.owner), id, c.id, { version: 1, checkMethod: 'Отчёт RSoP' });
+      expect(upd).toMatchObject({ checkMethod: 'Отчёт RSoP', version: 2 });
+      await expectCode(controls.updateControl(tx, await x.as(x.owner), id, c.id, { version: 1, clause: 'п. 5' }), 'VERSION_CONFLICT');
+      await expectCode(controls.updateControl(tx, await x.as(x.staff), id, c.id, { version: 2, clause: 'п. 5' }), 'FORBIDDEN');
+      const same = await controls.updateControl(tx, await x.as(x.owner), id, c.id, { version: 2, checkMethod: 'Отчёт RSoP' });
+      expect(same.version).toBe(2);
+      const off = await controls.updateControl(tx, await x.as(x.head), id, c.id, { version: 2, active: false });
+      expect(off).toMatchObject({ active: false, version: 3 });
+      const audit = await tx.auditLog.findMany({ where: { entityId: id, action: { startsWith: 'document_control.' } }, orderBy: { at: 'asc' } });
+      expect(audit.map((a) => a.action)).toEqual(['document_control.created', 'document_control.created', 'document_control.updated', 'document_control.disabled']);
+      expect((audit[2]?.diff as { after: { changes: unknown[] } }).after.changes).toEqual([{ label: 'Способ проверки', from: 'Выгрузка GPO', to: 'Отчёт RSoP' }]);
+      expect((await list(tx, x.staff)).find((d) => d.id === id)?.controlsActive).toBe(1);
+      expect((await list(tx, x.legal)).find((d) => d.id === id)?.controlsActive).toBe(0);
+      expect(await sqlError(tx, `DELETE FROM document_controls WHERE id = '${c.id}'`)).toMatch(/permission denied/);
+    }));
+
+  it('под владельцем схемы: механизмы и автоматизации не удаляются, запуски только пополняются, событие контроля — сразу обработанное', async () => {
+    const owner = createPrisma(testDbConfig().ownerUrl);
+    try {
+      await inOwnerTx(owner, async (tx) => {
+        const x = await fixture(tx);
+        const id = await x.create();
+        await signAll(tx, x, id);
+        const c = await controls.createControl(tx, await x.as(x.owner), id, fields);
+        expect(await sqlError(tx, `DELETE FROM document_controls WHERE id = '${c.id}'`)).toMatch(/не удаляется/);
+        const a = await tx.documentControlAutomation.create({ data: {
+          documentId: id, controlId: c.id, title: 'Проверить GPO', cadence: { kind: 'monthly', day: 1 }, startsOn: new Date('2026-11-01'),
+          dueDays: 5, dueKind: 'working', assigneeId: x.staff.id, createdBy: x.owner.id,
+        } });
+        expect(await sqlError(tx, `DELETE FROM document_control_automations WHERE id = '${a.id}'`)).toMatch(/не удаляется/);
+        expect(await sqlError(tx, `UPDATE document_control_automations SET due_days = 0 WHERE id = '${a.id}'`)).toMatch(/document_control_automations_check/);
+        expect(await sqlError(tx, `UPDATE document_control_automations SET cadence = '{"kind":"hourly"}' WHERE id = '${a.id}'`)).toMatch(/document_control_automations_check/);
+        const run = await tx.documentControlRun.create({ data: { automationId: a.id, nominalDate: new Date('2026-11-01'), plannedDate: new Date('2026-10-30'), status: 'no_assignee' } });
+        expect(await sqlError(tx, `UPDATE document_control_runs SET status = 'created' WHERE id = '${run.id}'`)).toMatch(/только пополняется/);
+        expect(await sqlError(tx, `DELETE FROM document_control_runs WHERE id = '${run.id}'`)).toMatch(/только пополняется/);
+        expect(await sqlError(tx, `INSERT INTO document_control_runs (automation_id, nominal_date, planned_date, status) VALUES ('${a.id}', '2026-11-01', '2026-10-30', 'no_assignee')`)).toMatch(/document_control_runs_automation_id_nominal_date_key/);
+        expect(await sqlError(tx, `INSERT INTO document_control_runs (automation_id, nominal_date, planned_date, status) VALUES ('${a.id}', '2026-12-01', '2026-12-01', 'created')`)).toMatch(/document_control_runs_status_check/);
+        expect(await sqlError(tx, `INSERT INTO automation_events (control_automation_id, event_type, recipients, trigger_key, fire_at) VALUES ('${a.id}', 'remind', '[]', '2026-11-01', '2026-11-01')`)).toMatch(/automation_events_control_processed_check/);
+        expect(await sqlError(tx, `INSERT INTO automation_events (control_automation_id, document_id, event_type, recipients, trigger_key, fire_at, status, processed_at) VALUES ('${a.id}', '${id}', 'remind', '[]', 'k', '2026-11-01', 'processed', now())`)).toMatch(/automation_events_subject_check/);
+        await tx.$executeRawUnsafe(`INSERT INTO automation_events (control_automation_id, event_type, recipients, trigger_key, fire_at, status, processed_at) VALUES ('${a.id}', 'remind', '[]', '2026-11-01', '2026-11-01', 'processed', now())`);
+      });
+    } finally {
+      await owner.$disconnect();
+    }
+  });
 });
 
 describe('документы: задачи этапов маршрута (ADR-0034, маршрут 1.11.0)', () => {

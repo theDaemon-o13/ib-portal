@@ -88886,6 +88886,11 @@
                           "onReview": {
                             "type": "boolean"
                           },
+                          "controlsActive": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "reviewMonths": {
                             "type": "integer",
                             "minimum": -9007199254740991,
@@ -89010,6 +89015,7 @@
                           "approvedEdition",
                           "approvedOrderNo",
                           "onReview",
+                          "controlsActive",
                           "reviewMonths",
                           "reviewDue",
                           "status",
@@ -89454,6 +89460,11 @@
                             },
                             "onReview": {
                               "type": "boolean"
+                            },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
                             },
                             "reviewMonths": {
                               "type": "integer",
@@ -91185,6 +91196,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -91861,6 +91873,11 @@
                     },
                     "onReview": {
                       "type": "boolean"
+                    },
+                    "controlsActive": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     },
                     "reviewMonths": {
                       "type": "integer",
@@ -93592,6 +93609,7 @@
                     "approvedEdition",
                     "approvedOrderNo",
                     "onReview",
+                    "controlsActive",
                     "reviewMonths",
                     "reviewDue",
                     "status",
@@ -93989,6 +94007,11 @@
                             },
                             "onReview": {
                               "type": "boolean"
+                            },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
                             },
                             "reviewMonths": {
                               "type": "integer",
@@ -95720,6 +95743,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -96136,6 +96160,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -97866,6 +97895,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -98272,6 +98302,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -100002,6 +100037,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -100416,6 +100452,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -102146,6 +102187,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -102531,6 +102573,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -104261,6 +104308,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -104658,6 +104706,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -106388,6 +106441,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -106784,6 +106838,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -108514,6 +108573,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -108893,6 +108953,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -110623,6 +110688,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -111027,6 +111093,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -112757,6 +112828,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -113174,6 +113246,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -114904,6 +114981,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -115300,6 +115378,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -117030,6 +117113,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -117443,6 +117527,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -119173,6 +119262,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -119578,6 +119668,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -121308,6 +121403,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -121715,6 +121811,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -123445,6 +123546,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -123841,6 +123943,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -125571,6 +125678,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -125975,6 +126083,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -127705,6 +127818,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -128121,6 +128235,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -129851,6 +129970,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -130247,6 +130367,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -131977,6 +132102,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -132384,6 +132510,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -134114,6 +134245,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -134520,6 +134652,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -136250,6 +136387,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -136288,6 +136426,994 @@
                   },
                   "required": [
                     "document"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{id}/controls": {
+      "get": {
+        "summary": "Механизмы контроля утверждённого документа (сотрудники ИБ); canManage — владелец, начальник ИБ, docs.manage",
+        "tags": [
+          "documents"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "position": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "clause": {
+                            "type": "string"
+                          },
+                          "requirement": {
+                            "type": "string"
+                          },
+                          "mechanism": {
+                            "type": "string"
+                          },
+                          "checkMethod": {
+                            "type": "string"
+                          },
+                          "expectedEvidence": {
+                            "type": "string"
+                          },
+                          "executorUnit": {
+                            "type": "string"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "creator": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "position",
+                          "clause",
+                          "requirement",
+                          "mechanism",
+                          "checkMethod",
+                          "expectedEvidence",
+                          "executorUnit",
+                          "active",
+                          "version",
+                          "creator",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "canManage": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "canManage"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить механизм контроля (владелец, начальник ИБ, docs.manage); требование и механизм обязательны",
+        "tags": [
+          "documents"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clause": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "requirement": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "mechanism": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "checkMethod": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "expectedEvidence": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "executorUnit": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "position": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "clause": {
+                          "type": "string"
+                        },
+                        "requirement": {
+                          "type": "string"
+                        },
+                        "mechanism": {
+                          "type": "string"
+                        },
+                        "checkMethod": {
+                          "type": "string"
+                        },
+                        "expectedEvidence": {
+                          "type": "string"
+                        },
+                        "executorUnit": {
+                          "type": "string"
+                        },
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "creator": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "position",
+                        "clause",
+                        "requirement",
+                        "mechanism",
+                        "checkMethod",
+                        "expectedEvidence",
+                        "executorUnit",
+                        "active",
+                        "version",
+                        "creator",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "item"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{id}/controls/{controlId}": {
+      "patch": {
+        "summary": "Изменить или отключить механизм контроля (version; чужая — 409). Физически не удаляется",
+        "tags": [
+          "documents"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clause": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "requirement": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "mechanism": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "checkMethod": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "expectedEvidence": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "executorUnit": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "controlId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "position": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "clause": {
+                          "type": "string"
+                        },
+                        "requirement": {
+                          "type": "string"
+                        },
+                        "mechanism": {
+                          "type": "string"
+                        },
+                        "checkMethod": {
+                          "type": "string"
+                        },
+                        "expectedEvidence": {
+                          "type": "string"
+                        },
+                        "executorUnit": {
+                          "type": "string"
+                        },
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "creator": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "position",
+                        "clause",
+                        "requirement",
+                        "mechanism",
+                        "checkMethod",
+                        "expectedEvidence",
+                        "executorUnit",
+                        "active",
+                        "version",
+                        "creator",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "item"
                   ],
                   "additionalProperties": false
                 }
@@ -136641,6 +137767,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -138371,6 +139502,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -138772,6 +139904,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -140502,6 +141639,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -140886,6 +142024,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -142616,6 +143759,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -143012,6 +144156,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -144742,6 +145891,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -145122,6 +146272,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -146852,6 +148007,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",
@@ -147232,6 +148388,11 @@
                             "onReview": {
                               "type": "boolean"
                             },
+                            "controlsActive": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "reviewMonths": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -148962,6 +150123,7 @@
                             "approvedEdition",
                             "approvedOrderNo",
                             "onReview",
+                            "controlsActive",
                             "reviewMonths",
                             "reviewDue",
                             "status",

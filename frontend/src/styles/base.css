@@ -208,6 +208,8 @@ select.inp{appearance:auto}
 
 .tabs{display:flex;gap:2px;padding:2px;border-radius:11px;background:var(--fill);overflow-x:auto;width:fit-content;max-width:100%}
 .page-tabs{margin:0 0 16px}
+/* Вкладки в теле панели (карточка документа, 1.11.0): тело — сетка, а элемент сетки с прокруткой схлопывается до 0 — без прокрутки. */
+.dr-b > .tabs{overflow:visible}
 .tabs a,.tabs button{border:0;background:none;padding:6px 14px;color:var(--fg);font-weight:500;font-size:13px;border-radius:9px;white-space:nowrap;text-decoration:none;transition:background .18s,box-shadow .18s}
 .tabs [aria-selected="true"]{background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04);font-weight:600}
 
