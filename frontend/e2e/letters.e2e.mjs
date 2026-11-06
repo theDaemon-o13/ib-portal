@@ -221,7 +221,7 @@ describe('Учебные письма: от правила до «Отправл
     await ui.waitFor(`!!${frame}?.getAttribute('src')`, 'предпросмотр как в почте');
     assert.equal(await ui.evaluate(`${frame}.getAttribute('sandbox')`), '', 'iframe без скриптов');
     const doc = await ui.evaluate(`fetch(${frame}.getAttribute('src')).then(async (r) => ({ csp: r.headers.get('content-security-policy'), body: await r.text() }))`);
-    assert.match(doc.csp, /^sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-ancestors 'self'$/);
+    assert.match(doc.csp, /^sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'$/);
     assert.match(doc.body, /background:#1E3A8A/);
     assert.match(doc.body, /href="#tj"/, 'RU+TJ — ссылка на таджикскую часть');
     assert.match(await ui.text(`${panel}.querySelector('[data-testid=mail-preview-subject]')`), /звонок «службы безопасности» \| Эҳтиёт/);

@@ -31,4 +31,4 @@ export function takePreview(userId: string, token: string, now = Date.now()): st
 }
 
 /** CSP документа предпросмотра: без скриптов и запросов, стили письма inline, изображения data:, только в iframe портала. */
-export const PREVIEW_CSP = "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-ancestors 'self'";
+export const PREVIEW_CSP = "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'";

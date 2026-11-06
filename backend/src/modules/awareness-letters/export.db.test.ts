@@ -168,7 +168,7 @@ describe('экспорт учебного письма', () => {
       // Предпросмотр — отдельный документ со своим CSP: стили письма inline, без скриптов, только в окне портала.
       const doc = await app.inject({ url: `/api/v1/awareness/letters/${letter.id}/export/preview.html?lang=both`, headers: { cookie: await login(staff.login) } });
       expect(doc.statusCode).toBe(200);
-      expect(doc.headers['content-security-policy']).toBe("sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; frame-ancestors 'self'");
+      expect(doc.headers['content-security-policy']).toBe("sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'");
       expect(doc.body).toContain('background:#1E3A8A');
       const other = await makeUser(tx, ['ib_staff'], { passwordHash: hash });
       const posted = await app.inject({

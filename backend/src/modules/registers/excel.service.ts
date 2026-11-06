@@ -121,6 +121,11 @@ export interface ExportOptions {
 const exportSelect = { id: true, number: true, values: true, version: true, archivedAt: true, createdAt: true, updatedAt: true } as const;
 
 /** Записи выгрузки по номеру: все действующие или по фильтру. */
+/** Ячейка поля «Файл» в Excel (1.12.0): «имя; sha256: …» каждого файла с новой строки; содержимое в Excel не попадает. */
+export function fileCellText(rec: { files?: Record<string, { file: { name: string; sha256: string } }[]> }, fieldId: string): string {
+  return (rec.files?.[fieldId] ?? []).map((x) => `${x.file.name}; sha256: ${x.file.sha256}`).join('\n');
+}
+
 export async function exportRows(db: Db, reg: RegisterDef, opts: ExportOptions = {}) {
   if (!opts.filter && !opts.includeArchived) {
     return db.registerRecord.findMany({ where: { registerId: reg.id, deletedAt: null, archivedAt: null }, select: exportSelect, orderBy: { number: 'asc' } });
@@ -197,7 +202,7 @@ export async function exportRegister(db: Db, registerId: string, opts: ExportOpt
         return typeof v === 'string' ? new Date(`${v}T00:00:00Z`) : null;
       }
       // Поле «Файл» (1.12.0): имя и sha256 каждого файла — содержимое в Excel не попадает, по sha256 файл сверяется.
-      if (f.type === 'file') return (rec.files?.[f.id] ?? []).map((x) => `${x.file.name}; sha256: ${x.file.sha256}`).join('\n');
+      if (f.type === 'file') return fileCellText(rec, f.id);
       if (f.type === 'decision') return rec.display[f.id] ?? '';
       const v = values[f.id];
       if (v === undefined) return null;
@@ -587,8 +592,13 @@ export async function previewImport(db: Db, actor: Actor, registerId: string, bu
     }
   }
   // Отображаемые значения «только для чтения» (вычисляемый срок, решение) — для предупреждения об изменениях.
+  // Как в выгрузке: поле «Файл» — «имя; sha256» (иначе выгруженный и не тронутый файл давал бы «изменено в колонках
+  // только для чтения»). Поле «Файл» импорт не применяет никогда — только сравнивает для предупреждения.
   const shownByNumber = new Map(
-    (await toRecordDtos(db, reg, existing.filter((r) => !r.deletedAt))).map((d) => [d.number, d.display]),
+    (await toRecordDtos(db, reg, existing.filter((r) => !r.deletedAt))).map((d) => [d.number, {
+      ...d.display,
+      ...Object.fromEntries(reg.fields.filter((f) => f.type === 'file').map((f) => [f.id, fileCellText(d, f.id)])),
+    }]),
   );
   const titleField = reg.fields.find((f) => f.isTitle && !f.archived);
   const requiredField = requiredTitleField(reg);
