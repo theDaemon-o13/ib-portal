@@ -12,7 +12,7 @@ import { actorFor, expectCode, inTx, makeFileRow, makeUser, must, type Tx } from
 import type { Actor } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as tr from './translations.js';
-import { notifyPartyDeadlines } from './notify.js';
+import { notifyPartyDeadlines, notifyTranslationDeadlines } from './notify.js';
 import { listNotifications } from '../notifications/service.js';
 import { runDocumentReviews } from './review.js';
 import * as svc from './service.js';
@@ -1315,6 +1315,32 @@ describe('документы: уведомления', () => {
       await tx.documentParty.update({ where: { id: p.id }, data: { dueDate: new Date('2026-11-16T00:00:00Z') } });
       await notifyPartyDeadlines(tx, at('2026-11-20'));
       expect(await inbox(tx, x.owner, id)).toHaveLength(mine.length);
+    }));
+});
+
+describe('документы: сроки переводов (1.11.0)', () => {
+  it('«срок перевода завтра» и «просрочен» — автору, по одному на язык и срок; со ссылкой, на другом этапе и в архиве — нет', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Регламент');
+      await moveTo(tx, x, id, '23');
+      await addTranslation(tx, x.owner, id, 'Таджикский', { dueDate: '2026-11-15' });
+      await addTranslation(tx, x.owner, id, 'Английский', { dueDate: '2026-11-15', onlyofficeUrl: URL_TJ });
+      const at = (iso: string) => new Date(`${iso}T06:00:00Z`);
+      const inbox = async () => (await tx.notification.findMany({ where: { userId: x.owner.id, documentId: id, kind: { startsWith: 'doc_translation' } }, orderBy: { createdAt: 'asc' } }))
+        .map((n) => `${n.kind}: ${n.title}`);
+      expect(await notifyTranslationDeadlines(tx, at('2026-11-14'))).toEqual({ dueTomorrow: 1, overdue: 0 });
+      expect(await inbox()).toEqual([expect.stringMatching(/^doc_translation_due_tomorrow: .*срок перевода на Таджикский — завтра, 15\.11\.2026$/)]);
+      await notifyTranslationDeadlines(tx, at('2026-11-14'));
+      await notifyTranslationDeadlines(tx, at('2026-11-17'));
+      await notifyTranslationDeadlines(tx, at('2026-11-18'));
+      expect((await inbox()).map((n) => n.split(':')[0])).toEqual(['doc_translation_due_tomorrow', 'doc_translation_overdue']);
+      expect((await inbox()).at(-1)).toMatch(/перевод на Таджикский не готов в срок \(15\.11\.2026\)/);
+      expect((await listNotifications(tx, x.owner.id, {})).items.find((n) => n.kind === 'doc_translation_overdue')?.link).toBe(`/documents?doc=${id}`);
+      // Дошли до утверждения — напоминаний больше нет, даже если строка осталась без ссылки.
+      const t = await tx.documentTranslation.findFirstOrThrow({ where: { documentId: id, language: 'Таджикский' } });
+      await tr.updateTranslation(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), onlyofficeUrl: URL_TJ, dueDate: '2026-11-25', comment: 'Новый срок' });
+      expect(await notifyTranslationDeadlines(tx, at('2026-11-30'))).toEqual({ dueTomorrow: 0, overdue: 0 });
     }));
 });
 
