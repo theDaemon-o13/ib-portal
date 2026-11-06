@@ -43,7 +43,7 @@ async function shot(name, theme, width) {
   await ui.evaluate(`(() => { const b = document.querySelector('.seg-top button[title=${JSON.stringify(title).replace(/"/g, '\\"')}]');
     if (b) b.click(); else { localStorage.setItem('ibportal.theme', ${JSON.stringify(theme)}); document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)}); } })()`);
   await sleep(1300);
-  writeFileSync(join(DIR, `${name}-${theme}-${width}.png`), await ui.screenshot());
+  writeFileSync(join(DIR, `${name}-${theme}-${width}.jpg`), await ui.screenshot('jpeg', 82));
 }
 
 it('скриншоты экранов в обеих темах и на 375 px', async () => {

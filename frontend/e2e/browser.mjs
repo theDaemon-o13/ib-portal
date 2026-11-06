@@ -360,9 +360,9 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await sleep(200);
     },
 
-    /** Снимок видимой части страницы в PNG. */
-    async screenshot() {
-      const { data } = await send('Page.captureScreenshot', { format: 'png' });
+    /** Снимок видимой части страницы: PNG или JPEG (quality 0–100). */
+    async screenshot(format = 'png', quality = 82) {
+      const { data } = await send('Page.captureScreenshot', format === 'jpeg' ? { format, quality } : { format });
       return Buffer.from(data, 'base64');
     },
 
