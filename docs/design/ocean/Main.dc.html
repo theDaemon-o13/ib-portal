@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Портал ИБ — Дашборд</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ocean.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>
+body{margin:0;background:#000}
+a{color:inherit}a:hover{color:inherit}
+</style>
+</helmet>
+<div class="app {{ themeClass }}">
+
+  <!-- ===== Сайдбар ===== -->
+  <nav class="side glass" aria-label="Разделы портала">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>
+      </div>
+      <div style="min-width: 0">
+        <div style="font-size: 14.5px; font-weight: 700; letter-spacing: -.01em">Портал ИБ</div>
+        <div style="font-size: 11.5px; color: var(--side-muted)">ЗАО «Хумо» · отдел ИБ</div>
+      </div>
+    </div>
+
+    <div class="sec">Работа</div>
+    <div class="nav">
+      <a class="on" href="#" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>Дашборд</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>Мониторинг</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>Задачи<span class="badge">23</span></a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>Цепочки</a>
+    </div>
+
+    <div class="sec">Реестры</div>
+    <div class="nav">
+      <a href="Registers.dc.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path><path d="M12 8v4M12 16h.01"></path></svg>Уязвимости<span class="badge hot">4</span></a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"></rect><rect x="3" y="13" width="18" height="7" rx="2"></rect><path d="M7 7.5h.01M7 16.5h.01"></path></svg>Активы</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>Инциденты</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 14l4-4"></path><path d="M3.3 19a10 10 0 1 1 17.4 0"></path></svg>Риски ИБ</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"></rect><path d="M2 20h20"></path></svg>Агенты DLP</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg>Конструктор</a>
+    </div>
+
+    <div class="sec">Документы</div>
+    <div class="nav">
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Документы<span class="badge">3</span></a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><path d="M9 13l2 2 4-4"></path></svg>Доказательства</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"></circle><path d="M11 12l9-9M17 6l3 3"></path></svg>Разрешения</a>
+    </div>
+
+    <div class="sec">Осведомлённость</div>
+    <div class="nav">
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>Рассылки</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"></path><path d="M6 11v5c3 2 9 2 12 0v-5"></path></svg>Результаты INDIGO</a>
+    </div>
+
+    <div class="sec">Система</div>
+    <div class="nav">
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Журнал аудита</a>
+      <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Настройки</a>
+    </div>
+
+    <div style="margin: 18px 6px 4px; padding: 14px 4px 2px; border-top: 1px solid var(--side-border); display: flex; align-items: center; justify-content: space-between; gap: 10px">
+      <div>
+        <div style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--side-muted); font-weight: 600">designed by</div>
+        <img class="sig-write" src="/_blob/695bb4a2554532bed696f2222b47f9fd" alt="Masharipov" style="height: 42px; width: auto; display: block; margin-top: 2px">
+      </div>
+      <div style="font-size: 11px; color: var(--side-muted); text-align: right; line-height: 1.5">Версия 1.13.0<br>Закрытый контур</div>
+    </div>
+  </nav>
+
+  <!-- ===== Основная колонка ===== -->
+  <div class="main">
+
+    <header class="topbar glass">
+      <label class="search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--side-muted); flex: none"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" placeholder="Поиск: задачи, реестры, документы, доказательства" aria-label="Поиск по порталу">
+        <span class="kbd">Ctrl K</span>
+      </label>
+      <div style="flex: 1 1 0"></div>
+      <div class="seg-top" role="group" aria-label="Тема">
+        <button type="button" class="{{ thAuto }}" onClick="{{ setAuto }}">Авто</button>
+        <button type="button" class="{{ thOcean }}" onClick="{{ setOcean }}">Океан</button>
+        <button type="button" class="{{ thBlack }}" onClick="{{ setBlack }}">Чёрная</button>
+      </div>
+      <button type="button" class="icon-btn" aria-label="Уведомления, 3 новых">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg>
+        <span class="dot"></span>
+      </button>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px 0 2px">
+        <div class="avatar">ИМ</div>
+        <div style="line-height: 1.25">
+          <div style="font-size: 13px; font-weight: 600">Искандар Машарипов</div>
+          <div style="font-size: 11.5px; color: var(--side-muted)">Сотрудник ИБ</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="stage glass">
+      <div class="stage-head">
+        <div>
+          <h1 class="h1">Добрый день, Искандар</h1>
+          <p class="sub">Пятница, 6 ноября · 7 сроков истекают на этой неделе</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <a class="btn btn-glass" href="#">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Журнал аудита
+          </a>
+          <a class="btn btn-primary" href="#">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Задача из письма
+          </a>
+        </div>
+      </div>
+
+      <!-- Диаграмма + кольцо -->
+      <div class="g-hero">
+        <section class="card lift" style="animation-delay: .12s">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 14px">
+            <div>
+              <h2 class="card-title">Закрытые уязвимости</h2>
+              <p class="card-sub">{{ closedSum }} закрыто за {{ periodLabel }}</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+              <div class="seg" role="group" aria-label="Период">
+                <button type="button" class="{{ p3 }}" onClick="{{ set3 }}">3 мес</button>
+                <button type="button" class="{{ p6 }}" onClick="{{ set6 }}">6 мес</button>
+                <button type="button" class="{{ p12 }}" onClick="{{ set12 }}">12 мес</button>
+              </div>
+              <a class="btn btn-primary" href="Registers.dc.html" style="height: 42px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"></path><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"></path></svg>Импорт отчёта сканера
+              </a>
+            </div>
+          </div>
+          <div class="plot" role="img" aria-label="Закрытые уязвимости по месяцам">
+            <sc-for list="{{ bars }}" as="b" hint-placeholder-count="6">
+              <div class="bar-col">
+                <sc-if value="{{ b.last }}" hint-placeholder-val="{{ false }}"><span class="bar-v">{{ b.v }}</span></sc-if>
+                <div class="{{ b.cls }}" style="height: {{ b.h }}" title="{{ b.tip }}"></div>
+                <span class="bar-l">{{ b.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <section class="card lift" style="animation-delay: .18s">
+          <h2 class="card-title">Открытые уязвимости</h2>
+          <p class="card-sub">По критичности · нажмите, чтобы отфильтровать</p>
+          <div style="display: grid; place-items: center; margin: 22px 0 18px">
+            <div role="img" aria-label="128 открытых: 6 критических, 29 высоких, 61 средняя, 32 низких" style="width: 168px; height: 168px; border-radius: 50%; background: conic-gradient(var(--red) 0 4.7%, var(--amber) 4.7% 27.3%, var(--yellow) 27.3% 75%, var(--teal) 75% 100%); display: grid; place-items: center; animation: rise .9s .25s cubic-bezier(.2,.8,.2,1) both">
+              <div style="width: 124px; height: 124px; border-radius: 50%; background: var(--donut-hole); display: grid; place-items: center; text-align: center">
+                <div>
+                  <div style="font-size: 28px; font-weight: 700; letter-spacing: -.02em">128</div>
+                  <div style="font-size: 11.5px; color: var(--muted)">открыто</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; font-size: 12.5px">
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 9px; height: 9px; border-radius: 50%; background: var(--red)"></span><span style="color: var(--muted)">Критическая</span><b style="margin-left: auto">6</b></div>
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 9px; height: 9px; border-radius: 50%; background: var(--amber)"></span><span style="color: var(--muted)">Высокая</span><b style="margin-left: auto">29</b></div>
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 9px; height: 9px; border-radius: 50%; background: var(--yellow)"></span><span style="color: var(--muted)">Средняя</span><b style="margin-left: auto">61</b></div>
+            <div style="display: flex; align-items: center; gap: 8px"><span style="width: 9px; height: 9px; border-radius: 50%; background: var(--teal)"></span><span style="color: var(--muted)">Низкая</span><b style="margin-left: auto">32</b></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Плитки -->
+      <div class="g-4">
+        <section class="card lift" style="animation-delay: .22s">
+          <div class="ico-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></div>
+          <div class="big">23</div>
+          <div style="font-size: 13.5px; font-weight: 600">Задачи в работе</div>
+          <div class="card-sub">5 со сроком на этой неделе</div>
+        </section>
+        <section class="card lift" style="animation-delay: .26s">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start">
+            <div class="ico-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></div>
+            <span class="chip c-red">+2 за неделю</span>
+          </div>
+          <div class="big" style="color: var(--red-text)">4</div>
+          <div style="font-size: 13.5px; font-weight: 600">Просрочено</div>
+          <div class="card-sub">3 уязвимости, 1 задача</div>
+        </section>
+        <section class="card lift" style="animation-delay: .30s">
+          <div class="ico-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg></div>
+          <div class="big">3</div>
+          <div style="font-size: 13.5px; font-weight: 600">Документы в маршруте</div>
+          <div class="card-sub">1 ждёт начальника ИБ</div>
+        </section>
+        <section class="card lift" style="animation-delay: .34s">
+          <div class="ico-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"></rect><path d="M2 20h20"></path></svg></div>
+          <div class="big">41</div>
+          <div style="font-size: 13.5px; font-weight: 600">Агенты DLP с Telegram</div>
+          <div class="card-sub">из 312 устройств · USB у 17</div>
+        </section>
+      </div>
+
+      <!-- Сроки + маршрут документов -->
+      <div class="g-row3">
+        <section class="card lift" style="animation-delay: .38s">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px">
+            <h2 class="card-title">Ближайшие сроки</h2>
+            <a href="#" style="font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none">Все сроки</a>
+          </div>
+          <div>
+            <div class="row">
+              <div class="ico-circle" style="flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></div>
+              <div style="min-width: 0; flex: 1"><p class="row-t">Отчёт о тестировании ОНД</p><p class="row-m">Задача · цепочка «ОНД 2026» · Оперплан</p></div>
+              <span class="chip c-red">сегодня</span>
+            </div>
+            <div class="row">
+              <div class="ico-circle" style="flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path><path d="M12 8v4M12 16h.01"></path></svg></div>
+              <div style="min-width: 0; flex: 1"><p class="row-t">CVE-2021-44228 · log4j-core</p><p class="row-m">Уязвимость · Интернет-банк · Критическая 9,5</p></div>
+              <span class="chip c-amber">2 дня</span>
+            </div>
+            <div class="row">
+              <div class="ico-circle" style="flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg></div>
+              <div style="min-width: 0; flex: 1"><p class="row-t">Пересмотр «Политика парольной защиты»</p><p class="row-m">Документ · цикл 12 месяцев</p></div>
+              <span class="chip c-amber">3 дня</span>
+            </div>
+            <div class="row">
+              <div class="ico-circle" style="flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg></div>
+              <div style="min-width: 0; flex: 1"><p class="row-t">Плановая рассылка: поддельные письма о зарплате</p><p class="row-m">Осведомлённость · RU + TJ</p></div>
+              <span class="chip c-neutral">5 дней</span>
+            </div>
+            <div class="row">
+              <div class="ico-circle" style="flex: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"></circle><path d="M11 12l9-9M17 6l3 3"></path></svg></div>
+              <div style="min-width: 0; flex: 1"><p class="row-t">Разрешения на облако истекают 31.12</p><p class="row-m">Разрешения · 12 устройств · связаны с агентами DLP</p></div>
+              <span class="chip c-neutral">55 дней</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card lift" style="animation-delay: .42s">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px">
+            <h2 class="card-title">Маршрут документов</h2>
+            <span class="chip c-blue">3 в работе</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 16px">
+            <div>
+              <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; font-weight: 600"><span>Регламент управления уязвимостями</span></div>
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px">
+                <span style="height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="height: 6px; border-radius: 3px; background: var(--chip-bg)"></span><span style="height: 6px; border-radius: 3px; background: var(--chip-bg)"></span>
+              </div>
+              <div class="card-sub">Согласование · ждёт начальника ИБ</div>
+            </div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 600">Политика использования мессенджеров</div>
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px">
+                <span style="height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="height: 6px; border-radius: 3px; background: var(--chip-bg)"></span>
+              </div>
+              <div class="card-sub">Перевод на таджикский</div>
+            </div>
+            <div>
+              <div style="font-size: 13.5px; font-weight: 600">Инструкция по удалённой работе через VPN</div>
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px">
+                <span style="height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="height: 6px; border-radius: 3px; background: var(--chip-bg)"></span><span style="height: 6px; border-radius: 3px; background: var(--chip-bg)"></span><span style="height: 6px; border-radius: 3px; background: var(--chip-bg)"></span>
+              </div>
+              <div class="card-sub">Драфт · автор</div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--muted); padding-top: 10px; border-top: 1px solid var(--hairline)">
+              <span>Драфт</span><span>Согласование</span><span>Перевод</span><span>Утверждение</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Океан","Чёрная"],"default":"Океан","section":"Вид"},"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { theme: null, period: 6 };
+  }
+  renderVals() {
+    var propTheme = this.props.theme === 'Чёрная' ? 'black' : 'ocean';
+    var mode = this.state.theme || propTheme;
+    var dark = false;
+    if (mode === 'auto') {
+      try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { dark = false; }
+    }
+    var resolved = mode === 'auto' ? (dark ? 'black' : 'ocean') : mode;
+
+    var labels = ['Дек','Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя'];
+    var values = [22,27,19,33,30,36,38,31,44,40,52,47];
+    var n = this.state.period;
+    var ls = labels.slice(12 - n), vs = values.slice(12 - n);
+    var max = 60, sum = 0;
+    var bars = vs.map(function (v, i) {
+      sum += v;
+      var last = i === vs.length - 1;
+      return { v: v, label: ls[i], last: last, cls: last ? 'bar last' : 'bar', h: Math.round(v / max * 100) + '%', tip: ls[i] + ': ' + v };
+    });
+    var self = this;
+    var set = function (k, v) { return function () { var o = {}; o[k] = v; self.setState(o); }; };
+    return {
+      themeClass: resolved === 'black' ? 't-black' : 't-ocean',
+      thAuto: mode === 'auto' ? 'on' : '',
+      thOcean: mode === 'ocean' ? 'on' : '',
+      thBlack: mode === 'black' ? 'on' : '',
+      setAuto: set('theme', 'auto'), setOcean: set('theme', 'ocean'), setBlack: set('theme', 'black'),
+      bars: bars, closedSum: sum,
+      periodLabel: n === 3 ? '3 месяца' : (n === 6 ? '6 месяцев' : '12 месяцев'),
+      p3: n === 3 ? 'on' : '', p6: n === 6 ? 'on' : '', p12: n === 12 ? 'on' : '',
+      set3: set('period', 3), set6: set('period', 6), set12: set('period', 12)
+    };
+  }
+}
+</script>
+</body>
+</html>
