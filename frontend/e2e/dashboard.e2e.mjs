@@ -247,7 +247,7 @@ describe('подпись автора и «О портале»', () => {
     // Узкий экран (1.13.0): меню — по кнопке «Меню», в нём версия; страница без горизонтальной прокрутки.
     await ui.viewport(390, 844);
     assert.equal(await ui.evaluate(`document.documentElement.scrollWidth <= innerWidth`), true, 'без горизонтальной прокрутки');
-    await ui.click(`document.querySelector('button.menu-btn')`, 'кнопка «Меню»');
+    await ui.click(`document.querySelector('button.rail-toggle')`, 'кнопка «Меню»');
     await ui.waitFor(`document.querySelector('.app').classList.contains('menu-open') && ${credit}.querySelector('.credit-v').getBoundingClientRect().right > 0`, 'меню открыто, версия видна');
     await ui.press('Escape');
     await ui.waitFor(`!document.querySelector('.app').classList.contains('menu-open')`, 'меню закрыто по Esc');

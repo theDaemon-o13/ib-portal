@@ -125,6 +125,9 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
   await send('Runtime.enable');
   await send('Log.enable');
   await send('Page.enable');
+  // Без анимаций появления (1.13.0, «Океан»): координаты и «не перекрыт» не зависят от того, догорела ли анимация.
+  // prefers-reduced-motion — штатный режим портала (все анимации отключаются), а не обход проверок.
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 
   const evaluate = async (expression) => {
     const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
