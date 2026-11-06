@@ -137,6 +137,6 @@ export async function updatePerson(db: Db, actor: Actor, itemId: string, input: 
  */
 export async function directoryForDocument(db: Db, userId: string, documentId: string): Promise<DirectoryItem[]> {
   const doc = await getDocument(db, await accessOf(db, userId), documentId);
-  if (!doc.can.parties) throw new AppError(403, 'FORBIDDEN', 'Список ответственных лиц доступен тем, кто ведёт лиц этого документа: автору и начальнику ИБ на этапах 11–14');
+  if (!doc.can.parties) throw new AppError(403, 'FORBIDDEN', 'Список ответственных лиц доступен тому, кто ведёт лиц этого документа: автору в драфте и на этапе «Согласование»');
   return (await readDirectory(db)).filter((i) => i.active).sort(byName);
 }

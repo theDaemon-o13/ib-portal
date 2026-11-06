@@ -1,29 +1,26 @@
-// Этап 14 «Согласование с ответственными лицами» и блокеры (релиз 1.2.0, этап Г3, ADR-0024).
-// Ответственные лица — внешние люди (ФИО, подразделение, e-mail для справки; по желанию — пользователь портала),
-// которым документ отправлен по почте: портал писем не отправляет. Лиц ведут автор и начальник ИБ на этапах 11–14,
-// согласование отмечают на этапе 14, по желанию — с ответом (файл). Срок меняется только с комментарием, история
-// сроков только пополняется. Блокеры открывают и снимают автор, старшие над автором и начальник ИБ; снятие —
-// с комментарием. Открытый блокер останавливает шаги вперёд (service.ts, gate).
+// Этап 22 «Согласование» с ответственными лицами (маршрут 1.11.0, ADR-0042; до него — этап 14) и блокеры.
+// Ответственные лица — внешние люди (ФИО, подразделение или должность), которым документ отправлен по почте: портал
+// писем не отправляет. Лиц ведёт автор: добавлять можно уже на этапе 21 — срок тогда задаётся днями и становится
+// датой при переходе на этап 22 (решение владельца 11). Отметка согласования (дата и комментарий, без файла), перенос
+// срока (только с комментарием, история пополняется) и «Запросить повторно» — только на этапе 22. Начальник ИБ
+// на этапе не участвует. Блокеры открывают и снимают автор, старшие над автором и начальник ИБ; снятие — с комментарием.
 import type { Db } from '../../lib/db.js';
 import { withTx } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
-import { MIME_BY_EXT } from '../../lib/file-type.js';
 import { personKey } from '../../lib/person-key.js';
 import { formatDateRu } from '../../lib/register-values.js';
-import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
-import { notifyDeadlineChanged, notifyPartiesDone } from './notify.js';
-import { cleanComment, forbiddenWith, inPickOrder, rolesOf, routeContext, syncStageTasks } from './service.js';
-import { stageName } from './status.js';
+import { notifyDeadlineChanged } from './notify.js';
+import { todayIso } from '../../lib/today.js';
+import { cleanComment, filesOnlyAtApproval, forbiddenWith, rolesOf, routeContext, syncStageTasks } from './service.js';
+import { FIRST_STAGE, PARTIES_STAGE, stateOf } from './status.js';
 
 export const NAME_MAX = 300;
 export const DEPARTMENT_MAX = 300;
 export const BLOCKER_MAX = 2000;
 
-/** Этапы, на которых ведётся список лиц: заранее с драфта и до этапа 14 включительно. */
-const PARTY_STAGES = [11, 12, 13, 14];
-const PARTY_APPROVE_STAGE = 14;
-const RESPONSE_MIME = [MIME_BY_EXT.pdf, MIME_BY_EXT.docx, MIME_BY_EXT.png, MIME_BY_EXT.jpg, MIME_BY_EXT.txt];
+/** Срок ответа на этапе 1 — дней от перехода на этап 2 (решение владельца 11). */
+export const DUE_DAYS_MAX = 90;
 
 type Stage = { version: number; stage: number };
 
@@ -36,8 +33,10 @@ export interface PartyInput {
   fullName: string;
   /** Подразделение или должность. */
   department?: string;
-  /** Срок ответа, YYYY-MM-DD. */
-  dueDate: string;
+  /** Срок ответа, YYYY-MM-DD — на этапе 22. */
+  dueDate?: string;
+  /** Срок ответа, дней от перехода на этап 22 — на этапе 21. */
+  dueDays?: number;
 }
 
 function cleanDate(v: string, what: string): Date {
@@ -53,15 +52,33 @@ function cleanText(v: string | undefined, max: number, what: string, required = 
   return t;
 }
 
-/** Контекст действия со списком лиц: автор или начальник ИБ, этапы 11–14. */
-async function partyContext(tx: Db, actor: Actor, id: string, input: Stage) {
+/**
+ * Контекст действия со списком лиц: автор, этап 21 (кроме проверки у начальника ИБ) или 22 «Согласование».
+ * approve — отметка, перенос срока, «Запросить повторно»: только этап 22.
+ */
+async function partyContext(tx: Db, actor: Actor, id: string, input: Stage, approve = false) {
   const ctx = await routeContext(tx, actor, id, input);
-  const roles = rolesOf(ctx.who, ctx.d);
-  if (!roles.has('author') && !roles.has('head')) {
-    throw forbiddenWith('FORBIDDEN', 'Ответственных лиц ведут автор документа (владелец или «Документы: управление») и начальник ИБ');
+  if (!rolesOf(ctx.who, ctx.d).has('author')) {
+    throw forbiddenWith('FORBIDDEN', 'Ответственных лиц ведёт автор документа (владелец или «Документы: управление»)');
   }
-  if (!PARTY_STAGES.includes(ctx.w.stage)) throw conflict('WRONG_STAGE', `Ответственных лиц ведут до этапа «${stageName(PARTY_APPROVE_STAGE)}» включительно`);
-  return ctx;
+  const state = stateOf(ctx.w);
+  const draft = ctx.w.stage === FIRST_STAGE && state === 'draft';
+  const agreeing = ctx.w.stage === PARTIES_STAGE && state === 'parties';
+  if (approve && !agreeing) throw conflict('WRONG_STAGE', 'Отметка согласования и перенос срока — на этапе «Согласование» (с этапа 2)');
+  if (!draft && !agreeing) throw conflict('WRONG_STAGE', 'Ответственных лиц ведут в драфте и на этапе «Согласование»');
+  return { ...ctx, onDraft: draft };
+}
+
+/** Срок нового лица: на этапе 21 — дней (дата предварительная: сегодня + N), на 22 — дата. */
+function dueOf(input: { dueDate?: string; dueDays?: number }, onDraft: boolean): { dueDate: Date; dueDays: number | null } {
+  if (onDraft) {
+    const n = input.dueDays;
+    if (n === undefined || !Number.isInteger(n) || n < 1 || n > DUE_DAYS_MAX) throw badRequest('BAD_DUE_DAYS', `Срок ответа — от 1 до ${DUE_DAYS_MAX} дней: отсчёт начнётся с перехода на этап «Согласование»`);
+    // Предварительная дата — от «сегодня» банка (APP_TZ), как и окончательная при переходе на этап 22.
+    return { dueDate: new Date(Date.parse(`${todayIso()}T00:00:00Z`) + n * 86_400_000), dueDays: n };
+  }
+  if (!input.dueDate) throw badRequest('BAD_DATE', 'Укажите срок ответа');
+  return { dueDate: cleanDate(input.dueDate, 'срок ответа'), dueDays: null };
 }
 
 async function getParty(tx: Db, versionId: string, partyId: string) {
@@ -87,18 +104,18 @@ async function assertNotDuplicate(tx: Db, versionId: string, fullName: string, d
 
 export async function addParty(db: Db, actor: Actor, id: string, input: Stage & PartyInput) {
   return withTx(db, async (tx) => {
-    const { d, w } = await partyContext(tx, actor, id, input);
+    const { d, w, onDraft } = await partyContext(tx, actor, id, input);
     const fullName = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
     const department = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
-    const due = cleanDate(input.dueDate, 'срок ответа');
+    const { dueDate: due, dueDays } = dueOf(input, onDraft);
     await assertNotDuplicate(tx, w.id, fullName, department);
     const p = await tx.documentParty.create({
-      data: { documentId: id, versionId: w.id, fullName, department, dueDate: due, addedBy: actor.id },
+      data: { documentId: id, versionId: w.id, fullName, department, dueDate: due, dueDays, addedBy: actor.id },
     });
     await auditSettings(tx, actor, {
       action: 'document.party_added', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: ответственное лицо ${fullName}${department ? ` (${department})` : ''}, срок ${formatDateRu(iso(due))}`,
-      after: { partyId: p.id, fullName, department, dueDate: iso(due) },
+      summary: `Документ #${d.number} «${w.title}»: ответственное лицо ${fullName}${department ? ` (${department})` : ''}, срок ${dueDays ? `${dueDays} дн. от этапа «Согласование»` : formatDateRu(iso(due))}`,
+      after: { partyId: p.id, fullName, department, dueDate: dueDays ? null : iso(due), dueDays },
     });
     await syncStageTasks(tx, id);
   });
@@ -112,9 +129,9 @@ export interface PartyPatch extends Partial<PartyInput> {
 /** Правка лица; смена срока — только с комментарием, в историю сроков. */
 export async function updateParty(db: Db, actor: Actor, id: string, partyId: string, input: Stage & PartyPatch) {
   return withTx(db, async (tx) => {
-    const { d, w } = await partyContext(tx, actor, id, input);
+    const { d, w, onDraft } = await partyContext(tx, actor, id, input, input.dueDate !== undefined);
     const p = await getParty(tx, w.id, partyId);
-    const data: { fullName?: string; department?: string; dueDate?: Date } = {};
+    const data: { fullName?: string; department?: string; dueDate?: Date; dueDays?: number } = {};
     const changes: { label: string; from: string; to: string }[] = [];
     if (input.fullName !== undefined) {
       const v = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
@@ -123,6 +140,15 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
     if (input.department !== undefined) {
       const v = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
       if (v !== p.department) { data.department = v; changes.push({ label: 'Подразделение или должность', from: p.department || '—', to: v || '—' }); }
+    }
+    // На этапе 21 срок — днями и не идёт: правится без комментария (решение владельца 11).
+    if (input.dueDays !== undefined && onDraft) {
+      const next = dueOf({ dueDays: input.dueDays }, true);
+      if (next.dueDays !== p.dueDays) {
+        data.dueDays = next.dueDays as number;
+        data.dueDate = next.dueDate;
+        changes.push({ label: 'Срок, дней', from: String(p.dueDays ?? '—'), to: String(next.dueDays) });
+      }
     }
     if (input.dueDate !== undefined) {
       const due = cleanDate(input.dueDate, 'срок ответа');
@@ -165,57 +191,70 @@ export async function removeParty(db: Db, actor: Actor, id: string, partyId: str
   });
 }
 
-/** Отметить согласование лица (этап 14), по желанию — с комментарием и ответом (файлы). */
-export async function approveParty(db: Db, actor: Actor, id: string, partyId: string, input: Stage & { comment?: string; fileIds?: string[] }) {
+/** Отметить согласование лица (этап 22): дата согласования и, по желанию, комментарий («согласовано письмом от 05.11»); без файла. */
+export async function approveParty(db: Db, actor: Actor, id: string, partyId: string, input: Stage & { comment?: string; approvedOn?: string; fileIds?: string[] }) {
   return withTx(db, async (tx) => {
-    const { d, w } = await partyContext(tx, actor, id, input);
-    if (w.stage !== PARTY_APPROVE_STAGE) throw conflict('WRONG_STAGE', `Согласование лиц отмечается на этапе «${stageName(PARTY_APPROVE_STAGE)}»`);
+    if (input.fileIds?.length) throw filesOnlyAtApproval();
+    const { d, w } = await partyContext(tx, actor, id, input, true);
     const p = await getParty(tx, w.id, partyId);
     if (p.approvedAt) throw conflict('PARTY_APPROVED', `${p.fullName} уже согласовал(а)`);
     const comment = cleanComment(input.comment, null);
-    const files = await claimFiles(tx, actor.id, input.fileIds ?? [], { mimes: RESPONSE_MIME, what: 'Ответ' });
-    await tx.documentParty.update({ where: { id: partyId }, data: { approvedAt: new Date(), approvedBy: actor.id, approveComment: comment } });
-    if (files.length) {
-      await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds ?? []).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'response', partyId, fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
-    }
+    const today = todayIso();
+    const on = cleanDate(input.approvedOn ?? today, 'дату согласования');
+    if (iso(on) > today) throw badRequest('BAD_DATE', 'Дата согласования — не позже сегодняшнего дня');
+    await tx.documentParty.update({ where: { id: partyId }, data: { approvedAt: new Date(), approvedBy: actor.id, approveComment: comment, approvedOn: on } });
     await auditSettings(tx, actor, {
       action: 'document.party_approved', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: ${p.fullName} согласовал(а)${files.length ? `, ответ — ${files.map((f) => `«${f.originalName}»`).join(', ')}` : ''}`,
-      after: { partyId, comment, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
+      summary: `Документ #${d.number} «${w.title}»: ${p.fullName} согласовал(а) ${formatDateRu(iso(on))}${comment ? ` — ${comment}` : ''}`,
+      after: { partyId, comment, approvedOn: iso(on) },
     });
     await syncStageTasks(tx, id);
-    await notifyPartiesDone(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, w.id, actor.id);
   });
 }
 
-/** Приложить ответ лица (файлы) — и до, и после отметки согласования. */
-export async function addResponseFiles(db: Db, actor: Actor, id: string, partyId: string, input: Stage & { fileIds: string[] }) {
+/**
+ * «Запросить повторно» (этап 22, решение владельца 5): у лица с отметкой — отметка снимается, новый срок (не раньше
+ * сегодня), прежняя отметка и сроки — в историю (document_party_rechecks, только пополняется) и журнал.
+ */
+export async function recheckParty(db: Db, actor: Actor, id: string, partyId: string, input: Stage & { dueDate: string; comment?: string }) {
   return withTx(db, async (tx) => {
-    const { d, w } = await partyContext(tx, actor, id, input);
+    const { d, w } = await partyContext(tx, actor, id, input, true);
     const p = await getParty(tx, w.id, partyId);
-    const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: RESPONSE_MIME, what: 'Ответ' });
-    if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл');
-    await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds ?? []).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'response', partyId, fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
-    await auditSettings(tx, actor, {
-      action: 'document.files_added', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: ответ ${p.fullName} — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
-      after: { partyId, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
+    if (!p.approvedAt) throw conflict('PARTY_NOT_APPROVED', `${p.fullName} ещё не согласовал(а): запрашивать повторно нечего`);
+    const due = cleanDate(input.dueDate, 'новый срок ответа');
+    if (iso(due) < todayIso()) throw badRequest('BAD_DATE', 'Новый срок — не раньше сегодняшнего дня');
+    const comment = cleanComment(input.comment, null);
+    await tx.documentPartyRecheck.create({
+      data: {
+        documentId: id, partyId, prevApprovedAt: p.approvedAt, prevApprovedOn: p.approvedOn, prevApprovedBy: p.approvedBy, prevComment: p.approveComment,
+        reworkedAt: p.reworkedAt, fromDue: p.dueDate, toDue: due, comment, actorId: actor.id,
+      },
     });
+    await tx.documentParty.update({
+      where: { id: partyId },
+      data: { approvedAt: null, approvedBy: null, approveComment: '', approvedOn: null, reworkedAt: null, dueDate: due },
+    });
+    await auditSettings(tx, actor, {
+      action: 'document.party_recheck', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}»: у ${p.fullName} запрошено повторное согласование, срок ${formatDateRu(iso(due))}`,
+      after: { partyId, fromDue: iso(p.dueDate), toDue: iso(due), comment, prevApprovedOn: p.approvedOn ? iso(p.approvedOn) : null },
+    });
+    await syncStageTasks(tx, id);
   });
 }
 
-export async function removeResponseFile(db: Db, actor: Actor, id: string, linkId: string, input: Stage) {
+/** Ответы лиц файлами — до 1.11.0; с 1.11.0 файлы прикладываются только на этапе 24, прежние не снимаются (409). */
+export async function addResponseFiles(db: Db, actor: Actor, id: string, _partyId: string, input: Stage & { fileIds: string[] }) {
   return withTx(db, async (tx) => {
-    const { d, w } = await partyContext(tx, actor, id, input);
-    const link = await tx.documentFile.findFirst({ where: { id: linkId, versionId: w.id, kind: 'response', removedAt: null }, include: { file: { select: { originalName: true } } } });
-    if (!link) throw notFound('Файл ответа');
-    await tx.documentFile.update({ where: { id: link.id }, data: { removedAt: new Date(), removedBy: actor.id } });
-    await deleteIfUnreferenced(tx, actor, link.fileId, `снят с ответа по документу #${d.number}`);
-    await auditSettings(tx, actor, {
-      action: 'document.file_removed', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: снят файл ответа «${link.file.originalName}»`,
-      after: { fileId: link.fileId, partyId: link.partyId },
-    });
+    await routeContext(tx, actor, id, input);
+    throw filesOnlyAtApproval();
+  });
+}
+
+export async function removeResponseFile(db: Db, actor: Actor, id: string, _linkId: string, input: Stage) {
+  return withTx(db, async (tx) => {
+    await routeContext(tx, actor, id, input);
+    throw filesOnlyAtApproval();
   });
 }
 

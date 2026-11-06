@@ -8,7 +8,7 @@ import { buildApp } from '../../app.js';
 import { diskFileStore } from '../../lib/file-store.js';
 import { MAX_FILE_BYTES } from '../../lib/file-type.js';
 import { argon2Hasher } from '../../lib/passwords.js';
-import { tinyPdf, tinyPng } from '../../test/files-fixture.js';
+import { tinyDocx, tinyPdf, tinyPng } from '../../test/files-fixture.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { actorFor, inTx, makeUser, must, type Tx } from '../../test/db.js';
 import { prismaAuditWriter } from '../audit/audit.js';
@@ -131,7 +131,7 @@ describe('файлы по HTTP', () => {
       expect(await tx.auditLog.count({ where: { action: 'file.downloaded', entityId: id } })).toBeGreaterThan(0);
     }));
 
-  it('файлы документа: юрист видит файлы подписанной версии, но не драфта', () =>
+  it('файлы документа (этап 24, 1.11.0): юрист видит PDF, Word и Word перевода утверждённой версии, но не рабочей', () =>
     inTx(async (tx) => {
       const s = await setup(tx);
       const S = await s.login(s.staff.login);
@@ -139,18 +139,28 @@ describe('файлы по HTTP', () => {
       const admin = await makeUser(tx, ['super_admin']);
       const type = await tx.catalogItem.create({ data: { catalogCode: 'document_types', value: `Политика ${Date.now().toString(36)}` } });
       const docId = await docs.createDocument(tx, await actorFor(tx, admin.id), { title: 'Политика ИБ', typeId: type.id, ownerId: s.staff.id, onlyofficeUrl: 'https://office.local/1' });
-      const draft = (await s.upload(S, 'Политика.pdf', tinyPdf())).json().id as string;
-      const d = await tx.document.findUniqueOrThrow({ where: { id: docId } });
-      await docs.addDraftFiles(tx, await actorFor(tx, s.staff.id), docId, { version: d.version, stage: 11, fileIds: [draft] });
-      expect((await s.get(L, draft)).statusCode).toBe(404);
-      const meta = await s.app.inject({ url: `/api/v1/files/${draft}`, headers: { cookie: S } });
-      expect(meta.json().refs[0]).toMatchObject({ kind: 'document_file', id: docId });
-      const signed = (await s.upload(S, 'Подписан.pdf', tinyPdf())).json().id as string;
-      const vid = must(d.workingVersionId);
-      await tx.documentVersion.update({ where: { id: vid }, data: { stage: 16, pdfFileId: signed, approvedAt: new Date(), signedOn: new Date('2026-10-27T00:00:00Z') } });
-      await tx.document.update({ where: { id: docId }, data: { approvedVersionId: vid, workingVersionId: null, reviewDue: new Date('2027-10-27T00:00:00Z') } });
-      expect((await s.get(L, signed)).statusCode).toBe(200);
-      expect((await s.get(L, draft)).statusCode).toBe(200);
+      const vid = must((await tx.document.findUniqueOrThrow({ where: { id: docId } })).workingVersionId);
+      // Документ на этапе 24 «Утверждение» (маршрут пройден), язык перевода — со ссылкой.
+      await tx.documentVersion.update({ where: { id: vid }, data: { stage: 24, routeState: null } });
+      const tr = await tx.documentTranslation.create({ data: {
+        documentId: docId, versionId: vid, language: 'Таджикский', translatorId: s.staff.id, dueDate: new Date('2026-11-20T00:00:00Z'),
+        onlyofficeUrl: 'https://office.local/2', addedBy: s.staff.id,
+      } });
+      const pdf = (await s.upload(S, 'Подписан.pdf', tinyPdf())).json().id as string;
+      const docx = (await s.upload(S, 'Политика.docx', tinyDocx())).json().id as string;
+      const trDocx = (await s.upload(S, 'Сиёсат.docx', tinyDocx())).json().id as string;
+      const actor = await actorFor(tx, s.staff.id);
+      const at = async () => { const d = await tx.document.findUniqueOrThrow({ where: { id: docId } }); return { version: d.version, stage: 24 }; };
+      await docs.setApprovalFile(tx, actor, docId, { ...(await at()), slot: 'pdf', fileId: pdf });
+      await docs.setApprovalFile(tx, actor, docId, { ...(await at()), slot: 'docx', fileId: docx });
+      await docs.setApprovalFile(tx, actor, docId, { ...(await at()), slot: 'translation_docx', translationId: tr.id, fileId: trDocx });
+      // Рабочая версия: юристу (без ib.work) — 404; ссылки видны сотруднику ИБ.
+      for (const f of [pdf, docx, trDocx]) expect((await s.get(L, f)).statusCode).toBe(404);
+      const meta = async (f: string) => (await s.app.inject({ url: `/api/v1/files/${f}`, headers: { cookie: S } })).json().refs[0];
+      expect(await meta(docx)).toMatchObject({ kind: 'document_file', id: docId, label: 'Word версии 1 «Политика ИБ»' });
+      expect(await meta(trDocx)).toMatchObject({ kind: 'document_file', id: docId, label: 'Word перевода (Таджикский) версии 1 «Политика ИБ»' });
+      await docs.signDocument(tx, actor, docId, { ...(await at()), signedOn: '2026-10-27' });
+      for (const f of [pdf, docx, trDocx]) expect((await s.get(L, f)).statusCode).toBe(200);
     }));
 
   it('файл с несколькими ссылками не удаляется; без ссылок — только мягко; DELETE запрещён', () =>

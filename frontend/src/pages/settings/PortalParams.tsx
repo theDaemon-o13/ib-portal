@@ -8,15 +8,18 @@ const paramsKey = ['settings', 'portal-params'] as const;
 type Assets = { significantLevelOptionIds: string[]; dlpRegisterId: string | null };
 type Vulns = { scanMaxAgeDays: number; profileAliases: Record<string, string[]> };
 type Option = { id: string; label: string };
-type StageDays = Record<'11' | '12' | '13' | '15' | '16', number>;
+type StageDays = Record<'21' | '21h' | '22h' | '23' | '24', number>;
 
-/** Сроки задач этапов документа (1.6.3); этапа 14 нет — его срок берётся из сроков ответственных лиц. */
+/**
+ * Сроки задач этапов документа (маршрут 1.11.0, ключ documents.stageDays.v3). «Согласования» (22) нет — его срок
+ * берётся из сроков ответственных лиц; у «Перевода» с языками — из сроков языков.
+ */
 const STAGE_DAY_FIELDS: { key: keyof StageDays; label: string }[] = [
-  { key: '11', label: 'Драфт (документ заведён за другого владельца)' },
-  { key: '12', label: 'Проверка сотрудниками' },
-  { key: '13', label: 'Согласование начальника ИБ' },
-  { key: '15', label: 'Перевод: переводы готовы, отправить на подписание' },
-  { key: '16', label: 'Подписание' },
+  { key: '21', label: 'Драфт (документ заведён за другого владельца)' },
+  { key: '21h', label: 'Проверка начальника ИБ' },
+  { key: '22h', label: 'Повторная проверка начальника ИБ' },
+  { key: '23', label: 'Перевод (языков нет)' },
+  { key: '24', label: 'Утверждение' },
 ];
 
 function StageDaysForm({ value, onChange }: { value: StageDays; onChange: (v: StageDays) => void }) {

@@ -8,6 +8,7 @@ import type { Db } from '../../lib/db.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { addDaysIso, todayIso } from '../../lib/today.js';
 import { notify } from '../notifications/service.js';
+import { PARTIES_STAGE } from './status.js';
 
 export interface DocRef { id: string; number: number; title: string; ownerId: string }
 const label = (d: DocRef) => `#${d.number} «${d.title}»`;
@@ -50,7 +51,8 @@ export async function notifyDeadlineChanged(db: Db, d: DocRef, what: string, to:
 
 /**
  * Часовой прогон: «срок ответственного лица завтра» и «просрочен» — автору (решение владельца 5). Только лица, которые
- * ещё не согласовали, у рабочей версии неархивного и неудалённого документа. Одно уведомление на лицо и срок.
+ * ещё не согласовали, у рабочей версии неархивного и неудалённого документа на этапе 22 (на этапе 21 срок
+ * предварительный — отсчёт с перехода на этап 2, решение владельца 11). Одно уведомление на лицо и срок.
  */
 export async function notifyPartyDeadlines(db: Db, now = new Date()): Promise<{ dueTomorrow: number; overdue: number }> {
   const today = todayIso(now);
@@ -58,7 +60,7 @@ export async function notifyPartyDeadlines(db: Db, now = new Date()): Promise<{ 
   const rows = await db.documentParty.findMany({
     where: {
       removedAt: null, approvedAt: null, dueDate: { lte: new Date(`${tomorrow}T00:00:00Z`) },
-      version: { workingOf: { is: { archivedAt: null, deletedAt: null } }, cancelledAt: null },
+      version: { workingOf: { is: { archivedAt: null, deletedAt: null } }, cancelledAt: null, stage: PARTIES_STAGE },
     },
     select: { id: true, fullName: true, dueDate: true, document: { select: { id: true, number: true, ownerId: true } }, version: { select: { title: true } } },
   });

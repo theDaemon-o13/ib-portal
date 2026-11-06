@@ -49,7 +49,7 @@ export interface FileRef {
 
 /** Действующие ссылки на файл (то же, что file_active_refs() в БД). */
 export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { versionId?: string })[]> {
-  const [links, decisions, versions, records, compares, docFiles, returnNotes, scans, handovers, extensions] = await Promise.all([
+  const [links, decisions, versions, records, compares, docFiles, returnNotes, scans, handovers, extensions, versionDocx, translationFiles] = await Promise.all([
     db.evidenceFile.findMany({ where: { fileId, removedAt: null }, select: { evidence: { select: { id: true, number: true, title: true } } } }),
     db.registerDecision.findMany({ where: { fileId }, select: { id: true, documentTitle: true, documentNumber: true } }),
     db.documentVersion.findMany({ where: { pdfFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
@@ -67,6 +67,12 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
     db.vulnScan.findMany({ where: { fileId }, select: { id: true, fileName: true } }),
     db.vulnScan.findMany({ where: { handoverFileId: fileId }, select: { id: true, fileName: true } }),
     db.vulnExtension.findMany({ where: { basisFileId: fileId }, select: { id: true, basisNumber: true } }),
+    // Этап 24 «Утверждение» (1.11.0): исходный Word версии и файлы переводов (Word — обязателен, PDF — по желанию).
+    db.documentVersion.findMany({ where: { sourceDocxFileId: fileId }, select: { id: true, no: true, documentId: true, title: true } }),
+    db.documentTranslation.findMany({
+      where: { OR: [{ sourceDocxFileId: fileId }, { signedPdfFileId: fileId }] },
+      select: { language: true, documentId: true, versionId: true, sourceDocxFileId: true, version: { select: { no: true, title: true } } },
+    }),
   ]);
   return [
     ...records.map((r) => ({ kind: 'record' as const, id: r.record.id, label: `«${r.record.register.name}», запись #${r.record.number}: ${r.field.label}` })),
@@ -76,6 +82,11 @@ export async function fileRefs(db: Db, fileId: string): Promise<(FileRef & { ver
     ...docFiles.map((x) => ({
       kind: 'document_file' as const, id: x.documentId, versionId: x.versionId,
       label: `${DOC_FILE_KIND[x.kind] ?? 'Файл'} версии ${x.version.no} «${x.version.title}»`,
+    })),
+    ...versionDocx.map((v) => ({ kind: 'document_file' as const, id: v.documentId, versionId: v.id, label: `Word версии ${v.no} «${v.title}»` })),
+    ...translationFiles.map((t) => ({
+      kind: 'document_file' as const, id: t.documentId, versionId: t.versionId,
+      label: `${t.sourceDocxFileId === fileId ? 'Word' : 'PDF'} перевода (${t.language}) версии ${t.version.no} «${t.version.title}»`,
     })),
     ...returnNotes.map((x) => ({
       kind: 'document_file' as const, id: x.documentId, versionId: x.versionId,

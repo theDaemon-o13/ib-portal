@@ -16,51 +16,55 @@ export function versionLabel(v: { no: number; edition: string }): string {
   return v.edition ? `${v.no} · ред. ${v.edition}` : String(v.no);
 }
 
-/** Кнопки маршрута (ADR-0024); тексты — как в backend (status.ts, MOVES). */
+/** Кнопки маршрута 1.11.0 (ADR-0042); тексты — как в backend (status.ts, MOVES). */
 export const ACTION_LABEL: Record<DocAction, string> = {
-  to_review: 'Отправить на проверку сотрудникам',
-  to_head: 'На согласование начальнику ИБ',
-  approve: 'Согласовать',
-  ack_final: 'Ознакомлен с финальной версией',
-  to_signing: 'На подписание',
-  return: 'Вернуть на доработку',
+  submit_head: 'Отправить на проверку начальнику ИБ',
+  head_approve: 'Одобрить',
+  head_return: 'Вернуть на доработку',
+  request_recheck: 'Повторная проверка',
+  to_translation: 'Отправить на перевод',
+  head_reapprove: 'Одобрить',
+  recheck_return: 'Вернуть на доработку',
+  to_approval: 'На утверждение',
 };
 
-/** Переход фиксирует файл версии (pdf или docx). */
-/** Действия, где файл загружается (14 → 15). 13 → 14 с 1.4.0 — без загрузки: выбирается файл автора. */
-export const FIXED_FILE_LABEL: Partial<Record<DocAction, string>> = {
-  ack_final: 'Финальная версия (pdf или docx)',
-};
-
-type VersionFile = DocDetail['files'][number];
-
-/** Файлы автора для согласования 13 → 14 (pdf, docx); по умолчанию — последний загруженный. */
-export function authorFiles(files: readonly VersionFile[]): { list: VersionFile[]; latest: VersionFile | null } {
-  const list = files.filter((f) => f.marks.includes('Файл драфта'));
-  const latest = [...list].sort((a, b) => (a.addedAt < b.addedAt ? 1 : a.addedAt > b.addedAt ? -1 : 0))[0] ?? null;
-  return { list, latest };
-}
+/** Возвраты: вторичные кнопки, комментарий обязателен. */
+export const RETURN_ACTIONS: readonly DocAction[] = ['head_return', 'recheck_return'];
+export const isReturn = (a: DocAction) => RETURN_ACTIONS.includes(a);
 
 /** Уведомление после действия. */
 export const ACTION_DONE: Record<DocAction, string> = {
-  to_review: 'Документ отправлен на проверку сотрудникам',
-  to_head: 'Документ отправлен на согласование начальнику ИБ',
-  approve: 'Документ согласован',
-  ack_final: 'Финальная версия принята, документ — на переводе',
-  to_signing: 'Документ отправлен на подписание',
-  return: 'Документ возвращён автору на доработку',
+  submit_head: 'Документ отправлен на проверку начальнику ИБ',
+  head_approve: 'Документ одобрен: автор согласует его с ответственными лицами',
+  head_return: 'Документ возвращён автору на доработку',
+  request_recheck: 'Документ отправлен на повторную проверку начальнику ИБ',
+  to_translation: 'Документ отправлен на перевод',
+  head_reapprove: 'Документ одобрен повторно: он на переводе',
+  recheck_return: 'Документ возвращён автору: он остаётся на согласовании',
+  to_approval: 'Документ отправлен на утверждение',
 };
 
-export const SELF_APPROVED = 'Согласовано автором (начальник ИБ) — без независимого согласования';
+export const SELF_APPROVED = 'Одобрено автором (начальник ИБ) — без независимого согласования';
 
-/** Строка истории согласования. */
+/** Строка истории согласования; решения маршрута 1.11.0 — по точному виду (event), прежние — по decision. */
 export function historyText(h: DocDetail['history'][number]): string {
+  const self = h.selfApproved ? ' сам(а) как автор и начальник ИБ — без независимого согласования' : '';
+  switch (h.event) {
+    case 'head_review_requested': return `отправил(а) версию ${h.versionNo} на проверку начальнику ИБ`;
+    case 'head_approved': return `одобрил(а) версию ${h.versionNo}${self}`;
+    case 'head_recheck_requested': return `отправил(а) версию ${h.versionNo} на повторную проверку начальнику ИБ`;
+    case 'head_reapproved': return `повторно одобрил(а) версию ${h.versionNo}${self}`;
+    case 'unchanged_confirmed': return `отправил(а) версию ${h.versionNo} на перевод. ${h.comment}`;
+    case 'translations_done': return `отправил(а) версию ${h.versionNo} на утверждение${h.comment ? `. ${h.comment}` : ''}`;
+    case 'approved_final': return `утвердил(а) версию ${h.versionNo}. ${h.comment}`;
+    default: break;
+  }
   switch (h.decision) {
     case 'submitted':
       return `отправил(а) версию ${h.versionNo} на согласование`;
     case 'approved':
       if (h.stage === 3) return `утвердил(а) версию ${h.versionNo}`;
-      if (h.stage === 13) return `согласовал(а) версию ${h.versionNo}${h.selfApproved ? ' сам(а) как автор и начальник ИБ — без независимого согласования' : ''}`;
+      if (h.stage === 13) return `согласовал(а) версию ${h.versionNo}${self}`;
       if (h.stage === 14) return `ознакомлен(а) с финальной версией ${h.versionNo}`;
       return `согласовал(а) этап «${h.stageName}», версия ${h.versionNo}`;
     case 'moved':

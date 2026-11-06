@@ -1,23 +1,18 @@
-// Этап 15 «Перевод» (релиз 1.2.0, этап Г4, ADR-0024; с 1.4.0 — решение владельца 9). Строка перевода — язык, имя
-// переводчика текстом (необязательно: переводчик не пользователь портала), срок и файл. Строки ведут автор, старшие над
-// автором и начальник ИБ на этапах 11–15; снять строку можно до прохождения этапа 15, и с файлом. Файл (pdf или docx)
-// прикладывает автор (владелец или docs.manage) на этапе 15. Срок меняется только с комментарием — в общую историю
-// сроков. 15 → 16 — когда у каждого добавленного языка есть файл (service.ts, gate). translator_id в новых строках —
-// тот, кто добавил строку (колонка NOT NULL ради отката на 1.3.0).
+// Этап 23 «Перевод» (маршрут 1.11.0, ADR-0042; до него — этап 15). Строка перевода — язык, имя переводчика текстом
+// (необязательно: переводчик не пользователь портала), срок и ссылка на перевод в OnlyOffice вместо файла. Раздел
+// и строки — только на этапе 23 (замечание владельца 05.11.2026), ведёт автор. Срок меняется только с комментарием —
+// в общую историю сроков. 23 → 24 — когда у каждого языка есть ссылка (service.ts, gate). Файлы перевода (Word —
+// обязательно, PDF — по желанию) — на этапе 24 (service.ts, setApprovalFile). translator_id — тот, кто добавил строку.
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
-import { MIME_BY_EXT } from '../../lib/file-type.js';
 import { formatDateRu } from '../../lib/register-values.js';
-import { claimFiles, deleteIfUnreferenced } from '../files/links.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { notifyDeadlineChanged } from './notify.js';
-import { cleanComment, forbiddenWith, inPickOrder, notifyWaiting, rolesOf, routeContext, syncStageTasks } from './service.js';
-import { stageName } from './status.js';
+import { cleanComment, filesOnlyAtApproval, forbiddenWith, rolesOf, routeContext, syncStageTasks, type DocPolicy } from './service.js';
+import { isDocUrl, TRANSLATION_STAGE } from './status.js';
 
 export const LANGUAGE_MAX = 100;
-const TRANSLATION_STAGES = [11, 12, 13, 14, 15];
-const UPLOAD_STAGE = 15;
-const TRANSLATION_MIME = [MIME_BY_EXT.pdf, MIME_BY_EXT.docx];
+const URL_MAX = 2000;
 
 type Stage = { version: number; stage: number };
 
@@ -46,15 +41,24 @@ const nameOrDash = (v: string) => v || '—';
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** Языки ведут автор, старшие над автором и начальник ИБ, на этапах 11–15. */
+/** Языки ведёт автор, только на этапе 23 «Перевод». */
 async function managerContext(tx: Db, actor: Actor, id: string, input: Stage) {
   const ctx = await routeContext(tx, actor, id, input);
-  const roles = rolesOf(ctx.who, ctx.d);
-  if (!roles.has('author') && !roles.has('senior') && !roles.has('head')) {
-    throw forbiddenWith('FORBIDDEN', 'Переводы ведут автор документа, старшие над автором и начальник ИБ');
+  if (!rolesOf(ctx.who, ctx.d).has('author')) {
+    throw forbiddenWith('FORBIDDEN', 'Переводы ведёт автор документа (владелец или «Документы: управление»)');
   }
-  if (!TRANSLATION_STAGES.includes(ctx.w.stage)) throw conflict('WRONG_STAGE', `Переводы ведут до этапа «${stageName(UPLOAD_STAGE)}» включительно`);
+  if (ctx.w.stage !== TRANSLATION_STAGE) throw conflict('WRONG_STAGE', 'Переводы ведут на этапе «Перевод»');
   return ctx;
+}
+
+/** Ссылка на перевод — как ссылка документа: http(s), с ONLYOFFICE_URL_PREFIX — тот же сервер (ADR-0010). */
+function cleanUrl(v: string, policy: DocPolicy): string {
+  const t = v.trim();
+  if (!t) return '';
+  if (t.length > URL_MAX || !isDocUrl(t, policy.urlPrefix ?? '')) {
+    throw badRequest('BAD_URL', policy.urlPrefix ? `Ссылка на перевод — на сервер OnlyOffice банка (${policy.urlPrefix}…)` : 'Ссылка на перевод — адрес http:// или https:// без пробелов');
+  }
+  return t;
 }
 
 async function getTranslation(tx: Db, versionId: string, translationId: string) {
@@ -63,7 +67,7 @@ async function getTranslation(tx: Db, versionId: string, translationId: string) 
   return t;
 }
 
-async function createTranslation(tx: Db, data: { documentId: string; versionId: string; language: string; translatorId: string; translatorName: string; dueDate: Date; addedBy: string }) {
+async function createTranslation(tx: Db, data: { documentId: string; versionId: string; language: string; translatorId: string; translatorName: string; dueDate: Date; addedBy: string; onlyofficeUrl: string }) {
   try {
     return await withTx(tx, (t) => t.documentTranslation.create({ data }));
   } catch (err) {
@@ -72,32 +76,35 @@ async function createTranslation(tx: Db, data: { documentId: string; versionId: 
   }
 }
 
-export async function addTranslation(db: Db, actor: Actor, id: string, input: Stage & { language: string; translatorName?: string; dueDate: string }) {
+export async function addTranslation(db: Db, actor: Actor, id: string, input: Stage & { language: string; translatorName?: string; dueDate: string; onlyofficeUrl?: string }, policy: DocPolicy = {}) {
   return withTx(db, async (tx) => {
     const { d, w } = await managerContext(tx, actor, id, input);
     const language = cleanLanguage(input.language);
     const due = cleanDate(input.dueDate);
     const translatorName = cleanTranslatorName(input.translatorName);
+    const onlyofficeUrl = cleanUrl(input.onlyofficeUrl ?? '', policy);
     // translator_id — тот, кто добавил строку (решение владельца 9): переводчик не пользователь портала.
-    const t = await createTranslation(tx, { documentId: id, versionId: w.id, language, translatorId: actor.id, translatorName, dueDate: due, addedBy: actor.id });
+    const t = await createTranslation(tx, { documentId: id, versionId: w.id, language, translatorId: actor.id, translatorName, dueDate: due, addedBy: actor.id, onlyofficeUrl });
     await auditSettings(tx, actor, {
       action: 'document.translation_added', entity: 'document', entityId: id,
       summary: `Документ #${d.number} «${w.title}»: перевод на ${language}${translatorName ? ` — ${translatorName}` : ''}, срок ${formatDateRu(iso(due))}`,
       after: { translationId: t.id, language, translatorName, dueDate: iso(due) },
     });
     await syncStageTasks(tx, id);
-    // Язык добавили уже на этапе 15 — «ждёт вас» по stageHolders (один раз на состояние).
-    if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
 /** Правка строки: язык, имя переводчика, срок (смена срока — только с комментарием, в историю сроков). */
 export async function updateTranslation(db: Db, actor: Actor, id: string, translationId: string,
-  input: Stage & { language?: string; translatorName?: string; dueDate?: string; comment?: string }) {
+  input: Stage & { language?: string; translatorName?: string; dueDate?: string; comment?: string; onlyofficeUrl?: string }, policy: DocPolicy = {}) {
   return withTx(db, async (tx) => {
     const { d, w } = await managerContext(tx, actor, id, input);
     const t = await getTranslation(tx, w.id, translationId);
-    const data: { language?: string; translatorName?: string; dueDate?: Date } = {};
+    const data: { language?: string; translatorName?: string; dueDate?: Date; onlyofficeUrl?: string } = {};
+    if (input.onlyofficeUrl !== undefined) {
+      const v = cleanUrl(input.onlyofficeUrl, policy);
+      if (v !== t.onlyofficeUrl) { data.onlyofficeUrl = v; }
+    }
     const changes: { label: string; from: string; to: string }[] = [];
     if (input.language !== undefined) {
       const v = cleanLanguage(input.language);
@@ -119,6 +126,7 @@ export async function updateTranslation(db: Db, actor: Actor, id: string, transl
           [], iso(t.dueDate), iso(due), comment, actor.id);
       }
     }
+    if (data.onlyofficeUrl !== undefined) changes.push({ label: 'Ссылка на перевод', from: t.onlyofficeUrl || '—', to: data.onlyofficeUrl || '—' });
     if (!changes.length) return;
     try {
       await withTx(tx, (x) => x.documentTranslation.update({ where: { id: translationId }, data }));
@@ -135,10 +143,7 @@ export async function updateTranslation(db: Db, actor: Actor, id: string, transl
   });
 }
 
-/**
- * Снять строку перевода — до прохождения этапа 15 (этапы 11–15), в том числе с файлом (1.4.0): строка и её файлы
- * остаются в базе с отметкой «снят», в карточке и проверке 15 → 16 не участвуют.
- */
+/** Снять строку перевода — на этапе 23: строка остаётся в базе с отметкой «снят», в проверке 23 → 24 не участвует. */
 export async function removeTranslation(db: Db, actor: Actor, id: string, translationId: string, input: Stage) {
   return withTx(db, async (tx) => {
     const { d, w } = await managerContext(tx, actor, id, input);
@@ -150,49 +155,20 @@ export async function removeTranslation(db: Db, actor: Actor, id: string, transl
       after: { translationId },
     });
     await syncStageTasks(tx, id);
-    if (w.stage === UPLOAD_STAGE) await notifyWaiting(tx, id, actor.id);
   });
 }
 
-/** Файл перевода (этап 15): автор документа — владелец или право docs.manage (1.4.0). */
-async function uploadContext(tx: Db, actor: Actor, id: string, translationId: string, input: Stage) {
-  const ctx = await routeContext(tx, actor, id, input);
-  if (ctx.w.stage !== UPLOAD_STAGE) throw conflict('WRONG_STAGE', `Файлы перевода прикладываются на этапе «${stageName(UPLOAD_STAGE)}»`);
-  const t = await getTranslation(tx, ctx.w.id, translationId);
-  if (!rolesOf(ctx.who, ctx.d).has('author')) {
-    throw forbiddenWith('FORBIDDEN', `Перевод на ${t.language} прикладывает автор документа (владелец или право «Документы: управление»)`);
-  }
-  return { ...ctx, t };
-}
-
-export async function addTranslationFiles(db: Db, actor: Actor, id: string, translationId: string, input: Stage & { fileIds: string[] }) {
+/** Файлы перевода через этот маршрут — до 1.11.0; с 1.11.0 Word и PDF перевода — на этапе 24 (setApprovalFile), здесь — 409. */
+export async function addTranslationFiles(db: Db, actor: Actor, id: string, _translationId: string, input: Stage & { fileIds: string[] }) {
   return withTx(db, async (tx) => {
-    const { d, w, t } = await uploadContext(tx, actor, id, translationId, input);
-    const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: TRANSLATION_MIME, what: 'Перевод' });
-    if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл перевода');
-    await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'translation', translationId, fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
-    await auditSettings(tx, actor, {
-      action: 'document.files_added', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: перевод на ${t.language} — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
-      after: { translationId, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
-    });
-    await syncStageTasks(tx, id);
-    await notifyWaiting(tx, id, actor.id);
+    await routeContext(tx, actor, id, input);
+    throw filesOnlyAtApproval();
   });
 }
 
-export async function removeTranslationFile(db: Db, actor: Actor, id: string, translationId: string, linkId: string, input: Stage) {
+export async function removeTranslationFile(db: Db, actor: Actor, id: string, _translationId: string, _linkId: string, input: Stage) {
   return withTx(db, async (tx) => {
-    const { d, w, t } = await uploadContext(tx, actor, id, translationId, input);
-    const link = await tx.documentFile.findFirst({ where: { id: linkId, translationId, removedAt: null }, include: { file: { select: { originalName: true } } } });
-    if (!link) throw notFound('Файл перевода');
-    await tx.documentFile.update({ where: { id: link.id }, data: { removedAt: new Date(), removedBy: actor.id } });
-    await deleteIfUnreferenced(tx, actor, link.fileId, `снят с перевода документа #${d.number}`);
-    await auditSettings(tx, actor, {
-      action: 'document.file_removed', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: снят файл перевода на ${t.language} «${link.file.originalName}»`,
-      after: { translationId, fileId: link.fileId },
-    });
-    await syncStageTasks(tx, id);
+    await routeContext(tx, actor, id, input);
+    throw filesOnlyAtApproval();
   });
 }

@@ -10,7 +10,7 @@ import { ASSET_SETTINGS_KEY } from '../assets/definition.js';
 import { DEFAULT_SCAN_MAX_AGE_DAYS, VULN_SETTINGS_KEY } from '../vulns/profiles.js';
 import { SYSTEM_TYPES_CATALOG } from '../vulns/groups.service.js';
 import { auditSettings, type Actor } from './common.js';
-import { DEFAULT_STAGE_DAYS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
+import { DEFAULT_STAGE_DAYS, DOC_STAGE_DAYS_KEY } from '../documents/status.js';
 import { CHAIN_SUGGEST_KEY, ChainSuggestSchema, DEFAULT_CHAIN_SUGGEST } from '../tasks/chain-settings.js';
 import { AWARENESS_GRADES_KEY, DEFAULT_GRADES, GradesSchema } from '../awareness/grades.js';
 import { AWARENESS_LETTERS_KEY, DEFAULT_LETTERS_SETTINGS, LetterLimitsSchema } from '../awareness-letters/settings.js';
@@ -39,7 +39,8 @@ const AssetsSchema = z.strictObject({
 const MapSchema = z.record(text('Значение'), text('Значение'));
 const days = (stage: string) => z.number({ error: `Этап ${stage}: нужно число рабочих дней` }).int(`Этап ${stage}: целое число дней`)
   .min(1, `Этап ${stage}: не меньше 1 дня`).max(60, `Этап ${stage}: не больше 60 дней`);
-const StageDaysSchema = z.strictObject({ '11': days('11'), '12': days('12'), '13': days('13'), '15': days('15'), '16': days('16') });
+// Маршрут 1.11.0: 21 — драфт, 21h — проверка начальника ИБ, 22h — повторная проверка, 23 — перевод без языков, 24 — утверждение.
+const StageDaysSchema = z.strictObject({ '21': days('21'), '21h': days('21 (проверка)'), '22h': days('22 (повторная проверка)'), '23': days('23'), '24': days('24') });
 const HostTypeSchema = z.strictObject({
   server: z.strictObject({ products: z.array(text('Продукт')).max(50), groups: z.array(text('Группа KSC')).max(50), namePatterns: patterns }),
   workstation: z.strictObject({ namePatterns: patterns }),
@@ -123,17 +124,10 @@ export const PORTAL_PARAMS: readonly ParamDef[] = [
   },
   {
     key: DOC_STAGE_DAYS_KEY, title: 'Документы: сроки этапов', form: 'stageDays',
-    description: 'Срок задачи этапа маршрута в рабочих днях от дня, когда документ пришёл на этап. Этап 14 — ближайший срок ответственного лица, перевод — срок языка (задаются в карточке документа). Новое значение — для новых задач.',
+    description: 'Срок задачи этапа маршрута в рабочих днях от дня, когда документ пришёл на этап: 21 — драфт, 21h — проверка начальника ИБ, 22h — повторная проверка, 23 — перевод без языков, 24 — утверждение. Согласование (22) — ближайший срок ответственного лица, перевод с языками — срок языка (задаются в карточке документа). Новое значение — для новых задач.',
     schema: StageDaysSchema, defaults: async () => ({ ...DEFAULT_STAGE_DAYS }),
   },
-  {
-    key: DOC_REVIEW_ROLE_KEY, title: 'Документы: роль проверки сотрудниками', form: 'reviewRole',
-    description: 'Кто может взять общую задачу «Проверить документ» на этапе «Проверка сотрудниками»: активные пользователи с этой ролью и доступом к разделам ИБ, кроме автора. Роль не выбрана — все сотрудники ИБ. Список открытых задач меняется при следующем действии с документом.',
-    schema: z.strictObject({ roleId: uuid('Роль').nullable() }), defaults: async () => ({ roleId: null }),
-    check: async (db, value: { roleId: string | null }) => {
-      if (value.roleId && !(await db.role.findUnique({ where: { id: value.roleId }, select: { id: true } }))) throw badRequest('BAD_PARAM', 'Такой роли нет');
-    },
-  },
+  // «Документы: роль проверки сотрудниками» (documents.reviewRole) убран в 1.11.0 вместе с этапом 12; строка в базе остаётся для отката.
   {
     key: CHAIN_SUGGEST_KEY, title: 'Задачи: подсказка цепочек', form: 'json',
     description: 'Когда цепочка считается похожей на заголовок задачи: minJaccard — доля общих слов (слова от трёх букв), minCommonWords — общих слов не меньше; closedDays — сколько дней после закрытия цепочка с выполненными задачами ещё предлагается. Формат: { "minJaccard": 0.6, "minCommonWords": 2, "closedDays": 30 }.',

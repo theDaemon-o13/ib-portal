@@ -10,7 +10,7 @@ import { seedAwareness, seedAwarenessLetters } from './awareness.js';
 import { seedAssets, seedComponentInstances } from './assets.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
-import { seedDocumentRoute, seedDocumentStageTasks, seedReviewTasksGrouped } from './documents.js';
+import { seedDocumentRoute, seedDocumentRouteV3, seedDocumentStageTasks, seedReviewTasksGrouped } from './documents.js';
 import { seedMonitorSlides } from './monitor.js';
 import { seedDocReaders, seedPermissionGrants, seedSystemRoles } from './rbac.js';
 import { seedCompareKeys, seedRegisters } from './registers.js';
@@ -56,6 +56,7 @@ async function main() {
     await seedTaskProcess(tx);
     await seedTaskReviewers(tx);
     await seedDocumentRoute(tx);
+    await seedDocumentRouteV3(tx);
     await seedAssessmentMethodology(tx);
 
     // Рабочая неделя по умолчанию — пятидневка.

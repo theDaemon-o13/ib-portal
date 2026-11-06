@@ -7,7 +7,7 @@ import { actorOf } from '../settings/common.js';
 import * as parties from './parties.js';
 import * as svc from './service.js';
 import * as translations from './translations.js';
-import { DOC_ACTIONS, DOC_DUE_FILTERS, DOC_SORTS, DOC_STATUSES } from './status.js';
+import { DOC_ACTIONS, DOC_DUE_FILTERS, DOC_SORTS, DOC_STATUSES, ROUTE_STATES } from './status.js';
 
 const tags = ['documents'];
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse };
@@ -48,10 +48,15 @@ const DocItem = z.object({
 });
 /** Итоговый PDF версии (этап 7): файл в хранилище портала, sha256 — в истории каждого решения. */
 const Pdf = z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int() });
+const FileRef = z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() });
 const Version_ = z.object({
   id: z.string(), no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), changeNote: z.string(),
   stage: z.number().int(), stageName: z.string(), round: z.number().int(), approvedAt: z.string().nullable(), createdAt: z.string(),
+  /** Маршрут 1.11.0: состояние внутри этапа и «Этап — состояние» для показа. */
+  state: z.enum(ROUTE_STATES).nullable(), placeName: z.string(),
   signedOn: z.string().nullable(),
+  /** Этап 24: исходный документ Word и приказ об утверждении. */
+  docx: Pdf.nullable(), orderNo: z.string(), orderDate: z.string().nullable(),
   /** Пересмотр отменён: версия в истории, действующей осталась подписанная. */
   cancelledAt: z.string().nullable(),
   pdf: Pdf.nullable(),
@@ -64,17 +69,21 @@ const DocDetail = DocItem.extend({
   approved: Version_.nullable(),
   route: z.array(z.object({
     stage: z.number().int(), name: z.string(), state: z.enum(['done', 'current', 'todo']),
+    /** Состояние внутри текущего этапа: «На проверке у начальника ИБ», «На повторной проверке». */
+    place: z.string().nullable(),
     /** Кто действует на этапе (та же функция, что «Сейчас у»); missingHead — «Начальник ИБ не назначен». */
     approvers: z.array(z.string()), missingHead: z.boolean(), hint: z.string(), actedBy: z.string().nullable(), actedAt: z.string().nullable(),
     /** Этап не требуется (старый маршрут: согласовать мог только владелец): причина. */
     skipped: z.string().nullable(),
-    /** Этап 13 согласовал сам автор — начальник ИБ, без независимого согласования. */
+    /** Свой документ одобрил начальник ИБ — без независимого согласования. */
     selfApproved: z.boolean(),
   })),
   can: z.object({
     edit: z.boolean(),
     actions: z.array(z.enum(DOC_ACTIONS)),
     sign: z.boolean(),
+    /** Этап 24: загрузить PDF и .docx (основной язык и переводы). */
+    approvalFiles: z.boolean(),
     draftFiles: z.boolean(),
     comment: z.boolean(),
     revise: z.boolean(),
@@ -93,7 +102,7 @@ const DocDetail = DocItem.extend({
     /** Записка к возврату (1.4.0), если приложена. */
     file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }).nullable(),
   }).nullable(),
-  /** Файлы показанной версии: драфт, одобренная начальником ИБ, финальная. */
+  /** Файлы прежнего маршрута (до 1.11.0): драфт, одобренная начальником ИБ, финальная — только просмотр. */
   files: z.array(z.object({
     id: z.string(), kind: z.enum(['draft', 'head_approved', 'final']), kindName: z.string(),
     /** Все отметки файла (1.4.0): файл автора, согласованный начальником ИБ, — одна строка с двумя отметками. */
@@ -101,19 +110,30 @@ const DocDetail = DocItem.extend({
     file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }),
     addedBy: z.string(), addedAt: z.string(), removable: z.boolean(),
   })),
-  /** Комментарии сотрудников ИБ к показанной версии (этап 12). */
+  /** Комментарии сотрудников ИБ к показанной версии (любой этап). */
   comments: z.array(z.object({ id: z.string(), author: z.string(), body: z.string(), at: z.string() })),
-  /** Ответственные лица этапа 14 (сотрудникам ИБ): внешние. email и user — только у строк до 1.4.0, показываются текстом. */
+  /** Ответственные лица этапа 22 (сотрудникам ИБ): внешние. email и user — только у строк до 1.4.0, показываются текстом. */
   parties: z.array(z.object({
     id: z.string(), fullName: z.string(), department: z.string(), email: z.string(), user: Person.nullable(), dueDate: z.string(), overdue: z.boolean(),
+    /** Срок на этапе 1 — дней от перехода на этап 2; на этапе 2 — null (срок датой). */
+    dueDays: z.number().int().nullable(),
     approvedAt: z.string().nullable(), approvedBy: z.string().nullable(), approveComment: z.string(),
+    /** Дата согласования, указанная автором; «до доработки от <дата>»; история «Запросить повторно». */
+    approvedOn: z.string().nullable(), reworkedAt: z.string().nullable(),
+    rechecks: z.array(z.object({
+      prevApprovedOn: z.string().nullable(), prevApprovedAt: z.string(), reworkedAt: z.string().nullable(),
+      fromDue: z.string(), toDue: z.string(), comment: z.string(), actor: z.string(), at: z.string(),
+    })),
     files: z.array(z.object({ id: z.string(), file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }) })),
     /** История сроков: было, стало, комментарий. */
     deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
   })),
-  /** Переводы этапа 15 (сотрудникам ИБ): язык, имя переводчика текстом, срок; готов, когда приложен файл. */
+  /** Переводы этапа 23 (сотрудникам ИБ): язык, имя переводчика текстом, срок, ссылка OnlyOffice; готов, когда есть ссылка. */
   translations: z.array(z.object({
     id: z.string(), language: z.string(), translatorName: z.string(), dueDate: z.string(), done: z.boolean(), overdue: z.boolean(),
+    onlyofficeUrl: z.string(),
+    /** Этап 24: Word перевода (обязателен) и подписанный PDF (по желанию). */
+    docx: FileRef.nullable(), pdf: FileRef.nullable(),
     files: z.array(z.object({ id: z.string(), file: z.object({ id: z.string(), name: z.string(), sha256: z.string(), size: z.number().int(), mime: z.string() }) })),
     deadlines: z.array(z.object({ from: z.string(), to: z.string(), comment: z.string(), actor: z.string(), at: z.string() })),
     canUpload: z.boolean(),
@@ -126,11 +146,14 @@ const DocDetail = DocItem.extend({
     no: z.number().int(), edition: z.string(), title: z.string(), onlyofficeUrl: z.string(), approvedAt: z.string().nullable(), changeNote: z.string(),
     signedOn: z.string().nullable(), cancelledAt: z.string().nullable(),
     pdf: Pdf.nullable(), textFrozen: z.boolean(),
+    docx: Pdf.nullable(), orderNo: z.string(), orderDate: z.string().nullable(),
   })),
   history: z.array(z.object({
     id: z.string(), at: z.string(), actor: z.string(), stage: z.number().int(), stageName: z.string(),
     toStage: z.number().int().nullable(), toStageName: z.string().nullable(),
     decision: z.enum(svc.HISTORY_DECISIONS), comment: z.string(), versionNo: z.number().int(), round: z.number().int(),
+    /** Точный вид решения маршрута 1.11.0; у прежних решений — null. */
+    event: z.string().nullable(),
     /** sha256 файла решения: PDF (до 1.2.0), файл версии (13 → 14, 14 → 15), подписанный PDF (16). */
     pdfSha256: z.string().nullable(),
     selfApproved: z.boolean(),
@@ -246,18 +269,21 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     return result(request, request.params.id);
   });
 
-  const Stage = z.number().int().min(0).max(16);
+  const Stage = z.number().int().min(0).max(24);
   app.post('/documents/:id/actions/:action', {
     preHandler: anyUser,
     schema: {
       tags,
-      summary: 'Действие маршрута (ADR-0024): to_review 11→12, to_head 12→13, approve 13→14 (файл), ack_final 14→15 (файл), '
-        + 'to_signing 15→16, return 13/14/15→11 (комментарий). 403 — не ваша роль; 409 — документ уже на другом этапе',
+      summary: 'Действие маршрута (ADR-0042): submit_head 21→«на проверке», head_approve →22, head_return →21 (комментарий), '
+        + 'request_recheck 22→«повторная проверка», to_translation 22→23 (confirmUnchanged), head_reapprove →23, recheck_return →22 (комментарий), '
+        + 'to_approval 23→24. 403 — не ваша роль; 409 — документ уже в другом месте маршрута; файлы — 409 FILES_ONLY_AT_APPROVAL',
       params: IdParams.extend({ action: z.enum(DOC_ACTIONS) }),
       body: Version.extend({
         stage: Stage,
         comment: z.string().max(svc.COMMENT_MAX).optional(),
-        /** approve и ack_final: файл версии (pdf или docx) из POST /files. */
+        /** to_translation: «Документ не изменялся после проверки начальником ИБ». */
+        confirmUnchanged: z.boolean().optional(),
+        /** До 1.11.0 — файл версии; теперь — 409 FILES_ONLY_AT_APPROVAL. */
         fileId: z.string().uuid().optional(),
       }),
       response: { 200: Result, ...errors },
@@ -270,13 +296,32 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/sign', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 16: подписанный PDF и дата подписания (автор или начальник ИБ). Пересмотр — от даты подписания',
+      tags, summary: 'Этап 24 «Утвердить» (автор или начальник ИБ): нужны PDF и .docx основного языка и .docx каждого перевода (409 APPROVAL_FILES_REQUIRED). Пересмотр — от даты утверждения',
       params: IdParams,
-      body: Version.extend({ stage: Stage, fileId: z.string().uuid(), signedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+      body: Version.extend({
+        stage: Stage, signedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        orderNo: z.string().max(100).optional(), orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
     await svc.signDocument(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/approval-files', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Этап 24: файл утверждения — pdf (подписанный PDF), docx (исходный Word), translation_docx, translation_pdf (с translationId); fileId null — снять. Тип — по содержимому',
+      params: IdParams,
+      body: Version.extend({
+        stage: Stage, slot: z.enum(['pdf', 'docx', 'translation_docx', 'translation_pdf']), translationId: z.string().uuid().optional(),
+        fileId: z.string().uuid().nullable(),
+      }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await svc.setApprovalFile(db, actorOf(request), request.params.id, request.body);
     return result(request, request.params.id);
   });
 
@@ -296,7 +341,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/files', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Файлы драфта (pdf, docx): автор на этапе 11',
+      tags, summary: 'Файлы драфта — до 1.11.0; теперь 409 FILES_ONLY_AT_APPROVAL (файлы — только на этапе 24, /approval-files)',
       params: IdParams,
       body: Version.extend({ stage: Stage, fileIds: z.array(z.string().uuid()).min(1).max(20) }),
       response: { 200: Result, ...errors },
@@ -309,7 +354,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/files/:linkId/remove', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Снять файл драфта (автор на этапе 11); файл без других ссылок помечается удалённым',
+      tags, summary: 'Снять файл драфта — до 1.11.0; теперь 409 FILES_ONLY_AT_APPROVAL',
       params: IdParams.extend({ linkId: z.string().uuid() }),
       body: Version.extend({ stage: Stage }),
       response: { 200: Result, ...errors },
@@ -322,7 +367,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/comments', {
     preHandler: requirePerm('ib.work'),
     schema: {
-      tags, summary: 'Комментарий сотрудника ИБ на этапе 12 «Проверка сотрудниками»',
+      tags, summary: 'Комментарий сотрудника ИБ к документу в работе (любой этап)',
       params: IdParams,
       body: z.object({ body: z.string().max(svc.COMMENT_MAX) }),
       response: { 200: Result, ...errors },
@@ -335,14 +380,16 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   const PartyBody = {
     fullName: z.string().max(parties.NAME_MAX),
     department: z.string().max(parties.DEPARTMENT_MAX).optional(),
-    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    /** Этап 21: срок ответа днями от перехода на этап 22 (1–90). */
+    dueDays: z.number().int().min(1).max(90).optional(),
   };
   const PartyParams = IdParams.extend({ partyId: z.string().uuid() });
   const At = Version.extend({ stage: Stage });
 
   app.post('/documents/:id/parties', {
     preHandler: anyUser,
-    schema: { tags, summary: 'Этап 14: добавить ответственное лицо (автор или начальник ИБ, этапы 11–14)', params: IdParams, body: At.extend(PartyBody), response: { 200: Result, ...errors } },
+    schema: { tags, summary: 'Ответственное лицо (автор): этап 21 — срок днями (dueDays), этап 22 — датой (dueDate)', params: IdParams, body: At.extend(PartyBody), response: { 200: Result, ...errors } },
   }, async (request) => {
     await parties.addParty(db, actorOf(request), request.params.id, request.body);
     return result(request, request.params.id);
@@ -352,7 +399,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     preHandler: anyUser,
     schema: {
       tags, summary: 'Правка ответственного лица; смена срока — только с комментарием (история сроков)', params: PartyParams,
-      body: At.extend({ ...PartyBody, fullName: PartyBody.fullName.optional(), dueDate: PartyBody.dueDate.optional(), comment: z.string().max(svc.COMMENT_MAX).optional() }),
+      body: At.extend({ ...PartyBody, fullName: PartyBody.fullName.optional(), comment: z.string().max(svc.COMMENT_MAX).optional() }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
@@ -371,12 +418,27 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/parties/:partyId/approve', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 14: отметить согласование лица, по желанию — комментарий и ответ (файлы)', params: PartyParams,
-      body: At.extend({ comment: z.string().max(svc.COMMENT_MAX).optional(), fileIds: z.array(z.string().uuid()).max(20).optional() }),
+      tags, summary: 'Этап 22: отметить согласование лица — дата согласования и, по желанию, комментарий; без файла (fileIds — 409)', params: PartyParams,
+      body: At.extend({
+        comment: z.string().max(svc.COMMENT_MAX).optional(), approvedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        fileIds: z.array(z.string().uuid()).max(20).optional(),
+      }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
     await parties.approveParty(db, actorOf(request), request.params.id, request.params.partyId, request.body);
+    return result(request, request.params.id);
+  });
+
+  app.post('/documents/:id/parties/:partyId/recheck', {
+    preHandler: anyUser,
+    schema: {
+      tags, summary: 'Этап 22: «Запросить повторно» — отметка лица снимается, новый срок, запись в историю', params: PartyParams,
+      body: At.extend({ dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), comment: z.string().max(svc.COMMENT_MAX).optional() }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await parties.recheckParty(db, actorOf(request), request.params.id, request.params.partyId, request.body);
     return result(request, request.params.id);
   });
 
@@ -400,16 +462,16 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/translations', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 15: строка перевода — язык, имя переводчика текстом (необязательно), срок; ведут автор, старший над автором, начальник ИБ; этапы 11–15',
+      tags, summary: 'Этап 23: строка перевода — язык, имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23',
       params: IdParams,
       body: At.extend({
         language: z.string().max(translations.LANGUAGE_MAX), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
-        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), onlyofficeUrl: z.string().max(svc.URL_MAX).optional(),
       }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
-    await translations.addTranslation(db, actorOf(request), request.params.id, request.body);
+    await translations.addTranslation(db, actorOf(request), request.params.id, request.body, policy);
     return result(request, request.params.id);
   });
 
@@ -420,11 +482,12 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
       body: At.extend({
         language: z.string().max(translations.LANGUAGE_MAX).optional(), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
         dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), comment: z.string().max(svc.COMMENT_MAX).optional(),
+        onlyofficeUrl: z.string().max(svc.URL_MAX).optional(),
       }),
       response: { 200: Result, ...errors },
     },
   }, async (request) => {
-    await translations.updateTranslation(db, actorOf(request), request.params.id, request.params.translationId, request.body);
+    await translations.updateTranslation(db, actorOf(request), request.params.id, request.params.translationId, request.body, policy);
     return result(request, request.params.id);
   });
 
@@ -439,7 +502,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/translations/:translationId/files', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, начальник ИБ', params: TrParams,
+      tags, summary: 'Файл перевода — до 1.11.0; теперь 409 FILES_ONLY_AT_APPROVAL (Word и PDF перевода — /approval-files на этапе 24)', params: TrParams,
       body: At.extend({ fileIds: z.array(z.string().uuid()).min(1).max(20) }), response: { 200: Result, ...errors },
     },
   }, async (request) => {

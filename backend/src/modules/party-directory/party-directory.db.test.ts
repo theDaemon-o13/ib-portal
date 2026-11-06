@@ -3,10 +3,9 @@
 import type { User } from '../../generated/prisma/client.js';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../app.js';
-import { MIME_BY_EXT } from '../../lib/file-type.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
-import { actorFor, expectCode, inTx, makeFileRow, makeUser, type Tx } from '../../test/db.js';
+import { actorFor, expectCode, inTx, makeUser, type Tx } from '../../test/db.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
 import * as parties from '../documents/parties.js';
@@ -23,11 +22,8 @@ async function fixture(tx: Tx) {
   const owner = await makeUser(tx, ['ib_staff'], { fullName: 'Автор Тестов', passwordHash: hash });
   const staff = await makeUser(tx, ['ib_staff'], { fullName: 'Сотрудник Тестов', passwordHash: hash });
   const createDoc = async () => {
-    const id = await docs.createDocument(tx, await actorFor(tx, admin.id), { title: 'Положение о доступе', typeId: type.id, ownerId: owner.id, onlyofficeUrl: URL1, edition: '1.0' });
-    const d = await tx.document.findUniqueOrThrow({ where: { id }, include: { workingVersion: true } });
-    const f = await makeFileRow(tx, admin.id, { name: 'Положение.docx', mime: MIME_BY_EXT.docx });
-    await docs.addDraftFiles(tx, await actorFor(tx, admin.id), id, { version: d.version, stage: d.workingVersion?.stage ?? 11, fileIds: [f.id] });
-    return id;
+    // Драфт (этап 21, 1.11.0): файлов нет — документ ссылка OnlyOffice; лиц автор ведёт уже здесь.
+    return docs.createDocument(tx, await actorFor(tx, admin.id), { title: 'Положение о доступе', typeId: type.id, ownerId: owner.id, onlyofficeUrl: URL1, edition: '1.0' });
   };
   return { admin, owner, staff, createDoc };
 }
@@ -39,7 +35,7 @@ async function cur(tx: Tx, id: string) {
 
 /** Как форма карточки: выбор из справочника отправляет ФИО и должность текстом. */
 async function pickIntoDocument(tx: Tx, u: User, docId: string, p: { fullName: string; position: string }) {
-  await parties.addParty(tx, await actorFor(tx, u.id), docId, { ...(await cur(tx, docId)), fullName: p.fullName, department: p.position, dueDate: '2026-12-01' });
+  await parties.addParty(tx, await actorFor(tx, u.id), docId, { ...(await cur(tx, docId)), fullName: p.fullName, department: p.position, dueDays: 10 });
 }
 
 const activeParties = (tx: Tx, documentId: string) =>
@@ -129,7 +125,7 @@ describe('справочник «Ответственные лица» (1.6.7)',
       expect(same.item.version).toBe(2);
     }));
 
-  it('выбор для документа — только тем, кто ведёт его лиц (автор, начальник ИБ на этапах 11–14)', () =>
+  it('выбор для документа — только тем, кто ведёт его лиц (автор в драфте и на согласовании, 1.11.0)', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const docId = await x.createDoc();

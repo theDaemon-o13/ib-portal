@@ -7,7 +7,7 @@
 // В конце: документ прогона — в архив, запись справочника — отключить (удаления нет), пользователь — отключить.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { $, launchBrowser, portalToday } from './browser.mjs';
+import { $, launchBrowser } from './browser.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -50,13 +50,6 @@ async function loginAs(login, password) {
     return next;
   }
   return password;
-}
-
-/** Срок ответа — поле даты: значение через нативный сеттер, как в documents.e2e.mjs. */
-async function setDate(input, value) {
-  await ui.evaluate(`(() => { const el = ${input};
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(value)});
-    el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
 }
 
 before(async () => {
@@ -126,11 +119,13 @@ describe('Справочник «Ответственные лица» (1.6.7)',
     await ui.click(option(PERSON.fullName), 'выбор из списка');
     assert.equal(await ui.evaluate(`${label('ФИО', pf)}.value`), PERSON.fullName);
     assert.equal(await ui.evaluate(`${label('Подразделение или должность', pf)}.value`), PERSON.position, 'должность заполнилась из справочника');
-    await setDate(label('Срок ответа', pf), portalToday(7));
+    // В драфте (1.11.0) срок — днями от перехода на «Согласование», по умолчанию 7.
+    assert.equal(await ui.evaluate(`${label('Срок ответа, дней', pf)}.value`), '7');
     m = ui.mark();
     await ui.click($.button('Добавить', pf));
     const added = await ui.request(m, 'POST', `/api/v1/documents/${docId}/parties`);
     assert.equal(added.json.fullName, PERSON.fullName);
+    assert.equal(added.json.dueDays, 7);
     assert.equal(added.json.department, PERSON.position);
     const party = `${panel}.querySelector(${JSON.stringify(`[data-party="${PERSON.fullName}"]`)})`;
     await ui.waitFor(`${party}?.textContent.includes(${JSON.stringify(PERSON.position)})`, 'ФИО и должность в карточке документа');
@@ -148,7 +143,6 @@ describe('Справочник «Ответственные лица» (1.6.7)',
     await ui.type(label('ФИО', pf), OTHER.fullName);
     assert.equal(await ui.evaluate(`!!document.querySelector('[role=listbox]')`), false, 'в ручном режиме список не открывается');
     await ui.type(label('Подразделение или должность', pf), OTHER.position);
-    await setDate(label('Срок ответа', pf), portalToday(7));
     m = ui.mark();
     await ui.click($.button('Добавить', pf));
     const manual = await ui.request(m, 'POST', `/api/v1/documents/${docId}/parties`);

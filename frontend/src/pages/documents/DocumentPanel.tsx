@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { ApiError } from '../../api/client';
-import { docsApi, dkeys, type DocAction, type DocDetail, type DocResult } from '../../api/documents';
+import { docsApi, dkeys, type ApprovalSlot, type DocAction, type DocDetail, type DocResult } from '../../api/documents';
 import type { FileInfo } from '../../api/files';
 import { settingsApi } from '../../api/settings';
 import { useFileViewer } from '../../components/files/FileViewer';
@@ -14,12 +14,12 @@ import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
 import { DocumentBlockers, DocumentParties, DocumentTranslations } from './DocumentParties';
 import { HoldersLine, StageWho } from './Holders';
-import { ACTION_DONE, ACTION_LABEL, authorFiles, FIXED_FILE_LABEL, historyText, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
+import { ACTION_DONE, ACTION_LABEL, historyText, isReturn, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
 
 /** Ошибки, после которых карточку нужно перечитать: документ успели изменить или он ушёл на другой этап. */
 const STALE = new Set(['VERSION_CONFLICT', 'STAGE_CHANGED', 'NOT_IN_ROUTE', 'WRONG_STAGE']);
 
-type Mode = 'view' | DocAction | 'sign' | 'cancel' | 'delete' | 'files' | 'edit' | 'revise' | 'settings';
+type Mode = 'view' | DocAction | 'sign' | 'cancel' | 'delete' | 'edit' | 'revise' | 'settings';
 
 /** Начало sha256 — какой именно файл зафиксирован. */
 const shaShort = (sha: string) => `${sha.slice(0, 12)}…`;
@@ -46,6 +46,60 @@ function ContentFields({ draft, setDraft, noteLabel }: { draft: ContentDraft; se
   );
 }
 
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+type ViewFile = (f: { id: string; name: string; mime: string }) => void;
+type SetFile = (x: { slot: ApprovalSlot; translationId?: string; fileId: string | null }) => void;
+
+/** Ячейка файла этапа 24: есть — имя (просмотр), «Заменить», «Снять»; нет — загрузка (сразу привязывается к версии). */
+function ApprovalSlotRow({ label, required, pdf, file, busy, onSet, onView }: {
+  label: string; required: boolean; pdf: boolean; file: { id: string; name: string; mime?: string } | null; busy: boolean;
+  onSet: (fileId: string | null) => void; onView: ViewFile;
+}) {
+  const [replace, setReplace] = useState(false);
+  const pick = (list: FileInfo[]) => { const f = list[0]; if (f) { setReplace(false); onSet(f.id); } };
+  return (
+    <div className="appr-slot" data-slot={label}>
+      <div className="row">
+        <b>{label}</b>{required ? <span className="chip high">обязательно</span> : <span className="hint">по желанию</span>}
+        {file && !replace && (
+          <>
+            <button type="button" className="btn ghost sm" data-view-file={file.name} onClick={() => onView({ id: file.id, name: file.name, mime: file.mime ?? (pdf ? 'application/pdf' : DOCX_MIME) })}>{file.name}</button>
+            <button type="button" className="btn ghost sm" disabled={busy} onClick={() => setReplace(true)}>Заменить</button>
+            <button type="button" className="btn ghost sm" disabled={busy} onClick={() => onSet(null)}>Снять</button>
+          </>
+        )}
+      </div>
+      {(!file || replace) && (
+        <FileUpload label={pdf ? 'PDF' : 'Документ Word (.docx)'} multiple={false} accept={pdf ? '.pdf' : '.docx'} allowed={[pdf ? 'pdf' : 'docx']} value={[]} onChange={pick} />
+      )}
+    </div>
+  );
+}
+
+/** Этап 24 «Утверждение» — единственный этап с файлами (решение владельца): основной язык и каждый язык перевода. */
+function ApprovalFiles({ d, busy, onSet, onView, onViewPlain }: { d: DocDetail; busy: boolean; onSet: SetFile; onView: ViewFile; onViewPlain: ViewFile }) {
+  const w = d.working;
+  if (!w) return null;
+  const pdf = d.versions.find((v) => v.no === w.no)?.pdf ?? null;
+  const docx = d.versions.find((v) => v.no === w.no)?.docx ?? null;
+  return (
+    <div className="pdf-box" aria-label="Файлы утверждения">
+      <div className="eyebrow">Файлы утверждения · версия {w.no}</div>
+      <ApprovalSlotRow label="Подписанный PDF" required pdf file={pdf} busy={busy} onSet={(fileId) => onSet({ slot: 'pdf', fileId })} onView={onView} />
+      <ApprovalSlotRow label="Исходный документ Word" required pdf={false} file={docx} busy={busy} onSet={(fileId) => onSet({ slot: 'docx', fileId })} onView={onView} />
+      {d.translations.map((t) => (
+        <div key={t.id} data-translation-files={t.language}>
+          <ApprovalSlotRow label={`Перевод (${t.language}): Word`} required pdf={false} file={t.docx} busy={busy}
+            onSet={(fileId) => onSet({ slot: 'translation_docx', translationId: t.id, fileId })} onView={onViewPlain} />
+          <ApprovalSlotRow label={`Перевод (${t.language}): подписанный PDF`} required={false} pdf file={t.pdf} busy={busy}
+            onSet={(fileId) => onSet({ slot: 'translation_pdf', translationId: t.id, fileId })} onView={onViewPlain} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Карточка документа справа от реестра (1.6.5): прилипает к верху окна, действия — в подвале; на узком окне — выезжающая панель. */
 export function DocumentPanel({ id, onGone, onClose, className }: { id: string; onGone: () => void; onClose?: () => void; className?: string }) {
   const qc = useQueryClient();
@@ -57,10 +111,10 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   const [content, setContent] = useState<ContentDraft | null>(null);
   const [settings, setSettings] = useState<{ typeId: string; ownerId: string; reviewMonths: number } | null>(null);
   const [stale, setStale] = useState<string | null>(null);
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  /** 13 → 14: выбранный файл автора (id файла); при открытии формы — последний загруженный. */
-  const [approveFile, setApproveFile] = useState('');
+  /** «Отправить на перевод»: автор подтверждает, что документ не изменялся после проверки начальником ИБ. */
+  const [unchanged, setUnchanged] = useState(false);
   const [signedOn, setSignedOn] = useState(todayIso());
+  const [order, setOrder] = useState({ no: '', date: '' });
   // Просмотр файлов на весь экран (1.4.0, шаг 8): содержимое — через backend с проверкой прав.
   const viewer = useFileViewer();
   const d = doc.data;
@@ -72,7 +126,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   const done = async (r: DocResult, text: string) => {
     setMode('view');
     setComment('');
-    setFiles([]);
+    setUnchanged(false);
     await refresh();
     toast(text);
     // Документ вам больше не виден (удалён или ушёл с этапа, где вы его видели) — снять выбор.
@@ -94,23 +148,26 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   const stage = d?.working?.stage ?? 0;
   const at = { version: d?.version ?? 0, stage };
   const act = useMutation({
-    // 13 → 14 — выбранный файл автора (без загрузки); 14 → 15 — загруженная финальная; возврат — записка по желанию.
+    // Файлов в действиях нет (1.11.0): документ до утверждения — ссылка OnlyOffice.
     mutationFn: (a: DocAction) => docsApi.action(id, a, {
-      ...at, comment: comment.trim() || undefined,
-      fileId: a === 'approve' ? approveFile || undefined : FIXED_FILE_LABEL[a] || a === 'return' ? files[0]?.id : undefined,
+      ...at, comment: comment.trim() || undefined, confirmUnchanged: a === 'to_translation' ? unchanged : undefined,
     }),
     onSuccess: (r, a) => done(r, ACTION_DONE[a]),
     onError,
   });
   const sign = useMutation({
-    mutationFn: () => docsApi.sign(id, { ...at, fileId: files[0]?.id ?? '', signedOn }),
-    onSuccess: (r) => done(r, 'Документ подписан: эта версия теперь действующая'),
+    mutationFn: () => docsApi.sign(id, { ...at, signedOn, orderNo: order.no.trim() || undefined, orderDate: order.date || null }),
+    onSuccess: (r) => done(r, 'Документ утверждён: эта версия теперь действующая'),
     onError,
   });
-  const cancel = useMutation({ mutationFn: () => docsApi.cancelRevision(id, { version: at.version, comment }), onSuccess: (r) => done(r, 'Пересмотр отменён: действует подписанная версия'), onError });
+  /** Этап 24: файл утверждения — сразу после загрузки (замена — тем же действием, снять — fileId null). */
+  const approvalFile = useMutation({
+    mutationFn: (x: { slot: ApprovalSlot; translationId?: string; fileId: string | null }) => docsApi.approvalFile(id, { ...at, ...x }),
+    onSuccess: async (_r, x) => { await refresh(); toast(x.fileId ? 'Файл загружен' : 'Файл снят'); },
+    onError,
+  });
+  const cancel = useMutation({ mutationFn: () => docsApi.cancelRevision(id, { version: at.version, comment }), onSuccess: (r) => done(r, 'Пересмотр отменён: действует утверждённая версия'), onError });
   const remove = useMutation({ mutationFn: () => docsApi.remove(id, { version: at.version, comment: comment.trim() || undefined }), onSuccess: (r) => done(r, 'Документ удалён'), onError });
-  const addFiles = useMutation({ mutationFn: () => docsApi.addFiles(id, { ...at, fileIds: files.map((f) => f.id) }), onSuccess: (r) => done(r, 'Файлы приложены'), onError });
-  const removeFile = useMutation({ mutationFn: (linkId: string) => docsApi.removeFile(id, linkId, at), onSuccess: (r) => done(r, 'Файл снят'), onError });
   const say = useMutation({
     mutationFn: () => docsApi.comment(id, note),
     onSuccess: async () => { setNote(''); await refresh(); toast('Комментарий добавлен'); },
@@ -136,7 +193,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
     onSuccess: (r) => done(r, r.document?.archived ? 'Документ в архиве' : 'Документ возвращён из архива'),
     onError,
   });
-  const busy = [act, sign, cancel, remove, addFiles, removeFile, say, save, revise, saveSettings, archive].some((m) => m.isPending);
+  const busy = [act, sign, approvalFile, cancel, remove, say, save, revise, saveSettings, archive].some((m) => m.isPending);
 
   const shell = { label: 'Документ', variant: 'inline' as const, onClose, className, scrollKey: id };
   if (doc.isError) {
@@ -150,8 +207,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
 
   const open = (m: Mode) => {
     setComment('');
-    setFiles([]);
-    if (m === 'approve' && d) setApproveFile(authorFiles(d.files).latest?.file.id ?? '');
+    setUnchanged(false);
     setMode(m);
   };
   const startEdit = (m: 'edit' | 'revise') => {
@@ -166,7 +222,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   };
   /** Файл версии документа: для .docx — ещё «Открыть в OnlyOffice» (ссылка есть только у версии). */
   const viewVersionFile = (f: { id: string; name: string; mime: string }, onlyofficeUrl = d.current.onlyofficeUrl) => void viewer.open(f, { onlyofficeUrl });
-  /** Ответы лиц, переводы, записка к возврату — только просмотр и «Скачать». */
+  /** Файлы прежнего маршрута, файлы утверждения — просмотр и «Скачать». */
   const viewFile = (f: { id: string; name: string; mime: string }) => void viewer.open(f);
   const nextNo = Math.max(0, ...d.versions.map((v) => v.no)) + 1;
   const action = d.can.actions.find((a) => a === mode);
@@ -175,12 +231,15 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
   // Подвал: главные действия этапа и файл документа — на виду при любой длине маршрута и истории.
   const footer = mode === 'view' ? (
     <div className="row">
-      {d.can.actions.filter((a) => a !== 'return').map((a) => (
+      {d.can.actions.filter((a) => !isReturn(a)).map((a) => (
         <button key={a} className="btn primary" type="button" disabled={busy} onClick={() => open(a)}>{ACTION_LABEL[a]}</button>
       ))}
-      {d.can.sign && <button className="btn primary" type="button" disabled={busy} onClick={() => open('sign')}>Загрузить подписанный PDF</button>}
-      {d.can.draftFiles && <button type="button" className="btn" onClick={() => open('files')}>Приложить файл документа</button>}
-      {d.can.actions.includes('return') && <button className="btn" type="button" disabled={busy} onClick={() => open('return')}>{ACTION_LABEL.return}</button>}
+      {d.can.approvalFiles && (
+        <button className="btn primary" type="button" disabled={busy || !d.can.sign} title={d.can.sign ? undefined : 'Сначала загрузите обязательные файлы утверждения'} onClick={() => open('sign')}>Утвердить</button>
+      )}
+      {d.can.actions.filter(isReturn).map((a) => (
+        <button key={a} className="btn" type="button" disabled={busy} onClick={() => open(a)}>{ACTION_LABEL[a]}</button>
+      ))}
       {d.can.edit && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('edit')}>Изменить драфт</button>}
       {d.can.revise && <button className="btn" type="button" disabled={busy} onClick={() => startEdit('revise')}>Новая версия</button>}
       <a className="btn" href={d.current.onlyofficeUrl} target="_blank" rel="noopener noreferrer">Открыть в OnlyOffice</a>
@@ -200,7 +259,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
           <div><div className="eyebrow">Версия</div><div className="mono">{versionLabel(d.current)}</div></div>
           <div><div className="eyebrow">Цикл пересмотра</div><div>{d.reviewMonths} мес.</div></div>
           <div><div className="eyebrow">Владелец</div><div>{d.owner.fullName}</div></div>
-          {d.signedOn && <div><div className="eyebrow">Подписан</div><div className="mono">{formatDate(d.signedOn)}</div></div>}
+          {d.signedOn && <div><div className="eyebrow">Утверждён</div><div className="mono">{formatDate(d.signedOn)}</div></div>}
           <div><div className="eyebrow">Пересмотр до</div><div className={`mono${d.status === 'review_overdue' ? ' late-t' : ''}`}>{reviewLabel(d)}</div></div>
         </div>
         {d.working && d.approved && (
@@ -226,6 +285,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
                 </span>
                 <div>
                   <b>{r.name}</b>
+                  {r.place && r.place !== r.name && <small className="stage-place" data-testid="stage-place">{r.place}</small>}
                   {/* Кто действует на этапе — та же функция, что «Сейчас у»; у пройденного справа — кто и когда. */}
                   <StageWho hint={r.hint} approvers={r.approvers} missingHead={r.missingHead} />
                   {r.skipped && <small className="skip-why">{r.skipped}</small>}
@@ -241,26 +301,20 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
           </div>
         </div>
 
-        {(d.files.length > 0 || d.can.draftFiles) && (
-          <div className="pdf-box" aria-label="Файлы версии">
-            <div className="eyebrow">Файлы версии {d.current.no}</div>
+        {d.files.length > 0 && (
+          <div className="pdf-box" aria-label="Файлы прежнего маршрута">
+            <div className="eyebrow">Файлы прежнего маршрута · версия {d.current.no}</div>
             {d.files.map((f) => (
               <div key={f.id} className="row" data-file-kind={f.kind}>
-                {/* Файл автора, согласованный начальником ИБ, — одна строка с обеими отметками (1.4.0). */}
                 <span className="hint" data-testid="file-marks">{f.marks.join(' · ')}{f.kind !== 'draft' && d.current.round > 1 ? `, круг ${f.round}` : ''}:</span>
                 <button type="button" className="btn ghost sm" data-view-file={f.file.name} onClick={() => viewVersionFile(f.file)}>{f.file.name}</button>
                 <span className="hint mono" title={f.file.sha256}>sha256 {shaShort(f.file.sha256)}</span>
-                {f.removable && mode === 'view' && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => removeFile.mutate(f.id)}>Снять</button>}
               </div>
             ))}
-            {d.files.length === 0 && <div className="hint">Файла документа нет. Приложите .docx или .pdf: без него документ не уйдёт начальнику ИБ.</div>}
           </div>
         )}
-        {mode === 'files' && (
-          <form className="task-form" aria-label="Файлы драфта" onSubmit={(e) => { e.preventDefault(); addFiles.mutate(); }}>
-            <FileUpload label="Файлы драфта (docx, pdf)" accept=".docx,.pdf" allowed={['docx', 'pdf']} value={files} onChange={setFiles} required />
-            <div className="row"><button className="btn primary" type="submit" disabled={busy || !files.length}>Приложить</button>{cancelBtn}</div>
-          </form>
+        {d.can.approvalFiles && d.working && (
+          <ApprovalFiles d={d} busy={busy} onSet={(x) => approvalFile.mutate(x)} onView={viewVersionFile} onViewPlain={viewFile} />
         )}
 
         {mode === 'view' && d.blockedReason && (
@@ -280,31 +334,26 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
 
         {action && (
           <form className="task-form" aria-label={ACTION_LABEL[action]} onSubmit={(e) => { e.preventDefault(); act.mutate(action); }}>
-            {action === 'approve' && (
-              <fieldset className="pick-file" aria-label="Версия при согласовании">
-                <legend>Версия при согласовании — файл автора</legend>
-                {authorFiles(d.files).list.map((f) => (
-                  <label key={f.id} className="chk">
-                    <input type="radio" name="approve-file" value={f.file.id} checked={approveFile === f.file.id} onChange={() => setApproveFile(f.file.id)} />
-                    {f.file.name} <span className="hint mono">sha256 {shaShort(f.file.sha256)}</span>
-                  </label>
-                ))}
-              </fieldset>
+            {(action === 'head_approve' || action === 'head_reapprove') && (
+              <div className="hint">Одобрение — по ссылке OnlyOffice версии {d.current.no}: ссылка, кто и когда попадут в историю. Содержимое по ссылке не фиксируется.</div>
             )}
-            {FIXED_FILE_LABEL[action] && (
-              <FileUpload label={FIXED_FILE_LABEL[action] ?? ''} multiple={false} accept=".docx,.pdf" allowed={['docx', 'pdf']} value={files} onChange={setFiles} required />
+            {action === 'to_translation' && (
+              <label className="chk">
+                <input type="checkbox" checked={unchanged} onChange={(e) => setUnchanged(e.target.checked)} />
+                Документ не изменялся после проверки начальником ИБ
+              </label>
             )}
-            {action === 'return' && (
-              <FileUpload label="Записка к возврату (по желанию, pdf или docx)" multiple={false} accept=".docx,.pdf" allowed={['docx', 'pdf']} value={files} onChange={setFiles} />
+            {action === 'to_translation' && !unchanged && (
+              <div className="hint">Если документ менялся — «Повторная проверка»: начальник ИБ проверит доработанную версию.</div>
             )}
-            <label>{action === 'return' ? 'Что нужно исправить' : 'Комментарий (необязательно)'}
-              <textarea className="inp" required={action === 'return'} maxLength={4000}
-                placeholder={action === 'return' ? 'Замечания для автора: они попадут в историю и в задачу автору' : ''}
+            <label>{isReturn(action) ? 'Что нужно исправить' : 'Комментарий (необязательно)'}
+              <textarea className="inp" required={isReturn(action)} maxLength={4000}
+                placeholder={isReturn(action) ? 'Замечания для автора: они попадут в историю и в задачу автору' : ''}
                 value={comment} onChange={(e) => setComment(e.target.value)} />
             </label>
             <div className="row">
-              <button className="btn primary" type="submit" disabled={busy || (action === 'return' && !comment.trim()) || (!!FIXED_FILE_LABEL[action] && !files.length) || (action === 'approve' && !approveFile)}>
-                {action === 'return' ? 'Вернуть автору' : ACTION_LABEL[action]}
+              <button className="btn primary" type="submit" disabled={busy || (isReturn(action) && !comment.trim()) || (action === 'to_translation' && !unchanged)}>
+                {isReturn(action) ? 'Вернуть автору' : ACTION_LABEL[action]}
               </button>
               {cancelBtn}
             </div>
@@ -312,11 +361,14 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
         )}
 
         {mode === 'sign' && (
-          <form className="task-form" aria-label="Подписание" onSubmit={(e) => { e.preventDefault(); sign.mutate(); }}>
-            <FileUpload label="Подписанный PDF" multiple={false} accept=".pdf" allowed={['pdf']} value={files} onChange={setFiles} required />
-            <label>Дата подписания<input className="inp" type="date" required max={todayIso()} value={signedOn} onChange={(e) => setSignedOn(e.target.value)} /></label>
-            <div className="hint">Пересмотр — через {d.reviewMonths} мес. от даты подписания.</div>
-            <div className="row"><button className="btn primary" type="submit" disabled={busy || !files.length || !signedOn}>Подписан</button>{cancelBtn}</div>
+          <form className="task-form" aria-label="Утверждение" onSubmit={(e) => { e.preventDefault(); sign.mutate(); }}>
+            <label>Дата утверждения<input className="inp" type="date" required max={todayIso()} value={signedOn} onChange={(e) => setSignedOn(e.target.value)} /></label>
+            <div className="fgrid">
+              <label>Номер приказа (необязательно)<input className="inp" maxLength={100} value={order.no} onChange={(e) => setOrder({ ...order, no: e.target.value })} /></label>
+              <label>Дата приказа (необязательно)<input className="inp" type="date" max={todayIso()} value={order.date} onChange={(e) => setOrder({ ...order, date: e.target.value })} /></label>
+            </div>
+            <div className="hint">Пересмотр — через {d.reviewMonths} мес. от даты утверждения.</div>
+            <div className="row"><button className="btn primary" type="submit" disabled={busy || !signedOn}>Утвердить</button>{cancelBtn}</div>
           </form>
         )}
 
@@ -343,7 +395,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
           <form className="task-form" aria-label={mode === 'cancel' ? 'Отмена пересмотра' : 'Удаление'} onSubmit={(e) => { e.preventDefault(); (mode === 'cancel' ? cancel : remove).mutate(); }}>
             <div className="note">
               {mode === 'cancel'
-                ? `Версия ${d.working?.no ?? ''} уйдёт в историю как отменённая, действующей останется подписанная версия ${d.approvedVersionNo ?? ''}.`
+                ? `Версия ${d.working?.no ?? ''} уйдёт в историю как отменённая, действующей останется утверждённая версия ${d.approvedVersionNo ?? ''}.`
                 : 'Документ пропадёт из реестра, поиска и дашборда. Файлы и история сохранятся.'}
             </div>
             <label>{mode === 'cancel' ? 'Почему пересмотр отменяется' : 'Причина (необязательно)'}
@@ -359,7 +411,7 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
         {(mode === 'edit' || mode === 'revise') && content && (
           <form className="task-form" onSubmit={onContent} aria-label={mode === 'revise' ? 'Новая версия' : 'Драфт'}>
             {mode === 'revise' && (
-              <div className="hint">Версия {nextNo} пройдёт маршрут заново. Пересмотр без изменений — тоже новая версия. Версия {d.approvedVersionNo} действует, пока новую не подпишут.</div>
+              <div className="hint">Версия {nextNo} пройдёт маршрут заново. Пересмотр без изменений — тоже новая версия. Версия {d.approvedVersionNo} действует, пока новую не утвердят.</div>
             )}
             <ContentFields draft={content} setDraft={setContent} noteLabel={mode === 'revise' ? 'Что изменено (необязательно)' : 'Что изменено'} />
             <div className="row">
@@ -405,12 +457,16 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
                   <div>
                     <a href={v.onlyofficeUrl} target="_blank" rel="noopener noreferrer">Версия {versionLabel(v)}</a>
                     {' · '}{v.cancelledAt ? `пересмотр отменён ${formatDate(v.cancelledAt.slice(0, 10))}`
-                      : v.signedOn ? `подписана ${formatDate(v.signedOn)}`
+                      : v.signedOn ? `утверждена ${formatDate(v.signedOn)}`
                         : v.approvedAt ? `утверждена ${formatDate(v.approvedAt.slice(0, 10))}` : 'в работе'}
                     {v.pdf && (
                       <>{' · '}<button type="button" className="btn ghost sm" data-view-file={v.pdf.name} onClick={() => v.pdf && viewVersionFile({ id: v.pdf.id, name: v.pdf.name, mime: 'application/pdf' }, v.onlyofficeUrl)}>{v.signedOn ? 'Подписанный PDF' : 'PDF'}</button>
                         <span className="hint mono" title={v.pdf.sha256}> {shaShort(v.pdf.sha256)}</span></>
                     )}
+                    {v.docx && v.approvedAt && (
+                      <>{' · '}<button type="button" className="btn ghost sm" data-view-file={v.docx.name} onClick={() => v.docx && viewFile({ id: v.docx.id, name: v.docx.name, mime: DOCX_MIME })}>Исходный Word</button></>
+                    )}
+                    {v.orderNo && <>{' · '}приказ № {v.orderNo}{v.orderDate ? ` от ${formatDate(v.orderDate)}` : ''}</>}
                     {v.approvedAt && !v.textFrozen && <> <span className="chip high" title="Утверждена до появления итогового PDF: ссылка на OnlyOffice не фиксирует содержимое">текст не зафиксирован</span></>}
                   </div>
                   {v.changeNote && <div className="m">{v.changeNote}</div>}

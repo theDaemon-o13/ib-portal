@@ -32510,7 +32510,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -32532,7 +32542,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -32554,7 +32574,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -32569,6 +32599,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -32579,8 +32610,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -32641,9 +32673,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -32669,6 +32714,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -32713,6 +32773,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -32727,6 +32795,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -33026,7 +33095,17 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                placeName: string;
                                 signedOn: string | null;
+                                docx: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                orderNo: string;
+                                orderDate: string | null;
                                 cancelledAt: string | null;
                                 pdf: {
                                     id: string;
@@ -33048,7 +33127,17 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                placeName: string;
                                 signedOn: string | null;
+                                docx: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                orderNo: string;
+                                orderDate: string | null;
                                 cancelledAt: string | null;
                                 pdf: {
                                     id: string;
@@ -33070,7 +33159,17 @@ export interface paths {
                                 round: number;
                                 approvedAt: string | null;
                                 createdAt: string;
+                                state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                placeName: string;
                                 signedOn: string | null;
+                                docx: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                orderNo: string;
+                                orderDate: string | null;
                                 cancelledAt: string | null;
                                 pdf: {
                                     id: string;
@@ -33085,6 +33184,7 @@ export interface paths {
                                 name: string;
                                 /** @enum {string} */
                                 state: "done" | "current" | "todo";
+                                place: string | null;
                                 approvers: string[];
                                 missingHead: boolean;
                                 hint: string;
@@ -33095,8 +33195,9 @@ export interface paths {
                             }[];
                             can: {
                                 edit: boolean;
-                                actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                 sign: boolean;
+                                approvalFiles: boolean;
                                 draftFiles: boolean;
                                 comment: boolean;
                                 revise: boolean;
@@ -33157,9 +33258,22 @@ export interface paths {
                                 } | null;
                                 dueDate: string;
                                 overdue: boolean;
+                                dueDays: number | null;
                                 approvedAt: string | null;
                                 approvedBy: string | null;
                                 approveComment: string;
+                                approvedOn: string | null;
+                                reworkedAt: string | null;
+                                rechecks: {
+                                    prevApprovedOn: string | null;
+                                    prevApprovedAt: string;
+                                    reworkedAt: string | null;
+                                    fromDue: string;
+                                    toDue: string;
+                                    comment: string;
+                                    actor: string;
+                                    at: string;
+                                }[];
                                 files: {
                                     id: string;
                                     file: {
@@ -33185,6 +33299,21 @@ export interface paths {
                                 dueDate: string;
                                 done: boolean;
                                 overdue: boolean;
+                                onlyofficeUrl: string;
+                                docx: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                    mime: string;
+                                } | null;
+                                pdf: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                    mime: string;
+                                } | null;
                                 files: {
                                     id: string;
                                     file: {
@@ -33229,6 +33358,14 @@ export interface paths {
                                     size: number;
                                 } | null;
                                 textFrozen: boolean;
+                                docx: {
+                                    id: string;
+                                    name: string;
+                                    sha256: string;
+                                    size: number;
+                                } | null;
+                                orderNo: string;
+                                orderDate: string | null;
                             }[];
                             history: {
                                 id: string;
@@ -33243,6 +33380,7 @@ export interface paths {
                                 comment: string;
                                 versionNo: number;
                                 round: number;
+                                event: string | null;
                                 pdfSha256: string | null;
                                 selfApproved: boolean;
                             }[];
@@ -33425,7 +33563,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -33447,7 +33595,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -33469,7 +33627,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -33484,6 +33652,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -33494,8 +33663,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -33556,9 +33726,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -33584,6 +33767,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -33628,6 +33826,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -33642,6 +33848,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -33747,14 +33954,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Действие маршрута (ADR-0024): to_review 11→12, to_head 12→13, approve 13→14 (файл), ack_final 14→15 (файл), to_signing 15→16, return 13/14/15→11 (комментарий). 403 — не ваша роль; 409 — документ уже на другом этапе */
+        /** Действие маршрута (ADR-0042): submit_head 21→«на проверке», head_approve →22, head_return →21 (комментарий), request_recheck 22→«повторная проверка», to_translation 22→23 (confirmUnchanged), head_reapprove →23, recheck_return →22 (комментарий), to_approval 23→24. 403 — не ваша роль; 409 — документ уже в другом месте маршрута; файлы — 409 FILES_ONLY_AT_APPROVAL */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
                     id: string;
-                    action: "to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return";
+                    action: "submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval";
                 };
                 cookie?: never;
             };
@@ -33764,6 +33971,7 @@ export interface paths {
                         version: number;
                         stage: number;
                         comment?: string;
+                        confirmUnchanged?: boolean;
                         /** Format: uuid */
                         fileId?: string;
                     };
@@ -33827,7 +34035,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -33849,7 +34067,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -33871,7 +34099,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -33886,6 +34124,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -33896,8 +34135,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -33958,9 +34198,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -33986,6 +34239,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -34030,6 +34298,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -34044,6 +34320,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -34153,7 +34430,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 16: подписанный PDF и дата подписания (автор или начальник ИБ). Пересмотр — от даты подписания */
+        /** Этап 24 «Утвердить» (автор или начальник ИБ): нужны PDF и .docx основного языка и .docx каждого перевода (409 APPROVAL_FILES_REQUIRED). Пересмотр — от даты утверждения */
         post: {
             parameters: {
                 query?: never;
@@ -34168,9 +34445,9 @@ export interface paths {
                     "application/json": {
                         version: number;
                         stage: number;
-                        /** Format: uuid */
-                        fileId: string;
                         signedOn: string;
+                        orderNo?: string;
+                        orderDate?: string | null;
                     };
                 };
             };
@@ -34232,7 +34509,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -34254,7 +34541,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -34276,7 +34573,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -34291,6 +34598,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -34301,8 +34609,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -34363,9 +34672,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -34391,6 +34713,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -34435,6 +34772,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -34449,6 +34794,483 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/approval-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Этап 24: файл утверждения — pdf (подписанный PDF), docx (исходный Word), translation_docx, translation_pdf (с translationId); fileId null — снять. Тип — по содержимому */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        /** @enum {string} */
+                        slot: "pdf" | "docx" | "translation_docx" | "translation_pdf";
+                        /** Format: uuid */
+                        translationId?: string;
+                        fileId: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                        inactive?: boolean;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
+                                    signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
+                                    signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
+                                    signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    place: string | null;
+                                    approvers: string[];
+                                    missingHead: boolean;
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
+                                    sign: boolean;
+                                    approvalFiles: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    marks: string[];
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    dueDays: number | null;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translatorName: string;
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -34634,7 +35456,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -34656,7 +35488,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -34678,7 +35520,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -34693,6 +35545,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -34703,8 +35556,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -34765,9 +35619,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -34793,6 +35660,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -34837,6 +35719,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -34851,6 +35741,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -34960,7 +35851,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Файлы драфта (pdf, docx): автор на этапе 11 */
+        /** Файлы драфта — до 1.11.0; теперь 409 FILES_ONLY_AT_APPROVAL (файлы — только на этапе 24, /approval-files) */
         post: {
             parameters: {
                 query?: never;
@@ -35037,7 +35928,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35059,7 +35960,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35081,7 +35992,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35096,6 +36017,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -35106,8 +36028,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -35168,9 +36091,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -35196,6 +36132,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -35240,6 +36191,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -35254,6 +36213,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -35363,7 +36323,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Снять файл драфта (автор на этапе 11); файл без других ссылок помечается удалённым */
+        /** Снять файл драфта — до 1.11.0; теперь 409 FILES_ONLY_AT_APPROVAL */
         post: {
             parameters: {
                 query?: never;
@@ -35440,7 +36400,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35462,7 +36432,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35484,7 +36464,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35499,6 +36489,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -35509,8 +36500,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -35571,9 +36563,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -35599,6 +36604,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -35643,6 +36663,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -35657,6 +36685,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -35766,7 +36795,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Комментарий сотрудника ИБ на этапе 12 «Проверка сотрудниками» */
+        /** Комментарий сотрудника ИБ к документу в работе (любой этап) */
         post: {
             parameters: {
                 query?: never;
@@ -35841,7 +36870,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35863,7 +36902,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35885,7 +36934,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -35900,6 +36959,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -35910,8 +36970,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -35972,9 +37033,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -36000,6 +37074,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -36044,6 +37133,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -36058,6 +37155,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -36167,7 +37265,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 14: добавить ответственное лицо (автор или начальник ИБ, этапы 11–14) */
+        /** Ответственное лицо (автор): этап 21 — срок днями (dueDays), этап 22 — датой (dueDate) */
         post: {
             parameters: {
                 query?: never;
@@ -36184,7 +37282,8 @@ export interface paths {
                         stage: number;
                         fullName: string;
                         department?: string;
-                        dueDate: string;
+                        dueDate?: string;
+                        dueDays?: number;
                     };
                 };
             };
@@ -36246,7 +37345,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -36268,7 +37377,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -36290,7 +37409,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -36305,6 +37434,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -36315,8 +37445,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -36377,9 +37508,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -36405,6 +37549,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -36449,6 +37608,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -36463,6 +37630,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -36595,6 +37763,7 @@ export interface paths {
                         fullName?: string;
                         department?: string;
                         dueDate?: string;
+                        dueDays?: number;
                         comment?: string;
                     };
                 };
@@ -36657,7 +37826,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -36679,7 +37858,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -36701,7 +37890,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -36716,6 +37915,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -36726,8 +37926,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -36788,9 +37989,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -36816,6 +38030,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -36860,6 +38089,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -36874,6 +38111,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -37056,7 +38294,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37078,7 +38326,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37100,7 +38358,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37115,6 +38383,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -37125,8 +38394,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -37187,9 +38457,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -37215,6 +38498,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -37259,6 +38557,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -37273,6 +38579,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -37382,7 +38689,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 14: отметить согласование лица, по желанию — комментарий и ответ (файлы) */
+        /** Этап 22: отметить согласование лица — дата согласования и, по желанию, комментарий; без файла (fileIds — 409) */
         post: {
             parameters: {
                 query?: never;
@@ -37399,6 +38706,7 @@ export interface paths {
                         version: number;
                         stage: number;
                         comment?: string;
+                        approvedOn?: string;
                         fileIds?: string[];
                     };
                 };
@@ -37461,7 +38769,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37483,7 +38801,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37505,7 +38833,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37520,6 +38858,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -37530,8 +38869,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -37592,9 +38932,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -37620,6 +38973,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -37664,6 +39032,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -37678,6 +39054,481 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
+                                    pdfSha256: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}/parties/{partyId}/recheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Этап 22: «Запросить повторно» — отметка лица снимается, новый срок, запись в историю */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    partyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        stage: number;
+                        dueDate: string;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                edition: string;
+                                versionNo: number;
+                                type: {
+                                    id: string;
+                                    value: string;
+                                };
+                                owner: {
+                                    id: string;
+                                    fullName: string;
+                                };
+                                approvedVersionNo: number | null;
+                                approvedAt: string | null;
+                                signedOn: string | null;
+                                reviewMonths: number;
+                                reviewDue: string | null;
+                                /** @enum {string} */
+                                status: "draft" | "in_approval" | "approved" | "review_overdue" | "in_review";
+                                statusName: string;
+                                stage: number | null;
+                                stageName: string | null;
+                                waitingForMe: boolean;
+                                holders: {
+                                    people: {
+                                        id: string;
+                                        fullName: string;
+                                        inactive?: boolean;
+                                    }[];
+                                    missingHead: boolean;
+                                } | null;
+                                partiesDue: string | null;
+                                partiesOverdue: boolean;
+                                openBlockers: number;
+                                archived: boolean;
+                                version: number;
+                                current: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
+                                    signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                };
+                                working: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
+                                    signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                approved: {
+                                    id: string;
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    changeNote: string;
+                                    stage: number;
+                                    stageName: string;
+                                    round: number;
+                                    approvedAt: string | null;
+                                    createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
+                                    signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                } | null;
+                                route: {
+                                    stage: number;
+                                    name: string;
+                                    /** @enum {string} */
+                                    state: "done" | "current" | "todo";
+                                    place: string | null;
+                                    approvers: string[];
+                                    missingHead: boolean;
+                                    hint: string;
+                                    actedBy: string | null;
+                                    actedAt: string | null;
+                                    skipped: string | null;
+                                    selfApproved: boolean;
+                                }[];
+                                can: {
+                                    edit: boolean;
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
+                                    sign: boolean;
+                                    approvalFiles: boolean;
+                                    draftFiles: boolean;
+                                    comment: boolean;
+                                    revise: boolean;
+                                    cancelRevision: boolean;
+                                    delete: boolean;
+                                    parties: boolean;
+                                    approveParties: boolean;
+                                    blockers: boolean;
+                                    translations: boolean;
+                                    manage: boolean;
+                                };
+                                blockedReason: string | null;
+                                returned: {
+                                    at: string;
+                                    actor: string;
+                                    stageName: string;
+                                    comment: string;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                } | null;
+                                files: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "draft" | "head_approved" | "final";
+                                    kindName: string;
+                                    marks: string[];
+                                    round: number;
+                                    file: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    };
+                                    addedBy: string;
+                                    addedAt: string;
+                                    removable: boolean;
+                                }[];
+                                comments: {
+                                    id: string;
+                                    author: string;
+                                    body: string;
+                                    at: string;
+                                }[];
+                                parties: {
+                                    id: string;
+                                    fullName: string;
+                                    department: string;
+                                    email: string;
+                                    user: {
+                                        id: string;
+                                        fullName: string;
+                                    } | null;
+                                    dueDate: string;
+                                    overdue: boolean;
+                                    dueDays: number | null;
+                                    approvedAt: string | null;
+                                    approvedBy: string | null;
+                                    approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                }[];
+                                translations: {
+                                    id: string;
+                                    language: string;
+                                    translatorName: string;
+                                    dueDate: string;
+                                    done: boolean;
+                                    overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    files: {
+                                        id: string;
+                                        file: {
+                                            id: string;
+                                            name: string;
+                                            sha256: string;
+                                            size: number;
+                                            mime: string;
+                                        };
+                                    }[];
+                                    deadlines: {
+                                        from: string;
+                                        to: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
+                                    canUpload: boolean;
+                                }[];
+                                blockers: {
+                                    id: string;
+                                    text: string;
+                                    openedBy: string;
+                                    openedAt: string;
+                                    resolvedAt: string | null;
+                                    resolvedBy: string | null;
+                                    resolveComment: string;
+                                }[];
+                                versions: {
+                                    no: number;
+                                    edition: string;
+                                    title: string;
+                                    onlyofficeUrl: string;
+                                    approvedAt: string | null;
+                                    changeNote: string;
+                                    signedOn: string | null;
+                                    cancelledAt: string | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
+                                }[];
+                                history: {
+                                    id: string;
+                                    at: string;
+                                    actor: string;
+                                    stage: number;
+                                    stageName: string;
+                                    toStage: number | null;
+                                    toStageName: string | null;
+                                    /** @enum {string} */
+                                    decision: "submitted" | "approved" | "returned" | "revision_started" | "skipped" | "moved" | "signed" | "migrated" | "cancelled";
+                                    comment: string;
+                                    versionNo: number;
+                                    round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -37865,7 +39716,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37887,7 +39748,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37909,7 +39780,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -37924,6 +39805,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -37934,8 +39816,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -37996,9 +39879,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -38024,6 +39920,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -38068,6 +39979,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -38082,6 +40001,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -38268,7 +40188,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -38290,7 +40220,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -38312,7 +40252,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -38327,6 +40277,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -38337,8 +40288,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -38399,9 +40351,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -38427,6 +40392,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -38471,6 +40451,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -38485,6 +40473,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -38594,7 +40583,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 15: строка перевода — язык, имя переводчика текстом (необязательно), срок; ведут автор, старший над автором, начальник ИБ; этапы 11–15 */
+        /** Этап 23: строка перевода — язык, имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23 */
         post: {
             parameters: {
                 query?: never;
@@ -38612,6 +40601,7 @@ export interface paths {
                         language: string;
                         translatorName?: string;
                         dueDate: string;
+                        onlyofficeUrl?: string;
                     };
                 };
             };
@@ -38673,7 +40663,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -38695,7 +40695,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -38717,7 +40727,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -38732,6 +40752,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -38742,8 +40763,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -38804,9 +40826,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -38832,6 +40867,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -38876,6 +40926,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -38890,6 +40948,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -39023,6 +41082,7 @@ export interface paths {
                         translatorName?: string;
                         dueDate?: string;
                         comment?: string;
+                        onlyofficeUrl?: string;
                     };
                 };
             };
@@ -39084,7 +41144,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39106,7 +41176,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39128,7 +41208,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39143,6 +41233,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -39153,8 +41244,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -39215,9 +41307,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -39243,6 +41348,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -39287,6 +41407,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -39301,6 +41429,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -39483,7 +41612,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39505,7 +41644,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39527,7 +41676,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39542,6 +41701,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -39552,8 +41712,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -39614,9 +41775,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -39642,6 +41816,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -39686,6 +41875,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -39700,6 +41897,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -39809,7 +42007,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 15: файл перевода (pdf, docx) — переводчик, автор, старший над автором, начальник ИБ */
+        /** Файл перевода — до 1.11.0; теперь 409 FILES_ONLY_AT_APPROVAL (Word и PDF перевода — /approval-files на этапе 24) */
         post: {
             parameters: {
                 query?: never;
@@ -39887,7 +42085,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39909,7 +42117,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39931,7 +42149,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -39946,6 +42174,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -39956,8 +42185,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -40018,9 +42248,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -40046,6 +42289,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -40090,6 +42348,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -40104,6 +42370,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -40291,7 +42558,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -40313,7 +42590,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -40335,7 +42622,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -40350,6 +42647,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -40360,8 +42658,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -40422,9 +42721,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -40450,6 +42762,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -40494,6 +42821,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -40508,6 +42843,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -40694,7 +43030,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -40716,7 +43062,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -40738,7 +43094,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -40753,6 +43119,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -40763,8 +43130,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -40825,9 +43193,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -40853,6 +43234,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -40897,6 +43293,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -40911,6 +43315,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -41098,7 +43503,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41120,7 +43535,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41142,7 +43567,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41157,6 +43592,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -41167,8 +43603,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -41229,9 +43666,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -41257,6 +43707,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -41301,6 +43766,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -41315,6 +43788,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -41500,7 +43974,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41522,7 +44006,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41544,7 +44038,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41559,6 +44063,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -41569,8 +44074,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -41631,9 +44137,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -41659,6 +44178,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -41703,6 +44237,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -41717,6 +44259,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -41905,7 +44448,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41927,7 +44480,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41949,7 +44512,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -41964,6 +44537,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -41974,8 +44548,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -42036,9 +44611,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -42064,6 +44652,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -42108,6 +44711,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -42122,6 +44733,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -42306,7 +44918,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -42328,7 +44950,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -42350,7 +44982,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -42365,6 +45007,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -42375,8 +45018,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -42437,9 +45081,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -42465,6 +45122,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -42509,6 +45181,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -42523,6 +45203,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];
@@ -42707,7 +45388,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -42729,7 +45420,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -42751,7 +45452,17 @@ export interface paths {
                                     round: number;
                                     approvedAt: string | null;
                                     createdAt: string;
+                                    state: ("draft" | "head_review" | "parties" | "head_recheck") | null;
+                                    placeName: string;
                                     signedOn: string | null;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                     cancelledAt: string | null;
                                     pdf: {
                                         id: string;
@@ -42766,6 +45477,7 @@ export interface paths {
                                     name: string;
                                     /** @enum {string} */
                                     state: "done" | "current" | "todo";
+                                    place: string | null;
                                     approvers: string[];
                                     missingHead: boolean;
                                     hint: string;
@@ -42776,8 +45488,9 @@ export interface paths {
                                 }[];
                                 can: {
                                     edit: boolean;
-                                    actions: ("to_review" | "to_head" | "approve" | "ack_final" | "to_signing" | "return")[];
+                                    actions: ("submit_head" | "head_approve" | "head_return" | "request_recheck" | "to_translation" | "head_reapprove" | "recheck_return" | "to_approval")[];
                                     sign: boolean;
+                                    approvalFiles: boolean;
                                     draftFiles: boolean;
                                     comment: boolean;
                                     revise: boolean;
@@ -42838,9 +45551,22 @@ export interface paths {
                                     } | null;
                                     dueDate: string;
                                     overdue: boolean;
+                                    dueDays: number | null;
                                     approvedAt: string | null;
                                     approvedBy: string | null;
                                     approveComment: string;
+                                    approvedOn: string | null;
+                                    reworkedAt: string | null;
+                                    rechecks: {
+                                        prevApprovedOn: string | null;
+                                        prevApprovedAt: string;
+                                        reworkedAt: string | null;
+                                        fromDue: string;
+                                        toDue: string;
+                                        comment: string;
+                                        actor: string;
+                                        at: string;
+                                    }[];
                                     files: {
                                         id: string;
                                         file: {
@@ -42866,6 +45592,21 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    onlyofficeUrl: string;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
+                                    pdf: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                        mime: string;
+                                    } | null;
                                     files: {
                                         id: string;
                                         file: {
@@ -42910,6 +45651,14 @@ export interface paths {
                                         size: number;
                                     } | null;
                                     textFrozen: boolean;
+                                    docx: {
+                                        id: string;
+                                        name: string;
+                                        sha256: string;
+                                        size: number;
+                                    } | null;
+                                    orderNo: string;
+                                    orderDate: string | null;
                                 }[];
                                 history: {
                                     id: string;
@@ -42924,6 +45673,7 @@ export interface paths {
                                     comment: string;
                                     versionNo: number;
                                     round: number;
+                                    event: string | null;
                                     pdfSha256: string | null;
                                     selfApproved: boolean;
                                 }[];

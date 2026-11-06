@@ -25,8 +25,10 @@ export type DocSort = NonNullable<DocListParams['sort']>;
 
 /** Версия документа и этап на экране: устаревший экран получает 409. */
 export interface At { version: number; stage: number }
-/** Ответственное лицо (1.4.0): внешний человек — ФИО, подразделение или должность, срок. */
-export interface PartyFields { fullName: string; department?: string; dueDate: string }
+/** Ответственное лицо: внешний человек — ФИО, подразделение или должность; срок — днями в драфте (21), датой на «Согласовании» (22). */
+export interface PartyFields { fullName: string; department?: string; dueDate?: string; dueDays?: number }
+/** Ячейка файла этапа 24 «Утверждение». */
+export type ApprovalSlot = 'pdf' | 'docx' | 'translation_docx' | 'translation_pdf';
 
 export interface DocQuery {
   archived: boolean;
@@ -64,31 +66,31 @@ export const docsApi = {
   get: (id: string) => request<DocDetail>('GET', `/api/v1/documents/${id}`),
   create: (body: NewDoc) => request<DocResult>('POST', '/api/v1/documents', body),
   update: (id: string, body: DocPatch) => request<DocResult>('PATCH', `/api/v1/documents/${id}`, body),
-  /** Действие маршрута (ADR-0024): переход вперёд или возврат на «Драфт». */
-  action: (id: string, action: DocAction, body: { version: number; stage: number; comment?: string; fileId?: string }) =>
+  /** Действие маршрута 1.11.0 (ADR-0042); «Отправить на перевод» — с подтверждением, что документ не изменялся. */
+  action: (id: string, action: DocAction, body: { version: number; stage: number; comment?: string; confirmUnchanged?: boolean }) =>
     request<DocResult>('POST', `/api/v1/documents/${id}/actions/${action}`, body),
-  /** Этап 16: подписанный PDF и дата подписания. */
-  sign: (id: string, body: { version: number; stage: number; fileId: string; signedOn: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/sign`, body),
+  /** Этап 24 «Утвердить»: дата утверждения и приказ; файлы — заранее, approvalFile. */
+  sign: (id: string, body: { version: number; stage: number; signedOn: string; orderNo?: string; orderDate?: string | null }) => request<DocResult>('POST', `/api/v1/documents/${id}/sign`, body),
+  /** Этап 24: загрузить, заменить или снять (fileId null) файл утверждения. */
+  approvalFile: (id: string, body: At & { slot: ApprovalSlot; translationId?: string; fileId: string | null }) => request<DocResult>('POST', `/api/v1/documents/${id}/approval-files`, body),
   cancelRevision: (id: string, body: { version: number; comment: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/cancel-revision`, body),
-  addFiles: (id: string, body: { version: number; stage: number; fileIds: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/files`, body),
-  removeFile: (id: string, linkId: string, body: { version: number; stage: number }) => request<DocResult>('POST', `/api/v1/documents/${id}/files/${linkId}/remove`, body),
   comment: (id: string, body: string) => request<DocResult>('POST', `/api/v1/documents/${id}/comments`, { body }),
   remove: (id: string, body: { version: number; comment?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/delete`, body),
-  /** Этап 14: ответственные лица (внешние; e-mail — для справки). */
+  /** Ответственные лица: автор ведёт в драфте и на «Согласовании». */
   /** Активные записи справочника «Ответственные лица» — тем, кто ведёт лиц документа (1.6.7). */
   partyDirectory: (id: string) => request<{ items: Res<'/api/v1/documents/{id}/party-directory', 'get'>['items'] }>('GET', `/api/v1/documents/${id}/party-directory`),
   addParty: (id: string, body: At & PartyFields) => request<DocResult>('POST', `/api/v1/documents/${id}/parties`, body),
   updateParty: (id: string, partyId: string, body: At & Partial<PartyFields> & { comment?: string }) => request<DocResult>('PATCH', `/api/v1/documents/${id}/parties/${partyId}`, body),
   removeParty: (id: string, partyId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/remove`, body),
-  approveParty: (id: string, partyId: string, body: At & { comment?: string; fileIds?: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/approve`, body),
-  removeResponse: (id: string, linkId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/responses/${linkId}/remove`, body),
-  /** Этап 15: переводы — язык, переводчик (пользователь портала), срок, файл перевода. */
-  addTranslation: (id: string, body: At & { language: string; translatorName?: string; dueDate: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
-  updateTranslation: (id: string, tid: string, body: At & { language?: string; translatorName?: string; dueDate?: string; comment?: string }) =>
+  /** Отметка согласования (этап 22): дата согласования и комментарий, без файла. */
+  approveParty: (id: string, partyId: string, body: At & { comment?: string; approvedOn?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/approve`, body),
+  /** «Запросить повторно» (этап 22): отметка снимается, новый срок. */
+  recheckParty: (id: string, partyId: string, body: At & { dueDate: string; comment?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/recheck`, body),
+  /** Этап 23: переводы — язык, переводчик текстом, срок, ссылка на перевод в OnlyOffice. */
+  addTranslation: (id: string, body: At & { language: string; translatorName?: string; dueDate: string; onlyofficeUrl?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
+  updateTranslation: (id: string, tid: string, body: At & { language?: string; translatorName?: string; dueDate?: string; comment?: string; onlyofficeUrl?: string }) =>
     request<DocResult>('PATCH', `/api/v1/documents/${id}/translations/${tid}`, body),
   removeTranslation: (id: string, tid: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/remove`, body),
-  addTranslationFiles: (id: string, tid: string, body: At & { fileIds: string[] }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/files`, body),
-  removeTranslationFile: (id: string, tid: string, linkId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/files/${linkId}/remove`, body),
   addBlocker: (id: string, body: At & { text: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers`, body),
   resolveBlocker: (id: string, blockerId: string, body: At & { comment: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers/${blockerId}/resolve`, body),
   revise: (id: string, body: DocRevise) => request<DocResult>('POST', `/api/v1/documents/${id}/revise`, body),

@@ -106,6 +106,31 @@ async function main() {
     'триггеры неизменности истории и версий документов и «утверждение только с PDF» на месте',
   );
 
+  // Маршрут 1.11.0 (ADR-0042): новые колонки строк утверждённой версии и «Запросить повторно» не меняются; утверждённая
+  // на этапе 24 — с подписанным PDF, исходным Word и Word каждого перевода; рабочая версия на 21–22 — с состоянием этапа.
+  const v3Triggers = (await prisma.$queryRaw<{ tgname: string }[]>`
+    SELECT tgname FROM pg_trigger WHERE tgrelid IN ('public.document_translations'::regclass, 'public.document_parties'::regclass,
+      'public.document_party_rechecks'::regclass) AND NOT tgisinternal`).map((t) => t.tgname);
+  check(
+    ['document_translations_frozen', 'document_parties_frozen', 'document_party_rechecks_append_only', 'document_party_rechecks_no_truncate']
+      .every((n) => v3Triggers.includes(n)),
+    'триггеры маршрута 1.11.0 на месте: файлы и отметки утверждённой версии, «Запросить повторно» только пополняется',
+  );
+  const recheckPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
+    SELECT bool_or(has_table_privilege('ibportal_app', 'public.document_party_rechecks', p)) AS granted FROM unnest(ARRAY['UPDATE', 'DELETE', 'TRUNCATE']) AS p`;
+  check(recheckPrivs[0]?.granted === false, 'ibportal_app: нет UPDATE, DELETE, TRUNCATE на document_party_rechecks');
+  const approvedNoFiles = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM document_versions v
+    WHERE v.stage = 24 AND v.approved_at IS NOT NULL
+      AND (v.pdf_file_id IS NULL OR v.source_docx_file_id IS NULL
+        OR EXISTS (SELECT 1 FROM document_translations t WHERE t.version_id = v.id AND t.removed_at IS NULL AND t.source_docx_file_id IS NULL))`;
+  check(Number(approvedNoFiles[0]?.n ?? 0) === 0, 'утверждённые на этапе 24 — с подписанным PDF, исходным Word и Word каждого перевода',
+    `версий без обязательных файлов: ${approvedNoFiles[0]?.n ?? 0}`);
+  const badState = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT count(*) AS n FROM documents d JOIN document_versions v ON v.id = d.working_version_id
+    WHERE v.stage IN (21, 22) AND v.route_state IS NULL`;
+  check(Number(badState[0]?.n ?? 0) === 0, 'рабочие версии на этапах 21–22 — с состоянием этапа (route_state)', `без состояния: ${badState[0]?.n ?? 0}`);
+
   // Релиз 1.2.0: переходы задач только пополняются (ADR-0022); колонка открытой задачи согласована с исполнителем.
   const transitionPrivs = await prisma.$queryRaw<{ ins: boolean; mod: boolean }[]>`
     SELECT has_table_privilege('ibportal_app', 'public.task_transitions', 'INSERT') AS ins,

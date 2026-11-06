@@ -3,15 +3,16 @@
 //
 //   npm run test:e2e   (логин и пароль администратора — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
-// Маршрут 1.2.0 (ADR-0024): драфт → проверка сотрудниками → начальник ИБ → ответственные лица → перевод → подписание.
-// Маршрут проходят разные пользователи: тест заводит владельца документа, его руководителя, сотрудника ИБ, начальника ИБ и читателя документов,
+// Маршрут 1.11.0 (ADR-0042): «Драфт» (и проверка начальника ИБ) → «Согласование» (и повторная проверка) → «Перевод» →
+// «Утверждение» — единственный этап с файлами. Маршрут проходят разные пользователи: тест заводит владельца документа,
+// его руководителя, сотрудника ИБ, начальника ИБ и читателя документов,
 // каждый входит через форму входа (при первом входе — смена временного пароля). Документы готовятся через API.
 // В конце документы и задачи прогона уходят в архив, тестовые пользователи отключаются.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { $, launchBrowser, portalToday } from './browser.mjs';
 import { restoreIbHead, saveIbHead } from './ib-head.mjs';
-import { pagesPdf, pickFiles, tempFile, tinyDocx, tinyPdf, tinyPng, uploadViaApi } from './files.mjs';
+import { pagesPdf, pickFiles, tempFile, tinyDocx, tinyPdf, uploadViaApi } from './files.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -75,32 +76,78 @@ async function apiAs(u, method, path, body) {
   return api(method, path, body);
 }
 
-/**
- * Действие маршрута через API. 12 → 13 — с файлом автора (1.4.0): нет — автор прикладывает. 13 → 14 — без загрузки
- * (согласуется последний файл автора); 14 → 15 — финальную версию загружает тот, кто действует.
- */
+/** Действие маршрута через API от имени пользователя; «Отправить на перевод» — с отметкой «не изменялся». */
 async function routeStep(u, id, action, comment) {
-  let d = await apiAs(u, 'GET', `/api/v1/documents/${id}`);
-  if (action === 'to_head' && !d.files.some((f) => f.marks.includes('Файл драфта'))) {
-    const up = await uploadViaApi(ui, `Документ ${id.slice(0, 8)}.pdf`, tinyPdf());
-    d = (await api('POST', `/api/v1/documents/${id}/files`, { version: d.version, stage: d.working.stage, fileIds: [up.id] })).document;
-  }
-  const fileId = action === 'ack_final' ? (await uploadViaApi(ui, `Версия ${id.slice(0, 8)}.pdf`, tinyPdf())).id : undefined;
-  return api('POST', `/api/v1/documents/${id}/actions/${action}`, { version: d.version, stage: d.working.stage, comment, fileId });
-}
-
-async function signViaApi(u, id) {
   const d = await apiAs(u, 'GET', `/api/v1/documents/${id}`);
-  const fileId = (await uploadViaApi(ui, `Подписан ${id.slice(0, 8)}.pdf`, tinyPdf())).id;
-  return api('POST', `/api/v1/documents/${id}/sign`, { version: d.version, stage: 16, fileId, signedOn: portalToday() });
+  return api('POST', `/api/v1/documents/${id}/actions/${action}`, {
+    version: d.version, stage: d.working.stage, comment, ...(action === 'to_translation' ? { confirmUnchanged: true } : {}),
+  });
 }
 
-/** Выбрать файл в форме карточки (как пользователь: выбор файла). */
-async function pickInForm(form, name) {
-  const input = `.dash .panel.w4 form[aria-label="${form}"] input[type=file]`;
-  await ui.waitFor(`!!document.querySelector(${JSON.stringify(input)})`, `поле файла в форме «${form}»`);
-  const [up] = await pickFiles(ui, input, [tempFile(name, tinyPdf(name))]);
+/** Место маршрута рабочей версии: «21:draft», «21:head_review», «22:parties», «22:head_recheck», «23», «24». */
+const placeOf = (d) => `${d.working.stage}${d.working.state ? `:${d.working.state}` : ''}`;
+const PLACES = ['21:draft', '21:head_review', '22:parties', '23', '24'];
+
+/** Провести документ через API до места маршрута (без повторной проверки). */
+async function moveViaApi(id, target) {
+  for (;;) {
+    const d = await apiAs(admin, 'GET', `/api/v1/documents/${id}`);
+    const p = placeOf(d);
+    if (p === target) return;
+    assert.ok(PLACES.indexOf(p) >= 0 && PLACES.indexOf(p) < PLACES.indexOf(target), `документ на ${p}, цель ${target}`);
+    if (p === '21:draft') await routeStep(users.owner, id, 'submit_head');
+    else if (p === '21:head_review') await routeStep(users.head, id, 'head_approve');
+    else if (p === '22:parties') { await partyViaApi(id); await routeStep(users.owner, id, 'to_translation'); }
+    else if (p === '23') await routeStep(users.owner, id, 'to_approval');
+  }
+}
+
+/** Этап 22: ответственное лицо, его согласование отмечает автор (подготовка данных). */
+async function partyViaApi(id) {
+  let d = await apiAs(users.owner, 'GET', `/api/v1/documents/${id}`);
+  if (!d.parties.length) {
+    d = (await api('POST', `/api/v1/documents/${id}/parties`, { version: d.version, stage: d.working.stage, fullName: 'Сидоров С. С.', department: 'ДИКТ', dueDate: portalToday() })).document;
+  }
+  for (const p of d.parties.filter((x) => !x.approvedAt)) {
+    d = (await api('POST', `/api/v1/documents/${id}/parties/${p.id}/approve`, { version: d.version, stage: d.working.stage })).document;
+  }
+}
+
+/** Этап 24: файл утверждения через API (slot: pdf, docx, translation_docx, translation_pdf). */
+async function approvalFileViaApi(id, slot, name, data, translationId) {
+  const d = await apiAs(users.owner, 'GET', `/api/v1/documents/${id}`);
+  const fileId = (await uploadViaApi(ui, name, data)).id;
+  return (await api('POST', `/api/v1/documents/${id}/approval-files`, { version: d.version, stage: 24, slot, fileId, translationId })).document;
+}
+
+async function signAllViaApi(id) {
+  await moveViaApi(id, '24');
+  await approvalFileViaApi(id, 'pdf', `Подписан ${id.slice(0, 8)}.pdf`, tinyPdf());
+  await approvalFileViaApi(id, 'docx', `Исходный ${id.slice(0, 8)}.docx`, tinyDocx());
+  const d = await apiAs(users.owner, 'GET', `/api/v1/documents/${id}`);
+  return api('POST', `/api/v1/documents/${id}/sign`, { version: d.version, stage: 24, signedOn: portalToday() });
+}
+
+/** Поле даты — через нативный сеттер (как пользователь выбирает дату в календаре). */
+async function setValue(input, value) {
+  await ui.evaluate(`(() => { const el = ${input};
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(value)});
+    el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+}
+
+/** В карточке нет ни одного поля загрузки файла (этапы 21–23). */
+const noFileInputs = () => ui.evaluate(`!${panel}.querySelector('input[type=file]')`);
+
+/** Файл в ячейку этапа 24 (как пользователь: выбор файла); ячейка сразу привязывает его к версии. */
+async function pickInSlot(slot, name, data) {
+  const input = `.dash .panel.w4 [data-slot="${slot}"] input[type=file]`;
+  await ui.waitFor(`!!document.querySelector(${JSON.stringify(input)})`, `поле файла «${slot}»`);
+  const m = ui.mark();
+  const [up] = await pickFiles(ui, input, [tempFile(name, data)]);
   assert.equal(up.status, 201, up.body);
+  const req = await ui.request(m, 'POST', '/approval-files');
+  assert.equal(req.status, 200, req.body);
+  await ui.waitFor(`!!document.querySelector(${JSON.stringify(`.dash .panel.w4 [data-slot="${slot}"] [data-view-file="${name}"]`)})`, `файл «${name}» в ячейке «${slot}»`);
 }
 
 /** Документ прогона через API от имени администратора (docs.manage). */
@@ -109,31 +156,6 @@ async function makeDoc(title, extra = {}) {
     title: `${RUN} ${title}`, typeId: docType.id, ownerId: users.owner.id, onlyofficeUrl: `${URL1}${navSeq}`, edition: '1.0', ...extra,
   });
   return r.document;
-}
-
-const STEPS = [['owner', 'to_review'], ['owner', 'to_head'], ['head', 'approve'], ['head', 'ack_final'], ['head', 'to_signing']];
-const STAGE_OF = { to_review: 11, to_head: 12, approve: 13, ack_final: 14, to_signing: 15 };
-
-/** Провести документ через API до этапа stage (11…16). */
-async function moveViaApi(id, stage) {
-  for (const [who, action] of STEPS) {
-    if (STAGE_OF[action] >= stage) continue;
-    if (action === 'ack_final') await partyViaApi(id);
-    await routeStep(users[who], id, action);
-  }
-}
-
-/** Этап 14: ответственное лицо, его согласование отмечает начальник ИБ (подготовка данных). */
-async function partyViaApi(id) {
-  let d = await apiAs(users.head, 'GET', `/api/v1/documents/${id}`);
-  d = (await api('POST', `/api/v1/documents/${id}/parties`, { version: d.version, stage: d.working.stage, fullName: 'Сидоров С. С.', department: 'ДИКТ', dueDate: portalToday() })).document;
-  const p = d.parties.find((x) => !x.approvedAt);
-  await api('POST', `/api/v1/documents/${id}/parties/${p.id}/approve`, { version: d.version, stage: d.working.stage });
-}
-
-async function signAllViaApi(id) {
-  await moveViaApi(id, 16);
-  await signViaApi(users.owner, id);
 }
 
 /** Все неархивные задачи, постранично (на доске — не больше 500). */
@@ -240,8 +262,8 @@ async function cleanup() {
   }
 }
 
-describe('Документы: маршрут 1.2.0', () => {
-  it('драфт → проверка сотрудниками → начальник ИБ → ответственные лица → перевод → подписание', async () => {
+describe('Документы: маршрут 1.11.0', () => {
+  it('драфт → проверка начальника ИБ → согласование (повторная проверка и возврат) → перевод ссылкой → утверждение с файлами и приказом', async () => {
     const title = `${RUN} Политика ИБ`;
     // Администратор создаёт документ формой «Новый документ».
     await loginAs(admin);
@@ -262,174 +284,175 @@ describe('Документы: маршрут 1.2.0', () => {
     await ui.waitFor(`${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(title)}`, 'карточка нового документа');
     assert.equal(await ui.text(`${panel}.querySelector('.panel-h .chip')`), 'Черновик');
     assert.equal(await ui.evaluate(`${stepState('Драфт')}`), 'step cur');
+    assert.deepEqual(await ui.evaluate(`[...${panel}.querySelectorAll('.vstep')].map((v) => v.querySelector('b').textContent)`), ['Драфт', 'Согласование', 'Перевод', 'Утверждение']);
 
-    // Автор: «ждёт вас»; прикладывает файл драфта и отправляет на проверку сотрудникам.
+    // Автор: «ждёт вас»; ответственное лицо уже в драфте — срок днями; файлов на этапе нет; на проверку начальнику ИБ.
     await loginAs(users.owner);
     await openDocs();
     await ui.click(`[...document.querySelectorAll('.filters button')].find((b) => b.textContent.startsWith('Ждут вас'))`);
     await ui.waitFor(`!!${row(title)}`, 'документ в «Ждут вас» у автора');
     await ui.click(row(title));
-    await ui.click($.button('Приложить файл документа', panel));
-    await pickInForm('Файлы драфта', 'Драфт.pdf');
-    await act('Приложить', 'POST', `/api/v1/documents/${id}/files`);
-    await ui.waitFor(`!!${panel}.querySelector('[data-file-kind=draft]')`, 'файл драфта в карточке');
-    await ui.click($.button('Отправить на проверку сотрудникам', panel));
-    let req = await act('Отправить на проверку сотрудникам', 'POST', `/api/v1/documents/${id}/actions/to_review`);
-    assert.equal(req.json.stage, 11);
-    await ui.waitFor(`${stepState('Проверка сотрудниками')}?.includes('cur')`, 'этап — проверка сотрудниками');
-
-    // Сотрудник ИБ оставляет комментарий; перевести дальше не может.
-    await loginAs(users.staff);
-    await openDocs(id);
-    await ui.waitFor(`!!${panel}?.querySelector('textarea[aria-label="Комментарий"]')`, 'поле комментария');
-    assert.equal(await ui.evaluate(`!!${$.button('На согласование начальнику ИБ', panel)}`), false, 'сотрудник не переводит дальше');
-    await ui.type(`${panel}.querySelector('textarea[aria-label="Комментарий"]')`, 'В п. 4 нет срока');
-    await act('Добавить комментарий', 'POST', `/api/v1/documents/${id}/comments`);
-    await ui.waitFor(`${panel}.textContent.includes('В п. 4 нет срока')`, 'комментарий в карточке');
-
-    // Руководитель автора переводит к начальнику ИБ.
-    await loginAs(users.chief);
-    await openDocs(id);
-    await ui.click($.button('На согласование начальнику ИБ', panel));
-    await act('На согласование начальнику ИБ', 'POST', `/api/v1/documents/${id}/actions/to_head`);
-    await ui.waitFor(`${stepState('Согласование начальника ИБ')}?.includes('cur')`, 'этап — начальник ИБ');
-
-    // Начальник ИБ: счётчик «ждёт вас»; «Согласовать» — только с файлом версии.
-    await loginAs(users.head);
-    await openDocs(id);
-    await ui.waitFor(`Number(document.querySelector('[data-testid=nav-docs-n]')?.textContent) >= 1`, 'счётчик «ждёт вас» у «Документы»');
-    // «Сейчас у» (1.4.0): в реестре и в карточке — начальник ИБ; под этапом — кто действует, у пройденных — кто и когда.
-    const nowAt = `Сейчас у: ${users.head.fullName}`;
-    await ui.waitFor(`document.querySelector('tr[data-doc="${id}"] [data-testid=doc-holders]')?.textContent === ${JSON.stringify(nowAt)}`, '«Сейчас у» в реестре');
-    await ui.waitFor(`${panel}.querySelector('[data-testid=doc-now-at]')?.textContent === ${JSON.stringify(nowAt)}`, '«Сейчас у» в карточке');
-    const stageWho = (stage) => ui.evaluate(`${panel}.querySelector('.vstep[data-stage="${stage}"] [data-testid=stage-who]')?.textContent ?? ''`);
-    assert.match(await stageWho(13), new RegExp(`: ${users.head.fullName}$`));
-    assert.match(await stageWho(16), new RegExp(`: ${users.owner.fullName}$`));
-    assert.match(await ui.text(`${panel}.querySelector('.vstep[data-stage="12"] .vr')`), new RegExp(users.chief.fullName), 'пройденный этап — кто и когда');
-    // 13 → 14 (1.4.0): начальник ИБ ничего не загружает — выбран последний файл автора, он подтверждает.
-    await ui.click($.button('Согласовать', panel));
-    const form = `${panel}.querySelector('form[aria-label="Согласовать"]')`;
-    await ui.waitFor(`!!${form}?.querySelector('input[name=approve-file]:checked')`, 'файл автора выбран по умолчанию');
-    assert.equal(await ui.evaluate(`!!${form}.querySelector('input[type=file]')`), false, 'загрузки нет');
-    const chosen = await ui.evaluate(`${form}.querySelector('input[name=approve-file]:checked').value`);
-    req = await act('Согласовать', 'POST', `/api/v1/documents/${id}/actions/approve`);
-    assert.equal(req.json.fileId, chosen, 'согласован выбранный файл автора');
-    await ui.waitFor(`${stepState('Согласование с ответственными лицами')}?.includes('cur')`, 'этап — ответственные лица');
-    // Один файл — одна строка с обеими отметками.
-    await ui.waitFor(`[...${panel}.querySelectorAll('[data-testid=file-marks]')].some((m) => m.textContent.startsWith('Файл драфта · Версия при согласовании начальником ИБ'))`, 'файл автора с отметкой согласования');
-
-    // Этап 14: «Ознакомлен» появится, когда ответственные лица согласуют.
-    assert.equal(await ui.evaluate(`!!${$.button('Ознакомлен с финальной версией', panel)}`), false, 'без лиц шага нет');
-    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /Добавьте ответственных лиц/);
+    await ui.waitFor(`!!${$.button('Отправить на проверку начальнику ИБ', panel)}`, 'шаг автора в драфте');
+    assert.equal(await noFileInputs(), true, 'в драфте полей загрузки нет');
     await ui.click($.button('Добавить ответственное лицо', panel));
     const pf = `${panel}.querySelector('form[aria-label="Ответственное лицо"]')`;
     await ui.type(label('ФИО', pf), 'Петров Пётр Петрович');
     await ui.type(label('Подразделение или должность', pf), 'Юридическое управление');
-    // Лицо — внешний человек (1.4.0): ни e-mail, ни «Пользователь портала» в форме нет.
-    assert.deepEqual(await ui.evaluate(`[...${pf}.querySelectorAll('label')].map((l) => l.firstChild?.textContent?.trim())`),
-      ['ФИО', 'Подразделение или должность', 'Срок ответа']);
-    await ui.evaluate(`(() => { const el = ${label('Срок ответа', pf)};
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(portalToday())});
-      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    req = await act('Добавить', 'POST', `/api/v1/documents/${id}/parties`);
-    assert.equal(req.json.fullName, 'Петров Пётр Петрович');
+    assert.deepEqual(await ui.evaluate(`[...${pf}.querySelectorAll('label')].map((l) => l.firstChild?.textContent?.trim())`), ['ФИО', 'Подразделение или должность', 'Срок ответа, дней']);
+    await setValue(label('Срок ответа, дней', pf), '10');
+    let req = await act('Добавить', 'POST', `/api/v1/documents/${id}/parties`);
+    assert.equal(req.json.dueDays, 10);
     const party = `${panel}.querySelector('[data-party="Петров Пётр Петрович"]')`;
-    await ui.waitFor(`!!${party}`, 'лицо в карточке');
+    await ui.waitFor(`${party}?.textContent.includes('срок 10 дн. от перехода на «Согласование»')`, 'срок днями в карточке');
+    assert.equal(await ui.evaluate(`!!${$.button('Отметить согласование', party)}`), false, 'в драфте согласование не отмечается');
+    await ui.click($.button('Отправить на проверку начальнику ИБ', panel));
+    req = await act('Отправить на проверку начальнику ИБ', 'POST', `/api/v1/documents/${id}/actions/submit_head`);
+    assert.equal(req.json.stage, 21);
+    await ui.waitFor(`${panel}.querySelector('.vstep[data-stage="21"] [data-testid=stage-place]')?.textContent === 'На проверке у начальника ИБ'`, '«На проверке у начальника ИБ»');
+
+    // Сотрудник ИБ комментирует на любом этапе; действий у него нет.
+    await loginAs(users.staff);
+    await openDocs(id);
+    await ui.waitFor(`!!${panel}?.querySelector('textarea[aria-label="Комментарий"]')`, 'поле комментария');
+    assert.equal(await ui.evaluate(`!!${$.button('Одобрить', panel)}`), false, 'сотрудник не одобряет');
+    await ui.type(`${panel}.querySelector('textarea[aria-label="Комментарий"]')`, 'В п. 4 нет срока');
+    await act('Добавить комментарий', 'POST', `/api/v1/documents/${id}/comments`);
+    await ui.waitFor(`${panel}.textContent.includes('В п. 4 нет срока')`, 'комментарий в карточке');
+
+    // Начальник ИБ: счётчик, «Сейчас у», «Одобрить» без файла.
+    await loginAs(users.head);
+    await openDocs(id);
+    await ui.waitFor(`Number(document.querySelector('[data-testid=nav-docs-n]')?.textContent) >= 1`, 'счётчик «ждёт вас» у «Документы»');
+    const nowAt = `Сейчас у: ${users.head.fullName}`;
+    await ui.waitFor(`document.querySelector('tr[data-doc="${id}"] [data-testid=doc-holders]')?.textContent === ${JSON.stringify(nowAt)}`, '«Сейчас у» в реестре');
+    await ui.waitFor(`${panel}.querySelector('[data-testid=doc-now-at]')?.textContent === ${JSON.stringify(nowAt)}`, '«Сейчас у» в карточке');
+    assert.equal(await noFileInputs(), true, 'на проверке полей загрузки нет');
+    await ui.click($.button('Одобрить', panel));
+    const form = `${panel}.querySelector('form[aria-label="Одобрить"]')`;
+    await ui.waitFor(`${form}?.textContent.includes('Содержимое по ссылке не фиксируется')`, 'одобрение — по ссылке OnlyOffice');
+    await act('Одобрить', 'POST', `/api/v1/documents/${id}/actions/head_approve`);
+    await ui.waitFor(`${stepState('Согласование')}?.includes('cur')`, 'этап — «Согласование»');
+
+    // Автор: срок лица стал датой; отметка — с датой согласования, без файла; повторная проверка.
+    await loginAs(users.owner);
+    await openDocs(id);
+    await ui.waitFor(`${party}?.textContent.includes('срок ') && !${party}.textContent.includes('дн. от перехода')`, 'срок лица — дата');
+    assert.equal(await noFileInputs(), true, 'на «Согласовании» полей загрузки нет');
     await ui.click($.button('Отметить согласование', party));
-    await pickInForm('Согласование лица', 'Ответ Петрова.pdf');
+    const af = `${panel}.querySelector('form[aria-label="Согласование лица"]')`;
+    await ui.waitFor(`${label('Дата согласования', af)}?.value === ${JSON.stringify(portalToday())}`, 'дата согласования — сегодня');
+    assert.equal(await ui.evaluate(`!!${af}.querySelector('input[type=file]')`), false, 'ответ файлом не прикладывается');
+    await ui.type(label('Комментарий (необязательно)', af), 'Согласовано письмом');
     await act('Согласовал(а)', 'POST', '/approve');
-    await ui.waitFor(`${party}?.textContent.includes('согласовал(а)') && ${party}.textContent.includes('Ответ Петрова.pdf')`, 'согласование и ответ лица');
-    await ui.click($.button('Ознакомлен с финальной версией', panel));
-    await pickInForm('Ознакомлен с финальной версией', 'Финальная.pdf');
-    await act('Ознакомлен с финальной версией', 'POST', `/api/v1/documents/${id}/actions/ack_final`);
-    await ui.waitFor(`${stepState('Перевод')}?.includes('cur')`, 'этап — перевод');
+    await ui.waitFor(`${party}?.textContent.includes('согласовал(а)')`, 'отметка согласования');
+    await ui.click($.button('Повторная проверка', panel));
+    await act('Повторная проверка', 'POST', `/api/v1/documents/${id}/actions/request_recheck`);
+    await ui.waitFor(`${panel}.querySelector('.vstep[data-stage="22"] [data-testid=stage-place]')?.textContent === 'На повторной проверке у начальника ИБ'`, '«На повторной проверке»');
 
-    // Этап 15: строка перевода — язык, переводчик текстом (не пользователь портала, 1.4.0), срок.
-    await ui.click($.button('Добавить язык', panel));
-    const tf = `${panel}.querySelector('form[aria-label="Язык перевода"]')`;
-    await ui.type(label('Язык', tf), 'Таджикский');
-    await ui.type(label('Переводчик (необязательно)', tf), 'Калинова Д. (бюро переводов)');
-    await ui.evaluate(`(() => { const el = ${label('Срок перевода', tf)};
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(portalToday())});
-      el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    req = await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
-    assert.equal(req.json.translatorName, 'Калинова Д. (бюро переводов)');
-    const trRow = `${panel}.querySelector('[data-translation="Таджикский"]')`;
-    await ui.waitFor(`${trRow}?.textContent.includes('переводчик Калинова Д. (бюро переводов)')`, 'язык и переводчик в карточке');
-    assert.equal(await ui.evaluate(`!!${$.button('На подписание', panel)}`), false, 'без перевода шага нет');
-    assert.equal(await ui.evaluate(`!!${$.button('Приложить перевод', trRow)}`), false, 'начальник ИБ файл перевода не прикладывает');
-    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /файл перевода: осталось 1/);
-    await ui.waitFor(`${panel}.querySelector('[data-testid=doc-now-at]')?.textContent === ${JSON.stringify(`Сейчас у: ${users.owner.fullName}`)}`, '«Сейчас у» — автор');
-
-    // Автор: документ «ждёт вас», прикладывает файл перевода.
-    await loginAs(users.owner);
-    await openDocs(id);
-    await ui.waitFor(`${row(title)}?.textContent.includes('ждёт вас')`, 'у автора — «ждёт вас»');
-    await ui.click($.button('Приложить перевод', trRow));
-    await pickInForm('Файл перевода', 'Таджикский.pdf');
-    await act('Приложить', 'POST', '/files');
-    await ui.waitFor(`${trRow}?.textContent.includes('перевод приложен')`, 'перевод приложен');
-
-    // Руководитель автора переводит на подписание.
-    await loginAs(users.chief);
-    await openDocs(id);
-    await ui.click($.button('На подписание', panel));
-    await act('На подписание', 'POST', `/api/v1/documents/${id}/actions/to_signing`);
-
-    // Автор: уведомление «ждёт подписанного PDF» ведёт на документ (Г5).
-    await loginAs(users.owner);
+    // Начальник ИБ возвращает с повторной проверки: документ остаётся на «Согласовании», отметка — «до доработки».
+    await loginAs(users.head);
     await ui.goto(`/tasks?n=${++navSeq}`);
     await ui.click(`document.querySelector('button.bell')`, 'значок уведомлений');
-    const note = `[...document.querySelectorAll('.notif-pop .notif')].find((n) => n.textContent.includes(${JSON.stringify(`«${title}» ждёт подписанного PDF`)}))`;
-    await ui.waitFor(`!!${note}`, 'уведомление о подписании');
+    const note = `[...document.querySelectorAll('.notif-pop .notif')].find((n) => n.textContent.includes(${JSON.stringify(`«${title}» доработан и ждёт повторной проверки`)}))`;
+    await ui.waitFor(`!!${note}`, 'уведомление о повторной проверке');
     await ui.click(note);
     await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(title)}`, 'переход к документу из уведомления');
-    await ui.click($.button('Загрузить подписанный PDF', panel));
-    await pickInForm('Подписание', 'Подписан.pdf');
-    req = await act('Подписан', 'POST', `/api/v1/documents/${id}/sign`);
+    await ui.click($.button('Вернуть на доработку', panel));
+    assert.equal(await ui.evaluate(`!!${$.button('Вернуть автору', panel)}`), false, 'без комментария кнопка неактивна');
+    await ui.type(`${panel}.querySelector('form[aria-label="Вернуть на доработку"] textarea')`, 'Уточните раздел 3');
+    await act('Вернуть автору', 'POST', `/api/v1/documents/${id}/actions/recheck_return`);
+    await ui.waitFor(`${stepState('Согласование')}?.includes('cur') && !!${panel}.querySelector('[data-testid=doc-returned]')`, 'остался на «Согласовании», замечание в карточке');
+    await ui.waitFor(`!!${party}?.querySelector('[data-testid=reworked]')`, 'отметка «до доработки»');
+
+    // Автор: документ не менялся — «Отправить на перевод» с галочкой, без повторной проверки.
+    await loginAs(users.owner);
+    await openDocs(id);
+    await ui.click($.button('Отправить на перевод', panel));
+    const tr = `${panel}.querySelector('form[aria-label="Отправить на перевод"]')`;
+    await ui.waitFor(`!!${tr}`, 'форма «на перевод»');
+    assert.equal(await ui.evaluate(`${$.button('Отправить на перевод', tr)}`), undefined, 'без галочки кнопка неактивна');
+    await ui.click(`${tr}.querySelector('input[type=checkbox]')`, 'галочка «не изменялся»');
+    req = await act('Отправить на перевод', 'POST', `/api/v1/documents/${id}/actions/to_translation`);
+    assert.equal(req.json.confirmUnchanged, true);
+    await ui.waitFor(`${stepState('Перевод')}?.includes('cur')`, 'этап — «Перевод»');
+
+    // «Перевод»: язык со ссылкой OnlyOffice; без ссылки дальше нельзя; файлов на этапе нет.
+    assert.equal(await noFileInputs(), true, 'на «Переводе» полей загрузки нет');
+    await ui.click($.button('Добавить язык', panel));
+    const lf = `${panel}.querySelector('form[aria-label="Язык перевода"]')`;
+    await ui.type(label('Язык', lf), 'Таджикский');
+    await ui.type(label('Переводчик (необязательно)', lf), 'Калинова Д. (бюро переводов)');
+    await setValue(label('Срок перевода', lf), portalToday());
+    await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
+    const trRow = `${panel}.querySelector('[data-translation="Таджикский"]')`;
+    await ui.waitFor(`${trRow}?.textContent.includes('нет ссылки на перевод')`, 'язык без ссылки');
+    assert.equal(await ui.evaluate(`!!${$.button('На утверждение', panel)}`), false, 'без ссылки шага нет');
+    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /Не у всех языков есть ссылка на перевод: Таджикский/);
+    await ui.click($.button('Добавить ссылку', trRow));
+    const linkForm = `${panel}.querySelector('form[aria-label="Ссылка на перевод"]')`;
+    await ui.type(`${linkForm}.querySelector('input[type=url]')`, `${URL1}tj`);
+    await act('Сохранить ссылку', 'PATCH', '/translations/');
+    await ui.waitFor(`!!${trRow}?.querySelector('a[href="${URL1}tj"]')`, 'ссылка на перевод');
+    await ui.click($.button('На утверждение', panel));
+    await act('На утверждение', 'POST', `/api/v1/documents/${id}/actions/to_approval`);
+    await ui.waitFor(`${stepState('Утверждение')}?.includes('cur')`, 'этап — «Утверждение»');
+
+    // «Утверждение»: PDF и Word основного языка, Word перевода; «Утвердить» с датой и приказом.
+    await ui.waitFor(`!!${panel}.querySelector('[aria-label="Файлы утверждения"]')`, 'блок файлов утверждения');
+    assert.equal(await ui.evaluate(`${$.button('Утвердить', panel)}`), undefined, 'без файлов «Утвердить» неактивна');
+    await pickInSlot('Подписанный PDF', 'Подписан.pdf', tinyPdf('Signed'));
+    await pickInSlot('Исходный документ Word', 'Политика.docx', tinyDocx());
+    assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /Загрузите: Word перевода \(Таджикский\)/);
+    await pickInSlot('Перевод (Таджикский): Word', 'Таджикский.docx', tinyDocx());
+    await ui.click($.button('Утвердить', panel));
+    const sf = `${panel}.querySelector('form[aria-label="Утверждение"]')`;
+    await ui.waitFor(`!!${sf}`, 'форма утверждения');
+    await ui.type(label('Номер приказа (необязательно)', sf), '15-ИБ');
+    req = await act('Утвердить', 'POST', `/api/v1/documents/${id}/sign`);
     assert.equal(req.json.signedOn, portalToday());
-    await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'документ подписан');
+    assert.equal(req.json.orderNo, '15-ИБ');
+    await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'документ утверждён');
     assert.equal(await ui.evaluate(`[...${panel}.querySelectorAll('.vstep .step')].every((s) => s.classList.contains('done'))`), true, 'все этапы пройдены');
-    assert.match(await ui.text(`${panel}.querySelector('.row.gap-lg')`), new RegExp(ru(plusYear()).replace(/\./g, '\\.')), 'пересмотр через 12 месяцев от подписания');
-    assert.deepEqual(await ui.evaluate(`[...${panel}.querySelectorAll('[data-file-kind]')].map((f) => f.dataset.fileKind)`), ['draft', 'final']);
-    const steps = await ui.text(panel);
-    assert.ok(steps.includes(users.chief.fullName) && steps.includes(users.head.fullName), 'в маршруте — кто прошёл этапы');
-    assert.ok(!steps.includes('История согласования'), 'без права подробной истории нет');
+    assert.match(await ui.text(`${panel}.querySelector('.row.gap-lg')`), new RegExp(ru(plusYear()).replace(/\./g, '\\.')), 'пересмотр через 12 месяцев от утверждения');
+    const versions = await ui.evaluate(`[...${panel}.querySelectorAll('.hist-item')].map((h) => h.textContent).find((t) => t.startsWith('Версия 1'))`);
+    assert.match(versions, /утверждена .*Подписанный PDF.*Исходный Word.*приказ № 15-ИБ/);
+    assert.ok(!(await ui.text(panel)).includes('История согласования'), 'без права подробной истории нет');
 
     await loginAs(admin);
     await openDocs(id);
     await ui.waitFor(`${panel}?.textContent.includes('История согласования')`, 'подробная история у администратора');
     const hist = await ui.evaluate(`[...${panel}.querySelectorAll('.hist-item')].map((h) => h.textContent)`);
-    assert.ok(hist.some((h) => h.includes(users.owner.fullName) && h.includes('загрузил(а) подписанную версию 1')), hist.join('\n'));
-    assert.ok(hist.some((h) => h.includes(users.chief.fullName) && h.includes('«Проверка сотрудниками» → «Согласование начальника ИБ»')), hist.join('\n'));
+    for (const part of ['утвердил(а) версию 1', 'отправил(а) версию 1 на перевод', 'Автор подтвердил: документ не изменялся', 'одобрил(а) версию 1', 'отправил(а) версию 1 на повторную проверку начальнику ИБ']) {
+      assert.ok(hist.some((h) => h.includes(part)), `в истории: ${part}\n${hist.join('\n')}`);
+    }
   });
 
-  it('без ib.work видны только подписанные документы', async () => {
-    const signed = await makeDoc('Подписанный');
+  it('без ib.work видны только утверждённые документы', async () => {
+    const signed = await makeDoc('Утверждённый');
     await signAllViaApi(signed.id);
     const draft = await makeDoc('Черновик');
     const atHead = await makeDoc('У начальника');
-    await moveViaApi(atHead.id, 13);
+    await moveViaApi(atHead.id, '21:head_review');
     await loginAs(users.legal);
     assert.deepEqual(await ui.evaluate(`[...document.querySelectorAll('nav.nav a span:not(.nav-n)')].map((s) => s.textContent)`), ['Документы']);
     await openDocs();
-    await ui.waitFor(`!!${row(`${RUN} Подписанный`)}`, 'подписанный документ виден юристу');
-    assert.equal(await ui.evaluate(`!!${row(`${RUN} Черновик`)}`), false, 'черновик юристу не виден');
-    assert.equal(await ui.evaluate(`!!${row(`${RUN} У начальника`)}`), false, 'документ на маршруте юристу не виден');
-    assert.equal(await ui.evaluate(`[...document.querySelectorAll('.filters button')].some((b) => b.textContent.startsWith('Архив'))`), false, 'архива у юриста нет');
-    // Подписанный PDF читатель открывает прямо в карточке (без прав, ADR-0024).
-    await ui.click(row(`${RUN} Подписанный`));
-    const m = ui.mark();
+    await ui.waitFor(`!!${row(`${RUN} Утверждённый`)}`, 'утверждённый документ виден читателю');
+    assert.equal(await ui.evaluate(`!!${row(`${RUN} Черновик`)}`), false, 'черновик читателю не виден');
+    assert.equal(await ui.evaluate(`!!${row(`${RUN} У начальника`)}`), false, 'документ на маршруте читателю не виден');
+    assert.equal(await ui.evaluate(`[...document.querySelectorAll('.filters button')].some((b) => b.textContent.startsWith('Архив'))`), false, 'архива у читателя нет');
+    // Подписанный PDF и исходный Word утверждённой версии читатель открывает в карточке.
+    await ui.click(row(`${RUN} Утверждённый`));
+    let m = ui.mark();
     await ui.click($.button('Подписанный PDF', panel));
-    const pdf = await ui.request(m, 'GET', '/content');
-    assert.equal(pdf.status, 200, 'подписанный PDF читателю выдаётся');
+    assert.equal((await ui.request(m, 'GET', '/content')).status, 200, 'подписанный PDF читателю выдаётся');
+    await ui.press('Escape');
+    m = ui.mark();
+    await ui.click($.button('Исходный Word', panel));
+    await ui.waitFor(`!!document.querySelector('[data-testid=viewer-docx]')`, 'Word — сообщение и «Скачать»');
+    await ui.press('Escape');
     await ui.goto(`/documents?doc=${draft.id}`);
     await ui.waitFor(`${panel}?.textContent.includes('Документ не найден или вам не виден')`, 'черновик по ссылке не открывается');
-
-    // «Юрист» и «Правление» выведены из обращения: в ролях их нет, есть «Читатель документов».
-    await loginAs(admin);
-    const roles = (await api('GET', '/api/v1/roles')).items.map((r) => r.code);
-    assert.ok(roles.includes('doc_reader') && !roles.includes('legal') && !roles.includes('board'), roles.join(', '));
+    assert.ok(m >= 0);
   });
 });
 
@@ -438,40 +461,39 @@ describe('Документы: блокеры', () => {
     const doc = await makeDoc('Положение о доступе');
     await loginAs(users.owner);
     await openDocs(doc.id);
-    await ui.waitFor(`!!${$.button('Отправить на проверку сотрудникам', panel)}`, 'шаг вперёд доступен');
+    const step = 'Отправить на проверку начальнику ИБ';
+    await ui.waitFor(`!!${$.button(step, panel)}`, 'шаг вперёд доступен');
     await ui.click($.button('Добавить блокер', panel));
     await ui.type(`${panel}.querySelector('form[aria-label="Блокер"] textarea')`, 'Ждём заключение ДИКТ');
     await act('Открыть блокер', 'POST', `/api/v1/documents/${doc.id}/blockers`);
     await ui.waitFor(`!!${panel}.querySelector('[data-blocker=open]')`, 'открытый блокер в карточке');
-    assert.equal(await ui.evaluate(`!!${$.button('Отправить на проверку сотрудникам', panel)}`), false, 'с блокером шага нет');
+    assert.equal(await ui.evaluate(`!!${$.button(step, panel)}`), false, 'с блокером шага нет');
     assert.match(await ui.text(`${panel}.querySelector('.note.ro')`), /Открытых блокеров: 1/);
     await ui.waitFor(`${row(`${RUN} Положение о доступе`)}?.textContent.includes('блокер')`, 'отметка блокера в реестре');
     await ui.click($.button('Снять блокер', panel));
-    assert.equal(await ui.evaluate(`!!${$.button('Снять блокер', `${panel}.querySelector('form')`)}`), false, 'без комментария кнопка неактивна');
+    await ui.waitFor(`!!${panel}.querySelector('form[aria-label="Снятие блокера"]')`, 'форма снятия блокера');
+    assert.equal(await ui.evaluate(`!!${$.button('Снять блокер', `${panel}.querySelector('form[aria-label="Снятие блокера"]')`)}`), false, 'без комментария кнопка неактивна');
     await ui.type(`${panel}.querySelector('form[aria-label="Снятие блокера"] textarea')`, 'Заключение получено');
     await act('Снять блокер', 'POST', '/resolve');
-    await ui.waitFor(`!!${panel}.querySelector('[data-blocker=resolved]') && !!${$.button('Отправить на проверку сотрудникам', panel)}`, 'блокер снят, шаг вперёд доступен');
+    await ui.waitFor(`!!${panel}.querySelector('[data-blocker=resolved]') && !!${$.button(step, panel)}`, 'блокер снят, шаг вперёд доступен');
   });
 });
 
 describe('Документы: возврат на доработку', () => {
-  it('возврат только с комментарием; новый круг; автору — задача на доске со ссылкой на документ', async () => {
+  it('с проверки начальника ИБ — только с комментарием; новый круг; автору — задача на доске со ссылкой на документ', async () => {
     const doc = await makeDoc('Регламент доступа');
-    await moveViaApi(doc.id, 13);
+    await moveViaApi(doc.id, '21:head_review');
     await loginAs(users.head);
     await openDocs(doc.id);
     await ui.click($.button('Вернуть на доработку', panel));
-    await ui.waitFor(`!!${panel}.querySelector('form textarea')`, 'поле замечаний');
+    await ui.waitFor(`!!${panel}.querySelector('form[aria-label="Вернуть на доработку"] textarea')`, 'поле замечаний');
     assert.equal(await ui.evaluate(`!!${$.button('Вернуть автору', panel)}`), false, 'без комментария кнопка неактивна');
+    assert.equal(await ui.evaluate(`!!${panel}.querySelector('form input[type=file]')`), false, 'записки файлом больше нет');
     const comment = 'Добавьте раздел о пересмотре прав раз в полгода';
-    await ui.type(`${panel}.querySelector('form textarea')`, comment);
-    // Записка к возврату — по желанию (1.4.0).
-    await pickInForm('Вернуть на доработку', 'Замечания.pdf');
-    const req = await act('Вернуть автору', 'POST', `/api/v1/documents/${doc.id}/actions/return`);
+    await ui.type(`${panel}.querySelector('form[aria-label="Вернуть на доработку"] textarea')`, comment);
+    const req = await act('Вернуть автору', 'POST', `/api/v1/documents/${doc.id}/actions/head_return`);
     assert.equal(req.json.comment, comment);
-    assert.ok(req.json.fileId, 'возврат несёт записку');
-    await ui.waitFor(`${panel}.querySelector('[data-testid=return-note]')?.textContent === 'Замечания.pdf'`, 'записка в блоке возврата');
-    await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Черновик'`, 'документ снова на «Драфт»');
+    await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Черновик' && !${panel}.querySelector('[data-testid=stage-place]')`, 'документ снова в драфте у автора');
     assert.ok((await ui.text(panel)).includes('круг 2'), 'маршрут начат заново: круг 2');
 
     // Автор: задача на доске, карточка ведёт на документ.
@@ -481,14 +503,14 @@ describe('Документы: возврат на доработку', () => {
     await ui.waitFor(`${drawer}?.textContent.includes(${JSON.stringify(comment)})`, 'замечание в описании задачи');
     await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
     await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(`${RUN} Регламент доступа`)}`, 'переход к документу из задачи');
-    assert.match(await ui.text(`${panel}.querySelector('[data-testid=doc-returned]')`), new RegExp(`с этапа «Согласование начальника ИБ».*${comment}`));
+    assert.match(await ui.text(`${panel}.querySelector('[data-testid=doc-returned]')`), new RegExp(`с этапа «Драфт».*${comment}`));
 
     // Автор правит драфт и отправляет снова — задача доработки закрывается сама.
     await ui.click($.button('Изменить драфт', panel));
     await ui.type(label('Что изменено', panel), 'Добавлен раздел 6');
     await act('Сохранить', 'PATCH', `/api/v1/documents/${doc.id}`);
-    await ui.click($.button('Отправить на проверку сотрудникам', panel));
-    await act('Отправить на проверку сотрудникам', 'POST', `/api/v1/documents/${doc.id}/actions/to_review`);
+    await ui.click($.button('Отправить на проверку начальнику ИБ', panel));
+    await act('Отправить на проверку начальнику ИБ', 'POST', `/api/v1/documents/${doc.id}/actions/submit_head`);
     const tasks = (await allTasks()).filter((t) => t.title === taskTitle);
     assert.equal(tasks.length, 1);
     assert.notEqual(tasks[0].completedAt, null, 'задача доработки закрыта после отправки');
@@ -496,7 +518,7 @@ describe('Документы: возврат на доработку', () => {
 });
 
 describe('Документы: новая версия, отмена пересмотра, удаление', () => {
-  it('подписанный документ → новая версия; «Отменить пересмотр» — действует подписанная', async () => {
+  it('утверждённый документ → новая версия; «Отменить пересмотр» — действует утверждённая', async () => {
     const doc = await makeDoc('Инструкция по паролям');
     await signAllViaApi(doc.id);
     await loginAs(users.owner);
@@ -508,27 +530,28 @@ describe('Документы: новая версия, отмена пересм
     const req = await act('Создать версию 2', 'POST', `/api/v1/documents/${doc.id}/revise`);
     assert.equal(req.json.edition, '2.0');
     await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'На пересмотре'`, 'статус «На пересмотре»');
-    await ui.waitFor(`${stepState('Драфт')}?.includes('cur')`, 'новая версия — на «Драфт»');
+    await ui.waitFor(`${stepState('Драфт')}?.includes('cur')`, 'новая версия — в драфте');
 
-    // Пока версия 2 в работе, юрист видит действующую версию 1.
+    // Пока версия 2 в работе, читатель видит действующую версию 1.
     await loginAs(users.legal);
     await openDocs(doc.id);
-    await ui.waitFor(`${panel}?.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'юрист видит подписанную версию');
+    await ui.waitFor(`${panel}?.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'читатель видит утверждённую версию');
     assert.match(await ui.text(`${panel}.querySelector('.row.gap-lg .mono')`), /^1 · ред\. 1\.0$/);
 
     await loginAs(users.owner);
     await openDocs(doc.id);
     await ui.click($.button('Отменить пересмотр', panel));
-    assert.equal(await ui.evaluate(`!!${$.button('Отменить пересмотр', `${panel}.querySelector('form')`)}`), false, 'без комментария кнопка неактивна');
-    await ui.type(`${panel}.querySelector('form textarea')`, 'Изменения не понадобились');
+    const cf = `${panel}.querySelector('form[aria-label="Отмена пересмотра"]')`;
+    assert.equal(await ui.evaluate(`!!${$.button('Отменить пересмотр', cf)}`), false, 'без комментария кнопка неактивна');
+    await ui.type(`${cf}.querySelector('textarea')`, 'Изменения не понадобились');
     await act('Отменить пересмотр', 'POST', `/api/v1/documents/${doc.id}/cancel-revision`);
-    await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'снова действует подписанная');
+    await ui.waitFor(`${panel}.querySelector('.panel-h .chip')?.textContent === 'Утверждён'`, 'снова действует утверждённая');
     const items = await ui.evaluate(`[...${panel}.querySelectorAll('.hist-item')].map((h) => h.textContent)`);
     assert.ok(items.some((t) => t.startsWith('Версия 2 · ред. 2.0 · пересмотр отменён')), items.join('\n'));
-    assert.ok(items.some((t) => t.startsWith('Версия 1 · ред. 1.0 · подписана')), items.join('\n'));
+    assert.ok(items.some((t) => t.startsWith('Версия 1 · ред. 1.0 · утверждена')), items.join('\n'));
   });
 
-  it('неподписанный документ удаляет пользователь с docs.delete; он пропадает из реестра', async () => {
+  it('неутверждённый документ удаляет пользователь с docs.delete; он пропадает из реестра', async () => {
     const doc = await makeDoc('Лишний драфт');
     await loginAs(users.owner);
     await openDocs(doc.id);
@@ -537,7 +560,7 @@ describe('Документы: новая версия, отмена пересм
     await loginAs(users.head);
     await openDocs(doc.id);
     await ui.click($.button('Удалить', panel));
-    await ui.type(`${panel}.querySelector('form textarea')`, 'Дубль');
+    await ui.type(`${panel}.querySelector('form[aria-label="Удаление"] textarea')`, 'Дубль');
     await act('Удалить документ', 'POST', `/api/v1/documents/${doc.id}/delete`);
     await ui.waitFor(`!${row(`${RUN} Лишний драфт`)}`, 'документ пропал из реестра');
     const r = await ui.evaluate(`fetch('/api/v1/documents/${doc.id}').then((x) => x.status)`);
@@ -545,37 +568,34 @@ describe('Документы: новая версия, отмена пересм
   });
 });
 
-describe('Документы: просмотр файлов на весь экран (1.4.0, шаг 8)', () => {
+describe('Документы: просмотр файлов на весь экран (1.4.0, шаг 8; файлы утверждения — 1.11.0)', () => {
   const viewer = `document.querySelector('[data-testid=file-viewer]')`;
   const viewBtn = (name) => `${panel}.querySelector('[data-view-file=${JSON.stringify(name)}]')`;
   const page = () => ui.evaluate(`${viewer}?.querySelector('[data-testid=viewer-page]')?.textContent ?? ''`);
   const canvasCss = () => ui.evaluate(`Math.round(${viewer}.querySelector('canvas').getBoundingClientRect().width)`);
-  const upload = async (name, data) => (await uploadViaApi(ui, name, data)).id;
 
   it('PDF на весь экран: ← → по страницам, «+» увеличивает, Esc закрывает только просмотрщик и возвращает фокус; .docx — сообщение и кнопки', async () => {
     const doc = await makeDoc('Просмотр файлов');
-    let d = await apiAs(admin, 'GET', `/api/v1/documents/${doc.id}`);
+    await moveViaApi(doc.id, '24');
     const pdfName = `${RUN} Три страницы.pdf`;
     const docxName = `${RUN} Политика.docx`;
-    const ids = [await upload(pdfName, pagesPdf(['Page one', 'Page two', 'Page three'])), await upload(docxName, tinyDocx())];
-    d = (await api('POST', `/api/v1/documents/${doc.id}/files`, { version: d.version, stage: d.working.stage, fileIds: ids })).document;
+    await approvalFileViaApi(doc.id, 'pdf', pdfName, pagesPdf(['Page one', 'Page two', 'Page three']));
+    const d = await approvalFileViaApi(doc.id, 'docx', docxName, tinyDocx());
     await loginAs(admin);
     await openDocs(doc.id);
-    await ui.waitFor(`!!${viewBtn(pdfName)}`, 'файл автора в карточке');
+    await ui.waitFor(`!!${viewBtn(pdfName)}`, 'файл утверждения в карточке');
 
-    // Обработчик Esc «окна под просмотрщиком»: до него нажатие доходить не должно.
     await ui.evaluate(`window.__escBelow = 0; document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window.__escBelow++; })`);
     await ui.click(viewBtn(pdfName), 'файл PDF');
     await ui.waitFor(`!!${viewer}`, 'просмотрщик открыт');
     assert.deepEqual(await ui.evaluate(`(() => { const r = ${viewer}.getBoundingClientRect(); return [r.left, r.top, r.width === innerWidth, r.height === innerHeight]; })()`), [0, 0, true, true], 'на весь экран');
     await ui.waitFor(`${viewer}.querySelector('canvas')?.width > 0 && !${viewer}.querySelector('canvas.is-rendering')`, 'страница нарисована');
     assert.equal(await page(), '1 / 3');
-    // Рендер в пикселях устройства: ширина canvas = CSS-ширина × devicePixelRatio.
     assert.ok(await ui.evaluate(`(() => { const c = ${viewer}.querySelector('canvas'); return Math.abs(c.width - c.getBoundingClientRect().width * devicePixelRatio) <= 2; })()`), 'canvas в разрешении экрана');
     await ui.press('ArrowRight');
     await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-page]')?.textContent === '2 / 3'`, 'страница 2');
     await ui.press('ArrowRight');
-    await ui.press('ArrowRight'); // дальше последней — нет
+    await ui.press('ArrowRight');
     await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-page]')?.textContent === '3 / 3'`, 'страница 3');
     await ui.press('ArrowLeft');
     await ui.waitFor(`${viewer}.querySelector('[data-testid=viewer-page]')?.textContent === '2 / 3'`, 'снова страница 2');
@@ -592,7 +612,6 @@ describe('Документы: просмотр файлов на весь экр
     assert.equal(await ui.evaluate(`!!${panel}.querySelector('.vsteps')`), true, 'карточка документа на месте');
     await ui.waitFor(`document.activeElement === ${viewBtn(pdfName)}`, 'фокус вернулся на кнопку файла');
 
-    // .docx файла версии: сообщение и обе кнопки.
     await ui.click(viewBtn(docxName), 'файл .docx');
     await ui.waitFor(`!!${viewer}?.querySelector('[data-testid=viewer-docx]')`, 'сообщение для .docx');
     assert.match(await ui.text(`${viewer}.querySelector('[data-testid=viewer-docx]')`), /Для просмотра в портале приложите PDF; \.docx открывается в OnlyOffice/);
@@ -602,67 +621,40 @@ describe('Документы: просмотр файлов на весь экр
     await ui.waitFor(`!${viewer}`, 'закрыт кнопкой');
   });
 
-  it('ответ лица (PNG) — тем же окном; перевод .docx — только «Скачать»; записка к возврату; без доступа — окна нет', async () => {
-    const doc = await makeDoc('Просмотр ответов');
-    // Язык перевода заранее, документ — до этапа 14.
-    let d = await apiAs(admin, 'GET', `/api/v1/documents/${doc.id}`);
-    await api('POST', `/api/v1/documents/${doc.id}/translations`, { version: d.version, stage: d.working.stage, language: 'Таджикский', dueDate: portalToday() });
-    await moveViaApi(doc.id, 14);
-    d = await apiAs(users.head, 'GET', `/api/v1/documents/${doc.id}`);
-    const pngName = `${RUN} Ответ.png`;
-    d = (await api('POST', `/api/v1/documents/${doc.id}/parties`, { version: d.version, stage: d.working.stage, fullName: 'Иванова И. И.', department: 'Юристы', dueDate: portalToday() })).document;
-    const party = d.parties.find((p) => !p.approvedAt);
-    d = (await api('POST', `/api/v1/documents/${doc.id}/parties/${party.id}/approve`, { version: d.version, stage: d.working.stage, fileIds: [await upload(pngName, tinyPng())] })).document;
-    await routeStep(users.head, doc.id, 'ack_final');
-    // Этап 15: файл перевода (.docx) прикладывает автор.
-    d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
+  it('Word перевода — только «Скачать»; снятый файл — «Файл недоступен», окна нет; читателю файлы рабочей версии не выдаются', async () => {
+    const doc = await makeDoc('Просмотр перевода');
+    await moveViaApi(doc.id, '23');
+    let d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
+    d = (await api('POST', `/api/v1/documents/${doc.id}/translations`, { version: d.version, stage: 23, language: 'Таджикский', dueDate: portalToday(), onlyofficeUrl: `${URL1}tj` })).document;
+    await moveViaApi(doc.id, '24');
     const trName = `${RUN} Перевод.docx`;
-    const tr = d.translations[0];
-    await api('POST', `/api/v1/documents/${doc.id}/translations/${tr.id}/files`, { version: d.version, stage: d.working.stage, fileIds: [await upload(trName, tinyDocx())] });
+    await approvalFileViaApi(doc.id, 'translation_docx', trName, tinyDocx(), d.translations[0].id);
+    const tmpName = `${RUN} Временный.pdf`;
+    d = await approvalFileViaApi(doc.id, 'pdf', tmpName, tinyPdf('Temp'));
+    const tmpId = d.versions[0].pdf.id;
 
     await loginAs(admin);
     await openDocs(doc.id);
-    const fileBtn = (name) => `[...${panel}.querySelectorAll('button')].find((b) => b.textContent === ${JSON.stringify(name)})`;
-    await ui.click(fileBtn(pngName), 'ответ лица');
-    await ui.waitFor(`${viewer}?.querySelector('img')?.naturalWidth > 0`, 'изображение в просмотрщике');
-    await ui.press('Escape');
-    await ui.waitFor(`!${viewer}`, 'закрыт');
-    await ui.click(fileBtn(trName), 'перевод .docx');
+    await ui.click(viewBtn(trName), 'перевод .docx');
     await ui.waitFor(`!!${viewer}?.querySelector('[data-testid=viewer-docx]')`, 'сообщение для .docx перевода');
     assert.deepEqual(await ui.evaluate(`[...${viewer}.querySelectorAll('[data-testid=viewer-docx] .btn')].map((b) => b.textContent)`), ['Скачать'], 'у перевода нет ссылки OnlyOffice');
     await ui.press('Escape');
     await ui.waitFor(`!${viewer}`, 'закрыт');
 
-    // Записка к возврату (PDF): возврат с этапа 15 с файлом.
-    d = await apiAs(users.head, 'GET', `/api/v1/documents/${doc.id}`);
-    const noteName = `${RUN} Замечания.pdf`;
-    await api('POST', `/api/v1/documents/${doc.id}/actions/return`, { version: d.version, stage: d.working.stage, comment: 'Уточнить перевод', fileId: await upload(noteName, tinyPdf('Return note')) });
-    await loginAs(admin);
-    await openDocs(doc.id);
-    await ui.click(`${panel}.querySelector('[data-testid=return-note]')`, 'записка к возврату');
-    await ui.waitFor(`${viewer}?.querySelector('canvas')?.width > 0`, 'записка в просмотрщике');
-    await ui.press('Escape');
-    await ui.waitFor(`!${viewer}`, 'закрыт');
-
-    // Без доступа: файл сняли, пока карточка открыта (файл без ссылок удаляется) — 404, окна нет, сообщение.
-    d = await apiAs(admin, 'GET', `/api/v1/documents/${doc.id}`);
-    const tmpName = `${RUN} Временный.pdf`;
-    d = (await api('POST', `/api/v1/documents/${doc.id}/files`, { version: d.version, stage: d.working.stage, fileIds: [await upload(tmpName, tinyPdf('Temp'))] })).document;
-    const tmp = d.files.find((f) => f.file.name === tmpName);
-    await loginAs(admin);
-    await openDocs(doc.id);
+    // Файл сняли, пока карточка открыта (без ссылок он удаляется) — 404, окна нет, сообщение.
     await ui.waitFor(`!!${viewBtn(tmpName)}`, 'файл в карточке');
     const fresh = await api('GET', `/api/v1/documents/${doc.id}`);
-    await api('POST', `/api/v1/documents/${doc.id}/files/${tmp.id}/remove`, { version: fresh.version, stage: fresh.working.stage });
+    await api('POST', `/api/v1/documents/${doc.id}/approval-files`, { version: fresh.version, stage: 24, slot: 'pdf', fileId: null });
     const m = ui.mark();
     await ui.click(viewBtn(tmpName), 'снятый файл');
-    const req = await ui.request(m, 'GET', `/api/v1/files/${tmp.file.id}/content`);
+    const req = await ui.request(m, 'GET', `/api/v1/files/${tmpId}/content`);
     assert.ok([403, 404].includes(req.status), `ответ ${req.status}`);
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Файл недоступен'`, 'сообщение «Файл недоступен»');
     assert.equal(await ui.evaluate(`!!${viewer} || !!document.querySelector('[data-testid=viewer-loading]')`), false, 'окна нет');
-    // Читатель документов к файлам версии на маршруте доступа не имеет.
+    // Читатель документов к файлам рабочей версии доступа не имеет.
+    const trFile = (await api('GET', `/api/v1/documents/${doc.id}`)).translations[0].docx.id;
     await apiAs(users.legal, 'GET', '/api/v1/auth/me');
-    const denied = await ui.evaluate(`fetch('/api/v1/files/${d.files[0].file.id}/content').then((r) => r.status)`);
+    const denied = await ui.evaluate(`fetch('/api/v1/files/${trFile}/content').then((r) => r.status)`);
     assert.ok([403, 404].includes(denied), `читатель: ${denied}`);
   });
 });
@@ -677,21 +669,18 @@ describe('Документы: фильтры и порядок', () => {
     const shows = (list, what) => ui.waitFor(`JSON.stringify(${titles}) === ${JSON.stringify(JSON.stringify(list))}`, what);
     const select = (name) => `document.querySelector('[data-testid=docs-filters] select[aria-label="${name}"]')`;
 
-    // По умолчанию — по типам: документы прогона в ветке своего типа; «Политика», если есть, — первая ветка.
     await ui.waitFor(`!!document.querySelector('[data-testid=doc-type-group][data-type-id="${docType.id}"]')`, 'ветка типа документов прогона');
     const types = await ui.evaluate(`[...document.querySelectorAll('[data-testid=doc-type-group]')].map((tr) => tr.dataset.type)`);
     const policy = types.findIndex((t) => t.trim().toLowerCase() === 'политика');
     assert.ok(policy <= 0, `«Политика» — первая ветка: ${types.join(', ')}`);
     await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'внутри ветки — по алфавиту');
 
-    // Ветка сворачивается и разворачивается.
     const caret = `document.querySelector('[data-testid=doc-type-group][data-type-id="${docType.id}"] button')`;
     await ui.click(caret, 'свернуть ветку');
     await shows([], 'ветка свёрнута');
     await ui.click(caret, 'развернуть ветку');
     await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'ветка развёрнута');
 
-    // Автор и тип.
     await ui.select(select('Автор'), users.staff.id);
     await shows([`${RUN} Анапа фильтр`], 'только документы автора');
     await ui.select(select('Тип документа'), docType.id);
@@ -699,14 +688,12 @@ describe('Документы: фильтры и порядок', () => {
     await ui.click($.button('Сбросить'), 'сбросить фильтры');
     await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'фильтры сброшены');
 
-    // Срок пересмотра: у черновиков его нет — в фильтр по сроку не попадают.
     await ui.select(select('Срок пересмотра'), 'd365');
     await shows([], 'черновики без срока пересмотра');
     await ui.select(select('Срок пересмотра'), 'to');
     await ui.waitFor(`!!document.querySelector('[data-testid=docs-filters] input[type=date]')`, 'поле «До даты»');
     await ui.click($.button('Сбросить'), 'сбросить фильтры');
 
-    // По алфавиту — без веток; выбор запоминается.
     await ui.click($.button('По алфавиту'), 'по алфавиту');
     await ui.waitFor(`!document.querySelector('[data-testid=doc-type-group]')`, 'без веток');
     await shows([`${RUN} Анапа фильтр`, `${RUN} Ялта фильтр`], 'по алфавиту');
@@ -718,46 +705,27 @@ describe('Документы: фильтры и порядок', () => {
   });
 });
 
-describe('Документы: задачи этапов маршрута (1.6.3)', () => {
-  it('этап 13 — задача начальнику ИБ на доске: документ, тип, этап, что требуется, ссылка; согласование закрывает её', async () => {
+describe('Документы: задачи этапов маршрута (ADR-0034, маршрут 1.11.0)', () => {
+  it('на проверке — задача начальнику ИБ на доске: документ, тип, место маршрута, что требуется, ссылка; одобрение закрывает её', async () => {
     const doc = await makeDoc('Положение о задачах этапов');
-    await moveViaApi(doc.id, 13);
+    await moveViaApi(doc.id, '21:head_review');
     await loginAs(users.head);
-    const taskTitle = `Согласовать: документ #${doc.number} «${RUN} Положение о задачах этапов»`;
+    const taskTitle = `Проверить: документ #${doc.number} «${RUN} Положение о задачах этапов»`;
     const drawer = await openTask(taskTitle, users.head);
     await ui.waitFor(`${drawer}?.textContent.includes('этап маршрута')`, 'причина «этап маршрута»');
     const text = await ui.text(drawer);
-    for (const part of [`Тип: ${docType.value}`, 'Этап: Согласование начальника ИБ (3 из 6), версия 1', 'Что требуется: согласовать версию 1']) {
+    for (const part of [`Тип: ${docType.value}`, 'Этап: Драфт — На проверке у начальника ИБ (1 из 4), версия 1', 'Что требуется: проверить версию 1 по ссылке OnlyOffice']) {
       assert.ok(text.includes(part), `в задаче: ${part}`);
     }
     await ui.click(`[...${drawer}.querySelectorAll('a')].find((a) => a.textContent.startsWith('Документ #'))`);
     await ui.waitFor(`location.pathname === '/documents' && ${panel}?.querySelector('.dr-title')?.textContent === ${JSON.stringify(`${RUN} Положение о задачах этапов`)}`, 'переход к документу из задачи');
 
-    // Этап 12 прошёл: задачи «Проверить» закрыты; согласование — задача этапа 13 закрыта, у начальника ИБ — этап 14.
-    await routeStep(users.head, doc.id, 'approve');
+    // Одобрение: задача начальника ИБ закрыта, дальше — у автора «Согласовать с ответственными лицами».
+    await routeStep(users.head, doc.id, 'head_approve');
     const mine = (await allTasks(users.head)).filter((t) => t.title.includes(`#${doc.number} «${RUN}`));
-    const open = mine.filter((t) => !t.completedAt).map((t) => t.title);
-    assert.deepEqual(open, [`Согласовать с ответственными лицами: документ #${doc.number} «${RUN} Положение о задачах этапов»`]);
-    assert.ok(mine.some((t) => t.title === taskTitle && t.completedAt), 'задача этапа 13 закрыта');
-    assert.ok(mine.some((t) => t.title.startsWith('Проверить:') && t.completedAt), 'задача проверки этапа 12 закрыта');
-  });
-});
-
-describe('Документы: общая задача проверки (1.6.4)', () => {
-  it('«Проверка сотрудниками» — одна задача со списком «Могут взять»; сотрудник из списка берёт её себе', async () => {
-    const doc = await makeDoc('Проверка одной задачей');
-    await moveViaApi(doc.id, 12);
-    const title = `Проверить: документ #${doc.number} «${RUN} Проверка одной задачей»`;
-    const group = (await allTasks()).filter((t) => t.title === title && !t.completedAt);
-    assert.equal(group.length, 1, 'одна общая задача, а не по задаче каждому');
-    assert.equal(group[0].assignee, null);
-    assert.ok(group[0].candidates.some((c) => c.id === users.staff.id), 'сотрудник ИБ в списке');
-    assert.ok(!group[0].candidates.some((c) => c.id === users.owner.id), 'автор свой документ не проверяет');
-
-    await loginAs(users.staff);
-    const drawer = await openTask(title, users.staff);
-    await ui.waitFor(`${drawer}.querySelector('[data-testid=task-candidates]')?.textContent.includes('Могут взять:')`, 'список «Могут взять»');
-    await ui.click($.button('Взять себе', drawer));
-    await ui.waitFor(`${drawer}.querySelector('[data-testid=task-candidates]')?.textContent.includes(${JSON.stringify(`Взял(а): ${users.staff.fullName}`)})`, 'задачу взял сотрудник');
+    assert.ok(mine.some((t) => t.title === taskTitle && t.completedAt), 'задача проверки закрыта');
+    assert.deepEqual(mine.filter((t) => !t.completedAt && t.assignee?.id === users.head.id).map((t) => t.title), [], 'у начальника ИБ открытых задач по документу нет');
+    const owners = (await allTasks(users.owner)).filter((t) => t.title.includes(`#${doc.number} «${RUN}`) && !t.completedAt).map((t) => t.title);
+    assert.deepEqual(owners, [`Согласовать с ответственными лицами: документ #${doc.number} «${RUN} Положение о задачах этапов»`]);
   });
 });

@@ -1,10 +1,10 @@
-// Документы (этап 6, ADR-0010; маршрут 1.2.0 — ADR-0024): реестр внутренних документов ИБ, версии, маршрут, пересмотр.
+// Документы (этап 6, ADR-0010; маршрут 1.11.0 — ADR-0042, до него 1.2.0 — ADR-0024): реестр документов ИБ, версии, маршрут, пересмотр.
 // Права: маршруты пускают любого вошедшего (requireAuth), а кто что может — решает этот сервис (status.ts, MOVES):
 // автор — владелец или docs.manage; старший — над владельцем (ADR-0020); начальник ИБ — пользователь с отметкой
-// «Является начальником ИБ» (1.4.0, ADR-0027; одна на портал, супер-администратору не ставится). Свой документ на этапе 13
-// начальник ИБ согласует сам — другого начальника ИБ не бывает — с отметкой «без независимого согласования».
+// «Является начальником ИБ» (1.4.0, ADR-0027; одна на портал, супер-администратору не ставится). Свой документ
+// начальник ИБ одобряет сам — другого начальника ИБ не бывает — с отметкой «без независимого согласования».
 // Без ib.work видны только подписанные документы, «ждёт вас» и те, где вы действовали в текущем круге.
-// Текст фиксируется файлами: 13 → 14 — версия, одобренная начальником ИБ, 14 → 15 — финальная, 16 — подписанный PDF.
+// Файлы — только на этапе 24 (подписанный PDF, исходный .docx, .docx переводов); на 21–23 документ — ссылка OnlyOffice.
 import { randomUUID } from 'node:crypto';
 import { workUsersWhere } from '../../lib/work-users.js';
 import type { Prisma } from '../../generated/prisma/client.js';
@@ -25,9 +25,9 @@ import { readPortalParam } from '../settings/portal-params.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import {
-  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, DOC_REVIEW_ROLE_KEY, DOC_STAGE_DAYS_KEY, docComparator, docStatus, dueMatches, stageState, stageTaskDescription, stageTaskText, FIRST_STAGE, FIXED_FILE, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
-  ROUTE, SIGN_STAGE, stageHolders, stageName, allowedActions, DOC_STATUS_NAMES, type DocAction, type DocRole, type DocStatus,
-  type DocDueFilter, type DocSort, type HolderCtx, type Holders, type Person, type StageDays, type StagePhase, type StageTaskRole,
+  addMonthsIso, compareTypes, DEFAULT_REVIEW_MONTHS, DOC_STAGE_DAYS_KEY, docComparator, docStatus, dueMatches, stageState, stageTaskDescription, stageTaskText, FIRST_STAGE, inRoute, isDocUrl, LEGACY_STAGE_NAMES, MOVES, needsReview,
+  PARTIES_STAGE, placeName, RETURN_ACTIONS, ROUTE, ROUTE_V2_NAMES, SIGN_STAGE, STATE_NAMES, stageDaysKey, stageHolders, stageName, stateOf, TRANSLATION_STAGE, allowedActions, DOC_STATUS_NAMES,
+  type DocAction, type DocRole, type DocStatus, type DocDueFilter, type DocSort, type HolderCtx, type Holders, type Person, type RouteState, type StageDays, type StageTaskRole,
 } from './status.js';
 
 export const TITLE_MAX = 300;
@@ -86,7 +86,9 @@ const permName = (code: string) => PERMISSIONS.find((p) => p.code === code)?.nam
 const versionSelect = {
   id: true, no: true, edition: true, title: true, onlyofficeUrl: true, changeNote: true, stage: true, round: true,
   approvedAt: true, signedOn: true, cancelledAt: true, createdAt: true, pdfFileId: true,
+  routeState: true, sourceDocxFileId: true, orderNo: true, orderDate: true,
   pdf: { select: { id: true, originalName: true, sha256: true, size: true } },
+  sourceDocx: { select: { id: true, originalName: true, sha256: true, size: true } },
 } as const;
 const docInclude = {
   type: { select: { id: true, value: true } },
@@ -97,7 +99,7 @@ const docInclude = {
 export type DocRow = Prisma.DocumentGetPayload<{ include: typeof docInclude }>;
 type VersionRow = NonNullable<DocRow['workingVersion']>;
 
-/** Условия переходов по версии (этап Г3): ответственные лица этапа 14 и открытые блокеры. */
+/** Условия переходов по версии: ответственные лица этапа 22, переводы этапа 23, файлы этапа 24, открытые блокеры. */
 export interface RouteFacts {
   parties: number;
   /** Лица, которые ещё не согласовали. */
@@ -105,24 +107,24 @@ export interface RouteFacts {
   /** Ближайший срок несогласовавшего лица (YYYY-MM-DD). */
   nearestDue: string | null;
   openBlockers: number;
-  /** Этап 15 (Г4): языки перевода и сколько из них без файла. */
+  /** Этап 23: языки перевода и сколько из них без ссылки OnlyOffice. */
   translations: number;
   missingTranslations: number;
-  /** Языки без файла и ближайший срок среди них (YYYY-MM-DD) — задача автору на этапе 15 (1.6.3). */
+  /** Языки без ссылки и ближайший срок среди них — задача автору на этапе 23. */
   missingLanguages: string[];
   translationDue: string | null;
-  /** Файлы автора (драфт, pdf или docx, не сняты) — нужны на 12 → 13 и для согласования 13 → 14 (1.4.0). */
-  authorFiles: number;
+  /** Этап 24: языки без Word перевода (обязателен, решение владельца 6). */
+  translationsWithoutDocx: string[];
 }
 const NO_FACTS: RouteFacts = {
-  parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, missingLanguages: [], translationDue: null, authorFiles: 0,
+  parties: 0, pending: 0, nearestDue: null, openBlockers: 0, translations: 0, missingTranslations: 0, missingLanguages: [], translationDue: null, translationsWithoutDocx: [],
 };
 
 async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<string, RouteFacts>> {
   const map = new Map<string, RouteFacts>();
   if (!versionIds.length) return map;
   const ids = [...new Set(versionIds)];
-  const [parties, blockers, translations, drafts] = await Promise.all([
+  const [parties, blockers, translations] = await Promise.all([
     db.$queryRaw<{ version_id: string; total: bigint; pending: bigint; due: Date | null }[]>`
       SELECT version_id::text, count(*) AS total, count(*) FILTER (WHERE approved_at IS NULL) AS pending,
              min(due_date) FILTER (WHERE approved_at IS NULL) AS due
@@ -130,26 +132,23 @@ async function routeFacts(db: Db, versionIds: readonly string[]): Promise<Map<st
     db.$queryRaw<{ version_id: string; open: bigint }[]>`
       SELECT version_id::text, count(*) AS open FROM document_blockers
       WHERE version_id = ANY(${ids}::uuid[]) AND resolved_at IS NULL GROUP BY version_id`,
-    db.$queryRaw<{ version_id: string; has_file: boolean; language: string; due: Date }[]>`
-      SELECT t.version_id::text, t.language, t.due_date AS due,
-             EXISTS (SELECT 1 FROM document_files f WHERE f.translation_id = t.id AND f.removed_at IS NULL) AS has_file
+    // Перевод готов, когда есть ссылка OnlyOffice (1.11.0; файлы перевода — только на этапе 24).
+    db.$queryRaw<{ version_id: string; has_link: boolean; has_docx: boolean; language: string; due: Date }[]>`
+      SELECT t.version_id::text, t.language, t.due_date AS due, t.onlyoffice_url <> '' AS has_link, t.source_docx_file_id IS NOT NULL AS has_docx
       FROM document_translations t WHERE t.version_id = ANY(${ids}::uuid[]) AND t.removed_at IS NULL ORDER BY t.added_at, t.id`,
-    db.$queryRaw<{ version_id: string; n: bigint }[]>`
-      SELECT version_id::text, count(*) AS n FROM document_files
-      WHERE version_id = ANY(${ids}::uuid[]) AND kind = 'draft' AND removed_at IS NULL GROUP BY version_id`,
   ]);
   const get = (id: string) => map.get(id) ?? { ...NO_FACTS };
   for (const p of parties) map.set(p.version_id, { ...get(p.version_id), parties: Number(p.total), pending: Number(p.pending), nearestDue: p.due?.toISOString().slice(0, 10) ?? null });
   for (const b of blockers) map.set(b.version_id, { ...get(b.version_id), openBlockers: Number(b.open) });
-  for (const x of drafts) map.set(x.version_id, { ...get(x.version_id), authorFiles: Number(x.n) });
   for (const t of translations) {
     const f = get(t.version_id);
     const due = t.due.toISOString().slice(0, 10);
     map.set(t.version_id, {
       ...f,
       translations: f.translations + 1,
-      missingTranslations: f.missingTranslations + (t.has_file ? 0 : 1),
-      ...(t.has_file ? {} : {
+      missingTranslations: f.missingTranslations + (t.has_link ? 0 : 1),
+      translationsWithoutDocx: t.has_docx ? f.translationsWithoutDocx : [...f.translationsWithoutDocx, t.language],
+      ...(t.has_link ? {} : {
         missingLanguages: [...f.missingLanguages, t.language],
         translationDue: f.translationDue === null || due < f.translationDue ? due : f.translationDue,
       }),
@@ -207,7 +206,8 @@ async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<str
     return v || allStages ? [{ d, v, f: (v && facts.get(v.id)) || NO_FACTS }] : [];
   });
   if (!live.length) return { holders, ctx };
-  const needSeniors = new Set(live.filter(({ v, f }) => allStages || (v?.stage === 15 && f.missingTranslations === 0)).map(({ d }) => d.ownerId));
+  // Старшие над владельцем в маршруте 1.11.0 не действуют (только блокеры): нужны лишь для карточки.
+  const needSeniors = new Set(live.filter(() => allStages).map(({ d }) => d.ownerId));
   const owners = [...needSeniors];
   const [head, seniorLists] = await Promise.all([
     db.user.findFirst({ where: HEADS_WHERE, select: { id: true, fullName: true } }),
@@ -222,17 +222,16 @@ async function holdersOf(db: Db, docs: readonly DocRow[], facts: ReadonlyMap<str
     const u = people.find((x) => x.id === id);
     return u ? { id: u.id, fullName: u.fullName, ...(u.isActive ? {} : { inactive: true }) } : null;
   };
-  for (const { d, v, f } of live) {
+  for (const { d, v } of live) {
     const c: HolderCtx = {
       // Отключённый автор остаётся в «Сейчас у» с пометкой: документ ждёт, пока владельца не сменят.
       owner: { id: d.owner.id, fullName: d.owner.fullName, ...(d.owner.isActive ? {} : { inactive: true }) },
       head: head ? { id: head.id, fullName: head.fullName } : null,
       // Старшие — только активные: отключённый не переведёт документ дальше.
       seniors: (seniorIds.get(d.ownerId) ?? []).flatMap((id) => (people.find((x) => x.id === id)?.isActive ? [person(id) as Person] : [])),
-      translationsMissing: f.missingTranslations > 0,
     };
     ctx.set(d.id, c);
-    if (v) holders.set(d.id, stageHolders(v.stage, c));
+    if (v) holders.set(d.id, stageHolders(v.stage, stateOf(v), c));
   }
   return { holders, ctx };
 }
@@ -249,32 +248,33 @@ export function rolesOf(w: Who, d: DocRow): Set<DocRole> {
 export const activeWorking = (d: DocRow): VersionRow | null => (d.archivedAt || !d.workingVersion || d.workingVersion.cancelledAt ? null : d.workingVersion);
 
 
-/** Действия маршрута по ролям пользователя (без условий данных). */
+/** Действия маршрута по ролям пользователя (без условий данных). Версия не на маршруте 1.11.0 — действий нет. */
 function roleActions(w: Who, d: DocRow): DocAction[] {
   const v = activeWorking(d);
-  if (!v) return [];
-  return allowedActions(v.stage, rolesOf(w, d));
+  if (!v || !inRoute(v.stage)) return [];
+  return allowedActions(v.stage, stateOf(v), rolesOf(w, d));
 }
 
 /**
  * Почему переход вперёд сейчас невозможен по данным; null — можно. Открытый блокер останавливает любой шаг вперёд
- * и подписание; 14 → 15 — только когда все ответственные лица (хотя бы одно) согласовали (этап Г3).
+ * и «Утвердить»; кнопки этапа 22 — только когда все ответственные лица (хотя бы одно) отметили согласование;
+ * 23 → 24 — когда у каждого языка есть ссылка; «Утвердить» — с PDF и .docx основного языка и .docx каждого перевода.
  */
 function gate(w: Who, d: DocRow, action: DocAction | 'sign'): { code: string; reason: string } | null {
   const v = activeWorking(d);
-  if (!v || action === 'return') return null;
+  if (!v || (action !== 'sign' && RETURN_ACTIONS.includes(action))) return null;
   const f = w.facts.get(v.id) ?? NO_FACTS;
   if (f.openBlockers > 0) return { code: 'BLOCKERS_OPEN', reason: `Открытых блокеров: ${f.openBlockers}. Снимите их, чтобы двигать документ дальше` };
-  // Файл автора (pdf или docx) — обязателен на 12 → 13 (и для документов из старого маршрута); на 13 без него —
-  // только возврат на доработку: автор приложит файл на этапе «Драфт» (1.4.0, решение владельца 8).
-  if (action === 'to_head' && f.authorFiles === 0) return { code: 'AUTHOR_FILE_REQUIRED', reason: 'Приложите файл документа (pdf или docx): без него документ не уходит начальнику ИБ' };
-  if (action === 'approve' && f.authorFiles === 0) {
-    return { code: 'NO_AUTHOR_FILE', reason: 'Нет файла автора (pdf или docx): согласовать нечего. Верните документ на доработку — автор приложит файл на этапе «Драфт»' };
+  if (action === 'request_recheck' || action === 'to_translation') {
+    if (f.parties === 0) return { code: 'NO_PARTIES', reason: 'Добавьте ответственных лиц и отметьте их согласование' };
+    if (f.pending > 0) return { code: 'PARTIES_PENDING', reason: `Не все ответственные лица согласовали: осталось ${f.pending}` };
   }
-  if (action === 'ack_final' && f.parties === 0) return { code: 'NO_PARTIES', reason: 'Добавьте ответственных лиц и отметьте их согласование' };
-  if (action === 'ack_final' && f.pending > 0) return { code: 'PARTIES_PENDING', reason: `Не все ответственные лица согласовали: осталось ${f.pending}` };
-  if (action === 'to_signing' && f.missingTranslations > 0) {
-    return { code: 'TRANSLATIONS_MISSING', reason: `Не у всех языков есть файл перевода: осталось ${f.missingTranslations}` };
+  if (action === 'to_approval' && f.missingTranslations > 0) {
+    return { code: 'TRANSLATION_LINK_MISSING', reason: `Не у всех языков есть ссылка на перевод: ${f.missingLanguages.join(', ')}` };
+  }
+  if (action === 'sign') {
+    const missing = [...(v.pdfFileId ? [] : ['подписанный PDF']), ...(v.sourceDocxFileId ? [] : ['исходный документ Word']), ...f.translationsWithoutDocx.map((l) => `Word перевода (${l})`)];
+    if (missing.length) return { code: 'APPROVAL_FILES_REQUIRED', reason: `Загрузите: ${missing.join(', ')}` };
   }
   return null;
 }
@@ -284,7 +284,7 @@ function actionsOf(w: Who, d: DocRow): DocAction[] {
   return roleActions(w, d).filter((x) => gate(w, d, x) === null);
 }
 
-/** Этап 16: подписанный PDF и дату загружают автор и начальник ИБ (решение владельца 1). */
+/** Этап 24: файлы, дату и «Утвердить» — автор или начальник ИБ (правило этапа 16, решение владельца 1). */
 function signRole(w: Who, d: DocRow): boolean {
   const v = activeWorking(d);
   if (!v || v.stage !== SIGN_STAGE) return false;
@@ -325,7 +325,14 @@ function versionDto(v: VersionRow) {
   return {
     id: v.id, no: v.no, edition: v.edition, title: v.title, onlyofficeUrl: v.onlyofficeUrl, changeNote: v.changeNote,
     stage: v.stage, stageName: stageName(v.stage), round: v.round, approvedAt: iso(v.approvedAt), createdAt: v.createdAt.toISOString(),
+    /** Состояние внутри этапа (1.11.0): «На проверке у начальника ИБ», «На повторной проверке». */
+    state: inRoute(v.stage) ? stateOf(v) : null,
+    placeName: inRoute(v.stage) ? placeName(v.stage, stateOf(v)) : stageName(v.stage),
     signedOn: isoDay(v.signedOn),
+    /** Исходный документ Word (этап 24) и приказ об утверждении. */
+    docx: v.sourceDocx ? { id: v.sourceDocx.id, name: v.sourceDocx.originalName, sha256: v.sourceDocx.sha256, size: Number(v.sourceDocx.size) } : null,
+    orderNo: v.orderNo,
+    orderDate: isoDay(v.orderDate),
     cancelledAt: iso(v.cancelledAt),
     /** Итоговый PDF версии; на маршруте 1.2.0 — подписанный. У утверждённой без него — «текст не зафиксирован». */
     pdf: pdfDto(v),
@@ -352,15 +359,15 @@ function toItem(w: Who, d: DocRow, shown: VersionRow, today: string) {
     reviewDue,
     status,
     statusName: DOC_STATUS_NAMES[status],
-    /** Этап рабочей версии (если она видна): 11 «Драфт» … 16 «Подписание». */
+    /** Этап рабочей версии (если она видна): 21 «Драфт» … 24 «Утверждение»; stageName — с состоянием внутри этапа. */
     stage: working?.stage ?? null,
-    stageName: working ? stageName(working.stage) : null,
+    stageName: working ? (inRoute(working.stage) ? placeName(working.stage, stateOf(working)) : stageName(working.stage)) : null,
     waitingForMe: waitsFor(w, d),
     /** «Сейчас у»: кто действует на текущем этапе (если рабочая версия видна); missingHead — «Начальник ИБ не назначен». */
     holders: working ? (w.holders.get(d.id) ?? null) : null,
-    /** Этап 14: ближайший срок несогласовавшего ответственного лица и просрочен ли он (сотрудникам ИБ). */
-    partiesDue: working && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? null) : null,
-    partiesOverdue: working && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? today) < today : false,
+    /** Этап 22: ближайший срок несогласовавшего ответственного лица и просрочен ли он (сотрудникам ИБ). */
+    partiesDue: working?.stage === PARTIES_STAGE && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? null) : null,
+    partiesOverdue: working?.stage === PARTIES_STAGE && w.a.ibWork ? (w.facts.get(working.id)?.nearestDue ?? today) < today : false,
     openBlockers: working && w.a.ibWork ? (w.facts.get(working.id)?.openBlockers ?? 0) : 0,
     archived: d.archivedAt !== null,
     version: d.version,
@@ -370,36 +377,27 @@ export type DocItem = ReturnType<typeof toItem>;
 
 // ---------------------------------------------------------------- «ждёт вас»: уведомления
 
-/** Текст «ждёт вас» по этапу и фазе этапа 15. */
-const WAITING_TITLE: Record<string, (label: string) => string> = {
-  '12': (l) => `Документ ${l} на проверке сотрудниками: переведите его дальше, когда комментарии учтены`,
-  '13': (l) => `Документ ${l} ждёт вашего согласования`,
-  '14': (l) => `Документ ${l} ждёт согласования с ответственными лицами`,
-  '15:translate': (l) => `Документ ${l} ждёт файлов перевода`,
-  '15:ready': (l) => `Документ ${l}: переводы готовы — можно на подписание`,
-  '16': (l) => `Документ ${l} ждёт подписанного PDF`,
+/** Текст «ждёт вас»: только две проверки начальника ИБ (1.11.0) — остальное автор делает сам. */
+const WAITING_TITLE: Partial<Record<RouteState, (label: string) => string>> = {
+  head_review: (l) => `Документ ${l} ждёт вашей проверки`,
+  head_recheck: (l) => `Документ ${l} доработан и ждёт повторной проверки`,
 };
 
 /**
- * «Ждёт вас» (1.4.0): получатели — stageHolders текущего этапа, та же функция, что «Сейчас у» и цифра «ждут вас».
- * Одно уведомление на состояние: версия, круг, этап и фаза этапа 15 (перевод / переводы готовы) — dedupe_key.
- * Блокеры состояние не меняют: открыли и сняли — повторного уведомления нет. Возврат на 11 — новый круг: дальше снова
- * по одному. О своём действии — нет (notify). Этап 11 — после возврата приходит «вернули на доработку».
+ * «Ждёт вас»: начальнику ИБ — когда документ отправлен на проверку или повторную проверку (stageHolders). Одно
+ * уведомление на состояние (версия, круг, этап, состояние — dedupe_key). О своём действии — нет (notify).
  */
 export async function notifyWaiting(db: Db, docId: string, actorId: string | null): Promise<void> {
   const d = await db.document.findFirst({ where: { id: docId, deletedAt: null }, include: docInclude });
   const v = d ? activeWorking(d) : null;
-  if (!d || !v || v.stage === FIRST_STAGE) return;
-  const facts = await routeFacts(db, [v.id]);
-  const people = (await holdersOf(db, [d], facts, false)).holders.get(d.id)?.people ?? [];
+  const state = v ? stateOf(v) : null;
+  const title = state ? WAITING_TITLE[state] : undefined;
+  if (!d || !v || !state || !title) return;
+  const people = (await holdersOf(db, [d], await routeFacts(db, [v.id]), false)).holders.get(d.id)?.people ?? [];
   if (!people.length) return;
-  const phase = v.stage === 15 ? ((facts.get(v.id) ?? NO_FACTS).missingTranslations > 0 ? 'translate' : 'ready') : '';
-  const key = phase ? `${v.stage}:${phase}` : String(v.stage);
-  const title = WAITING_TITLE[key];
-  if (!title) return;
   await notify(db, {
     kind: 'doc_waiting', to: people.map((p) => p.id), documentId: d.id, actorId,
-    title: title(`#${d.number} «${v.title}»`), dedupeKey: `doc_waiting:${v.id}:${v.round}:${key}`,
+    title: title(`#${d.number} «${v.title}»`), dedupeKey: `doc_waiting:${v.id}:${v.round}:${v.stage}:${state}`,
   });
 }
 
@@ -407,68 +405,46 @@ export async function notifyWaiting(db: Db, docId: string, actorId: string | nul
 
 /** Метка задачи этапа без ответственного, когда отметка «Является начальником ИБ» никому не поставлена. */
 export const NO_HEAD_LABEL = 'Начальник ИБ (не назначен)';
-/** Метки общих задач (1.6.4): кому они предназначены. */
+/** Метки общих задач (1.6.4): кому они предназначены. «Проверка сотрудниками» — задачи до 1.11.0 (этап 12 убран). */
 export const REVIEW_GROUP_LABEL = 'Проверка сотрудниками';
-export const HOLDERS_GROUP_LABEL = 'Начальник ИБ или старшие над автором';
-/** Состояние общей задачи — состояние маршрута с этим суффиксом: так она не путается с личной задачей того же этапа. */
+/** Состояние общей задачи — состояние маршрута с этим суффиксом (задачи до 1.11.0). */
 const GROUP = '#group';
 
 interface StageTarget {
-  /** Состояние задачи: состояние маршрута, у общей — с суффиксом #group. */
+  /** Состояние задачи: состояние маршрута. */
   state: string;
-  /** Личная задача — исполнитель; общая и задача без ответственного — null. */
+  /** Исполнитель; задача без ответственного — null. */
   assigneeId: string | null;
   label: string | null;
   role: StageTaskRole;
-  /** Общая задача: кто может взять её себе. */
   candidates: string[] | null;
 }
 
-/** Кто проверяет документ на этапе 12: активные пользователи с ib.work и ролью из параметра портала (нет роли — все сотрудники ИБ), кроме владельца. */
-async function reviewCandidates(db: Db, ownerId: string): Promise<string[]> {
-  const { roleId } = await readPortalParam<{ roleId: string | null }>(db, DOC_REVIEW_ROLE_KEY);
-  const rows = await db.user.findMany({
-    where: { isActive: true, id: { not: ownerId }, AND: [WORK_USER, ...(roleId ? [{ roles: { some: { roleId } } }] : [])] },
-    select: { id: true }, orderBy: { fullName: 'asc' },
-  });
-  return rows.map((u) => u.id);
-}
-
 /**
- * Кому задача на текущем этапе: «Сейчас у» (stageHolders — та же функция, что «ждёт вас»). Один человек — личная задача;
- * несколько (этап 15, переводы готовы) — одна общая со списком. На этапе 12 — ещё одна общая «Проверить документ»
- * (reviewCandidates). Этап 11 — только первый драфт, заведённый за другого владельца (после возврата у автора задача
- * «Доработать документ»). Без ib.work или отключённый — задача без ответственного с меткой (одна на документ — индекс
- * tasks_doc_open_uq; рядом с общей задачей её нет).
+ * Кому задача в текущем месте маршрута: «Сейчас у» (stageHolders) — автор или, в двух проверках, начальник ИБ.
+ * Драфт (21) — только первый драфт, заведённый за другого владельца (после возврата у автора задача «Доработать
+ * документ»). Без ib.work или отключённый — задача без ответственного с меткой; начальник ИБ не назначен — тоже.
  */
-async function stageTargets(db: Db, d: DocRow, v: VersionRow, f: RouteFacts, state: string): Promise<StageTarget[]> {
-  if (v.stage === FIRST_STAGE && !(v.no === 1 && v.round === 1 && d.createdBy !== d.ownerId)) return [];
-  const h = (await holdersOf(db, [d], new Map([[v.id, f]]), false)).holders.get(d.id) ?? { people: [], missingHead: false };
+async function stageTargets(db: Db, d: DocRow, v: VersionRow, state: string): Promise<StageTarget[]> {
+  const place = stateOf(v);
+  if (v.stage === FIRST_STAGE && place === 'draft' && !(v.no === 1 && v.round === 1 && d.createdBy !== d.ownerId)) return [];
+  const h = (await holdersOf(db, [d], new Map(), false)).holders.get(d.id) ?? { people: [], missingHead: false };
   const ids = h.people.map((p) => p.id);
   const ib = new Set((await db.user.findMany({ where: { id: { in: ids }, ...WORK_USER }, select: { id: true } })).map((u) => u.id));
-  const people = h.people.filter((p) => ib.has(p.id));
-  const out: StageTarget[] = [];
-  if (people.length > 1) {
-    out.push({ state: state + GROUP, assigneeId: null, label: HOLDERS_GROUP_LABEL, role: 'holder', candidates: people.map((p) => p.id) });
-  } else if (people.length === 1) {
-    out.push({ state, assigneeId: people[0]?.id ?? null, label: null, role: 'holder', candidates: null });
-  }
-  const reviewers = v.stage === 12 ? await reviewCandidates(db, d.ownerId) : null;
-  if (reviewers) out.push({ state: state + GROUP, assigneeId: null, label: REVIEW_GROUP_LABEL, role: 'reviewer', candidates: reviewers });
-  // Ответственный без доступа к ИБ или начальник ИБ не назначен — задача без ответственного, если нет общей.
-  if (!people.length && !reviewers) {
-    const missing = h.people[0];
-    if (missing) out.push({ state, assigneeId: null, label: missing.id === d.ownerId ? OWNER_LABEL : missing.fullName, role: 'holder', candidates: null });
-    else if (h.missingHead) out.push({ state, assigneeId: null, label: NO_HEAD_LABEL, role: 'holder', candidates: null });
-  }
-  return out;
+  const person = h.people.find((p) => ib.has(p.id));
+  if (person) return [{ state, assigneeId: person.id, label: null, role: 'holder', candidates: null }];
+  const missing = h.people[0];
+  if (missing) return [{ state, assigneeId: null, label: missing.id === d.ownerId ? OWNER_LABEL : missing.fullName, role: 'holder', candidates: null }];
+  if (h.missingHead) return [{ state, assigneeId: null, label: NO_HEAD_LABEL, role: 'holder', candidates: null }];
+  return [];
 }
 
-/** Срок задачи этапа: этап 14 — ближайший срок лица, этап 15 (переводы) — ближайший срок языка без файла, иначе — N рабочих дней. */
-async function stageDue(db: Db, stage: number, phase: StagePhase | null, f: RouteFacts): Promise<{ due: string | null; derived: string | null }> {
-  if (stage === 14) return { due: f.nearestDue, derived: 'сроки ответственных лиц' };
-  if (stage === 15 && phase === 'translate') return { due: f.translationDue, derived: 'сроки переводов' };
-  const days = (await readPortalParam<StageDays>(db, DOC_STAGE_DAYS_KEY))[String(stage) as keyof StageDays];
+/** Срок задачи этапа: 22 — ближайший срок лица, 23 с языками — ближайший срок языка без ссылки, иначе — N рабочих дней. */
+async function stageDue(db: Db, stage: number, state: RouteState | null, f: RouteFacts): Promise<{ due: string | null; derived: string | null }> {
+  if (stage === PARTIES_STAGE && state === 'parties') return { due: f.nearestDue, derived: 'сроки ответственных лиц' };
+  if (stage === TRANSLATION_STAGE && f.translations > 0) return { due: f.translationDue, derived: 'сроки переводов' };
+  const key = stageDaysKey(stage, state);
+  const days = key ? (await readPortalParam<StageDays>(db, DOC_STAGE_DAYS_KEY))[key] : null;
   if (!days) return { due: null, derived: null };
   return { due: isoDate(addWorkingDays(parseIsoDate(todayIso()), days, await loadFullWorkCalendar(db))), derived: null };
 }
@@ -502,15 +478,16 @@ export async function syncStageTasks(db: Db, docId: string, closing = 'Марш�
     return;
   }
   const f = (await routeFacts(db, [v.id])).get(v.id) ?? NO_FACTS;
-  const phase: StagePhase | null = v.stage === 15 ? (f.missingTranslations > 0 ? 'translate' : 'ready') : null;
-  const state = stageState(v, phase);
-  const targets = await stageTargets(db, d, v, f, state);
+  const place = inRoute(v.stage) ? stateOf(v) : null;
+  const state = stageState(v, place);
+  // Версия не на маршруте 1.11.0 (данные до переноса) — задач этапов нет.
+  const targets = inRoute(v.stage) ? await stageTargets(db, d, v, state) : [];
   const kept = open.filter((t) => targets.some((x) => fits(t, x)));
   const stale = open.filter((t) => !kept.includes(t));
   const baseOf = (s: string | null) => (s ?? '').replace(GROUP, '');
-  await closeTasks(db, stale.filter((t) => baseOf(t.documentState) !== state), `Документ на этапе «${stageName(v.stage)}»`);
+  await closeTasks(db, stale.filter((t) => baseOf(t.documentState) !== state), `Документ: «${placeName(v.stage, place)}»`);
   await closeTasks(db, stale.filter((t) => baseOf(t.documentState) === state), 'Ответственный по этапу сменился', { archive: true });
-  const { due, derived } = await stageDue(db, v.stage, phase, f);
+  const { due, derived } = await stageDue(db, v.stage, place, f);
   // Срок из сроков лиц или переводов идёт за ними; срок «N рабочих дней» после создания не трогается — его правят в задаче.
   if (derived) {
     for (const t of kept) {
@@ -534,18 +511,11 @@ export async function syncStageTasks(db: Db, docId: string, closing = 'Марш�
       select: { id: true },
     });
     if (before) continue;
-    const text = stageTaskText(v.stage, phase, x.role, { label, versionNo: v.no, languages: f.missingLanguages });
-    const taskId = await createStageTask(db, {
+    const text = stageTaskText(v.stage, place, { label, versionNo: v.no, languages: f.missingLanguages });
+    await createStageTask(db, {
       documentId: docId, state: x.state, assigneeId: x.assigneeId, recipientLabel: x.label, title: text.title, due, candidates: x.candidates ?? [],
-      description: stageTaskDescription({ label, type: d.type.value, stage: v.stage, versionNo: v.no, requirement: text.requirement }),
+      description: stageTaskDescription({ label, type: d.type.value, stage: v.stage, state: place, versionNo: v.no, requirement: text.requirement }),
     }, d.number);
-    // Проверяющих никто не уведомляет «ждёт вас» (это не «Сейчас у») — список узнаёт о задаче здесь.
-    if (x.role === 'reviewer' && x.candidates?.length) {
-      await notify(db, {
-        kind: 'doc_waiting', to: x.candidates, documentId: docId, taskId, actorId: null,
-        title: `Документ ${label} ждёт проверки сотрудниками — возьмите задачу, если проверяете вы`, dedupeKey: `doc_review:${taskId}`,
-      });
-    }
   }
 }
 
@@ -644,21 +614,24 @@ async function getRow(db: Db, id: string) {
 }
 
 export const HINTS: Record<number, string> = {
-  11: `автор: владелец или право «${permName('docs.manage')}»`,
-  12: 'автор или старший над автором; комментируют сотрудники ИБ',
-  13: 'начальник ИБ (отметка в карточке пользователя)',
-  14: 'начальник ИБ (отметка в карточке пользователя)',
-  15: 'начальник ИБ или старший над автором',
-  16: 'автор или начальник ИБ',
+  21: `автор: владелец или право «${permName('docs.manage')}»; проверяет начальник ИБ (отметка в карточке пользователя)`,
+  22: 'автор ведёт ответственных лиц; повторно проверяет начальник ИБ',
+  23: 'автор: языки и ссылки на переводы',
+  24: 'автор или начальник ИБ',
+};
+const STATE_HINTS: Partial<Record<RouteState, string>> = {
+  head_review: 'начальник ИБ (отметка в карточке пользователя)',
+  head_recheck: 'начальник ИБ (отметка в карточке пользователя)',
 };
 
 /** Решения, которыми этап пройден: кто перевёл документ дальше. */
 const PASSED = ['submitted', 'approved', 'skipped', 'moved', 'signed'];
 
+/** Файлы прежнего маршрута (до 1.11.0): драфт, согласованная начальником ИБ, финальная. Только просмотр. */
 const FILE_KIND_NAMES: Record<string, string> = {
   draft: 'Файл драфта',
-  head_approved: FIXED_FILE.approve?.name ?? '',
-  final: FIXED_FILE.ack_final?.name ?? '',
+  head_approved: 'Версия при согласовании начальником ИБ',
+  final: 'Финальная версия',
 };
 
 type FileRow = {
@@ -706,25 +679,35 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     include: { actor: { select: { fullName: true } }, file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } },
     orderBy: [{ at: 'desc' }, { id: 'desc' }],
   });
+  const fileDto = (f: { id: string; originalName: string; sha256: string; size: bigint; mime: string } | null) =>
+    (f ? { id: f.id, name: f.originalName, sha256: f.sha256, size: Number(f.size), mime: f.mime } : null);
 
-  // Маршрут показанной версии: кто прошёл этапы в текущем круге. Версия старого маршрута — со старыми этапами.
-  const legacy = shown.stage <= 3;
-  const stages = legacy ? Object.keys(LEGACY_STAGE_NAMES).map(Number) : ROUTE.map((s) => s.stage);
-  const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && PASSED.includes(h.decision));
+  // Маршрут показанной версии: кто прошёл этапы в текущем круге. Версия прежнего маршрута — с его этапами (без «кто действует»).
+  const current = inRoute(shown.stage);
+  const stages = shown.stage <= 3 ? Object.keys(LEGACY_STAGE_NAMES).map(Number)
+    : shown.stage <= 16 ? Object.keys(ROUTE_V2_NAMES).map(Number) : ROUTE.map((s) => s.stage);
+  // Этап пройден решением, которое увело документ на следующий этап (одобрение, «на перевод», утверждение).
+  const roundActs = history.filter((h) => h.versionId === shown.id && h.round === shown.round && PASSED.includes(h.decision)
+    && (h.toStage === null || h.toStage !== h.stage));
   const holderCtx = who.holderCtx.get(d.id);
+  const shownState = current ? stateOf(shown) : null;
   const route = stages.map((stage) => {
     const act = roundActs.find((h) => h.stage === stage);
     const state = shown.approvedAt !== null || stage < shown.stage ? 'done' : stage === shown.stage ? 'current' : 'todo';
-    // Кто действует на этапе — та же stageHolders, что «Сейчас у»; пройденный — кто и когда (actedBy, actedAt).
-    const h = legacy || !holderCtx ? { people: [], missingHead: false } : stageHolders(stage, holderCtx);
+    // Кто действует сейчас — та же stageHolders, что «Сейчас у»; пройденный — кто и когда (actedBy, actedAt).
+    const placeState = stage === shown.stage ? shownState : stage === FIRST_STAGE ? 'draft' : stage === PARTIES_STAGE ? 'parties' : null;
+    const h = !current || !holderCtx || state !== 'current' ? { people: [], missingHead: false } : stageHolders(stage, placeState, holderCtx);
     return {
       stage, name: stageName(stage), state: state as 'done' | 'current' | 'todo',
-      approvers: h.people.map((p) => (p.inactive ? `${p.fullName} (отключён)` : p.fullName)), missingHead: h.missingHead, hint: legacy ? '' : HINTS[stage] ?? '',
+      /** Состояние внутри текущего этапа: «На проверке у начальника ИБ», «На повторной проверке». */
+      place: state === 'current' && placeState ? STATE_NAMES[placeState] : null,
+      approvers: h.people.map((p) => (p.inactive ? `${p.fullName} (отключён)` : p.fullName)), missingHead: h.missingHead,
+      hint: !current ? '' : (state === 'current' && placeState ? STATE_HINTS[placeState] : undefined) ?? HINTS[stage] ?? '',
       actedBy: act && act.decision !== 'skipped' ? act.actor.fullName : null, actedAt: act ? act.at.toISOString() : null,
       /** Этап пропущен (старый маршрут: согласовать мог только владелец). */
       skipped: act?.decision === 'skipped' ? act.comment : null,
-      /** Этап 13 согласовал сам автор — начальник ИБ: другого согласующего не было. */
-      selfApproved: act?.selfApproved ?? false,
+      /** Свой документ одобрил начальник ИБ — другого согласующего не было (13, с 1.11.0 — 21 и 22). */
+      selfApproved: history.some((x) => x.versionId === shown.id && x.round === shown.round && x.stage === stage && x.selfApproved),
     };
   });
 
@@ -756,6 +739,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
           approver: { select: { fullName: true } },
           files: { where: { removedAt: null }, include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } }, orderBy: { addedAt: 'asc' } },
           deadlineChanges: { include: { actor: { select: { fullName: true } } }, orderBy: { at: 'desc' } },
+          rechecks: { include: { actor: { select: { fullName: true } } }, orderBy: { at: 'desc' } },
         },
         orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
       })
@@ -774,6 +758,8 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
         include: {
           files: { where: { removedAt: null }, include: { file: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } } }, orderBy: { addedAt: 'asc' } },
           deadlineChanges: { include: { actor: { select: { fullName: true } } }, orderBy: { at: 'desc' } },
+          sourceDocx: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } },
+          signedPdf: { select: { id: true, originalName: true, sha256: true, size: true, mime: true } },
         },
         orderBy: [{ addedAt: 'asc' }, { id: 'asc' }],
       })
@@ -784,35 +770,41 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
   const roles = rolesOf(who, d);
   const author = roles.has('author');
   const active = d.archivedAt === null;
-  const draft = workingShown && working.stage === FIRST_STAGE && author;
-  const authorFiles = workingShown && AUTHOR_FILE_STAGES.includes(working.stage) && author;
+  const at = (stage: number) => workingShown && working.stage === stage;
+  const place = workingShown ? stateOf(working) : null;
   const sign = workingShown && canSign(who, d);
   const can = {
-    edit: draft,
+    /** Поля карточки и ссылка OnlyOffice: автор в драфте (не на проверке у начальника ИБ). */
+    edit: at(FIRST_STAGE) && place === 'draft' && author,
     /** Действия маршрута (MOVES): кнопки карточки. */
     actions,
+    /** «Утвердить» (этап 24): автор или начальник ИБ, когда загружены обязательные файлы. */
     sign,
-    /** Файлы автора (.docx, .pdf): добавить и снять — автор на этапах 11 и 12 (1.4.0). */
-    draftFiles: authorFiles,
-    /** Комментарии сотрудников — на этапе 12. */
-    comment: workingShown && working.stage === 12 && a.ibWork,
+    /** Файлы — только на этапе 24 (решение владельца): PDF и .docx основного языка, .docx и PDF переводов. */
+    approvalFiles: at(SIGN_STAGE) && signRole(who, d),
+    /** Файлы драфта прежнего маршрута больше не прикладываются (1.11.0). */
+    draftFiles: false,
+    /** Комментарии сотрудников ИБ к рабочей версии — на любом этапе. */
+    comment: workingShown && inRoute(working.stage) && a.ibWork,
     revise: active && d.approvedVersion !== null && working === null && author,
     /** Отменить пересмотр: рабочая версия уходит в историю, действующей остаётся подписанная (решение владельца 8). */
     cancelRevision: workingShown && d.approvedVersion !== null && (author || roles.has('head')),
     /** Мягкое удаление: только документ без подписанной версии (docs.delete). */
     delete: a.perms.has('docs.delete') && d.approvedVersion === null,
-    /** Ответственные лица: ведут автор и начальник ИБ на этапах 11–14; согласование отмечают на этапе 14. */
-    parties: workingShown && working.stage >= 11 && working.stage <= 14 && (author || roles.has('head')),
-    approveParties: workingShown && working.stage === 14 && (author || roles.has('head')),
+    /** Ответственные лица: ведёт автор в драфте (21, не на проверке) и на 22 (в согласовании, не на повторной проверке). */
+    parties: ((at(FIRST_STAGE) && place === 'draft') || (at(PARTIES_STAGE) && place === 'parties')) && author,
+    /** Отметка согласования, перенос срока, «Запросить повторно» — только с этапа 22 (решение владельца 11). */
+    approveParties: at(PARTIES_STAGE) && place === 'parties' && author,
     /** Блокеры: автор, старшие над автором, начальник ИБ — на любом этапе маршрута. */
     blockers: workingShown && (author || roles.has('senior') || roles.has('head')),
-    /** Переводы: языки ведут автор, старшие над автором и начальник ИБ на этапах 11–15. */
-    translations: workingShown && working.stage >= 11 && working.stage <= 15 && (author || roles.has('senior') || roles.has('head')),
+    /** Переводы: раздел и языки — только на этапе 23, ведёт автор (замечание владельца 05.11.2026). */
+    translations: at(TRANSLATION_STAGE) && author,
     manage: a.manage,
   };
-  const stuck = workingShown && actions.length === 0 && !sign;
-  // Шаг по роли есть, но не выполнено условие (блокеры, ответственные лица) — объяснить, что мешает.
+  const stuck = workingShown && inRoute(working.stage) && actions.length === 0 && !sign;
+  // Шаг по роли есть, но не выполнено условие (блокеры, ответственные лица, переводы, файлы) — объяснить, что мешает.
   const gated = workingShown ? [...roleActions(who, d), ...(signRole(who, d) ? ['sign' as const] : [])].map((x) => gate(who, d, x)).find((g) => g !== null) ?? null : null;
+  const legacyFiles = mergeFileRows(fileRows, false);
   return {
     ...toItem(who, d, shown, today),
     current: versionDto(shown),
@@ -823,16 +815,26 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
     /** Почему вы не можете действовать на текущем этапе (для подсказки в карточке). */
     blockedReason: gated ? gated.reason
       : !stuck ? null
-      : `Этап «${stageName(working.stage)}» — ${HINTS[working.stage] ?? ''}`,
+      : `«${placeName(working.stage, place)}» — ${(place ? STATE_HINTS[place] : undefined) ?? HINTS[working.stage] ?? ''}`,
     returned,
-    files: mergeFileRows(fileRows, authorFiles),
+    /** Файлы прежнего маршрута (до 1.11.0): только просмотр и скачивание. */
+    files: legacyFiles,
     comments: commentRows.map((c) => ({ id: c.id, author: c.author.fullName, body: c.body, at: c.createdAt.toISOString() })),
     parties: partyRows.map((p) => {
       const due = isoDay(p.dueDate) ?? '';
       return {
         id: p.id, fullName: p.fullName, department: p.department, email: p.email, user: p.user, dueDate: due,
-        overdue: p.approvedAt === null && due < today,
+        /** Срок на этапе 1 — дней от перехода на этап 2 (решение владельца 11); на этапе 1 срок не идёт. */
+        dueDays: p.dueDays,
+        overdue: p.approvedAt === null && due < today && shown.stage === PARTIES_STAGE,
         approvedAt: iso(p.approvedAt), approvedBy: p.approver?.fullName ?? null, approveComment: p.approveComment,
+        approvedOn: isoDay(p.approvedOn),
+        /** «до доработки от <дата>»: начальник ИБ вернул документ с повторной проверки после этой отметки. */
+        reworkedAt: iso(p.reworkedAt),
+        rechecks: p.rechecks.map((r) => ({
+          prevApprovedOn: isoDay(r.prevApprovedOn), prevApprovedAt: r.prevApprovedAt.toISOString(), reworkedAt: iso(r.reworkedAt),
+          fromDue: isoDay(r.fromDue) ?? '', toDue: isoDay(r.toDue) ?? '', comment: r.comment, actor: r.actor.fullName, at: r.at.toISOString(),
+        })),
         files: p.files.map((f) => ({
           id: f.id, file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
         })),
@@ -844,14 +846,19 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
       return {
         /** Имя переводчика текстом (1.4.0); у строк до 1.4.0 заполнено миграцией из ФИО учётной записи. */
         id: t.id, language: t.language, translatorName: t.translatorName, dueDate: due,
-        done: t.files.length > 0,
-        overdue: t.files.length === 0 && due < today,
+        /** Ссылка на перевод в OnlyOffice (1.11.0): перевод готов, когда она есть. Файлы до 1.11.0 — files. */
+        onlyofficeUrl: t.onlyofficeUrl,
+        done: t.onlyofficeUrl !== '' || (shown.stage <= 16 && t.files.length > 0),
+        overdue: t.onlyofficeUrl === '' && due < today && shown.stage === TRANSLATION_STAGE,
+        /** Этап 24: Word перевода (обязателен) и подписанный PDF (по желанию). */
+        docx: fileDto(t.sourceDocx),
+        pdf: fileDto(t.signedPdf),
         files: t.files.map((f) => ({
           id: f.id, file: { id: f.file.id, name: f.file.originalName, sha256: f.file.sha256, size: Number(f.file.size), mime: f.file.mime },
         })),
         deadlines: t.deadlineChanges.map((c) => ({ from: isoDay(c.fromDate) ?? '', to: isoDay(c.toDate) ?? '', comment: c.comment, actor: c.actor.fullName, at: c.at.toISOString() })),
-        /** Приложить и снять файл перевода — на этапе 15, автор (владелец или docs.manage), 1.4.0. */
-        canUpload: workingShown && working.stage === 15 && author,
+        /** Файлы перевода — только на этапе 24 (Word обязателен, PDF по желанию). */
+        canUpload: can.approvalFiles,
       };
     }),
     blockers: blockerRows.map((b) => ({
@@ -862,6 +869,8 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
       no: x.no, edition: x.edition, title: x.title, onlyofficeUrl: x.onlyofficeUrl, approvedAt: iso(x.approvedAt), changeNote: x.changeNote,
       signedOn: isoDay(x.signedOn), cancelledAt: iso(x.cancelledAt),
       pdf: pdfDto(x), textFrozen: x.pdf !== null,
+      docx: x.sourceDocx ? { id: x.sourceDocx.id, name: x.sourceDocx.originalName, sha256: x.sourceDocx.sha256, size: Number(x.sourceDocx.size) } : null,
+      orderNo: x.orderNo, orderDate: isoDay(x.orderDate),
     })),
     // Подробная история — по праву «История в карточках» (ADR-0021); блок маршрута (route) — всем, кто видит документ.
     history: !a.perms.has('history.view') ? [] : history.map((h) => ({
@@ -871,6 +880,8 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
       stage: h.stage, stageName: stageName(h.stage),
       toStage: h.toStage, toStageName: h.toStage !== null ? stageName(h.toStage) : null,
       decision: h.decision as HistoryDecision, comment: h.comment, versionNo: h.versionNo, round: h.round,
+      /** Точный вид решения маршрута 1.11.0 (head_approved, unchanged_confirmed, …); у прежних решений — null. */
+      event: h.event,
       pdfSha256: h.pdfSha256, selfApproved: h.selfApproved,
     })),
   };
@@ -972,7 +983,7 @@ export async function createDocument(db: Db, actor: Actor, input: NewDocumentInp
     const doc = await tx.document.create({
       data: { id, typeId: input.typeId, ownerId: input.ownerId, reviewMonths, workingVersionId: versionId, createdBy: actor.id },
     });
-    await tx.documentVersion.create({ data: { id: versionId, documentId: id, no: 1, edition, title, onlyofficeUrl, changeNote, stage: FIRST_STAGE, createdBy: actor.id } });
+    await tx.documentVersion.create({ data: { id: versionId, documentId: id, no: 1, edition, title, onlyofficeUrl, changeNote, stage: FIRST_STAGE, routeState: 'draft', createdBy: actor.id } });
     // Проверить ссылку сейчас, а не при COMMIT; затем вернуть отложенный режим для следующих документов в транзакции.
     await tx.$executeRaw`SET CONSTRAINTS "documents_working_version_id_fkey" IMMEDIATE`;
     await tx.$executeRaw`SET CONSTRAINTS "documents_working_version_id_fkey" DEFERRED`;
@@ -1083,16 +1094,16 @@ export interface MoveInput {
   /** Этап, который пользователь видел на экране: если документ уже на другом этапе — 409. */
   stage: number;
   comment?: string;
-  /**
-   * 13 → 14: файл автора (id файла драфта), который начальник ИБ согласует; не указан — последний загруженный.
-   * 14 → 15: финальная версия (pdf или docx), загруженная через POST /files.
-   * Возврат: записка к возврату по желанию (pdf или docx, POST /files).
-   */
+  /** «Отправить на перевод»: автор подтверждает, что документ не изменялся после проверки начальником ИБ. */
+  confirmUnchanged?: boolean;
+  /** До 1.11.0 — файл версии и записка к возврату. С 1.11.0 файлы на этапах 21–23 не принимаются (409). */
   fileId?: string;
 }
 
 const PDF_MIME = [MIME_BY_EXT.pdf];
-const VERSION_FILE_MIME = [MIME_BY_EXT.pdf, MIME_BY_EXT.docx];
+const DOCX_MIME = [MIME_BY_EXT.docx];
+/** Файлы — только на этапе 24 (решение владельца 05.11.2026); на 21–23 документ — ссылка OnlyOffice. */
+export const filesOnlyAtApproval = () => conflict('FILES_ONLY_AT_APPROVAL', 'Файлы прикладываются только на этапе «Утверждение»: до него документ — ссылка OnlyOffice');
 
 /** Общее для действий: свежие права, версия документа, текущий этап. Захватывает документ (version + 1). */
 export async function routeContext(tx: Db, actor: Actor, id: string, input: { version: number; stage: number }) {
@@ -1131,91 +1142,109 @@ function moveDenied(action: DocAction, who: Who): AppError {
   if (MOVES[action].who.includes('head') && who.a.superAdmin && who.a.ibHead) {
     return forbiddenWith('SEPARATION_OF_DUTIES', 'Супер-администратор не согласует документы: так сохраняется разделение полномочий');
   }
-  return forbiddenWith('FORBIDDEN', `«${MOVES[action].label}» — ${HINTS[MOVES[action].from[0] as number] ?? ''}`);
+  const from = MOVES[action].from;
+  const hint = (from.state ? STATE_HINTS[from.state] : undefined) ?? HINTS[from.stage] ?? '';
+  return forbiddenWith('FORBIDDEN', `«${MOVES[action].label}» — ${hint}`);
 }
 
+/** Решение в истории: прежние значения decision (их читает 1.10.0) и точный вид — event. */
+const DECISION_OF: Record<DocAction, { decision: string; event: string }> = {
+  submit_head: { decision: 'submitted', event: 'head_review_requested' },
+  head_approve: { decision: 'approved', event: 'head_approved' },
+  head_return: { decision: 'returned', event: 'head_returned' },
+  request_recheck: { decision: 'submitted', event: 'head_recheck_requested' },
+  to_translation: { decision: 'moved', event: 'unchanged_confirmed' },
+  head_reapprove: { decision: 'approved', event: 'head_reapproved' },
+  recheck_return: { decision: 'returned', event: 'recheck_returned' },
+  to_approval: { decision: 'moved', event: 'translations_done' },
+};
+const addDaysIso = (iso: string, days: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
 /**
- * Действие маршрута (status.ts, MOVES). Возврат — на «Драфт» с комментарием: новый круг, владельцу — задача.
- * 13 → 14 и 14 → 15 фиксируют файл версии; 11 → 12 закрывает задачу доработки.
+ * Действие маршрута (status.ts, MOVES). Одобрение и повторное одобрение — без файла: в истории ссылка OnlyOffice,
+ * кто и когда (текст по ссылке не фиксируется — ADR-0010). Возврат — с комментарием: новый круг, задача автору.
+ * Одобрение драфта: сроки лиц, заданные днями на этапе 1, становятся датами от сегодня (решение владельца 11).
+ * Возврат с повторной проверки: отметки лиц остаются с пометкой «до доработки от <дата>».
  */
 export async function moveDocument(db: Db, actor: Actor, id: string, action: DocAction, input: MoveInput) {
   return withTx(db, async (tx) => {
     const rule = MOVES[action];
-    const comment = cleanComment(input.comment, action === 'return' ? 'Напишите, что нужно исправить' : null);
+    const back = RETURN_ACTIONS.includes(action);
+    if (input.fileId) throw filesOnlyAtApproval();
+    const comment = cleanComment(input.comment, rule.comment ?? null);
+    if (action === 'to_translation' && input.confirmUnchanged !== true) {
+      throw badRequest('CONFIRM_UNCHANGED', 'Подтвердите: документ не изменялся после проверки начальником ИБ. Если изменялся — «Повторная проверка»');
+    }
     const { d, w, who } = await routeContext(tx, actor, id, input);
-    if (!rule.from.includes(w.stage)) throw conflict('WRONG_STAGE', `«${rule.label}» — не на этапе «${stageName(w.stage)}». Обновите страницу`);
+    const from = inRoute(w.stage) ? stateOf(w) : null;
+    if (rule.from.stage !== w.stage || rule.from.state !== from) {
+      throw conflict('WRONG_STAGE', `«${rule.label}» — не сейчас: документ — «${placeName(w.stage, from)}». Обновите страницу`);
+    }
     if (!roleActions(who, d).includes(action)) throw moveDenied(action, who);
     const blocked = gate(who, d, action);
     if (blocked) throw conflict(blocked.code, blocked.reason);
 
-    const fixed = FIXED_FILE[action];
-    let sha256: string | null = null;
-    let returnFileId: string | null = null;
-    if (action === 'approve') {
-      // 13 → 14 без загрузки (1.4.0): фиксируется файл автора — выбранный или последний; та же строка files,
-      // вторая привязка вида head_approved («версия при согласовании начальником ИБ»), sha256 — в решении.
-      const drafts = await tx.documentFile.findMany({
-        where: { versionId: w.id, kind: 'draft', removedAt: null }, include: { file: { select: { id: true, sha256: true } } },
-        orderBy: [{ addedAt: 'desc' }, { id: 'desc' }],
-      });
-      const chosen = input.fileId ? drafts.find((x) => x.fileId === input.fileId) : drafts[0];
-      if (!chosen) throw badRequest('BAD_FILE', 'Выберите один из файлов автора этой версии');
-      try {
-        await withTx(tx, (t) => t.documentFile.create({ data: { documentId: id, versionId: w.id, round: w.round, kind: 'head_approved', fileId: chosen.fileId, addedBy: actor.id } }));
-      } catch (err) {
-        if (isUniqueViolation(err)) throw versionConflict();
-        throw err;
-      }
-      sha256 = chosen.file.sha256;
-    } else if (action === 'return' && input.fileId) {
-      const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: VERSION_FILE_MIME, what: 'Записка к возврату' });
-      returnFileId = f?.id ?? null;
-    } else if (fixed) {
-      if (!input.fileId) throw badRequest('FILE_REQUIRED', `Приложите файл: ${fixed.name.toLowerCase()} (pdf или docx)`);
-      const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: VERSION_FILE_MIME, what: fixed.name });
-      if (!f) throw badRequest('FILE_REQUIRED', `Приложите файл: ${fixed.name.toLowerCase()}`);
-      try {
-        await withTx(tx, (t) => t.documentFile.create({ data: { documentId: id, versionId: w.id, round: w.round, kind: fixed.kind, fileId: f.id, addedBy: actor.id } }));
-      } catch (err) {
-        if (isUniqueViolation(err)) throw versionConflict();
-        throw err;
-      }
-      sha256 = f.sha256;
-    }
-
-    const selfApproved = action === 'approve' && d.ownerId === actor.id;
-    const decision = action === 'return' ? 'returned' : fixed ? 'approved' : 'moved';
+    const selfApproved = (action === 'head_approve' || action === 'head_reapprove') && d.ownerId === actor.id;
+    const { decision, event } = DECISION_OF[action];
+    const note = action === 'to_translation'
+      ? `Автор подтвердил: документ не изменялся после проверки начальником ИБ${comment ? `. ${comment}` : ''}`
+      : (action === 'head_approve' || action === 'head_reapprove') && !comment ? `Одобрено по ссылке OnlyOffice: ${w.onlyofficeUrl}` : comment;
     await addDecision(tx, {
-      documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, toStage: rule.to,
-      decision, comment, actorId: actor.id, pdfSha256: sha256, selfApproved, fileId: returnFileId,
+      documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: w.stage, toStage: rule.to.stage,
+      decision, event, comment: note, actorId: actor.id, selfApproved,
     });
-    const back = action === 'return';
-    await tx.documentVersion.update({ where: { id: w.id }, data: { stage: rule.to, ...(back ? { round: w.round + 1 } : {}) } });
+    await tx.documentVersion.update({
+      where: { id: w.id },
+      data: { stage: rule.to.stage, routeState: rule.to.state, ...(back ? { round: w.round + 1 } : {}) },
+    });
+
+    const now = new Date();
+    if (action === 'head_approve') {
+      // Сроки лиц этапа 1 (дней) — даты от перехода на этап 2; история сроков пополняется.
+      const today = todayIso();
+      const queued = await tx.documentParty.findMany({ where: { versionId: w.id, removedAt: null, dueDays: { not: null } } });
+      for (const p of queued) {
+        const to = addDaysIso(today, p.dueDays as number);
+        await tx.documentParty.update({ where: { id: p.id }, data: { dueDate: new Date(`${to}T00:00:00Z`), dueDays: null } });
+        await tx.documentDeadlineChange.create({
+          data: { documentId: id, partyId: p.id, fromDate: p.dueDate, toDate: new Date(`${to}T00:00:00Z`), comment: `Срок от перехода на этап 2: ${p.dueDays} дн.`, actorId: actor.id },
+        });
+      }
+    }
+    if (action === 'recheck_return') {
+      await tx.documentParty.updateMany({ where: { versionId: w.id, removedAt: null, approvedAt: { not: null }, reworkedAt: null }, data: { reworkedAt: now } });
+    }
 
     if (back) {
       const who = (await tx.user.findUniqueOrThrow({ where: { id: actor.id }, select: { fullName: true } })).fullName;
+      const where = placeName(w.stage, from);
       await documentTask(tx, {
         documentId: id,
         reason: 'returned',
         title: `Доработать документ «${w.title}»`,
-        description: `Документ #${d.number}, версия ${w.no}. ${who} вернул(а) его на доработку с этапа «${stageName(w.stage)}»:\n${comment}\n\nПосле правки отправьте документ на проверку сотрудникам заново.`,
-        repeatComment: `Повторный возврат с этапа «${stageName(w.stage)}» (${who}): ${comment}`,
+        description: `Документ #${d.number}, версия ${w.no}. ${who} вернул(а) его на доработку («${where}»):\n${comment}\n\n`
+          + (action === 'head_return' ? 'После правки отправьте документ на проверку начальнику ИБ заново.'
+            : 'После правки при необходимости запросите повторное согласование у ответственных лиц («Запросить повторно») и отправьте документ на повторную проверку.'),
+        repeatComment: `Повторный возврат («${where}», ${who}): ${comment}`,
         workdays: 3,
       });
     }
-    if (action === 'to_review') await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на проверку сотрудникам (версия ${w.no})`);
+    if (action === 'submit_head' || action === 'request_recheck') {
+      await closeDocumentTasks(tx, id, 'returned', `Документ отправлен на ${action === 'submit_head' ? 'проверку' : 'повторную проверку'} начальнику ИБ (версия ${w.no})`);
+    }
     const ref = { id, number: d.number, title: w.title, ownerId: d.ownerId };
-    if (back) await notifyReturned(tx, ref, actor.id, stageName(w.stage), comment);
+    if (back) await notifyReturned(tx, ref, actor.id, placeName(w.stage, from), comment);
     else await notifyWaiting(tx, id, actor.id);
     await syncStageTasks(tx, id);
 
-    const self = selfApproved ? ' — согласовано автором (начальник ИБ), без независимого согласования' : '';
+    const self = selfApproved ? ' — одобрено автором (начальник ИБ), без независимого согласования' : '';
+    const to = placeName(rule.to.stage, rule.to.state);
     await auditSettings(tx, actor, {
       action: back ? 'document.returned' : 'document.moved', entity: 'document', entityId: id,
       summary: back
-        ? `Документ #${d.number} «${w.title}» (версия ${w.no}) возвращён на доработку с этапа «${stageName(w.stage)}»`
-        : `Документ #${d.number} «${w.title}» (версия ${w.no}): «${rule.label}» («${stageName(w.stage)}» → «${stageName(rule.to)}»)${self}`,
-      after: { action, versionNo: w.no, round: w.round, from: w.stage, to: rule.to, comment, fileSha256: sha256, selfApproved, returnFileId },
+        ? `Документ #${d.number} «${w.title}» (версия ${w.no}) возвращён на доработку: «${placeName(w.stage, from)}» → «${to}»`
+        : `Документ #${d.number} «${w.title}» (версия ${w.no}): «${rule.label}» («${placeName(w.stage, from)}» → «${to}»)${self}`,
+      after: { action, event, versionNo: w.no, round: w.round, from: w.stage, fromState: from, to: rule.to.stage, toState: rule.to.state, comment: note, selfApproved, onlyofficeUrl: w.onlyofficeUrl },
     });
   });
 }
@@ -1223,43 +1252,95 @@ export async function moveDocument(db: Db, actor: Actor, id: string, action: Doc
 export interface SignInput {
   version: number;
   stage: number;
-  /** Подписанный PDF (POST /files). */
-  fileId: string;
-  /** Дата подписания YYYY-MM-DD: не позже сегодня. От неё — дата пересмотра. */
+  /** Дата утверждения YYYY-MM-DD: не позже сегодня. От неё — дата пересмотра. */
   signedOn: string;
+  /** Приказ об утверждении (необязательно). */
+  orderNo?: string;
+  orderDate?: string | null;
 }
 
-/** Этап 16: подписанный PDF и дата подписания — версия становится действующей; пересмотр — от даты подписания. */
+const isIsoDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
+
+/**
+ * «Утвердить» (этап 24): нужны подписанный PDF и исходный .docx основного языка и .docx каждого перевода (gate) —
+ * версия становится действующей, документ — в реестре утверждённых; пересмотр — от даты утверждения.
+ */
 export async function signDocument(db: Db, actor: Actor, id: string, input: SignInput) {
   return withTx(db, async (tx) => {
     const today = todayIso();
-    const parsed = new Date(`${input.signedOn}T00:00:00Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.signedOn) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== input.signedOn) {
-      throw badRequest('BAD_DATE', 'Укажите дату подписания');
-    }
-    if (input.signedOn > today) throw badRequest('BAD_DATE', 'Дата подписания — не позже сегодняшнего дня');
+    if (!isIsoDay(input.signedOn)) throw badRequest('BAD_DATE', 'Укажите дату утверждения');
+    if (input.signedOn > today) throw badRequest('BAD_DATE', 'Дата утверждения — не позже сегодняшнего дня');
+    const orderNo = (input.orderNo ?? '').trim();
+    if (orderNo.length > 100) throw badRequest('TOO_LONG', 'Номер приказа — не длиннее 100 символов');
+    const orderDate = input.orderDate ? input.orderDate : null;
+    if (orderDate && (!isIsoDay(orderDate) || orderDate > today)) throw badRequest('BAD_DATE', 'Дата приказа — не позже сегодняшнего дня');
     const { d, w, who } = await routeContext(tx, actor, id, input);
-    if (w.stage !== SIGN_STAGE) throw conflict('WRONG_STAGE', `Подписать можно на этапе «${stageName(SIGN_STAGE)}». Обновите страницу`);
-    if (!signRole(who, d)) throw forbiddenWith('FORBIDDEN', `Подписанный PDF загружает ${HINTS[SIGN_STAGE]}`);
+    if (w.stage !== SIGN_STAGE) throw conflict('WRONG_STAGE', `Утвердить можно на этапе «${stageName(SIGN_STAGE)}». Обновите страницу`);
+    if (!signRole(who, d)) throw forbiddenWith('FORBIDDEN', `Утверждает ${HINTS[SIGN_STAGE]}`);
     const blocked = gate(who, d, 'sign');
     if (blocked) throw conflict(blocked.code, blocked.reason);
-    const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: PDF_MIME, what: 'Подписанный PDF' });
-    if (!f) throw badRequest('PDF_REQUIRED', 'Приложите подписанный PDF');
+    const pdf = await tx.file.findUniqueOrThrow({ where: { id: w.pdfFileId as string }, select: { sha256: true } });
     const now = new Date();
     const due = addMonthsIso(input.signedOn, d.reviewMonths);
-    await tx.documentVersion.update({ where: { id: w.id }, data: { pdfFileId: f.id, approvedAt: now, signedOn: new Date(`${input.signedOn}T00:00:00Z`) } });
-    if (w.pdfFileId && w.pdfFileId !== f.id) await deleteIfUnreferenced(tx, actor, w.pdfFileId, `версия ${w.no} подписана, прежний итоговый PDF заменён подписанным`);
+    await tx.documentVersion.update({
+      where: { id: w.id },
+      data: { approvedAt: now, signedOn: new Date(`${input.signedOn}T00:00:00Z`), orderNo, orderDate: orderDate ? new Date(`${orderDate}T00:00:00Z`) : null },
+    });
     await tx.document.update({ where: { id }, data: { approvedVersionId: w.id, workingVersionId: null, reviewDue: new Date(`${due}T00:00:00Z`) } });
     await addDecision(tx, {
-      documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: SIGN_STAGE, decision: 'signed',
-      comment: `Подписан ${formatDateRu(input.signedOn)}`, actorId: actor.id, pdfSha256: f.sha256,
+      documentId: id, versionId: w.id, versionNo: w.no, round: w.round, stage: SIGN_STAGE, decision: 'signed', event: 'approved_final',
+      comment: `Утверждён ${formatDateRu(input.signedOn)}${orderNo ? `, приказ № ${orderNo}${orderDate ? ` от ${formatDateRu(orderDate)}` : ''}` : ''}`,
+      actorId: actor.id, pdfSha256: pdf.sha256,
     });
-    await closeDocumentTasks(tx, id, 'review', `Версия ${w.no} подписана, следующий пересмотр — до ${formatDateRu(due)}`);
-    await syncStageTasks(tx, id, `Версия ${w.no} подписана`);
+    await closeDocumentTasks(tx, id, 'review', `Версия ${w.no} утверждена, следующий пересмотр — до ${formatDateRu(due)}`);
+    await syncStageTasks(tx, id, `Версия ${w.no} утверждена`);
     await auditSettings(tx, actor, {
       action: 'document.signed', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) подписан ${formatDateRu(input.signedOn)}, пересмотр до ${formatDateRu(due)}`,
-      after: { versionNo: w.no, round: w.round, signedOn: input.signedOn, reviewDue: due, pdfSha256: f.sha256 },
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}) утверждён ${formatDateRu(input.signedOn)}, пересмотр до ${formatDateRu(due)}`,
+      after: { versionNo: w.no, round: w.round, signedOn: input.signedOn, reviewDue: due, pdfSha256: pdf.sha256, orderNo, orderDate },
+    });
+  });
+}
+
+/** Ячейка файла этапа 24: подписанный PDF, исходный .docx основного языка, .docx или PDF перевода. */
+export type ApprovalSlot = 'pdf' | 'docx' | 'translation_docx' | 'translation_pdf';
+
+/**
+ * Файл этапа 24 (автор или начальник ИБ): загрузить или заменить (fileId) и снять (null). Тип — по содержимому
+ * (lib/file-type.ts при загрузке): PDF — только %PDF-, Word — только .docx без макросов.
+ */
+export async function setApprovalFile(db: Db, actor: Actor, id: string, input: { version: number; stage: number; slot: ApprovalSlot; translationId?: string; fileId: string | null }) {
+  return withTx(db, async (tx) => {
+    const { d, w, who } = await routeContext(tx, actor, id, input);
+    if (w.stage !== SIGN_STAGE) throw filesOnlyAtApproval();
+    if (!signRole(who, d)) throw forbiddenWith('FORBIDDEN', `Файлы утверждения загружает ${HINTS[SIGN_STAGE]}`);
+    const pdfSlot = input.slot === 'pdf' || input.slot === 'translation_pdf';
+    const what = { pdf: 'Подписанный PDF', docx: 'Исходный документ Word', translation_docx: 'Word перевода', translation_pdf: 'PDF перевода' }[input.slot];
+    let file: { id: string; originalName: string; sha256: string } | null = null;
+    if (input.fileId) {
+      const [f] = await claimFiles(tx, actor.id, [input.fileId], { mimes: pdfSlot ? PDF_MIME : DOCX_MIME, what });
+      if (!f) throw badRequest('FILE_REQUIRED', `${what}: выберите файл`);
+      file = f;
+    }
+    let previous: string | null;
+    let label = '';
+    if (input.slot === 'pdf' || input.slot === 'docx') {
+      previous = input.slot === 'pdf' ? w.pdfFileId : w.sourceDocxFileId;
+      await tx.documentVersion.update({ where: { id: w.id }, data: input.slot === 'pdf' ? { pdfFileId: file?.id ?? null } : { sourceDocxFileId: file?.id ?? null } });
+    } else {
+      const t = input.translationId
+        ? await tx.documentTranslation.findFirst({ where: { id: input.translationId, versionId: w.id, removedAt: null } })
+        : null;
+      if (!t) throw notFound('Перевод');
+      label = ` (${t.language})`;
+      previous = input.slot === 'translation_pdf' ? t.signedPdfFileId : t.sourceDocxFileId;
+      await tx.documentTranslation.update({ where: { id: t.id }, data: input.slot === 'translation_pdf' ? { signedPdfFileId: file?.id ?? null } : { sourceDocxFileId: file?.id ?? null } });
+    }
+    if (previous && previous !== file?.id) await deleteIfUnreferenced(tx, actor, previous, `документ #${d.number}: ${what.toLowerCase()} заменён или снят`);
+    await auditSettings(tx, actor, {
+      action: file ? 'document.files_added' : 'document.file_removed', entity: 'document', entityId: id,
+      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): ${what.toLowerCase()}${label} — ${file ? `«${file.originalName}»` : 'снят'}`,
+      after: { versionNo: w.no, slot: input.slot, translationId: input.translationId ?? null, file: file ? { id: file.id, name: file.originalName, sha256: file.sha256 } : null },
     });
   });
 }
@@ -1301,46 +1382,22 @@ export function inPickOrder<T extends { id: string }>(files: readonly T[], fileI
   return [...files].sort((a, b) => fileIds.indexOf(a.id) - fileIds.indexOf(b.id)).map((f, i) => ({ ...f, addedAt: new Date(base + i) }));
 }
 
-/** Этапы, на которых автор добавляет и заменяет файлы (1.4.0): «Драфт» и «Проверка сотрудниками». */
-export const AUTHOR_FILE_STAGES: readonly number[] = [FIRST_STAGE, 12];
-
-/** Файлы автора (pdf, docx): добавляет и снимает автор на этапах 11 и 12. */
+/** Файлы драфта прежнего маршрута (до 1.11.0): с 1.11.0 не прикладываются и не снимаются — 409 (правило файлов). */
 export async function addDraftFiles(db: Db, actor: Actor, id: string, input: { version: number; stage: number; fileIds: string[] }) {
   return withTx(db, async (tx) => {
-    const { d, w, who } = await routeContext(tx, actor, id, input);
-    if (!AUTHOR_FILE_STAGES.includes(w.stage) || !rolesOf(who, d).has('author')) {
-      throw forbiddenWith('FORBIDDEN', `Файлы документа прикладывает ${HINTS[FIRST_STAGE]} на этапах «${stageName(11)}» и «${stageName(12)}»`);
-    }
-    const files = await claimFiles(tx, actor.id, input.fileIds, { mimes: VERSION_FILE_MIME, what: 'Файл драфта' });
-    if (!files.length) throw badRequest('FILE_REQUIRED', 'Выберите файл');
-    await tx.documentFile.createMany({ data: inPickOrder(files, input.fileIds).map((f) => ({ documentId: id, versionId: w.id, round: w.round, kind: 'draft', fileId: f.id, addedBy: actor.id, addedAt: f.addedAt })) });
-    await auditSettings(tx, actor, {
-      action: 'document.files_added', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): файлы драфта — ${files.map((f) => `«${f.originalName}»`).join(', ')}`,
-      after: { versionNo: w.no, files: files.map((f) => ({ id: f.id, name: f.originalName, sha256: f.sha256 })) },
-    });
+    await routeContext(tx, actor, id, input);
+    throw filesOnlyAtApproval();
   });
 }
 
-export async function removeDraftFile(db: Db, actor: Actor, id: string, linkId: string, input: { version: number; stage: number }) {
+export async function removeDraftFile(db: Db, actor: Actor, id: string, _linkId: string, input: { version: number; stage: number }) {
   return withTx(db, async (tx) => {
-    const { d, w, who } = await routeContext(tx, actor, id, input);
-    if (!AUTHOR_FILE_STAGES.includes(w.stage) || !rolesOf(who, d).has('author')) {
-      throw forbiddenWith('FORBIDDEN', `Файлы документа снимает ${HINTS[FIRST_STAGE]} на этапах «${stageName(11)}» и «${stageName(12)}»`);
-    }
-    const link = await tx.documentFile.findFirst({ where: { id: linkId, versionId: w.id, kind: 'draft', removedAt: null }, include: { file: { select: { originalName: true } } } });
-    if (!link) throw notFound('Файл драфта');
-    await tx.documentFile.update({ where: { id: link.id }, data: { removedAt: new Date(), removedBy: actor.id } });
-    await deleteIfUnreferenced(tx, actor, link.fileId, `снят с драфта документа #${d.number}`);
-    await auditSettings(tx, actor, {
-      action: 'document.file_removed', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}» (версия ${w.no}): снят файл драфта «${link.file.originalName}»`,
-      after: { versionNo: w.no, fileId: link.fileId },
-    });
+    await routeContext(tx, actor, id, input);
+    throw filesOnlyAtApproval();
   });
 }
 
-/** Комментарий сотрудника ИБ на этапе 12 «Проверка сотрудниками». Документ не меняется (версия та же). */
+/** Комментарий сотрудника ИБ к рабочей версии — на любом этапе маршрута (1.11.0). Документ не меняется (версия та же). */
 export async function addDocumentComment(db: Db, actor: Actor, id: string, input: { body: string }) {
   return withTx(db, async (tx) => {
     const body = cleanComment(input.body, 'Напишите комментарий');
@@ -1348,7 +1405,7 @@ export async function addDocumentComment(db: Db, actor: Actor, id: string, input
     if (!a.ibWork) throw forbiddenWith('FORBIDDEN', 'Комментируют сотрудники ИБ');
     const d = await getRow(tx, id);
     const w = activeWorking(d);
-    if (!w || w.stage !== 12) throw conflict('WRONG_STAGE', `Комментарии — на этапе «${stageName(12)}». Обновите страницу`);
+    if (!w || !inRoute(w.stage)) throw conflict('WRONG_STAGE', 'Комментарии — к документу в работе. Обновите страницу');
     const c = await tx.documentComment.create({ data: { documentId: id, versionId: w.id, authorId: actor.id, body } });
     await notifyDocComment(tx, { id, number: d.number, title: w.title, ownerId: d.ownerId }, actor.id, body);
     await auditSettings(tx, actor, {
@@ -1418,6 +1475,7 @@ export async function reviseDocument(db: Db, actor: Actor, id: string, input: Re
         onlyofficeUrl: input.onlyofficeUrl !== undefined ? cleanUrl(input.onlyofficeUrl, policy) : base.onlyofficeUrl,
         changeNote: cleanNote(input.changeNote ?? ''),
         stage: FIRST_STAGE,
+        routeState: 'draft',
         createdBy: actor.id,
       },
     });

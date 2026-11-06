@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { DocDetail } from '../../api/documents';
-import { approversLabel, authorFiles, byPersonName, matchPerson, personKey, sameNamePeople, groupByType, historyText, holdersLabel, parseSort, reviewLabel, stageHint, versionLabel } from './logic';
+import { ACTION_LABEL, approversLabel, byPersonName, isReturn, matchPerson, personKey, sameNamePeople, groupByType, historyText, holdersLabel, parseSort, reviewLabel, stageHint, versionLabel } from './logic';
 
 const h = (extra: Partial<DocDetail['history'][number]>): DocDetail['history'][number] => ({
-  id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, toStage: null, toStageName: null, selfApproved: false, ...extra,
+  id: '1', at: '2026-10-27T05:00:00Z', actor: 'Юрист', stage: 2, stageName: 'Юридический отдел', decision: 'approved', comment: '', versionNo: 2, round: 1, pdfSha256: null, toStage: null, toStageName: null, selfApproved: false, event: null, ...extra,
 });
 
 describe('документы: подписи', () => {
@@ -50,13 +50,21 @@ describe('«Сейчас у» (1.4.0)', () => {
   });
 });
 
-describe('13 → 14: файлы автора (1.4.0)', () => {
-  const f = (id: string, marks: string[], addedAt: string) => ({ id, kind: 'draft', kindName: '', marks, round: 1, file: { id: `f${id}`, name: id, sha256: '', size: 1, mime: '' }, addedBy: '', addedAt, removable: false });
-  it('только файлы автора; по умолчанию — последний загруженный', () => {
-    const files = [f('a', ['Файл драфта'], '2026-10-30T10:00:00Z'), f('b', ['Финальная версия'], '2026-10-30T12:00:00Z'), f('c', ['Файл драфта'], '2026-10-30T11:00:00Z')] as Parameters<typeof authorFiles>[0];
-    const r = authorFiles(files);
-    expect([r.list.map((x) => x.id), r.latest?.id]).toEqual([['a', 'c'], 'c']);
-    expect(authorFiles([]).latest).toBeNull();
+describe('маршрут 1.11.0: кнопки и история', () => {
+  it('возвраты — вторичные кнопки; подписи — как в backend', () => {
+    expect(Object.keys(ACTION_LABEL).filter((a) => isReturn(a as keyof typeof ACTION_LABEL))).toEqual(['head_return', 'recheck_return']);
+    expect(ACTION_LABEL.submit_head).toBe('Отправить на проверку начальнику ИБ');
+  });
+  it('решения нового маршрута — по виду (event), прежние — по decision', () => {
+    expect(historyText(h({ decision: 'submitted', stage: 21, event: 'head_review_requested' }))).toBe('отправил(а) версию 2 на проверку начальнику ИБ');
+    expect(historyText(h({ decision: 'approved', stage: 21, event: 'head_approved', selfApproved: true })))
+      .toBe('одобрил(а) версию 2 сам(а) как автор и начальник ИБ — без независимого согласования');
+    expect(historyText(h({ decision: 'approved', stage: 22, event: 'head_reapproved' }))).toBe('повторно одобрил(а) версию 2');
+    expect(historyText(h({ decision: 'moved', stage: 22, event: 'unchanged_confirmed', comment: 'Автор подтвердил: документ не изменялся после проверки начальником ИБ' })))
+      .toBe('отправил(а) версию 2 на перевод. Автор подтвердил: документ не изменялся после проверки начальником ИБ');
+    expect(historyText(h({ decision: 'signed', stage: 24, event: 'approved_final', comment: 'Утверждён 05.11.2026' }))).toBe('утвердил(а) версию 2. Утверждён 05.11.2026');
+    expect(historyText(h({ decision: 'returned', stage: 22, stageName: 'Согласование', event: 'recheck_returned', comment: 'Раздел 3' })))
+      .toBe('вернул(а) версию 2 на доработку с этапа «Согласование»: Раздел 3');
   });
 });
 
