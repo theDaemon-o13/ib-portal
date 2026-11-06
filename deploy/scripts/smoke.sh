@@ -78,6 +78,26 @@ SELECT 'сессии: колонки remember и public_id (sessions_remember)',
 SQL
 }
 
+# 1.11.0: документы — маршрут из 4 этапов (миграция documents_route_v3, seed docs.route.v3) и механизмы контроля
+# (миграция document_controls, ADR-0042, ADR-0043). Каждая строка — ровно 1.
+release_objects_1110() {
+  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "|" -v ON_ERROR_STOP=1' <<'SQL'
+SELECT 'документы: маршрут 1.11.0 — колонки route_state, source_docx_file_id, event, onlyoffice_url (documents_route_v3)', ((SELECT count(*) FROM information_schema.columns
+  WHERE table_schema = 'public' AND ((table_name = 'document_versions' AND column_name IN ('route_state', 'source_docx_file_id'))
+    OR (table_name = 'document_approvals' AND column_name = 'event') OR (table_name = 'document_translations' AND column_name = 'onlyoffice_url'))) = 4)::int
+UNION ALL SELECT 'документы: маршрут 1.11.0 — триггеры неизменности утверждённой версии (2)', ((SELECT count(*) FROM pg_trigger
+  WHERE NOT tgisinternal AND tgname IN ('document_translations_frozen', 'document_parties_frozen')) = 2)::int
+UNION ALL SELECT 'механизмы контроля: таблицы (4)', ((SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'
+  AND table_name IN ('document_party_rechecks', 'document_controls', 'document_control_automations', 'document_control_runs')) = 4)::int
+UNION ALL SELECT 'механизмы контроля: триггеры (3)', ((SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal
+  AND tgname IN ('document_controls_no_delete', 'document_control_automations_no_delete', 'document_control_runs_append_only')) = 3)::int
+UNION ALL SELECT 'категория задач «Контроль по документу» (document_control)', (SELECT count(*) FROM catalog_items
+  WHERE catalog_code = 'task_categories' AND system_key = 'document_control' AND deleted_at IS NULL)::int
+UNION ALL SELECT 'рабочих версий на этапах 11–16 нет (seed docs.route.v3)', ((SELECT count(*) FROM documents d JOIN document_versions v ON v.id = d.working_version_id
+  WHERE v.stage BETWEEN 11 AND 16 AND v.approved_at IS NULL AND v.cancelled_at IS NULL) = 0)::int;
+SQL
+}
+
 if [ "$MODE" = "--before" ]; then
   counts > "$STATE_DIR/counts-before.txt"
   echo "Число записей до выкладки:"
@@ -123,6 +143,11 @@ if [ "$(printf '%s\n' 1.10.0 "$VERSION" | sort -V | head -n1)" = 1.10.0 ]; then
   OBJECTS="$OBJECTS"$'\n'"$(release_objects_1100)" || bad "системные объекты 1.10.0: запрос к базе не выполнился"
 else
   echo "· системные объекты 1.10.0 не проверяются: VERSION=$VERSION"
+fi
+if [ "$(printf '%s\n' 1.11.0 "$VERSION" | sort -V | head -n1)" = 1.11.0 ]; then
+  OBJECTS="$OBJECTS"$'\n'"$(release_objects_1110)" || bad "системные объекты 1.11.0: запрос к базе не выполнился"
+else
+  echo "· системные объекты 1.11.0 не проверяются: VERSION=$VERSION"
 fi
 while IFS='|' read -r what n; do
   [ -n "$what" ] || continue
