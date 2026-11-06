@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { seedAwarenessLetters } from '../../../prisma/seed/awareness.js';
 import { seedSystemItems } from '../../../prisma/seed/system-items.js';
 import { inTx, must, type Tx } from '../../test/db.js';
-import { AWARENESS_CATEGORY_KEY, AWARENESS_MAILINGS_KEY, MAILING_FIELDS, SIGNATURE_PLACEHOLDER } from './definition.js';
+import { AWARENESS_CATEGORY_KEY, AWARENESS_MAILINGS_KEY, MAILING_FIELDS, MAILING_FIELDS_V3, SIGNATURE_PLACEHOLDER } from './definition.js';
 import { AWARENESS_LETTERS_KEY, DEFAULT_LETTERS_SETTINGS } from './settings.js';
 
 const mailings = async (tx: Tx) => must(
@@ -18,7 +18,7 @@ describe('seed учебных писем', () => {
     inTx(async (tx) => {
       const reg = await mailings(tx);
       expect(reg.name).toBe('Рассылки');
-      expect(reg.fields.map((f) => f.systemKey)).toEqual(MAILING_FIELDS.map((f) => f.key));
+      expect(reg.fields.map((f) => f.systemKey)).toEqual([...MAILING_FIELDS, ...MAILING_FIELDS_V3].map((f) => f.key));
       const f = (k: string) => must(reg.fields.find((x) => x.systemKey === k), k);
       expect([f('sentOn').type, f('sentOn').analyticsRole]).toEqual(['date', 'date']);
       expect([f('subject').type, f('subject').isTitle]).toEqual(['text', true]);

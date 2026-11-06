@@ -9,7 +9,7 @@ export const AWARENESS_RESULTS_KEY = 'awareness_results';
 export interface AwarenessFieldSpec {
   key: string;
   label: string;
-  type: 'text' | 'select' | 'date' | 'number' | 'link' | 'user';
+  type: 'text' | 'select' | 'date' | 'number' | 'link' | 'user' | 'file';
   isTitle?: boolean;
   isStatus?: boolean;
   isImportKey?: boolean;

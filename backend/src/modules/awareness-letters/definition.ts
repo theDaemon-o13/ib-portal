@@ -37,6 +37,38 @@ export const MAILING_FIELDS: AwarenessFieldSpec[] = [
   },
 ];
 
+/** «Языки» отправки (1.12.0): ключ значения = язык выгрузки. */
+export const MAILING_LANGS = { both: 'RU+TJ', ru: 'RU', tj: 'TJ' } as const;
+/** «Шаблон» письма, созданного не из шаблона. */
+export const NO_TEMPLATE = 'Без шаблона';
+
+/** Поля «Рассылок» 1.12.0 (seed awareness.v3 добавляет их в существующий реестр; у прежних записей пусто). */
+export const MAILING_FIELDS_V3: AwarenessFieldSpec[] = [
+  { key: 'template', label: 'Шаблон', type: 'text', analyticsRole: 'dimension', hint: 'Название шаблона на момент отправки или «Без шаблона»' },
+  {
+    key: 'langs', label: 'Языки', type: 'select',
+    options: [{ label: MAILING_LANGS.both, key: 'both' }, { label: MAILING_LANGS.ru, key: 'ru' }, { label: MAILING_LANGS.tj, key: 'tj' }],
+  },
+  { key: 'recipients', label: 'Получатели', type: 'text', hint: 'Кому отправлено: например, адрес общей рассылки' },
+  { key: 'file', label: 'Файл письма', type: 'file', hint: 'Отправленный файл .eml; ставит отметка «Отправлено»' },
+];
+
+/** «Оформление писем» по умолчанию (1.12.0): заглушки без данных банка, настоящие значения вводят на портале. */
+export const LAYOUT_PLACEHOLDER = {
+  deptRu: 'Отдел информационной безопасности',
+  deptTj: 'Шуъбаи амнияти иттилоотӣ',
+  email: 'security@example.org',
+  closingRu: 'С уважением,',
+  closingTj: 'Бо эҳтиром,',
+  footerRu: '',
+  footerTj: '',
+  labelUrgentRu: 'ВАЖНАЯ ИНФОРМАЦИЯ',
+  labelUrgentTj: 'МАЪЛУМОТИ МУҲИМ',
+  labelPlannedRu: 'ПАМЯТКА',
+  labelPlannedTj: 'ЁДДОШТ',
+  tjHint: 'Матни тоҷикӣ дар поён ↓',
+} as const;
+
 export const SIGNATURE_CODE = 'signature';
 /** Заглушка «Подписи ИБ»: настоящий текст и контакты вводят на портале. */
 export const SIGNATURE_PLACEHOLDER = {

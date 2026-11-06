@@ -38,88 +38,90 @@ model User {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  passwordHistory      PasswordHistory[]
-  manager              User?                @relation("UserManager", fields: [managerId], references: [id], onDelete: Restrict)
-  subordinates         User[]               @relation("UserManager")
-  mailRules            CatalogItem[]
-  ownedRegisters       Register[]
-  decisions            RegisterDecision[]
-  registerImports      RegisterImport[]
-  scanReports          ScanReport[]
-  automations          RegisterAutomation[]
-  processedEvents      AutomationEvent[]
-  assignedTasks        Task[]               @relation("TaskAssignee")
-  createdTasks         Task[]               @relation("TaskCreator")
-  ownedTaskChains      TaskChain[]          @relation("TaskChainOwner")
-  createdTaskChains    TaskChain[]          @relation("TaskChainCreator")
-  taskComments         TaskComment[]
-  taskTransitions      TaskTransition[]     @relation("TransitionActor")
-  reviewTasks          Task[]               @relation("TaskReviewer")
-  taskCandidacies      TaskCandidate[]
-  reviewTransitions    TaskTransition[]     @relation("TransitionReviewer")
-  notifications        Notification[]       @relation("NotificationRecipient")
-  notificationsSent    Notification[]       @relation("NotificationActor")
-  recipientOf          CatalogItemUser[]
-  ownedDocuments       Document[]           @relation("DocumentOwner")
-  createdDocuments     Document[]           @relation("DocumentCreator")
-  documentVersions     DocumentVersion[]
-  documentApprovals    DocumentApproval[]
-  uploadedFiles        File[]               @relation("FileUploader")
-  deletedDocuments     Document[]           @relation("DocumentDeleter")
-  documentComments     DocumentComment[]
-  addedDocumentFiles   DocumentFile[]       @relation("DocumentFileAdder")
-  removedDocumentFiles DocumentFile[]       @relation("DocumentFileRemover")
-  documentPartyLinks   DocumentParty[]      @relation("DocumentPartyUser")
-  addedDocumentParties DocumentParty[]      @relation("DocumentPartyAdder")
-  approvedDocParties   DocumentParty[]      @relation("DocumentPartyApprover")
-  removedDocParties    DocumentParty[]      @relation("DocumentPartyRemover")
-  documentDeadlineChanges DocumentDeadlineChange[]
-  translatedDocs       DocumentTranslation[] @relation("DocumentTranslator")
-  addedDocTranslations DocumentTranslation[] @relation("DocumentTranslationAdder")
-  removedDocTranslations DocumentTranslation[] @relation("DocumentTranslationRemover")
-  openedDocBlockers    DocumentBlocker[]    @relation("DocumentBlockerOpener")
-  createdAssessments   Assessment[]         @relation("AssessmentCreator")
-  finalizedAssessments Assessment[]         @relation("AssessmentFinalizer")
-  assessmentAnswers    AssessmentAnswer[]
-  assessmentLinks      AssessmentLink[]
-  resolvedDocBlockers  DocumentBlocker[]    @relation("DocumentBlockerResolver")
-  partyRecheckPrevApprovals DocumentPartyRecheck[]   @relation("DocumentPartyRecheckPrevApprover")
-  partyRecheckActions       DocumentPartyRecheck[]   @relation("DocumentPartyRecheckActor")
-  documentControlsCreated   DocumentControl[]        @relation("DocumentControlCreator")
-  controlAutomationsCreated DocumentControlAutomation[] @relation("ControlAutomationCreator")
+  passwordHistory            PasswordHistory[]
+  manager                    User?                       @relation("UserManager", fields: [managerId], references: [id], onDelete: Restrict)
+  subordinates               User[]                      @relation("UserManager")
+  mailRules                  CatalogItem[]
+  ownedRegisters             Register[]
+  decisions                  RegisterDecision[]
+  registerImports            RegisterImport[]
+  scanReports                ScanReport[]
+  automations                RegisterAutomation[]
+  processedEvents            AutomationEvent[]
+  assignedTasks              Task[]                      @relation("TaskAssignee")
+  createdTasks               Task[]                      @relation("TaskCreator")
+  ownedTaskChains            TaskChain[]                 @relation("TaskChainOwner")
+  createdTaskChains          TaskChain[]                 @relation("TaskChainCreator")
+  taskComments               TaskComment[]
+  taskTransitions            TaskTransition[]            @relation("TransitionActor")
+  reviewTasks                Task[]                      @relation("TaskReviewer")
+  taskCandidacies            TaskCandidate[]
+  reviewTransitions          TaskTransition[]            @relation("TransitionReviewer")
+  notifications              Notification[]              @relation("NotificationRecipient")
+  notificationsSent          Notification[]              @relation("NotificationActor")
+  recipientOf                CatalogItemUser[]
+  ownedDocuments             Document[]                  @relation("DocumentOwner")
+  createdDocuments           Document[]                  @relation("DocumentCreator")
+  documentVersions           DocumentVersion[]
+  documentApprovals          DocumentApproval[]
+  uploadedFiles              File[]                      @relation("FileUploader")
+  deletedDocuments           Document[]                  @relation("DocumentDeleter")
+  documentComments           DocumentComment[]
+  addedDocumentFiles         DocumentFile[]              @relation("DocumentFileAdder")
+  removedDocumentFiles       DocumentFile[]              @relation("DocumentFileRemover")
+  documentPartyLinks         DocumentParty[]             @relation("DocumentPartyUser")
+  addedDocumentParties       DocumentParty[]             @relation("DocumentPartyAdder")
+  approvedDocParties         DocumentParty[]             @relation("DocumentPartyApprover")
+  removedDocParties          DocumentParty[]             @relation("DocumentPartyRemover")
+  documentDeadlineChanges    DocumentDeadlineChange[]
+  translatedDocs             DocumentTranslation[]       @relation("DocumentTranslator")
+  addedDocTranslations       DocumentTranslation[]       @relation("DocumentTranslationAdder")
+  removedDocTranslations     DocumentTranslation[]       @relation("DocumentTranslationRemover")
+  openedDocBlockers          DocumentBlocker[]           @relation("DocumentBlockerOpener")
+  createdAssessments         Assessment[]                @relation("AssessmentCreator")
+  finalizedAssessments       Assessment[]                @relation("AssessmentFinalizer")
+  assessmentAnswers          AssessmentAnswer[]
+  assessmentLinks            AssessmentLink[]
+  resolvedDocBlockers        DocumentBlocker[]           @relation("DocumentBlockerResolver")
+  partyRecheckPrevApprovals  DocumentPartyRecheck[]      @relation("DocumentPartyRecheckPrevApprover")
+  partyRecheckActions        DocumentPartyRecheck[]      @relation("DocumentPartyRecheckActor")
+  documentControlsCreated    DocumentControl[]           @relation("DocumentControlCreator")
+  controlAutomationsCreated  DocumentControlAutomation[] @relation("ControlAutomationCreator")
   controlAutomationsAssigned DocumentControlAutomation[] @relation("ControlAutomationAssignee")
-  deletedFiles         File[]               @relation("FileDeleter")
-  ownedEvidence        Evidence[]           @relation("EvidenceOwner")
-  uploadedEvidence     Evidence[]           @relation("EvidenceUploader")
-  reviewedEvidence     Evidence[]           @relation("EvidenceReviewer")
-  evidenceFilesAdded   EvidenceFile[]       @relation("EvidenceFileAdder")
-  evidenceFilesRemoved EvidenceFile[]       @relation("EvidenceFileRemover")
-  recordFilesAdded     RegisterRecordFile[] @relation("RecordFileAdder")
-  recordFilesRemoved   RegisterRecordFile[] @relation("RecordFileRemover")
-  dashboardTiles       DashboardTile[]
-  automationRuns       AutomationRun[]
-  dashboardLayout      DashboardLayout?     @relation("LayoutOwner")
-  dashboardLayoutEdits DashboardLayout[]    @relation("LayoutEditor")
-  monitorSlides        MonitorSlide[]
-  roles                UserRole[]           @relation("UserRoles")
-  assignedRoles        UserRole[]           @relation("UserRolesAssignedBy")
-  sessions             Session[]
-  auditEntries         AuditLog[]
-  vulnGroups           VulnGroup[]          @relation("VulnGroupCreator")
-  vulnNodes            VulnNode[]           @relation("VulnNodeCreator")
-  vulnScans            VulnScan[]           @relation("VulnScanCreator")
-  vulnHandovers        VulnScan[]           @relation("VulnScanHandover")
-  vulnExtensions       VulnExtension[]      @relation("VulnExtensionCreator")
-  vulnExtensionCancels VulnExtension[]      @relation("VulnExtensionCanceller")
-  deletionsMade           Deletion[]               @relation("DeletionDeletedBy")
-  deletionsRestored       Deletion[]               @relation("DeletionRestoredBy")
-  awarenessTemplatesCreated AwarenessTemplate[]      @relation("AwarenessTemplateCreator")
-  awarenessTemplatesUpdated AwarenessTemplate[]      @relation("AwarenessTemplateUpdater")
-  awarenessFragments        AwarenessFragment[]
-  awarenessLetters          AwarenessLetter[]
-  awarenessLetterVersions   AwarenessLetterVersion[]
-  awarenessLetterEvents     AwarenessLetterEvent[]
-  awarenessRules            AwarenessScheduleRule[]
+  deletedFiles               File[]                      @relation("FileDeleter")
+  ownedEvidence              Evidence[]                  @relation("EvidenceOwner")
+  uploadedEvidence           Evidence[]                  @relation("EvidenceUploader")
+  reviewedEvidence           Evidence[]                  @relation("EvidenceReviewer")
+  evidenceFilesAdded         EvidenceFile[]              @relation("EvidenceFileAdder")
+  evidenceFilesRemoved       EvidenceFile[]              @relation("EvidenceFileRemover")
+  recordFilesAdded           RegisterRecordFile[]        @relation("RecordFileAdder")
+  recordFilesRemoved         RegisterRecordFile[]        @relation("RecordFileRemover")
+  dashboardTiles             DashboardTile[]
+  automationRuns             AutomationRun[]
+  dashboardLayout            DashboardLayout?            @relation("LayoutOwner")
+  dashboardLayoutEdits       DashboardLayout[]           @relation("LayoutEditor")
+  monitorSlides              MonitorSlide[]
+  roles                      UserRole[]                  @relation("UserRoles")
+  assignedRoles              UserRole[]                  @relation("UserRolesAssignedBy")
+  sessions                   Session[]
+  auditEntries               AuditLog[]
+  vulnGroups                 VulnGroup[]                 @relation("VulnGroupCreator")
+  vulnNodes                  VulnNode[]                  @relation("VulnNodeCreator")
+  vulnScans                  VulnScan[]                  @relation("VulnScanCreator")
+  vulnHandovers              VulnScan[]                  @relation("VulnScanHandover")
+  vulnExtensions             VulnExtension[]             @relation("VulnExtensionCreator")
+  vulnExtensionCancels       VulnExtension[]             @relation("VulnExtensionCanceller")
+  deletionsMade              Deletion[]                  @relation("DeletionDeletedBy")
+  deletionsRestored          Deletion[]                  @relation("DeletionRestoredBy")
+  awarenessTemplatesCreated  AwarenessTemplate[]         @relation("AwarenessTemplateCreator")
+  awarenessTemplatesUpdated  AwarenessTemplate[]         @relation("AwarenessTemplateUpdater")
+  awarenessFragments         AwarenessFragment[]
+  awarenessLetters           AwarenessLetter[]
+  awarenessLetterVersions    AwarenessLetterVersion[]
+  awarenessLetterEvents      AwarenessLetterEvent[]
+  awarenessLayouts           AwarenessLayout[]
+  awarenessLetterExports     AwarenessLetterExport[]
+  awarenessRules             AwarenessScheduleRule[]
 
   @@index([managerId])
   @@map("users")
@@ -499,17 +501,17 @@ model RegisterRecord {
   createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  register  Register             @relation(fields: [registerId], references: [id], onDelete: Restrict)
-  deletion           Deletion?            @relation(fields: [deletionId], references: [id], onDelete: Restrict)
-  decisions RegisterDecision[]
-  events    AutomationEvent[]
-  tasks     Task[]
-  evidence  Evidence[]
-  files     RegisterRecordFile[]
-  vuln      VulnRecord?
-  vulnScans VulnRecordScan[]
+  register           Register               @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  deletion           Deletion?              @relation(fields: [deletionId], references: [id], onDelete: Restrict)
+  decisions          RegisterDecision[]
+  events             AutomationEvent[]
+  tasks              Task[]
+  evidence           Evidence[]
+  files              RegisterRecordFile[]
+  vuln               VulnRecord?
+  vulnScans          VulnRecordScan[]
   vulnExtensionItems VulnExtensionItem[]
-  awarenessEvents AwarenessLetterEvent[]
+  awarenessEvents    AwarenessLetterEvent[]
 
   @@unique([registerId, number])
   @@index([searchTsv], type: Gin)
@@ -635,23 +637,23 @@ model ScanHost {
 /// Группа: сервис или подразделение. «Без группы» — системная (kind temporary, system_key ungrouped).
 /// Название уникально без учёта регистра и крайних пробелов (индекс vuln_groups_name_uq в SQL миграции).
 model VulnGroup {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
   /// service | department | temporary (CHECK в SQL миграции)
-  kind      String
-  systemKey String?  @unique @map("system_key")
+  kind       String
+  systemKey  String?   @unique @map("system_key")
   /// NULL — создана seed.
-  createdBy String?  @map("created_by") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  version   Int      @default(1)
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version    Int       @default(1)
   /// Мягкое удаление (1.6.1): название удалённой группы не занято (частичный индекс); «Без группы» не удаляется (CHECK).
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletionId String?   @map("deletion_id") @db.Uuid
 
-  creator User?      @relation("VulnGroupCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  creator    User?           @relation("VulnGroupCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   deletion   Deletion?       @relation(fields: [deletionId], references: [id], onDelete: Restrict)
-  nodes   VulnNode[]
+  nodes      VulnNode[]
   extensions VulnExtension[]
 
   @@index([deletionId])
@@ -661,20 +663,20 @@ model VulnGroup {
 /// Узел = группа × значение справочника «Типы систем». Узел «Из прежнего реестра» — без типа (system_key legacy).
 /// Один тип в группе — один узел (частичный уникальный индекс в SQL миграции).
 model VulnNode {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  groupId      String   @map("group_id") @db.Uuid
-  systemTypeId String?  @map("system_type_id") @db.Uuid
-  systemKey    String?  @unique @map("system_key")
-  createdBy    String?  @map("created_by") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId      String    @map("group_id") @db.Uuid
+  systemTypeId String?   @map("system_type_id") @db.Uuid
+  systemKey    String?   @unique @map("system_key")
+  createdBy    String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   /// Мягкое удаление (1.6.1): сканы узла скрываются вместе с ним; тип можно добавить в группу снова.
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletionId   String?   @map("deletion_id") @db.Uuid
 
-  group      VulnGroup    @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  group      VulnGroup       @relation(fields: [groupId], references: [id], onDelete: Restrict)
   deletion   Deletion?       @relation(fields: [deletionId], references: [id], onDelete: Restrict)
-  systemType CatalogItem? @relation(fields: [systemTypeId], references: [id], onDelete: Restrict)
-  creator    User?        @relation("VulnNodeCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  systemType CatalogItem?    @relation(fields: [systemTypeId], references: [id], onDelete: Restrict)
+  creator    User?           @relation("VulnNodeCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   scans      VulnScan[]
   records    VulnRecord[]
   extensions VulnExtension[]
@@ -899,40 +901,40 @@ model RegisterAutomation {
 
 /// Событие автоматизации. Уникально по (правило, запись, trigger_key): повторный прогон дублей не создаёт.
 model AutomationEvent {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Событие реестра: реестр, запись и правило. Событие документа (пересмотр, этап 6) — только documentId.
-  registerId   String?   @map("register_id") @db.Uuid
-  recordId     String?   @map("record_id") @db.Uuid
-  automationId String?   @map("automation_id") @db.Uuid
-  documentId   String?   @map("document_id") @db.Uuid
+  registerId          String?   @map("register_id") @db.Uuid
+  recordId            String?   @map("record_id") @db.Uuid
+  automationId        String?   @map("automation_id") @db.Uuid
+  documentId          String?   @map("document_id") @db.Uuid
   /// Событие доказательства (этап 7): срок действия истекает.
-  evidenceId   String?   @map("evidence_id") @db.Uuid
+  evidenceId          String?   @map("evidence_id") @db.Uuid
   /// Событие автоматизации механизма контроля документа (1.11.0, ADR-0043): создаётся сразу обработанным.
-  controlAutomationId String? @map("control_automation_id") @db.Uuid
+  controlAutomationId String?   @map("control_automation_id") @db.Uuid
   /// remind | notify | escalate
-  eventType    String    @map("event_type")
+  eventType           String    @map("event_type")
   /// Снимок получателей на момент события: [{ kind: user, userId, name } | { kind: label, label }]
-  recipients   Json
+  recipients          Json
   /// Что сработало: дата срока (before, overdue) или id значения (equals).
-  triggerKey   String    @map("trigger_key")
+  triggerKey          String    @map("trigger_key")
   /// День срабатывания (по часовому поясу портала).
-  fireAt       DateTime  @map("fire_at") @db.Date
+  fireAt              DateTime  @map("fire_at") @db.Date
   /// new | processed
-  status       String    @default("new")
-  processedAt  DateTime? @map("processed_at") @db.Timestamptz(3)
-  processedBy  String?   @map("processed_by") @db.Uuid
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  status              String    @default("new")
+  processedAt         DateTime? @map("processed_at") @db.Timestamptz(3)
+  processedBy         String?   @map("processed_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  register   Register?             @relation(fields: [registerId], references: [id], onDelete: Restrict)
-  record     RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
-  automation RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
-  document   Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  evidence   Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  register          Register?                  @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  record            RegisterRecord?            @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  automation        RegisterAutomation?        @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  document          Document?                  @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  evidence          Evidence?                  @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
   controlAutomation DocumentControlAutomation? @relation(fields: [controlAutomationId], references: [id], onDelete: Restrict)
-  processor  User?                 @relation(fields: [processedBy], references: [id], onDelete: Restrict)
-  controlRuns DocumentControlRun[]
-  tasks      AutomationEventTask[]
-  comments   TaskComment[]
+  processor         User?                      @relation(fields: [processedBy], references: [id], onDelete: Restrict)
+  controlRuns       DocumentControlRun[]
+  tasks             AutomationEventTask[]
+  comments          TaskComment[]
 
   @@unique([automationId, recordId, triggerKey])
   @@index([registerId, status, createdAt])
@@ -1001,30 +1003,30 @@ model Task {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  status        CatalogItem           @relation("TaskStatus", fields: [statusId], references: [id], onDelete: Restrict)
-  priority      CatalogItem           @relation("TaskPriority", fields: [priorityId], references: [id], onDelete: Restrict)
-  category      CatalogItem           @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: Restrict)
-  assignee      User?                 @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
-  creator       User?                 @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  reviewer      User?                 @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
-  record        RegisterRecord?       @relation(fields: [recordId], references: [id], onDelete: Restrict)
-  automation    RegisterAutomation?   @relation(fields: [automationId], references: [id], onDelete: Restrict)
-  document      Document?             @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  evidence      Evidence?             @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
-  chain         TaskChain?            @relation(fields: [chainId], references: [id], onDelete: Restrict)
-  mail          TaskMailSource?
-  comments      TaskComment[]
-  events        AutomationEventTask[]
-  transitions   TaskTransition[]
-  notifications Notification[]
+  status           CatalogItem            @relation("TaskStatus", fields: [statusId], references: [id], onDelete: Restrict)
+  priority         CatalogItem            @relation("TaskPriority", fields: [priorityId], references: [id], onDelete: Restrict)
+  category         CatalogItem            @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  assignee         User?                  @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  creator          User?                  @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  reviewer         User?                  @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  record           RegisterRecord?        @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  automation       RegisterAutomation?    @relation(fields: [automationId], references: [id], onDelete: Restrict)
+  document         Document?              @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  evidence         Evidence?              @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  chain            TaskChain?             @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  mail             TaskMailSource?
+  comments         TaskComment[]
+  events           AutomationEventTask[]
+  transitions      TaskTransition[]
+  notifications    Notification[]
   /// Общая задача (1.6.4, ADR-0034): кто может взять её себе.
-  candidates    TaskCandidate[]
+  candidates       TaskCandidate[]
   /// Учебные письма (1.9.0): письмо задачи рассылки или срочной рассылки, событие с задачей доработки, запуск правила.
   awarenessLetters AwarenessLetter[]
   awarenessEvents  AwarenessLetterEvent[]
   awarenessRun     AwarenessScheduleRun?
 
-  controlRuns     DocumentControlRun[]
+  controlRuns DocumentControlRun[]
 
   @@index([statusId])
   @@index([assigneeId, dueDate])
@@ -1265,27 +1267,27 @@ model Document {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  type            CatalogItem        @relation(fields: [typeId], references: [id], onDelete: Restrict)
-  owner           User               @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  creator         User               @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  deleter         User?              @relation("DocumentDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
-  approvedVersion DocumentVersion?   @relation("DocumentApprovedVersion", fields: [approvedVersionId], references: [id], onDelete: Restrict)
-  workingVersion  DocumentVersion?   @relation("DocumentWorkingVersion", fields: [workingVersionId], references: [id], onDelete: Restrict)
-  versions        DocumentVersion[]  @relation("DocumentVersions")
-  approvals       DocumentApproval[]
-  comments        DocumentComment[]
-  files           DocumentFile[]
-  parties         DocumentParty[]
-  translations    DocumentTranslation[]
-  deadlineChanges DocumentDeadlineChange[]
-  blockers        DocumentBlocker[]
-  partyRechecks   DocumentPartyRecheck[]
-  controls        DocumentControl[]
+  type               CatalogItem                 @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  owner              User                        @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  creator            User                        @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  deleter            User?                       @relation("DocumentDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
+  approvedVersion    DocumentVersion?            @relation("DocumentApprovedVersion", fields: [approvedVersionId], references: [id], onDelete: Restrict)
+  workingVersion     DocumentVersion?            @relation("DocumentWorkingVersion", fields: [workingVersionId], references: [id], onDelete: Restrict)
+  versions           DocumentVersion[]           @relation("DocumentVersions")
+  approvals          DocumentApproval[]
+  comments           DocumentComment[]
+  files              DocumentFile[]
+  parties            DocumentParty[]
+  translations       DocumentTranslation[]
+  deadlineChanges    DocumentDeadlineChange[]
+  blockers           DocumentBlocker[]
+  partyRechecks      DocumentPartyRecheck[]
+  controls           DocumentControl[]
   controlAutomations DocumentControlAutomation[]
-  events          AutomationEvent[]
-  tasks           Task[]
-  evidence        Evidence[]
-  notifications   Notification[]
+  events             AutomationEvent[]
+  tasks              Task[]
+  evidence           Evidence[]
+  notifications      Notification[]
 
   @@index([ownerId])
   @@map("documents")
@@ -1293,28 +1295,28 @@ model Document {
 
 /// Версия документа. Утверждённая (approved_at задан) не меняется и не удаляется — права и триггер.
 model DocumentVersion {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId    String    @map("document_id") @db.Uuid
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String    @map("document_id") @db.Uuid
   /// 1, 2, 3… — ставит портал.
-  no            Int
+  no               Int
   /// «Редакция» для отображения, например «3.1»; необязательна.
-  edition       String    @default("")
-  title         String
-  onlyofficeUrl String    @map("onlyoffice_url")
-  changeNote    String    @default("") @map("change_note")
+  edition          String    @default("")
+  title            String
+  onlyofficeUrl    String    @map("onlyoffice_url")
+  changeNote       String    @default("") @map("change_note")
   /// Маршрут 1.2.0 (ADR-0024): 11 драфт … 16 подписание. Старый маршрут (до 1.2.0): 0 — автор, 1 — начальник ИБ,
   /// 2 — юридический отдел, 3 — правление; на нём остаются только версии, утверждённые до 1.2.0.
-  stage         Int       @default(0) @db.SmallInt
+  stage            Int       @default(0) @db.SmallInt
   /// Круг маршрута: +1 при каждом возврате на доработку.
-  round         Int       @default(1)
-  approvedAt    DateTime? @map("approved_at") @db.Timestamptz(3)
+  round            Int       @default(1)
+  approvedAt       DateTime? @map("approved_at") @db.Timestamptz(3)
   /// Дата подписания (этап 16): от неё считается дата пересмотра.
-  signedOn      DateTime? @map("signed_on") @db.Date
+  signedOn         DateTime? @map("signed_on") @db.Date
   /// Пересмотр отменён: версия остаётся в истории, действующей остаётся подписанная.
-  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(3)
   /// Итоговый PDF (этап 7); на маршруте 1.2.0 — подписанный PDF (этап 16): прикладывает автор при отправке на согласование, все этапы согласуют этот файл.
   /// Утверждённая версия без PDF (утверждена до этапа 7) — «текст не зафиксирован».
-  pdfFileId     String?   @map("pdf_file_id") @db.Uuid
+  pdfFileId        String?   @map("pdf_file_id") @db.Uuid
   /// Маршрут 1.11.0 (ADR-0042): состояние внутри этапа — 21: draft | head_review, 22: parties | head_recheck.
   routeState       String?   @map("route_state")
   /// Этап 24: исходный документ Word (.docx) для резерва — обязателен вместе с подписанным PDF (pdf_file_id).
@@ -1322,22 +1324,22 @@ model DocumentVersion {
   /// Приказ об утверждении (этап 24, необязательно).
   orderNo          String    @default("") @map("order_no")
   orderDate        DateTime? @map("order_date") @db.Date
-  createdBy     String    @map("created_by") @db.Uuid
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdBy        String    @map("created_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  pdf        File?              @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
+  pdf          File?                 @relation(fields: [pdfFileId], references: [id], onDelete: Restrict)
   sourceDocx   File?                 @relation("DocumentVersionSourceDocx", fields: [sourceDocxFileId], references: [id], onDelete: Restrict)
-  document   Document           @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Restrict)
-  author     User               @relation(fields: [createdBy], references: [id], onDelete: Restrict)
-  approvedOf Document?          @relation("DocumentApprovedVersion")
-  workingOf  Document?          @relation("DocumentWorkingVersion")
-  approvals  DocumentApproval[]
-  comments   DocumentComment[]
-  files      DocumentFile[]
-  parties    DocumentParty[]
+  document     Document              @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Restrict)
+  author       User                  @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  approvedOf   Document?             @relation("DocumentApprovedVersion")
+  workingOf    Document?             @relation("DocumentWorkingVersion")
+  approvals    DocumentApproval[]
+  comments     DocumentComment[]
+  files        DocumentFile[]
+  parties      DocumentParty[]
   translations DocumentTranslation[]
-  blockers   DocumentBlocker[]
+  blockers     DocumentBlocker[]
 
   @@unique([documentId, no])
   @@map("document_versions")
@@ -1345,29 +1347,29 @@ model DocumentVersion {
 
 /// История согласования. Только пополняется (права и триггер, как register_decisions).
 model DocumentApproval {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId String   @map("document_id") @db.Uuid
-  versionId  String   @map("version_id") @db.Uuid
-  versionNo  Int      @map("version_no")
-  round      Int
-  stage      Int      @db.SmallInt
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  versionId    String   @map("version_id") @db.Uuid
+  versionNo    Int      @map("version_no")
+  round        Int
+  stage        Int      @db.SmallInt
   /// Куда перешёл документ (маршрут 1.2.0); NULL — решение старого маршрута или без перехода.
-  toStage    Int?     @map("to_stage") @db.SmallInt
+  toStage      Int?     @map("to_stage") @db.SmallInt
   /// submitted | approved | returned | revision_started | skipped | moved | signed | migrated | cancelled
-  decision   String
+  decision     String
   /// Этап 13 согласовал сам автор — начальник ИБ, другого согласующего нет: без независимого согласования.
-  selfApproved Boolean @default(false) @map("self_approved")
-  comment    String   @default("")
+  selfApproved Boolean  @default(false) @map("self_approved")
+  comment      String   @default("")
   /// sha256 PDF версии на момент решения (этап 7): какой именно текст согласован.
-  pdfSha256  String?  @map("pdf_sha256") @db.Char(64)
+  pdfSha256    String?  @map("pdf_sha256") @db.Char(64)
   /// Файл к возврату на доработку (1.4.0, по желанию): записка начальника ИБ. Колонкой в решении, а не видом
   /// document_files, — backend 1.3.0 после отката её не читает (вид файла в document_files ломал бы его карточку).
-  fileId     String?  @map("file_id") @db.Uuid
+  fileId       String?  @map("file_id") @db.Uuid
   /// Точный вид решения маршрута 1.11.0 (head_approved, unchanged_confirmed, …): decision — прежними значениями,
   /// чтобы 1.10.0 после отката читал историю (строгий список).
   event        String?
-  actorId    String   @map("actor_id") @db.Uuid
-  at         DateTime @default(now()) @db.Timestamptz(3)
+  actorId      String   @map("actor_id") @db.Uuid
+  at           DateTime @default(now()) @db.Timestamptz(3)
 
   document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
   version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
@@ -1400,29 +1402,29 @@ model DocumentComment {
 /// одобренная начальником ИБ (13 → 14), final — финальная версия (14 → 15), response — ответ ответственного лица
 /// (этап 14, party_id), translation — файл перевода (этап 15, translation_id). Зафиксированные файлы не снимаются.
 model DocumentFile {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId String    @map("document_id") @db.Uuid
-  versionId  String    @map("version_id") @db.Uuid
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String    @map("document_id") @db.Uuid
+  versionId     String    @map("version_id") @db.Uuid
   /// Круг маршрута версии, в котором приложен файл.
-  round      Int
-  kind       String
-  fileId     String    @map("file_id") @db.Uuid
-  addedBy    String    @map("added_by") @db.Uuid
-  addedAt    DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
-  removedAt  DateTime? @map("removed_at") @db.Timestamptz(3)
-  removedBy  String?   @map("removed_by") @db.Uuid
+  round         Int
+  kind          String
+  fileId        String    @map("file_id") @db.Uuid
+  addedBy       String    @map("added_by") @db.Uuid
+  addedAt       DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt     DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy     String?   @map("removed_by") @db.Uuid
   /// Ответ ответственного лица (kind = response).
-  partyId    String?   @map("party_id") @db.Uuid
+  partyId       String?   @map("party_id") @db.Uuid
   /// Файл перевода (kind = translation).
-  translationId String? @map("translation_id") @db.Uuid
+  translationId String?   @map("translation_id") @db.Uuid
 
-  document Document        @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  version  DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
-  party    DocumentParty?  @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  document    Document             @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  version     DocumentVersion      @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  party       DocumentParty?       @relation(fields: [partyId], references: [id], onDelete: Restrict)
   translation DocumentTranslation? @relation(fields: [translationId], references: [id], onDelete: Restrict)
-  file     File            @relation(fields: [fileId], references: [id], onDelete: Restrict)
-  adder    User            @relation("DocumentFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
-  remover  User?           @relation("DocumentFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
+  file        File                 @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  adder       User                 @relation("DocumentFileAdder", fields: [addedBy], references: [id], onDelete: Restrict)
+  remover     User?                @relation("DocumentFileRemover", fields: [removedBy], references: [id], onDelete: Restrict)
 
   @@index([versionId, round])
   @@index([fileId])
@@ -1471,20 +1473,20 @@ model DocumentParty {
 /// История сроков (ответственные лица этапа 14; переводы этапа 15 — релиз 1.2.0, этап Г4): было, стало, комментарий.
 /// Только пополняется (права и триггер).
 model DocumentDeadlineChange {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId String   @map("document_id") @db.Uuid
-  partyId    String?  @map("party_id") @db.Uuid
-  translationId String? @map("translation_id") @db.Uuid
-  fromDate   DateTime @map("from_date") @db.Date
-  toDate     DateTime @map("to_date") @db.Date
-  comment    String
-  actorId    String   @map("actor_id") @db.Uuid
-  at         DateTime @default(now()) @db.Timestamptz(3)
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String   @map("document_id") @db.Uuid
+  partyId       String?  @map("party_id") @db.Uuid
+  translationId String?  @map("translation_id") @db.Uuid
+  fromDate      DateTime @map("from_date") @db.Date
+  toDate        DateTime @map("to_date") @db.Date
+  comment       String
+  actorId       String   @map("actor_id") @db.Uuid
+  at            DateTime @default(now()) @db.Timestamptz(3)
 
-  document Document       @relation(fields: [documentId], references: [id], onDelete: Restrict)
-  party    DocumentParty? @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  document    Document             @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  party       DocumentParty?       @relation(fields: [partyId], references: [id], onDelete: Restrict)
   translation DocumentTranslation? @relation(fields: [translationId], references: [id], onDelete: Restrict)
-  actor    User           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  actor       User                 @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([documentId, at])
   @@map("document_deadline_changes")
@@ -1493,25 +1495,25 @@ model DocumentDeadlineChange {
 /// Переводы этапа 15 (релиз 1.2.0, этап Г4): язык, переводчик — пользователь портала, срок; перевод готов, когда
 /// приложен файл (document_files, вид translation). 15 → 16 — когда у каждого языка есть файл.
 model DocumentTranslation {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId   String    @map("document_id") @db.Uuid
-  versionId    String    @map("version_id") @db.Uuid
-  language     String
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String    @map("document_id") @db.Uuid
+  versionId        String    @map("version_id") @db.Uuid
+  language         String
   /// С 1.4.0 (решение владельца 9) — тот, кто добавил строку: переводчик больше не пользователь портала. Колонка
   /// остаётся NOT NULL ради отката на 1.3.0; до 1.4.0 — переводчик-пользователь.
-  translatorId String    @map("translator_id") @db.Uuid
+  translatorId     String    @map("translator_id") @db.Uuid
   /// Имя переводчика текстом (1.4.0), необязательное; для строк до 1.4.0 заполнено миграцией из ФИО учётной записи.
-  translatorName String  @default("") @map("translator_name")
-  dueDate      DateTime  @map("due_date") @db.Date
+  translatorName   String    @default("") @map("translator_name")
+  dueDate          DateTime  @map("due_date") @db.Date
   /// Этап 23 (1.11.0): ссылка на перевод в OnlyOffice вместо файла.
   onlyofficeUrl    String    @default("") @map("onlyoffice_url")
   /// Этап 24: Word перевода — обязателен; подписанный PDF перевода — по желанию (решение владельца 6).
   sourceDocxFileId String?   @map("source_docx_file_id") @db.Uuid
   signedPdfFileId  String?   @map("signed_pdf_file_id") @db.Uuid
-  addedBy      String    @map("added_by") @db.Uuid
-  addedAt      DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
-  removedAt    DateTime? @map("removed_at") @db.Timestamptz(3)
-  removedBy    String?   @map("removed_by") @db.Uuid
+  addedBy          String    @map("added_by") @db.Uuid
+  addedAt          DateTime  @default(now()) @map("added_at") @db.Timestamptz(3)
+  removedAt        DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedBy        String?   @map("removed_by") @db.Uuid
 
   document        Document                 @relation(fields: [documentId], references: [id], onDelete: Restrict)
   version         DocumentVersion          @relation(fields: [versionId], references: [id], onDelete: Restrict)
@@ -1680,22 +1682,24 @@ model File {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedBy    String?   @map("deleted_by") @db.Uuid
 
-  uploader      User                 @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
-  deleter       User?                @relation("FileDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
-  decisions     RegisterDecision[]
-  versions      DocumentVersion[]
-  versionDocx     DocumentVersion[]     @relation("DocumentVersionSourceDocx")
-  translationDocx DocumentTranslation[] @relation("DocumentTranslationDocx")
-  translationPdf  DocumentTranslation[] @relation("DocumentTranslationPdf")
-  documentLinks DocumentFile[]
-  approvalNotes DocumentApproval[]
-  evidenceLinks EvidenceFile[]
-  recordLinks   RegisterRecordFile[]
-  imports       RegisterImport[]
-  text          FileText?
-  vulnScans     VulnScan[] @relation("VulnScanFile")
-  vulnHandovers VulnScan[] @relation("VulnScanHandoverFile")
-  vulnExtensions VulnExtension[]
+  uploader         User                    @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  deleter          User?                   @relation("FileDeleter", fields: [deletedBy], references: [id], onDelete: Restrict)
+  decisions        RegisterDecision[]
+  versions         DocumentVersion[]
+  versionDocx      DocumentVersion[]       @relation("DocumentVersionSourceDocx")
+  translationDocx  DocumentTranslation[]   @relation("DocumentTranslationDocx")
+  translationPdf   DocumentTranslation[]   @relation("DocumentTranslationPdf")
+  documentLinks    DocumentFile[]
+  approvalNotes    DocumentApproval[]
+  evidenceLinks    EvidenceFile[]
+  recordLinks      RegisterRecordFile[]
+  imports          RegisterImport[]
+  text             FileText?
+  vulnScans        VulnScan[]              @relation("VulnScanFile")
+  vulnHandovers    VulnScan[]              @relation("VulnScanHandoverFile")
+  vulnExtensions   VulnExtension[]
+  awarenessLogo    AwarenessLayout[]
+  awarenessExports AwarenessLetterExport[]
 
   @@index([uploadedBy, uploadedAt])
   @@map("files")
@@ -1965,18 +1969,24 @@ model AssessmentLink {
 
 /// Шаблон письма: тема и текст RU и TJ с переменными {{описание}}. Архив вместо удаления.
 model AwarenessTemplate {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title      String
-  subjectRu  String    @default("") @map("subject_ru")
-  subjectTj  String    @default("") @map("subject_tj")
-  htmlRu     String    @default("") @map("html_ru")
-  htmlTj     String    @default("") @map("html_tj")
-  version    Int       @default(1)
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdBy  String    @map("created_by") @db.Uuid
-  updatedBy  String    @map("updated_by") @db.Uuid
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  subjectRu   String    @default("") @map("subject_ru")
+  subjectTj   String    @default("") @map("subject_tj")
+  htmlRu      String    @default("") @map("html_ru")
+  htmlTj      String    @default("") @map("html_tj")
+  /// Заголовок и метка шапки письма, общая тема RU+TJ (1.12.0): пусто — тема языка, метка по типу, «RU | TJ».
+  headerRu    String    @default("") @map("header_ru")
+  headerTj    String    @default("") @map("header_tj")
+  labelRu     String    @default("") @map("label_ru")
+  labelTj     String    @default("") @map("label_tj")
+  subjectBoth String    @default("") @map("subject_both")
+  version     Int       @default(1)
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdBy   String    @map("created_by") @db.Uuid
+  updatedBy   String    @map("updated_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   creator User                    @relation("AwarenessTemplateCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   updater User                    @relation("AwarenessTemplateUpdater", fields: [updatedBy], references: [id], onDelete: Restrict)
@@ -2033,6 +2043,7 @@ model AwarenessLetter {
   sentVersion     AwarenessLetterVersion?  @relation("AwarenessLetterSent", fields: [sentVersionId], references: [id], onDelete: Restrict)
   versions        AwarenessLetterVersion[] @relation("AwarenessLetterVersions")
   events          AwarenessLetterEvent[]
+  exports         AwarenessLetterExport[]
   runs            AwarenessScheduleRun[]
 
   @@unique([currentVersionId])
@@ -2056,15 +2067,22 @@ model AwarenessLetterVersion {
   subjectTj    String   @map("subject_tj")
   htmlRu       String   @map("html_ru")
   htmlTj       String   @map("html_tj")
+  /// Заголовок и метка шапки письма, общая тема RU+TJ (1.12.0): пусто — тема языка, метка по типу, «RU | TJ».
+  headerRu     String   @default("") @map("header_ru")
+  headerTj     String   @default("") @map("header_tj")
+  labelRu      String   @default("") @map("label_ru")
+  labelTj      String   @default("") @map("label_tj")
+  subjectBoth  String   @default("") @map("subject_both")
   createdBy    String   @map("created_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  letter       AwarenessLetter        @relation("AwarenessLetterVersions", fields: [letterId], references: [id], onDelete: Restrict)
-  creator      User                   @relation(fields: [createdBy], references: [id], onDelete: Restrict)
-  currentOf    AwarenessLetter?       @relation("AwarenessLetterCurrent")
-  approvedOf   AwarenessLetter?       @relation("AwarenessLetterApproved")
-  sentOf       AwarenessLetter?       @relation("AwarenessLetterSent")
-  events       AwarenessLetterEvent[]
+  letter     AwarenessLetter         @relation("AwarenessLetterVersions", fields: [letterId], references: [id], onDelete: Restrict)
+  creator    User                    @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  currentOf  AwarenessLetter?        @relation("AwarenessLetterCurrent")
+  approvedOf AwarenessLetter?        @relation("AwarenessLetterApproved")
+  sentOf     AwarenessLetter?        @relation("AwarenessLetterSent")
+  events     AwarenessLetterEvent[]
+  exports    AwarenessLetterExport[]
 
   @@unique([letterId, no])
   @@map("awareness_letter_versions")
@@ -2086,6 +2104,10 @@ model AwarenessLetterEvent {
   recordId        String?   @map("record_id") @db.Uuid
   /// Задача доработки после возврата.
   taskId          String?   @map("task_id") @db.Uuid
+  /// Отметка «Отправлено» (1.12.0): языки both | ru | tj, получатели текстом, файл письма — выгрузка.
+  langs           String?
+  recipients      String?
+  exportId        String?   @map("export_id") @db.Uuid
   actorId         String    @map("actor_id") @db.Uuid
   at              DateTime  @default(now()) @db.Timestamptz(3)
 
@@ -2093,6 +2115,7 @@ model AwarenessLetterEvent {
   version AwarenessLetterVersion? @relation(fields: [versionId], references: [id], onDelete: Restrict)
   record  RegisterRecord?         @relation(fields: [recordId], references: [id], onDelete: Restrict)
   task    Task?                   @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  export  AwarenessLetterExport?  @relation(fields: [exportId], references: [id], onDelete: Restrict)
   actor   User                    @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([letterId, at])
@@ -2147,4 +2170,52 @@ model AwarenessScheduleRun {
   @@index([ruleId, plannedDate])
   @@index([letterId])
   @@map("awareness_schedule_runs")
+}
+
+/// «Оформление писем» (1.12.0, ADR-0044): одна строка (id = 1). Заглушки создаёт seed, данные банка — только на проде.
+model AwarenessLayout {
+  id             Int      @id @default(1) @db.SmallInt
+  deptRu         String   @map("dept_ru")
+  deptTj         String   @map("dept_tj")
+  email          String
+  closingRu      String   @map("closing_ru")
+  closingTj      String   @map("closing_tj")
+  footerRu       String   @default("") @map("footer_ru")
+  footerTj       String   @default("") @map("footer_tj")
+  labelUrgentRu  String   @map("label_urgent_ru")
+  labelUrgentTj  String   @map("label_urgent_tj")
+  labelPlannedRu String   @map("label_planned_ru")
+  labelPlannedTj String   @map("label_planned_tj")
+  tjHint         String   @map("tj_hint")
+  logoFileId     String?  @map("logo_file_id") @db.Uuid
+  version        Int      @default(1)
+  updatedBy      String?  @map("updated_by") @db.Uuid
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  logo    File? @relation(fields: [logoFileId], references: [id], onDelete: Restrict)
+  updater User? @relation(fields: [updatedBy], references: [id], onDelete: Restrict)
+
+  @@map("awareness_layout")
+}
+
+/// Выгрузка готового письма .eml (1.12.0, ADR-0045): файл в files, только пополняется. Отправкой не считается.
+model AwarenessLetterExport {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letterId  String   @map("letter_id") @db.Uuid
+  versionId String   @map("version_id") @db.Uuid
+  /// both | ru | tj
+  langs     String
+  fileId    String   @map("file_id") @db.Uuid
+  sha256    String
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  letter  AwarenessLetter        @relation(fields: [letterId], references: [id], onDelete: Restrict)
+  version AwarenessLetterVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  file    File                   @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  creator User                   @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  events  AwarenessLetterEvent[]
+
+  @@index([letterId, createdAt])
+  @@map("awareness_letter_exports")
 }

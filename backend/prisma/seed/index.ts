@@ -6,7 +6,7 @@ import { CATALOGS } from '../../src/lib/catalogs.js';
 import { PERMISSIONS, SUPER_ADMIN_LOCKED, SYSTEM_ROLES } from '../../src/lib/permissions.js';
 import { DEFAULT_WEEKEND_DAYS } from '../../src/lib/working-days.js';
 import { seedAssessmentMethodology } from './assessment.js';
-import { seedAwareness, seedAwarenessLetters } from './awareness.js';
+import { seedAwareness, seedAwarenessLayout, seedAwarenessLetters } from './awareness.js';
 import { seedAssets, seedComponentInstances } from './assets.js';
 import { seedDashboardLayouts } from './dashboard.js';
 import { seedDlp } from './dlp.js';
@@ -77,6 +77,7 @@ async function main() {
     await seedComponentInstances(tx);
     await seedAwareness(tx);
     await seedAwarenessLetters(tx);
+    await seedAwarenessLayout(tx);
     await seedCompareKeys(tx);
     await seedDashboardLayouts(tx);
     await seedMonitorSlides(tx);

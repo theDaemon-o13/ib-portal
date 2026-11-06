@@ -8,7 +8,7 @@ import {
 } from '../../src/modules/awareness/definition.js';
 import { AWARENESS_GRADES_KEY, DEFAULT_GRADES } from '../../src/modules/awareness/grades.js';
 import {
-  AWARENESS_MAILINGS_KEY, MAILING_FIELDS, MAILINGS_NAME, SIGNATURE_CODE, SIGNATURE_PLACEHOLDER,
+  AWARENESS_MAILINGS_KEY, LAYOUT_PLACEHOLDER, MAILING_FIELDS, MAILING_FIELDS_V3, MAILINGS_NAME, SIGNATURE_CODE, SIGNATURE_PLACEHOLDER,
 } from '../../src/modules/awareness-letters/definition.js';
 import { AWARENESS_LETTERS_KEY, DEFAULT_LETTERS_SETTINGS } from '../../src/modules/awareness-letters/settings.js';
 import { once } from './registers.js';
@@ -102,5 +102,43 @@ export async function seedAwarenessLetters(tx: Tx): Promise<void> {
       done.push('лимиты размера писем');
     }
     return `Учебные письма: ${done.join(', ')}`;
+  });
+}
+
+/**
+ * Однократно (отметка awareness.v3, релиз 1.12.0): «Оформление писем» с заглушками и поля «Рассылок» «Шаблон»,
+ * «Языки», «Получатели», «Файл письма» в конец существующего системного реестра (у прежних записей значения пустые).
+ * Поле с тем же названием без системного ключа (завёл администратор) не трогается: новое получает «(системное)».
+ * Реестра нет (удалён до обновления) — поля не создаются, строка в выводе.
+ */
+export async function seedAwarenessLayout(tx: Tx): Promise<void> {
+  await once(tx, 'awareness.v3', async () => {
+    const done: string[] = [];
+    if (!(await tx.awarenessLayout.findUnique({ where: { id: 1 } }))) {
+      await tx.awarenessLayout.create({ data: { id: 1, ...LAYOUT_PLACEHOLDER } });
+      done.push('«Оформление писем» (заглушки)');
+    }
+    const reg = await tx.register.findUnique({ where: { systemKey: AWARENESS_MAILINGS_KEY }, include: { fields: { select: { label: true, systemKey: true, sortOrder: true } } } });
+    if (!reg) {
+      done.push('реестра «Рассылки» нет — новые поля не созданы');
+    } else {
+      let order = Math.max(0, ...reg.fields.map((f) => f.sortOrder));
+      const added: string[] = [];
+      for (const f of MAILING_FIELDS_V3) {
+        if (reg.fields.some((x) => x.systemKey === f.key)) continue;
+        const clash = reg.fields.some((x) => x.label.toLowerCase() === f.label.toLowerCase());
+        const label = clash ? `${f.label} (системное)` : f.label;
+        await tx.registerField.create({
+          data: {
+            registerId: reg.id, label, type: f.type, sortOrder: ++order, systemKey: f.key, analyticsRole: f.analyticsRole ?? null,
+            ...(f.hint ? { settings: { hint: f.hint } } : {}),
+            options: f.options?.length ? { create: f.options.map((o, j) => ({ label: o.label, sortOrder: j + 1, systemKey: o.key })) } : undefined,
+          },
+        });
+        added.push(clash ? `«${label}» (название «${f.label}» уже занято)` : `«${label}»`);
+      }
+      done.push(added.length ? `поля «${reg.name}»: ${added.join(', ')}` : `поля «${reg.name}» уже есть`);
+    }
+    return `Учебные письма 1.12.0: ${done.join('; ')}`;
   });
 }
