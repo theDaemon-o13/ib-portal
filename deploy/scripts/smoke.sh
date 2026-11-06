@@ -134,6 +134,25 @@ else
   echo "· системные объекты 1.8.0 не проверяются: VERSION=$VERSION"
   OBJECTS=""
 fi
+# 1.12.0: учебные письма — макет, выгрузка, регистрация отправки (миграции awareness_layout, awareness_eml_mime,
+# seed awareness.v3; ADR-0044–0046). Каждая строка — ровно 1.
+release_objects_1120() {
+  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F "|" -v ON_ERROR_STOP=1' <<'SQL'
+SELECT 'учебные письма 1.12.0: шапка письма — колонки у шаблонов и версий (10)', ((SELECT count(*) FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name IN ('awareness_templates', 'awareness_letter_versions')
+    AND column_name IN ('header_ru', 'header_tj', 'label_ru', 'label_tj', 'subject_both')) = 10)::int
+UNION ALL SELECT 'учебные письма 1.12.0: таблицы awareness_layout и awareness_letter_exports', ((SELECT count(*) FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name IN ('awareness_layout', 'awareness_letter_exports')) = 2)::int
+UNION ALL SELECT 'учебные письма 1.12.0: выгрузки только пополняются (триггер)', (SELECT count(*) FROM pg_trigger
+  WHERE NOT tgisinternal AND tgname = 'awareness_letter_exports_append_only')::int
+UNION ALL SELECT '«Оформление писем» на месте (seed awareness.v3)', (SELECT count(*) FROM awareness_layout WHERE id = 1)::int
+UNION ALL SELECT 'тип файла message/rfc822 допустим (awareness_eml_mime)', (SELECT count(*) FROM pg_constraint
+  WHERE conname = 'files_mime_check' AND pg_get_constraintdef(oid) LIKE '%message/rfc822%')::int
+UNION ALL SELECT 'поля «Рассылок» 1.12.0: «Шаблон», «Языки», «Получатели», «Файл письма» (4)', ((SELECT count(*) FROM register_fields f JOIN registers r ON r.id = f.register_id
+  WHERE r.system_key = 'awareness_mailings' AND f.system_key IN ('template', 'langs', 'recipients', 'file') AND f.deleted_at IS NULL) = 4)::int;
+SQL
+}
+
 if [ "$(printf '%s\n' 1.9.0 "$VERSION" | sort -V | head -n1)" = 1.9.0 ]; then
   OBJECTS="$OBJECTS"$'\n'"$(release_objects_190)" || bad "системные объекты 1.9.0: запрос к базе не выполнился"
 else
@@ -148,6 +167,11 @@ if [ "$(printf '%s\n' 1.11.0 "$VERSION" | sort -V | head -n1)" = 1.11.0 ]; then
   OBJECTS="$OBJECTS"$'\n'"$(release_objects_1110)" || bad "системные объекты 1.11.0: запрос к базе не выполнился"
 else
   echo "· системные объекты 1.11.0 не проверяются: VERSION=$VERSION"
+fi
+if [ "$(printf '%s\n' 1.12.0 "$VERSION" | sort -V | head -n1)" = 1.12.0 ]; then
+  OBJECTS="$OBJECTS"$'\n'"$(release_objects_1120)" || bad "системные объекты 1.12.0: запрос к базе не выполнился"
+else
+  echo "· системные объекты 1.12.0 не проверяются: VERSION=$VERSION"
 fi
 while IFS='|' read -r what n; do
   [ -n "$what" ] || continue
