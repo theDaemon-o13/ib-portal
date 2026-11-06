@@ -1,6 +1,7 @@
 // Автоматизации механизмов контроля документа (1.11.0, ADR-0043; план — раздел 5.2): периодическая задача ответственному.
 //   - Периодичность — lib/cadence.ts (ADR-0041): ежедневно, еженедельно, ежемесячно, ежеквартально, раз в полгода, ежегодно.
-//   - Запуск уникален по «автоматизация + номинальная дата» (document_control_runs); повторный прогон дублей не даёт.
+//   - Запуск уникален по «автоматизация + номинальная дата» (document_control_runs); повторный прогон дублей не даёт;
+//     номинальные даты с одной плановой (выходные → пятница) дают один запуск.
 //   - Срок в рабочих днях: дата запуска с выходного — на предыдущий рабочий день, не раньше даты первого запуска;
 //     срок задачи — от фактического дня создания: + X рабочих (производственный календарь) или + X календарных дней.
 //   - Догон после простоя: номинальная дата не старше 7 дней — задача; старше — запуск «пропущен» без задачи.
@@ -276,9 +277,16 @@ export async function runControlAutomations(db: Db, opts: { now?: Date; automati
       const createdOn = todayIso(a.createdAt);
       const last = await tx.documentControlRun.findFirst({ where: { automationId: a.id }, orderBy: { nominalDate: 'desc' }, select: { nominalDate: true } });
       const lo = [startsOn, createdOn, last ? addDaysIso(isoDate(last.nominalDate), 1) : ''].sort().at(-1) as string;
-      const due = nominalDates(asAny(a.cadence as ControlCadence), startsOn, lo, addDaysIso(today, MAX_SHIFT_DAYS))
+      const candidates = nominalDates(asAny(a.cadence as ControlCadence), startsOn, lo, addDaysIso(today, MAX_SHIFT_DAYS))
         .map((nominal) => ({ nominal, planned: runDate({ dueKind: a.dueKind, startsOn }, nominal, cal) }))
         .filter((o) => o.planned <= today);
+      if (!candidates.length) continue;
+      // Две номинальные даты с одной плановой (суббота и воскресенье переносятся на пятницу) — один запуск, по первой
+      // (как у расписания рассылок): занятые плановые даты — из прежних запусков и из этого прогона.
+      const taken = new Set((await tx.documentControlRun.findMany({
+        where: { automationId: a.id, plannedDate: { in: candidates.map((o) => day(o.planned)) } }, select: { plannedDate: true },
+      })).map((r) => isoDate(r.plannedDate)));
+      const due = candidates.filter((o) => (taken.has(o.planned) ? false : (taken.add(o.planned), true)));
       if (!due.length) continue;
       const valid = await tx.user.findFirst({ where: { id: a.assigneeId, ...workUsersWhere() }, select: { id: true } });
       if (valid && a.noAssigneeSince) await tx.documentControlAutomation.update({ where: { id: a.id }, data: { noAssigneeSince: null } });

@@ -847,6 +847,23 @@ describe('документы: автоматизации механизмов к
       expect(await autos.runControlAutomations(tx, { now: at('2026-03-22'), automationId: a.id })).toMatchObject({ created: 0, automations: 0 });
     }));
 
+  it('ежедневно со сроком в рабочих днях: суббота и воскресенье переносятся на пятницу — один запуск, не три (найдено на репетиции 1.11.0)', () =>
+    inTx(async (tx) => {
+      // 06.11.2026 — пятница; 07 и 08 — выходные; 09 — понедельник.
+      const { x, id, c, a } = await setup(tx, { cadence: { kind: 'daily' }, dueKind: 'working', dueDays: 3, startsOn: '2026-11-06' });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-11-06'), automationId: a.id })).toMatchObject({ created: 1, skipped: 0 });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-11-06'), automationId: a.id })).toMatchObject({ created: 0 });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-11-08'), automationId: a.id })).toMatchObject({ created: 0 });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-11-09'), automationId: a.id })).toMatchObject({ created: 1 });
+      expect((await runs(tx, a.id)).map((r) => [isoOf(r.nominalDate), isoOf(r.plannedDate)])).toEqual([['2026-11-06', '2026-11-06'], ['2026-11-09', '2026-11-09']]);
+      // Календарные дни — без переноса: каждый день свой запуск.
+      const cal = await autos.createAutomation(tx, await x.as(x.owner), id, {
+        title: 'Проверить GPO каждый день', controlId: c.id, cadence: { kind: 'daily' }, startsOn: '2026-11-06', dueDays: 1, dueKind: 'calendar', assigneeId: x.staff.id,
+      });
+      await tx.documentControlAutomation.update({ where: { id: cal.id }, data: { createdAt: new Date('2026-11-06T03:00:00Z') } });
+      expect(await autos.runControlAutomations(tx, { now: at('2026-11-08'), automationId: cal.id })).toMatchObject({ created: 3 });
+    }));
+
   it('нет ответственного — запуск без задачи, автору одно уведомление; после смены ответственного — снова задачи', () =>
     inTx(async (tx) => {
       const { x, id, a } = await setup(tx, { cadence: { kind: 'daily' }, dueKind: 'calendar', dueDays: 1, startsOn: '2026-04-01' });
