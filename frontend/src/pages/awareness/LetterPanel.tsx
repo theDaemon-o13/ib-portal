@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
+import { useMe } from '../../auth/useMe';
 import { awarenessApi, awarenessKeys, type ExportLang, type Letter, type LetterKind } from '../../api/awareness';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
@@ -38,6 +39,8 @@ const LANGS_NAME: Record<ExportLang, string> = { both: 'RU+TJ', ru: 'RU', tj: 'T
 export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () => void; onOpen: (id: string) => void }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const me = useMe().data;
+  const canDelete = !!me?.permissions.includes('awareness.delete');
   const q = useQuery({ queryKey: awarenessKeys.letter(id), queryFn: () => awarenessApi.letter(id) });
   const sig = useQuery({ queryKey: awarenessKeys.signature, queryFn: awarenessApi.signature, staleTime: 60_000 });
   const layout = useQuery({ queryKey: awarenessKeys.layout, queryFn: awarenessApi.layout, staleTime: 60_000 });
@@ -144,6 +147,23 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
     onError: (err) => onError(err),
   });
 
+  // Удаление (1.13.3): после ответа — панель закрывается, письма нет в списках.
+  const remove = useMutation({
+    mutationFn: async () => {
+      if (!l) throw new Error('Письмо не загружено');
+      return awarenessApi.remove(id, l.version);
+    },
+    onSuccess: async (r) => {
+      setAsk(null);
+      qc.removeQueries({ queryKey: awarenessKeys.letter(id) });
+      await qc.invalidateQueries({ queryKey: awarenessKeys.letters });
+      await qc.invalidateQueries({ queryKey: ['tasks'] });
+      toast(`Письмо № ${r.number} удалено`);
+      onClose();
+    },
+    onError: (err) => { setAsk(null); onError(err); },
+  });
+
   const reload = async () => {
     const fresh = await qc.fetchQuery({ queryKey: awarenessKeys.letter(id), queryFn: () => awarenessApi.letter(id) });
     reset(fresh);
@@ -184,7 +204,7 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
 
   const marks = useMemo(() => (l ? letterMarks(l) : []), [l]);
   const has = (a: Letter['actions'][number]) => !!l?.actions.includes(a);
-  const busy = save.isPending || act.isPending || copy.isPending;
+  const busy = save.isPending || act.isPending || copy.isPending || remove.isPending;
   const needSave = dirty ? 'Сначала сохраните изменения' : undefined;
 
   const footer = l && (
@@ -207,6 +227,14 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
       {has('copy') && <button className="btn ghost" type="button" disabled={busy} onClick={() => copy.mutate()}>Создать копию</button>}
       {has('archive') && <button className="btn ghost" type="button" disabled={busy} onClick={() => act.mutate({ run: (v) => awarenessApi.archive(id, v, true), done: 'Письмо в архиве' })}>В архив</button>}
       {has('unarchive') && <button className="btn ghost" type="button" disabled={busy} onClick={() => act.mutate({ run: (v) => awarenessApi.archive(id, v, false), done: 'Письмо возвращено из архива' })}>Из архива</button>}
+      {l?.deletable && canDelete && (
+        <button className="btn ghost danger-t" type="button" disabled={busy} data-testid="letter-delete"
+          onClick={() => setAsk({
+            title: `Удалить письмо № ${l.number}?`,
+            text: `«${l.title}» исчезнет из списков и поиска. Письмо ни разу не отмечено отправленным, поэтому его можно удалить; версии сохранятся в базе, действие попадёт в журнал. Задача рассылки, если она есть, останется — с пометкой «письмо удалено».`,
+            confirm: 'Удалить', run: () => remove.mutate(),
+          })}>Удалить</button>
+      )}
     </>
   );
 

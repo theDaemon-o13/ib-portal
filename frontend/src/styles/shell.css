@@ -165,3 +165,20 @@ table tbody tr:hover > td{background:var(--hover)}
 /* Профиль открыт — подсветка фоном, а не цветом ссылки. */
 .me-t[aria-current="page"]{background:var(--side-hover)}
 .me-t[aria-current="page"] b{color:var(--side-text)}
+
+/* «Обновить», «В самый верх», «В самый низ» на страницах-списках (1.13.3). Под открытой карточкой и окнами — скрыты:
+   у них свои кнопки внизу. */
+.scroll-ctl{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:14;
+  display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:999px;background:var(--side-bg);border:1px solid var(--side-border);
+  box-shadow:var(--shadow-lg),inset 0 1px 0 rgba(255,255,255,.12);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.scroll-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1px solid var(--field-border);
+  background:var(--field-bg);color:var(--side-text)}
+.scroll-btn:hover{background:var(--side-hover)}
+.scroll-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scroll-btn:disabled{cursor:progress}
+.scroll-btn svg{width:18px;height:18px}
+.scroll-btn svg.spin{animation:scroll-spin .9s linear infinite}
+@keyframes scroll-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.scroll-btn svg.spin{animation:none}}
+body:has(.dp, .backdrop, .app.menu-open) .scroll-ctl{display:none}
+@media (max-width:860px){.scroll-ctl{right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}.scroll-btn{width:44px;height:44px}}
