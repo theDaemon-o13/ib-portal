@@ -1,0 +1,122 @@
+Портал ИБ 1.13.0 — выкладка на прод с 1.9.0 сразу до 1.13.0 (1.10.0, 1.11.0, 1.12.0 отдельно не выкладываются).
+Подробная инструкция — RELEASE.md в архиве; этот файл — короткий порядок и ожидаемые числа.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если у вас есть клон репозитория: теги ОБЯЗАТЕЛЬНО обновить с --force (тег v1.11.0 ранее переносился):
+     git fetch --tags --force
+     git rev-parse v1.13.0            → 423f58f738b390f2458e3c0c7a040d65ace42ac3   (объект тега)
+     git rev-parse 'v1.13.0^{commit}' → 9ccde311d8354035b3d19fd2d244e86f59352c5b   (коммит)
+   Архив: ibportal-1.13.0.tar.gz + ibportal-1.13.0.tar.gz.sha256
+     sha256 ibportal-1.13.0.tar.gz = e2981c6625bcb69624684dfc23942adfd291ea8add38e2310c1bfd35a3b2423b
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.0.tar.gz.sha256          → OK
+     tar -xzf ibportal-1.13.0.tar.gz && cd ibportal-1.13.0 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.0.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ — на работающей 1.9.0, до backup.sh (запросы только читают базу; числа — в журнал выкладок):
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+
+--- А. Сессии (1.10.0)
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -c "
+SELECT count(*) FILTER (WHERE revoked_at IS NULL AND expires_at > now()) AS открытых_сессий,
+       count(*) AS строк_в_sessions
+FROM sessions;
+SELECT count(DISTINCT u.id) AS администраторов_12_часов FROM users u
+  JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.id = ur.role_id
+  LEFT JOIN role_permissions rp ON rp.role_id = r.id AND rp.permission_code = \$\$users.manage\$\$
+  WHERE u.is_active AND (rp.role_id IS NOT NULL OR r.code = \$\$portal_admin\$\$);"'
+
+--- Б. Документы (1.11.0)
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -c "
+SELECT v.stage AS этап,
+       CASE WHEN v.stage = 14 AND p.cnt > 0 AND p.pending = 0 THEN \$\$все лица согласовали\$\$ WHEN v.stage = 14 THEN \$\$лица не все\$\$ ELSE \$\$\$\$ END AS уточнение,
+       count(*) FILTER (WHERE d.deleted_at IS NULL AND d.archived_at IS NULL) AS активных,
+       count(*) FILTER (WHERE d.deleted_at IS NULL AND d.archived_at IS NOT NULL) AS в_архиве,
+       count(*) FILTER (WHERE d.deleted_at IS NOT NULL) AS удалённых
+FROM documents d JOIN document_versions v ON v.id = d.working_version_id AND v.cancelled_at IS NULL
+LEFT JOIN LATERAL (SELECT count(*) cnt, count(*) FILTER (WHERE approved_at IS NULL) pending
+                   FROM document_parties WHERE version_id = v.id AND removed_at IS NULL) p ON true
+GROUP BY 1, 2 ORDER BY 1, 2;
+SELECT count(*) FILTER (WHERE approved_version_id IS NOT NULL) AS утверждённых,
+       count(*) FILTER (WHERE approved_version_id IS NOT NULL AND working_version_id IS NOT NULL) AS на_пересмотре
+FROM documents WHERE deleted_at IS NULL;
+SELECT count(*) AS открытых_этапных, count(*) FILTER (WHERE document_state LIKE \$\$%:13\$\$) AS начальника_ИБ_на_13
+FROM tasks WHERE document_reason = \$\$stage\$\$ AND completed_at IS NULL AND archived_at IS NULL AND deleted_at IS NULL;
+SELECT count(*) AS категория_уже_есть FROM catalog_items
+WHERE catalog_code = \$\$task_categories\$\$ AND deleted_at IS NULL AND lower(value) = \$\$контроль по документу\$\$;"'
+
+--- В. Учебные письма (1.12.0)
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -c "
+SELECT (SELECT count(*) FROM awareness_letters) AS писем,
+       (SELECT count(*) FROM awareness_letters WHERE frozen) AS отправленных,
+       (SELECT count(*) FROM awareness_templates) AS шаблонов,
+       (SELECT count(*) FROM awareness_letter_events WHERE action = \$\$sent\$\$) AS отметок_отправлено;
+SELECT r.name AS реестр, count(rr.id) FILTER (WHERE rr.deleted_at IS NULL) AS записей
+FROM registers r LEFT JOIN register_records rr ON rr.register_id = r.id
+WHERE r.system_key = \$\$awareness_mailings\$\$ GROUP BY r.name;
+SELECT f.label AS поле_уже_есть FROM register_fields f JOIN registers r ON r.id = f.register_id
+WHERE r.system_key = \$\$awareness_mailings\$\$ AND f.deleted_at IS NULL AND f.system_key IS NULL
+  AND lower(f.label) IN (\$\$шаблон\$\$, \$\$языки\$\$, \$\$получатели\$\$, \$\$файл письма\$\$);"'
+
+   Записать: открытых_сессий, строк_в_sessions, администраторов_12_часов; по этапам 11–16 — активных / в_архиве / удалённых
+   (N = сумма всех трёх столбцов по всем строкам); утверждённых, на_пересмотре; открытых_этапных, начальника_ИБ_на_13 (= M);
+   категория_уже_есть; писем, отправленных, шаблонов, отметок_отправлено; записей «Рассылок»; строки «поле_уже_есть».
+   Ни одно значение не стоп-фактор (пояснения — RELEASE.md, «До выкладки»).
+
+2. РЕЗЕРВНАЯ КОПИЯ — ОБЯЗАТЕЛЬНО, И КОПИЯ ЗА ПРЕДЕЛЫ ТОМА. БЕЗ НЕЁ migrate НЕ ЗАПУСКАТЬ.
+   ./scripts/backup.sh          → последняя строка «Копия создана: <N>»; иначе — стоп.
+   B=$(docker volume inspect -f '{{.Mountpoint}}' ibportal_backups)
+   N=<имя из строки «Копия создана»>
+   sudo tar -C "$B" -cf /tmp/ibportal-backup-$N.tar "$N"
+   sha256sum /tmp/ibportal-backup-$N.tar > /tmp/ibportal-backup-$N.tar.sha256
+   Перенести оба файла в место хранения вне сервера (по регламенту банка) и там проверить:
+     sha256sum -c ibportal-backup-$N.tar.sha256                           → OK
+     tar -xf ibportal-backup-$N.tar && (cd $N && sha256sum -c SHA256SUMS) → все OK
+   Только после двух OK вне сервера — шаг 3. Имя копии и место хранения — в журнал выкладок.
+
+3. ВЫКЛАДКА
+   cp /srv/ibportal/releases/ibportal-1.13.0/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.0/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.0/' .env          (новых переменных .env нет)
+   docker compose --profile tools run --rm migrate       — ОБЯЗАТЕЛЬНО
+   Ожидается в выводе migrate:
+     - применены 5 миграций: 20261105103617_sessions_remember, 20261105160000_documents_route_v3,
+       20261106053127_document_controls, 20261106130408_awareness_layout, 20261106130700_awareness_eml_mime;
+     - «Создано системное значение «Контроль по документу»» (или «…стало системным», если категория_уже_есть = 1);
+     - «Документы 1.11.0: на маршрут из 4 этапов перенесено N (…); задач начальника ИБ сохранено M» — N и M из шага 1
+       (рабочих версий не было — строки нет);
+     - «Учебные письма 1.12.0: «Оформление писем» (заглушки); поля «Рассылки»: «Шаблон», «Языки», «Получатели», «Файл письма»»;
+     - «Seed выполнен: …».
+   docker compose up -d backend frontend
+
+4. ПОСЛЕ ВЫКЛАДКИ
+   ./scripts/smoke.sh --after                → все строки «✓», последняя «Smoke-проверка пройдена»
+   docker compose run --rm -T --no-deps backend node dist/scripts/check-integrity.js → «Целостность в порядке»
+   Повторить запросы Б и В из шага 1. Ожидается:
+     - этапов 11–16 нет; есть этапы 21–24, сумма их строк = N;
+     - утверждённых и на_пересмотре — как в шаге 1;
+     - начальника_ИБ_на_13 = 0 (задачи начальника ИБ сохранены на этапе 21 — их M);
+     - категория_уже_есть = 1;
+     - писем, отправленных, шаблонов, отметок_отправлено, записей «Рассылок» — как в шаге 1;
+     - «поле_уже_есть» — как в шаге 1.
+   Запрос А: строк_в_sessions — не меньше, чем в шаге 1 (сессии не закрываются; новые входы добавляют строки).
+   Вручную: вход («Запомнить меня» на форме), «Документы → Утверждённые» и выгрузка Excel,
+   «Осведомлённость → Письма» → письмо → «Экспорт»: предпросмотр и «Скачать для Outlook (.eml)»,
+   переключатель тем «Океан» / «Чёрный» в верхней панели.
+   Затем «Настройки → Оформление писем»: логотип, отдел, адрес ИБ, подвал (данные банка — только на проде).
+
+5. ОТКАТ НА 1.9.0 (образы 1.9.0 не удалять минимум неделю)
+   sed -i 's/^VERSION=.*/VERSION=1.9.0/' .env && docker compose up -d backend frontend
+   База не восстанавливается: миграции совместимы, 1.9.0 новые колонки и таблицы не читает.
+   Документы в работе (этапы 21–24) в 1.9.0 только показываются. Если их нужно двигать в 1.9.0 — ПОСЛЕ смены версии
+   выполнить скрипт обратного переноса из RELEASE.md, раздел «Откат на 1.9.0» (одна транзакция, повторный запуск ничего не меняет).
+   После отката пользователи входят заново (в 1.9.0 сессия — 30 минут без действий).
+   Восстановление из копии (restore.sh <N>) — только если релиз испортил данные, по RELEASE.md, раздел «Откат».
+
+6. СТОП — backend на 1.13.0 не поднимать и сообщить разработчику, если: sha256 не совпал; копия не создалась или не вынесена
+   за пределы тома; любой «✗» в smoke; ошибка migrate; N или M не совпали; числа «как в шаге 1» не сходятся.
+
+7. В журнал выкладок: дата, версия 1.13.0 (с 1.9.0), кто выкладывал, имя копии и место её хранения вне сервера,
+   числа шагов 1 и 4, результат.
+
+Проверено: репетиция 1.9.0 → 1.13.0 на чистой 1.9.0 09.11.2026 — deploy/verification/1.13.0.md (и RELEASE.md, «Репетиция»).
