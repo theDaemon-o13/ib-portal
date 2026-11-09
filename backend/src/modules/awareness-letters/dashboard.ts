@@ -34,12 +34,13 @@ export async function openRuns(db: Db, today: string): Promise<OpenRun[]> {
       plannedDate: true, draftDue: true, reviewDue: true,
       rule: { select: { title: true } },
       task: { select: { id: true, number: true } },
-      letter: { select: { status: true } },
+      letter: { select: { status: true, deletedAt: true } },
     },
     orderBy: [{ plannedDate: 'asc' }, { createdAt: 'asc' }],
   });
   return rows.map((r) => {
-    const stages = runStages(r, r.letter?.status ?? null, today);
+    // Удалённое письмо (1.13.3) — как будто письма нет: этапы не закрыты.
+    const stages = runStages(r, r.letter && r.letter.deletedAt === null ? r.letter.status : null, today);
     return {
       ruleTitle: r.rule.title, plannedDate: r.plannedDate.toISOString().slice(0, 10), taskId: r.task.id, taskNumber: r.task.number,
       stages, overdue: stages.some((s) => s.overdue),
@@ -58,7 +59,7 @@ export async function sentThisYear(db: Db, today: string): Promise<{ year: numbe
   const year = Number(today.slice(0, 4));
   const rows = await db.$queryRaw<{ kind: string; n: bigint }[]>`
     SELECT l.kind, count(*) AS n FROM awareness_letter_events e JOIN awareness_letters l ON l.id = e.letter_id
-    WHERE e.action = 'sent' AND e.sent_on >= ${new Date(`${year}-01-01T00:00:00Z`)} AND e.sent_on < ${new Date(`${year + 1}-01-01T00:00:00Z`)}
+    WHERE l.deleted_at IS NULL AND e.action = 'sent' AND e.sent_on >= ${new Date(`${year}-01-01T00:00:00Z`)} AND e.sent_on < ${new Date(`${year + 1}-01-01T00:00:00Z`)}
     GROUP BY l.kind`;
   const n = (k: string) => Number(rows.find((r) => r.kind === k)?.n ?? 0);
   return { year, planned: n('planned'), urgent: n('urgent') };

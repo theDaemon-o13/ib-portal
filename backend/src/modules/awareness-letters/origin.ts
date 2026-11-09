@@ -4,7 +4,7 @@
 // письма (этап отметить вручную нельзя). Здесь — только include для Prisma и сборка DTO, без зависимостей от задач.
 import type { LetterStatus } from './flow.js';
 
-const letterBrief = { select: { id: true, number: true, status: true, kind: true } } as const;
+const letterBrief = { select: { id: true, number: true, status: true, kind: true, deletedAt: true } } as const;
 
 /** Добавляется в taskInclude (tasks/service.ts). */
 export const taskOriginInclude = {
@@ -19,7 +19,7 @@ export const taskOriginInclude = {
   awarenessEvents: { select: { letter: letterBrief }, where: { action: 'returned' }, take: 1, orderBy: { at: 'asc' } },
 } as const;
 
-interface LetterRow { id: string; number: number; status: string; kind: string }
+interface LetterRow { id: string; number: number; status: string; kind: string; deletedAt: Date | null }
 export interface OriginRows {
   awarenessRun: { plannedDate: Date; draftDue: Date; reviewDue: Date; rule: { id: string; title: string }; letter: LetterRow | null } | null;
   awarenessLetters: LetterRow[];
@@ -28,14 +28,15 @@ export interface OriginRows {
 
 export type StageKey = 'draft' | 'review' | 'send';
 export interface Stage { key: StageKey; due: string; done: boolean; overdue: boolean }
-export interface OriginLetter { id: string; number: number; status: LetterStatus }
+/** deleted (1.13.3): письмо удалено — карточка задачи показывает «письмо удалено» без ссылки. */
+export interface OriginLetter { id: string; number: number; status: LetterStatus; deleted: boolean }
 
 export type TaskOrigin =
   | { kind: 'schedule'; rule: { id: string; title: string }; plannedDate: string; letter: OriginLetter | null; stages: Stage[]; letterSent: boolean }
   | { kind: 'letter'; reason: 'urgent' | 'rework'; letter: OriginLetter; letterSent: boolean };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
-const brief = (l: LetterRow): OriginLetter => ({ id: l.id, number: l.number, status: l.status as LetterStatus });
+const brief = (l: LetterRow): OriginLetter => ({ id: l.id, number: l.number, status: l.status as LetterStatus, deleted: l.deletedAt !== null });
 
 /** Этап выполнен по статусу письма: черновик — отправлено на согласование, согласование — утверждено, отправка — отмечено. */
 const DONE: Record<StageKey, readonly string[]> = {
@@ -58,7 +59,8 @@ export function taskOrigin(rows: OriginRows, today: string): TaskOrigin | null {
   if (run) {
     // Письмо запуска: черновик из шаблона или созданное из задачи — по letterId; на случай старых строк — по task_id.
     const letter = run.letter ?? rows.awarenessLetters[0] ?? null;
-    const status = letter?.status ?? null;
+    // Удалённое письмо этапы не закрывает (оно никогда не отправлялось): как будто письма нет.
+    const status = letter && letter.deletedAt === null ? letter.status : null;
     const stages = runStages(run, status, today);
     return {
       kind: 'schedule', rule: run.rule, plannedDate: iso(run.plannedDate), letter: letter ? brief(letter) : null, stages, letterSent: status === 'sent',

@@ -159,7 +159,8 @@ type LetterRow = Prisma.AwarenessLetterGetPayload<{ include: typeof letterInclud
 
 async function loadLetter(db: Db, id: string): Promise<LetterRow> {
   const l = await db.awarenessLetter.findUnique({ where: { id }, include: letterInclude });
-  if (!l) throw notFound('Письмо');
+  // Удалённое письмо (1.13.3) — как несуществующее: карточка, правка, экспорт и действия — 404.
+  if (!l || l.deletedAt !== null) throw notFound('Письмо');
   return l;
 }
 
@@ -278,6 +279,8 @@ export async function getLetter(db: Db, actorId: string, id: string) {
       ? (await db.awarenessLetterEvent.findFirst({ where: { letterId: id, action: 'approved', versionId: l.approvedVersionId }, orderBy: { at: 'desc' }, select: { selfApproved: true } }))?.selfApproved ?? false
       : false,
     sentWithoutApproval: events.some((e) => e.action === 'sent' && e.withoutApproval),
+    /** 1.13.3: можно удалить — в архиве и ни разу не отмечено отправленным (право awareness.delete проверяет маршрут). */
+    deletable: l.archivedAt !== null && !l.frozen && l.status !== 'sent' && l.sentVersionId === null && !events.some((e) => e.action === 'sent'),
     versions: versions.map((v) => ({
       no: v.no, reason: v.reason as VersionReason, restoredFrom: v.restoredFrom, createdBy: v.creator, createdAt: v.createdAt.toISOString(),
     })),
@@ -318,6 +321,7 @@ export async function listLetters(db: Db, q: LetterListQuery) {
   const text = (q.q ?? '').trim().replace(/\s+/g, ' ');
   const num = /^(№\s*)?#?\d+$/.test(text) ? Number(text.replace(/\D/g, '')) : null;
   const where: Prisma.AwarenessLetterWhereInput = {
+    deletedAt: null,
     ...(q.scope === 'active' ? { archivedAt: null } : q.scope === 'archived' ? { archivedAt: { not: null } } : {}),
     ...(q.status ? { status: q.status } : {}),
     ...(q.kind ? { kind: q.kind } : {}),
@@ -775,6 +779,28 @@ export async function copyLetter(db: Db, actor: Actor, id: string) {
     return copy.id;
   });
   return getLetter(db, actor.id, newId);
+}
+
+/**
+ * Удалить письмо (1.13.3, ADR-0048): мягко (deleted_at), только из архива и только ни разу не отмеченное отправленным —
+ * без записи «Рассылок» и файла отправки. Отправленное — 409 LETTER_SENT (у замороженного deleted_at не меняет и триггер),
+ * не в архиве — 409 LETTER_NOT_ARCHIVED. Версии и события остаются в базе; задача и запуск расписания — тоже,
+ * в карточке задачи — «письмо удалено». Право — awareness.delete (маршрут).
+ */
+export async function deleteLetter(db: Db, actor: Actor, id: string, input: { version: number }) {
+  const l = await loadLetter(db, id);
+  const sentMarks = await db.awarenessLetterEvent.count({ where: { letterId: id, action: 'sent' } });
+  if (l.frozen || l.status === 'sent' || l.sentVersionId !== null || sentMarks > 0) {
+    throw new AppError(409, 'LETTER_SENT', `Письмо № ${l.number} отмечено отправленным — его нельзя удалить, только хранить в архиве`);
+  }
+  if (l.archivedAt === null) throw new AppError(409, 'LETTER_NOT_ARCHIVED', 'Удалить можно только письмо из архива — сначала отправьте его в архив');
+  await withTx(db, async (tx) => {
+    await claim(tx, l, input.version, { deletedAt: new Date() });
+    await auditLetter(tx, actor, l, 'deleted', `удалено («${l.title}», версия ${input.version})`, {
+      title: l.title, version: input.version, status: l.status, taskId: l.taskId,
+    });
+  });
+  return { id: l.id, number: l.number, deleted: true as const };
 }
 
 export async function archiveLetter(db: Db, actor: Actor, id: string, input: { version: number; archived: boolean }) {

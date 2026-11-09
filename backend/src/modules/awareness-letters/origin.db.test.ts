@@ -58,7 +58,7 @@ describe('происхождение задач модуля писем', () => 
       expect(t1.origin?.kind === 'schedule' && t1.origin.stages.map((x) => [x.key, x.done, x.overdue])).toEqual(
         [['draft', true, false], ['review', false, true], ['send', false, false]],
       );
-      expect(t1.origin?.kind === 'schedule' && t1.origin.letter).toEqual({ id: letter.id, number: letter.number, status: 'review' });
+      expect(t1.origin?.kind === 'schedule' && t1.origin.letter).toEqual({ id: letter.id, number: letter.number, status: 'review', deleted: false });
 
       const a = await letters.approveLetter(tx, head, letter.id, { version: s.version });
       await letters.sendLetter(tx, worker, letter.id, { version: a.version, sentOn: '2041-01-04', audience: 'Все сотрудники' }, { now: () => NOW });
@@ -67,7 +67,7 @@ describe('происхождение задач модуля писем', () => 
 
       const urgent = await letters.urgentMailing(tx, worker, { title: 'Срочно', reason: 'Инцидент' }, { now: () => NOW });
       const tu = await dto(tx, must(urgent.letter.task).id, NOW);
-      expect(tu.origin).toEqual({ kind: 'letter', reason: 'urgent', letter: { id: urgent.letter.id, number: urgent.letter.number, status: 'draft' }, letterSent: false });
+      expect(tu.origin).toEqual({ kind: 'letter', reason: 'urgent', letter: { id: urgent.letter.id, number: urgent.letter.number, status: 'draft', deleted: false }, letterSent: false });
 
       const { letter: l2 } = await letters.createLetter(tx, worker, { title: 'На доработку', kind: 'planned', ...both });
       const s2 = await letters.submitLetter(tx, worker, l2.id, { version: l2.version });

@@ -166,6 +166,7 @@
                               "evidence.review",
                               "docs.manage",
                               "docs.delete",
+                              "awareness.delete",
                               "docs.approve.head",
                               "settings.manage",
                               "users.manage",
@@ -471,6 +472,7 @@
                               "evidence.review",
                               "docs.manage",
                               "docs.delete",
+                              "awareness.delete",
                               "docs.approve.head",
                               "settings.manage",
                               "users.manage",
@@ -635,6 +637,7 @@
                               "evidence.review",
                               "docs.manage",
                               "docs.delete",
+                              "awareness.delete",
                               "docs.approve.head",
                               "settings.manage",
                               "users.manage",
@@ -14199,6 +14202,7 @@
                                 "evidence.review",
                                 "docs.manage",
                                 "docs.delete",
+                                "awareness.delete",
                                 "docs.approve.head",
                                 "settings.manage",
                                 "users.manage",
@@ -14228,6 +14232,7 @@
                                 "evidence.review",
                                 "docs.manage",
                                 "docs.delete",
+                                "awareness.delete",
                                 "docs.approve.head",
                                 "settings.manage",
                                 "users.manage",
@@ -14257,6 +14262,7 @@
                                 "evidence.review",
                                 "docs.manage",
                                 "docs.delete",
+                                "awareness.delete",
                                 "docs.approve.head",
                                 "settings.manage",
                                 "users.manage",
@@ -14584,6 +14590,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -14613,6 +14620,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -14642,6 +14650,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -14980,6 +14989,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -15009,6 +15019,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -15038,6 +15049,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -15572,6 +15584,7 @@
                 "evidence.review",
                 "docs.manage",
                 "docs.delete",
+                "awareness.delete",
                 "docs.approve.head",
                 "settings.manage",
                 "users.manage",
@@ -15636,6 +15649,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -15665,6 +15679,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -15694,6 +15709,7 @@
                           "evidence.review",
                           "docs.manage",
                           "docs.delete",
+                          "awareness.delete",
                           "docs.approve.head",
                           "settings.manage",
                           "users.manage",
@@ -72758,12 +72774,16 @@
                                                   "approved",
                                                   "sent"
                                                 ]
+                                              },
+                                              "deleted": {
+                                                "type": "boolean"
                                               }
                                             },
                                             "required": [
                                               "id",
                                               "number",
-                                              "status"
+                                              "status",
+                                              "deleted"
                                             ],
                                             "additionalProperties": false
                                           },
@@ -72853,12 +72873,16 @@
                                               "approved",
                                               "sent"
                                             ]
+                                          },
+                                          "deleted": {
+                                            "type": "boolean"
                                           }
                                         },
                                         "required": [
                                           "id",
                                           "number",
-                                          "status"
+                                          "status",
+                                          "deleted"
                                         ],
                                         "additionalProperties": false
                                       },
@@ -73851,12 +73875,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -73946,12 +73974,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -76020,12 +76052,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -76115,12 +76151,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -77107,12 +77147,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -77202,12 +77246,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -78060,12 +78108,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -78155,12 +78207,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -79003,12 +79059,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -79098,12 +79158,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -79936,12 +80000,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -80031,12 +80099,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -80869,12 +80941,16 @@
                                             "approved",
                                             "sent"
                                           ]
+                                        },
+                                        "deleted": {
+                                          "type": "boolean"
                                         }
                                       },
                                       "required": [
                                         "id",
                                         "number",
-                                        "status"
+                                        "status",
+                                        "deleted"
                                       ],
                                       "additionalProperties": false
                                     },
@@ -80964,12 +81040,16 @@
                                         "approved",
                                         "sent"
                                       ]
+                                    },
+                                    "deleted": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "number",
-                                    "status"
+                                    "status",
+                                    "deleted"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -173894,6 +173974,9 @@
                         "sentWithoutApproval": {
                           "type": "boolean"
                         },
+                        "deletable": {
+                          "type": "boolean"
+                        },
                         "versions": {
                           "type": "array",
                           "items": {
@@ -174200,6 +174283,7 @@
                         "latestIsApproved",
                         "selfApproved",
                         "sentWithoutApproval",
+                        "deletable",
                         "versions",
                         "events",
                         "actions"
@@ -174776,6 +174860,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -175082,6 +175169,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -175713,6 +175801,9 @@
                         "sentWithoutApproval": {
                           "type": "boolean"
                         },
+                        "deletable": {
+                          "type": "boolean"
+                        },
                         "versions": {
                           "type": "array",
                           "items": {
@@ -176019,6 +176110,7 @@
                         "latestIsApproved",
                         "selfApproved",
                         "sentWithoutApproval",
+                        "deletable",
                         "versions",
                         "events",
                         "actions"
@@ -177006,6 +177098,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -177312,6 +177407,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -177884,6 +177980,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -178190,6 +178289,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -178762,6 +178862,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -179068,6 +179171,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -179644,6 +179748,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -179950,6 +180057,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -180527,6 +180635,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -180833,6 +180944,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -181436,6 +181548,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -181748,6 +181863,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions",
@@ -182301,6 +182417,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -182607,6 +182726,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -183179,6 +183299,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -183485,9 +183608,318 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/awareness/letters/{id}/delete": {
+      "post": {
+        "summary": "Удалить письмо (мягко): только из архива и ни разу не отмеченное отправленным (1.13.3)",
+        "tags": [
+          "awareness-letters"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deleted": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "number",
+                    "deleted"
                   ],
                   "additionalProperties": false
                 }
@@ -184057,6 +184489,9 @@
                     "sentWithoutApproval": {
                       "type": "boolean"
                     },
+                    "deletable": {
+                      "type": "boolean"
+                    },
                     "versions": {
                       "type": "array",
                       "items": {
@@ -184363,6 +184798,7 @@
                     "latestIsApproved",
                     "selfApproved",
                     "sentWithoutApproval",
+                    "deletable",
                     "versions",
                     "events",
                     "actions"
@@ -187942,6 +188378,9 @@
                         "sentWithoutApproval": {
                           "type": "boolean"
                         },
+                        "deletable": {
+                          "type": "boolean"
+                        },
                         "versions": {
                           "type": "array",
                           "items": {
@@ -188248,6 +188687,7 @@
                         "latestIsApproved",
                         "selfApproved",
                         "sentWithoutApproval",
+                        "deletable",
                         "versions",
                         "events",
                         "actions"
@@ -197559,6 +197999,9 @@
                         "sentWithoutApproval": {
                           "type": "boolean"
                         },
+                        "deletable": {
+                          "type": "boolean"
+                        },
                         "versions": {
                           "type": "array",
                           "items": {
@@ -197865,6 +198308,7 @@
                         "latestIsApproved",
                         "selfApproved",
                         "sentWithoutApproval",
+                        "deletable",
                         "versions",
                         "events",
                         "actions"
@@ -198479,6 +198923,9 @@
                         "sentWithoutApproval": {
                           "type": "boolean"
                         },
+                        "deletable": {
+                          "type": "boolean"
+                        },
                         "versions": {
                           "type": "array",
                           "items": {
@@ -198785,6 +199232,7 @@
                         "latestIsApproved",
                         "selfApproved",
                         "sentWithoutApproval",
+                        "deletable",
                         "versions",
                         "events",
                         "actions"
