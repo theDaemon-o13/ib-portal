@@ -35,10 +35,11 @@
 .rail-logout{display:none}
 
 /* Подпись «designed by» и версия. */
-.credit{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:0;color:var(--side-muted)}
+.credit{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 10px;margin:0;color:var(--side-muted)}
+/* 1.13.1: узкое меню (один-два раздела — «Читатель документов», «Самооценка») — версия переносится под подпись, а не обрезается. */
 .credit-sig{display:grid;gap:2px;min-width:0;color:var(--side-text)}
 .credit-by{font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;color:var(--side-muted)}
-.credit-v{flex:none;border:0;background:none;padding:0;font:inherit;font-size:11px;line-height:1.5;color:var(--side-muted);cursor:pointer;text-align:right;white-space:nowrap;
+.credit-v{flex:none;margin-left:auto;border:0;background:none;padding:0;font:inherit;font-size:11px;line-height:1.5;color:var(--side-muted);cursor:pointer;text-align:right;white-space:nowrap;
   text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);text-underline-offset:2px}
 .credit-v:hover{color:var(--side-text)}
 .visually-hidden{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
@@ -51,7 +52,7 @@
 /* Страница входа: полная подпись по центру. */
 .credit-full{flex-direction:column;align-items:center;gap:8px;margin-top:16px;color:var(--side-muted)}
 .credit-full .credit-sig{justify-items:center;color:var(--side-text)}
-.credit-full .credit-v{text-align:center}
+.credit-full .credit-v{text-align:center;margin-left:0}
 .about-sig{color:var(--fg);margin:2px 0 6px}
 
 /* ---------- Верхняя панель ---------- */
