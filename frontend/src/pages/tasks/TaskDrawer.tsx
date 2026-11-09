@@ -12,6 +12,7 @@ import { ChainBlock } from './ChainBlock';
 import { ACTION_LABEL, actionNeedsComment, candidatesLabel, initials, needsComment, originText, processHint, type ProcessAction } from './logic';
 import { TaskOriginBlock } from './TaskOriginBlock';
 import { TaskLetterActions } from '../awareness/TaskLetterActions';
+import { Select } from '../../components/Select';
 
 interface Draft {
   title: string;
@@ -258,34 +259,34 @@ export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string;
                 {canOverride
                   ? (
                     <label>Статус
-                      <select className="inp" value={draft.statusId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, statusId: e.target.value })}>
+                      <Select className="inp" value={draft.statusId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, statusId: e.target.value })}>
                         {statuses.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
                         {!statuses.data?.items.some((s) => s.id === t.status.id) && <option value={t.status.id}>{t.status.value}</option>}
-                      </select>
+                      </Select>
                     </label>
                   )
                   : <div className="field-ro"><span>Статус</span><b data-testid="task-status">{t.status.value}</b></div>}
                 <label>Ответственный
-                  <select className="inp" value={draft.assigneeId} disabled={readOnly || assigneeLocked} onChange={(e) => setDraft({ ...draft, assigneeId: e.target.value })}
+                  <Select className="inp" value={draft.assigneeId} disabled={readOnly || assigneeLocked} onChange={(e) => setDraft({ ...draft, assigneeId: e.target.value })}
                     title={assigneeLocked ? (mine ? 'Снять себя можно, пока задача не взята в работу' : 'Исполнителя меняет пользователь с правом «Задачи: постановка другим»') : undefined}>
                     <option value="">— не назначен</option>
                     {t.assignee && !assigneeOptions.some((p) => p.id === t.assignee?.id) && <option value={t.assignee.id}>{t.assignee.fullName}</option>}
                     {assigneeOptions.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 {t.reviewer && <div className="field-ro"><span>Проверяет</span><b data-testid="task-reviewer">{t.reviewer.fullName}</b></div>}
                 <label>Срок<input className="inp" type="date" value={draft.dueDate} disabled={readOnly} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} /></label>
                 <label>Приоритет
-                  <select className="inp" value={draft.priorityId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, priorityId: e.target.value })}>
+                  <Select className="inp" value={draft.priorityId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, priorityId: e.target.value })}>
                     {priorities.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
                     {!priorities.data?.items.some((s) => s.id === t.priority.id) && <option value={t.priority.id}>{t.priority.value}</option>}
-                  </select>
+                  </Select>
                 </label>
                 <label>Категория
-                  <select className="inp" value={draft.categoryId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>
+                  <Select className="inp" value={draft.categoryId} disabled={readOnly} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>
                     {categories.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
                     {!categories.data?.items.some((s) => s.id === t.category.id) && <option value={t.category.id}>{t.category.value}</option>}
-                  </select>
+                  </Select>
                 </label>
               </div>
               {statusNeedsComment && !readOnly && (
@@ -316,10 +317,10 @@ export function TaskDrawer({ id, canDelete, onClose, onOpenTask }: { id: string;
               )}
               {swap && (
                 <form className="grid-gap" onSubmit={(e) => { e.preventDefault(); replaceReviewer.mutate(swap); }}>
-                  <select className="inp" required aria-label="Новый проверяющий" value={swap.reviewerId} onChange={(e) => setSwap({ ...swap, reviewerId: e.target.value })}>
+                  <Select className="inp" required aria-label="Новый проверяющий" value={swap.reviewerId} onChange={(e) => setSwap({ ...swap, reviewerId: e.target.value })}>
                     <option value="">— выберите сотрудника</option>
                     {swapOptions.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-                  </select>
+                  </Select>
                   <textarea className="inp" maxLength={4000} aria-label="Комментарий к замене" value={swap.comment}
                     onChange={(e) => setSwap({ ...swap, comment: e.target.value })} placeholder="Почему меняете (по желанию)" />
                   <div className="row">

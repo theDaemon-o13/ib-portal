@@ -240,11 +240,21 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
     },
 
     /**
-     * Выбор в <select>. Выпадающий список в headless Chrome мышью не открывается, поэтому значение
-     * ставится нативным setter'ом с событием change — тем же, что вызывает выбор пользователя.
+     * Выбор значения в списке — как пользователь (1.13.4): щелчок по полю списка (role=combobox компонента Select)
+     * открывает панель role=listbox, щелчок по пункту с этим значением выбирает его. expr — поле списка или скрытый
+     * нативный <select> внутри Select (так его находят $.field и подписи). Значение — как value у <option>.
+     * Для нативного <select> вне Select (его в портале не осталось) — прежний путь: setter и событие change.
      */
     async select(expr, value, what = expr) {
       await ui.waitFor(`!!(${expr})`, what);
+      const cb = `((el) => el?.matches('[role=combobox]') ? el : el?.closest('.sel')?.querySelector(':scope > [role=combobox]'))(${expr})`;
+      if (await evaluate(`!!${cb}`)) {
+        if (await evaluate(`${cb}.getAttribute('aria-expanded') !== 'true'`)) await ui.click(cb, `${what}: открыть список`);
+        const opt = `document.getElementById(${cb}.getAttribute('aria-controls'))?.querySelector('[role=option][data-value=' + CSS.escape(${JSON.stringify(String(value))}) + ']')`;
+        await ui.click(opt, `${what}: пункт «${value}»`);
+        await ui.waitFor(`${cb}.getAttribute('aria-expanded') === 'false' && ${cb}.dataset.value === ${JSON.stringify(String(value))}`, `${what}: выбрано «${value}»`);
+        return;
+      }
       await evaluate(`(() => { const el = ${expr};
         Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(el, ${JSON.stringify(value)});
         el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
@@ -320,6 +330,11 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       const keys = {
         ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 },
         ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 },
+        ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 },
+        ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+        Home: { key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 },
+        End: { key: 'End', code: 'End', windowsVirtualKeyCode: 35 },
+        Tab: { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 },
         Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
         Escape: { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 },
         Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },

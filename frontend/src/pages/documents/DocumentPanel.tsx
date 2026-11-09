@@ -19,6 +19,7 @@ import { DocumentControls } from './DocumentControls';
 import { DocumentAutomations } from './DocumentAutomations';
 import { HoldersLine, StageWho } from './Holders';
 import { ACTION_DONE, ACTION_LABEL, historyText, isReturn, reviewLabel, SELF_APPROVED, STATUS_TONE, versionLabel } from './logic';
+import { Select } from '../../components/Select';
 
 /** Ошибки, после которых карточку нужно перечитать: документ успели изменить или он ушёл на другой этап. */
 const STALE = new Set(['VERSION_CONFLICT', 'STAGE_CHANGED', 'NOT_IN_ROUTE', 'WRONG_STAGE']);
@@ -443,16 +444,16 @@ export function DocumentPanel({ id, onGone, onClose, className }: { id: string; 
           <form className="task-form" aria-label="Тип, владелец и цикл" onSubmit={(e) => { e.preventDefault(); saveSettings.mutate(settings); }}>
             <div className="fgrid">
               <label>Тип документа
-                <select className="inp" value={settings.typeId} onChange={(e) => setSettings({ ...settings, typeId: e.target.value })}>
+                <Select className="inp" value={settings.typeId} onChange={(e) => setSettings({ ...settings, typeId: e.target.value })}>
                   {!types.data?.items.some((t) => t.id === d.type.id) && <option value={d.type.id}>{d.type.value}</option>}
                   {types.data?.items.map((t) => <option key={t.id} value={t.id}>{t.value}</option>)}
-                </select>
+                </Select>
               </label>
               <label>Владелец
-                <select className="inp" value={settings.ownerId} onChange={(e) => setSettings({ ...settings, ownerId: e.target.value })}>
+                <Select className="inp" value={settings.ownerId} onChange={(e) => setSettings({ ...settings, ownerId: e.target.value })}>
                   {!people.data?.items.some((p) => p.id === d.owner.id) && <option value={d.owner.id}>{d.owner.fullName}</option>}
                   {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-                </select>
+                </Select>
               </label>
               <label>Цикл пересмотра, мес.
                 <input className="inp" type="number" min={1} max={60} required value={settings.reviewMonths} onChange={(e) => setSettings({ ...settings, reviewMonths: Number(e.target.value) })} />

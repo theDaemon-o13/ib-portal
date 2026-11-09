@@ -9,6 +9,7 @@ import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { dateRu } from '../dashboard/logic';
 import { LevelPill } from './Charts';
+import { Select } from '../../components/Select';
 
 export function ImportDialog({ a, onClose }: { a: Assessment; onClose: () => void }) {
   const qc = useQueryClient();
@@ -78,9 +79,9 @@ export function ImportDialog({ a, onClose }: { a: Assessment; onClose: () => voi
               </div>
               {preview.sources.length > 1 && (
                 <label className="fd-label">Оценка из файла
-                  <select className="inp" value={preview.sourceId ?? ''} disabled={busy} onChange={(e) => file && void load(file, e.target.value)}>
+                  <Select className="inp" value={preview.sourceId ?? ''} disabled={busy} onChange={(e) => file && void load(file, e.target.value)}>
                     {preview.sources.map((s) => <option key={s.id} value={s.id}>{s.title || s.id}{s.date ? ` · ${dateRu(s.date)}` : ''}</option>)}
-                  </select>
+                  </Select>
                 </label>
               )}
               {preview.notes.map((n) => <div key={n} className="hint">{n}</div>)}

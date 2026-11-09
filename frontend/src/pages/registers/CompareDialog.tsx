@@ -8,6 +8,7 @@ import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { changesOf, plural, setForPicked } from './compare';
 import { rkeys } from './keys';
+import { Select } from '../../components/Select';
 
 type Step = 'scope' | 'result' | 'confirm';
 
@@ -146,10 +147,10 @@ export function CompareDialog({ reg, importId, file, onClose }: {
               {result.missing.length > 0 && result.status && (
                 <div className="row">
                   <span className="hint">Статус отмеченным ({picked.size}):</span>
-                  <select className="inp sm-inp" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} aria-label="Статус отмеченным">
+                  <Select className="inp sm-inp" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} aria-label="Статус отмеченным">
                     <option value="">—</option>
                     {result.status.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                  </select>
+                  </Select>
                   <button className="btn sm" type="button" disabled={!picked.size || !bulkStatus} onClick={() => setChoices(setForPicked(choices, picked, bulkStatus))}>Проставить</button>
                 </div>
               )}
@@ -172,11 +173,11 @@ export function CompareDialog({ reg, importId, file, onClose }: {
                         <td className="mono">{m.key}</td>
                         <td>{statusLabel(m.statusId)}</td>
                         <td>
-                          <select className="inp sm-inp" value={choices.get(m.id) ?? ''} aria-label={`Новый статус записи ${m.number}`}
+                          <Select className="inp sm-inp" value={choices.get(m.id) ?? ''} aria-label={`Новый статус записи ${m.number}`}
                             onChange={(e) => setChoices(new Map(choices).set(m.id, e.target.value))}>
                             <option value="">не менять</option>
                             {result.status?.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                          </select>
+                          </Select>
                         </td>
                       </tr>
                     ))}

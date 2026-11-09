@@ -10,6 +10,7 @@ import { useToast } from '../../components/Toast';
 import { plural } from '../registers/compare';
 import { vulnDeleteBlock, vulnDeleteLines } from '../settings/trash';
 import { useTodayIso } from './today';
+import { Select } from '../../components/Select';
 
 export function DeleteGroupDialog({ group, onClose, onDeleted }: { group: VulnGroup; onClose: () => void; onDeleted: () => void }) {
   const qc = useQueryClient();
@@ -70,9 +71,9 @@ export function DeletedStats({ scope }: { scope: { nodeId?: string; groupId?: st
   return (
     <div className="v-deleted row" data-testid="deleted-stats">
       <span>Удалено записей за</span>
-      <select className="inp sm" value={days} aria-label="Период удалений" onChange={(e) => setDays(Number(e.target.value) as typeof days)}>
+      <Select className="inp sm" value={days} aria-label="Период удалений" onChange={(e) => setDays(Number(e.target.value) as typeof days)}>
         {PERIODS.map((d) => <option key={d} value={d}>{d} дн.</option>)}
-      </select>
+      </Select>
       <b>{s?.total ?? '…'}</b>
       {s && s.total > 0 && (
         <span className="hint">

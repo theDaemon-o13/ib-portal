@@ -2,6 +2,7 @@
 // Esc закрывает только окно: панель под ним остаётся (DetailPanel проверяет defaultPrevented).
 import { useEffect, type FormEvent, type ReactNode } from 'react';
 import { Overlay } from '../../components/Overlay';
+import { selectListOpen } from '../../components/Select';
 
 export function FormDialog(p: {
   title: string;
@@ -17,7 +18,8 @@ export function FormDialog(p: {
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || p.busy) return;
+      // Открытый выпадающий список (1.13.4) закрывается первым — окно остаётся.
+      if (e.key !== 'Escape' || p.busy || selectListOpen()) return;
       e.preventDefault();
       p.onClose();
     };

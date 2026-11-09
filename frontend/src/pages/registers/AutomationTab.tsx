@@ -9,6 +9,7 @@ import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
 import { EVENT_TYPE_NAMES, formatDate, isBasisRule, isScoreRule } from './logic';
 import { RuleTasksDialog } from './RuleTasksDialog';
+import { Select } from '../../components/Select';
 
 type CondKind = RuleCondition['kind'];
 type Recipient = Extract<RuleAction, { eventType: 'remind' | 'notify' | 'escalate' }>['recipients'][number];
@@ -102,28 +103,28 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
   return (
     <form className="rule-form" onSubmit={submit} aria-label="Новое правило">
       <label>Условие
-        <select className="inp" value={kind} onChange={(e) => { const k = e.target.value as CondKind; setKind(k); setFieldId(''); if (k === 'yearly' && setOption) setEventType('notify'); }} aria-label="Условие">
+        <Select className="inp" value={kind} onChange={(e) => { const k = e.target.value as CondKind; setKind(k); setFieldId(''); if (k === 'yearly' && setOption) setEventType('notify'); }} aria-label="Условие">
           {dates.length > 0 && <option value="before">За N дней до даты</option>}
           {dates.length > 0 && <option value="overdue">Дата просрочена</option>}
           {selects.length > 0 && <option value="equals">Поле = значение</option>}
           <option value="yearly">Ежегодно — сводная задача</option>
           {basisFields.length > 0 && <option value="basis_missing">Канал открыт без основания</option>}
-        </select>
+        </Select>
       </label>
       {kind === 'yearly' ? (
         <label>День
           <span className="row nowrap">
             <input className="inp" type="number" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} aria-label="День месяца" />
-            <select className="inp" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Месяц">
+            <Select className="inp" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Месяц">
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-            </select>
+            </Select>
           </span>
         </label>
       ) : (
         <label>Поле
-          <select className="inp" value={field?.id ?? ''} onChange={(e) => { setFieldId(e.target.value); setOptionId(''); }} aria-label="Поле условия">
+          <Select className="inp" value={field?.id ?? ''} onChange={(e) => { setFieldId(e.target.value); setOptionId(''); }} aria-label="Поле условия">
             {pool.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       {kind === 'before' && (
@@ -143,18 +144,18 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
             <input className="inp" type="number" min={1} max={365} placeholder="сразу" value={workdays} onChange={(e) => setWorkdays(e.target.value)} aria-label="Рабочих дней просрочки" />
           </label>
           <label>…и пусто поле
-            <select className="inp" value={unless} onChange={(e) => setUnless(e.target.value)} aria-label="Если пусто поле">
+            <Select className="inp" value={unless} onChange={(e) => setUnless(e.target.value)} aria-label="Если пусто поле">
               <option value="">— не важно</option>
               {fillable.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
         </>
       )}
       {kind === 'equals' && (
         <label>Значение
-          <select className="inp" value={option?.id ?? ''} onChange={(e) => setOptionId(e.target.value)} aria-label="Значение условия">
+          <Select className="inp" value={option?.id ?? ''} onChange={(e) => setOptionId(e.target.value)} aria-label="Значение условия">
             {field?.options.filter((o) => !o.archived).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       {kind === 'yearly' && status && (
@@ -166,21 +167,21 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
         </div>
       )}
       <label>Действие
-        <select className="inp" value={eventType} onChange={(e) => setEventType(e.target.value as typeof eventType)} aria-label="Действие">
+        <Select className="inp" value={eventType} onChange={(e) => setEventType(e.target.value as typeof eventType)} aria-label="Действие">
           {Object.entries(EVENT_TYPE_NAMES).filter(([k]) => k !== 'set_option' || (kind !== 'yearly' && selects.length > 0)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
+        </Select>
       </label>
       {setOption ? (
         <div className="span-all row">
           <label>Поле
-            <select className="inp" value={target?.id ?? ''} onChange={(e) => { setSetField(e.target.value); setSetTo(''); setSetFrom([]); }} aria-label="Какое поле изменить">
+            <Select className="inp" value={target?.id ?? ''} onChange={(e) => { setSetField(e.target.value); setSetTo(''); setSetFrom([]); }} aria-label="Какое поле изменить">
               {selects.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
           <label>Поставить
-            <select className="inp" value={setTo} onChange={(e) => setSetTo(e.target.value)} aria-label="Новое значение">
+            <Select className="inp" value={setTo} onChange={(e) => setSetTo(e.target.value)} aria-label="Новое значение">
               {target?.options.filter((o) => !o.archived).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
+            </Select>
           </label>
           <span className="hint">если сейчас:</span>
           {target?.options.filter((o) => !o.archived).map((o) => (
@@ -209,11 +210,11 @@ function RuleForm({ reg }: { reg: RegisterDetail }) {
                 <button key={l.id} type="button" className="btn sm" title={l.members.length || l.emails.length ? [...l.members.map((m) => m.fullName), ...l.emails].join(', ') : 'У метки пока нет участников — задача будет без ответственного'}
                   onClick={() => addRecipient({ kind: 'label', itemId: l.id })}>+ {l.value}</button>
               ))}
-              <select className="inp" value="" aria-label="Сотрудник-получатель"
+              <Select className="inp" value="" aria-label="Сотрудник-получатель"
                 onChange={(e) => { const u = people.data?.items.find((x) => x.id === e.target.value); if (u) addRecipient({ kind: 'user', userId: u.id, name: u.fullName }); }}>
                 <option value="">+ сотрудник…</option>
                 {people.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-              </select>
+              </Select>
             </div>
             <div className="hint">Кто стоит за меткой — в «Настройки → Справочники → Получатели уведомлений». «Владелец системы» — из справочника «Системы» по полю «Система» записи. {'{год}'} в заголовке — следующий год.</div>
           </div>
@@ -286,12 +287,12 @@ function RunLog({ reg, canManage }: { reg: RegisterDetail; canManage: boolean })
       <summary className="eyebrow">Журнал запусков <span className="count">{total}</span></summary>
       {canManage && (
         <div className="row">
-          <select className="inp sm-inp" value={older} onChange={(e) => { setOlder(e.target.value); setConfirming(false); }} aria-label="Что очистить">
+          <Select className="inp sm-inp" value={older} onChange={(e) => { setOlder(e.target.value); setConfirming(false); }} aria-label="Что очистить">
             <option value="30">старше 30 дней</option>
             <option value="90">старше 90 дней</option>
             <option value="180">старше 180 дней</option>
             <option value="all">весь журнал</option>
-          </select>
+          </Select>
           {confirming ? (
             <>
               <span className="hint">Удалить строки журнала {older === 'all' ? 'полностью' : `старше ${older} дн.`}? События и задачи не затрагиваются.</span>
@@ -342,11 +343,11 @@ function EventLog({ reg }: { reg: RegisterDetail }) {
     <div className="grid-gap">
       <div className="row">
         <div className="eyebrow">События</div>
-        <select className="inp sm-inp" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} aria-label="Статус событий">
+        <Select className="inp sm-inp" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} aria-label="Статус событий">
           <option value="">Все</option>
           <option value="new">Ждут задач</option>
           <option value="processed">Стали задачами</option>
-        </select>
+        </Select>
         <span className="hint mono">{items.length} из {total}</span>
       </div>
       <div className="tbl-wrap">

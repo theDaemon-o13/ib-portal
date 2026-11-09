@@ -8,6 +8,7 @@ import { FileUpload } from '../../components/files/FileUpload';
 import { useToast } from '../../components/Toast';
 import { formatDate } from './logic';
 import { rkeys } from './keys';
+import { Select } from '../../components/Select';
 
 const DOC_KINDS = ['Служебная записка ОУР', 'Протокол риск-комитета', 'Письмо ОУР'];
 const today = () => new Date().toISOString().slice(0, 10);
@@ -86,9 +87,9 @@ export function DecisionBlock({ reg, f, rec, canEdit, onSaved }: {
           </div>
           <div className="fgrid">
             <label>Решение
-              <select className="inp" value={form.optionId} onChange={(e) => set({ optionId: e.target.value })}>
+              <Select className="inp" value={form.optionId} onChange={(e) => set({ optionId: e.target.value })}>
                 {choices.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </select>
+              </Select>
             </label>
             <label>Документ-основание
               <input className="inp" list={`dk-${f.id}`} maxLength={300} value={form.documentTitle} onChange={(e) => set({ documentTitle: e.target.value })} />

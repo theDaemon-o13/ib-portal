@@ -9,6 +9,7 @@ import { FieldDrawer } from './FieldDrawer';
 import { BasisRuleEditor, CalcRuleEditor } from './FieldEditors';
 import { ALLOWED_ROLES, describeRule, ROLE_NAMES, TYPE_NAMES } from './logic';
 import { rkeys } from './keys';
+import { Select } from '../../components/Select';
 
 const ALL_TYPES = Object.keys(TYPE_NAMES) as FieldType[];
 
@@ -101,11 +102,11 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
                   <td className="hint values-cell">{summary(f)}</td>
                   <td onClick={stop}>
                     {/* Список есть в каждой строке; если ролей для типа нет — неактивный «Не используется». */}
-                    <select className="inp role-select" value={f.analyticsRole ?? ''} aria-label={`Аналитика для поля ${f.label}`}
+                    <Select className="inp role-select" value={f.analyticsRole ?? ''} aria-label={`Аналитика для поля ${f.label}`}
                       disabled={!canManage || roles.length === 0 || f.archived || setRole.isPending}
                       onChange={(e) => setRole.mutate({ f, role: e.target.value })}>
                       {['', ...roles].map((r) => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}
-                    </select>
+                    </Select>
                   </td>
                   {canManage && (
                     <td onClick={stop}>
@@ -125,33 +126,33 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
         <form className="field-form add-field" onSubmit={submitAdd}>
           <label>Название поля<input className="inp" required placeholder="Например: Источник выявления" value={add.label} onChange={(e) => setAdd({ ...add, label: e.target.value })} /></label>
           <label>Тип
-            <select className="inp" value={add.type} onChange={(e) => {
+            <Select className="inp" value={add.type} onChange={(e) => {
               const type = e.target.value as FieldType;
               setAdd({ ...add, type, role: '', rule: null, catalogCode: type === 'catalog' ? (add.catalogCode || fieldCatalogs.find((c) => c.code === 'systems')?.code || '') : '' });
             }}>
               {ALL_TYPES.map((t) => <option key={t} value={t}>{TYPE_NAMES[t]}</option>)}
-            </select>
+            </Select>
           </label>
           {add.type === 'link' ? (
             <label>Ссылается на реестр
-              <select className="inp" required value={add.linkRegisterId} onChange={(e) => setAdd({ ...add, linkRegisterId: e.target.value })}>
+              <Select className="inp" required value={add.linkRegisterId} onChange={(e) => setAdd({ ...add, linkRegisterId: e.target.value })}>
                 <option value="">— выберите</option>
                 {regs.data?.items.filter((r) => r.id !== reg.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+              </Select>
             </label>
           ) : add.type === 'calc' ? (
             <label>Что считать
-              <select className="inp" value={add.calcKind} onChange={(e) => setAdd({ ...add, calcKind: e.target.value as 'due' | 'basis', role: '' })}>
+              <Select className="inp" value={add.calcKind} onChange={(e) => setAdd({ ...add, calcKind: e.target.value as 'due' | 'basis', role: '' })}>
                 <option value="due">Срок (дата + дни)</option>
                 <option value="basis">Статус основания (сверка с разрешениями)</option>
-              </select>
+              </Select>
             </label>
           ) : add.type === 'catalog' ? (
             <label>Справочник
-              <select className="inp" required value={add.catalogCode} onChange={(e) => setAdd({ ...add, catalogCode: e.target.value })}>
+              <Select className="inp" required value={add.catalogCode} onChange={(e) => setAdd({ ...add, catalogCode: e.target.value })}>
                 <option value="">— выберите</option>
                 {fieldCatalogs.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-              </select>
+              </Select>
             </label>
           ) : add.type === 'text' ? (
             <label className="check add-multiline" title="В карточке — поле от 6 строк, до 20 000 символов вместо 4000">
@@ -166,9 +167,9 @@ export function FieldsTab({ reg, canManage }: { reg: RegisterDetail; canManage: 
           </label>
           )}
           <label>Для аналитики
-            <select className="inp" value={add.role} disabled={ALLOWED_ROLES[add.type].length === 0 || (add.type === 'calc' && add.calcKind === 'basis')} onChange={(e) => setAdd({ ...add, role: e.target.value })}>
+            <Select className="inp" value={add.role} disabled={ALLOWED_ROLES[add.type].length === 0 || (add.type === 'calc' && add.calcKind === 'basis')} onChange={(e) => setAdd({ ...add, role: e.target.value })}>
               {['', ...ALLOWED_ROLES[add.type]].map((r) => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}
-            </select>
+            </Select>
           </label>
           <button className="btn primary" type="submit" disabled={create.isPending}>Добавить поле</button>
           {add.type === 'calc' && add.calcKind === 'due' && <div className="span-all"><CalcRuleEditor reg={reg} value={add.rule} onChange={(rule) => setAdd({ ...add, rule })} /></div>}

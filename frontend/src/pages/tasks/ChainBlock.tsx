@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { ChainSuggest, type ChainChoice } from './ChainSuggest';
 import { chainCounts } from './logic';
+import { Select } from '../../components/Select';
 
 /**
  * Блок «Цепочка» в карточке задачи (1.7.0, ADR-0035): хронология задач цепочки с переходом к каждой, отвязать,
@@ -68,10 +69,10 @@ export function ChainBlock({ task, title, onOpenTask, onChanged }: {
           ? <div><button type="button" className="btn ghost sm" disabled={busy} onClick={() => setAdding('')}>Добавить в цепочку…</button></div>
           : (
             <form className="row" onSubmit={(e) => { e.preventDefault(); if (adding) pick.mutate({ kind: 'chain', id: adding, title: '', reopen: false }); }}>
-              <select className="inp grow" aria-label="Открытая цепочка" value={adding} onChange={(e) => setAdding(e.target.value)}>
+              <Select className="inp grow" aria-label="Открытая цепочка" value={adding} onChange={(e) => setAdding(e.target.value)}>
                 <option value="">— выберите открытую цепочку</option>
                 {choices.map((c) => <option key={c.id} value={c.id}>{c.title} · {chainCounts(c.counts)}</option>)}
-              </select>
+              </Select>
               <button className="btn sm primary" type="submit" disabled={busy || !adding}>Добавить</button>
               <button className="btn sm" type="button" onClick={() => setAdding(null)}>Отмена</button>
             </form>
@@ -113,10 +114,10 @@ export function ChainBlock({ task, title, onOpenTask, onChanged }: {
       )}
       {moving !== null && (
         <form className="row" onSubmit={(e) => { e.preventDefault(); if (moving) move.mutate(moving); }}>
-          <select className="inp grow" aria-label="Цепочка для переноса" value={moving} onChange={(e) => setMoving(e.target.value)}>
+          <Select className="inp grow" aria-label="Цепочка для переноса" value={moving} onChange={(e) => setMoving(e.target.value)}>
             <option value="">— выберите открытую цепочку</option>
             {choices.map((x) => <option key={x.id} value={x.id}>{x.title} · {chainCounts(x.counts)}</option>)}
-          </select>
+          </Select>
           <button className="btn sm primary" type="submit" disabled={busy || !moving}>Перенести</button>
           <button className="btn sm" type="button" onClick={() => setMoving(null)}>Отмена</button>
         </form>

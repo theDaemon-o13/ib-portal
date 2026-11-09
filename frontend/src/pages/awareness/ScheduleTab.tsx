@@ -13,6 +13,7 @@ import { todayLocal } from '../tasks/logic';
 import {
   CADENCE_KINDS, cadenceOf, DEFAULT_CADENCE, formOfCadence, LEAD_DAYS, leadDaysProblem, MONTHS, ru, STATUS_NAME, WEEKDAYS, type CadenceForm,
 } from './logic';
+import { Select } from '../../components/Select';
 
 const NEW = 'new';
 const days = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
@@ -44,26 +45,26 @@ function CadenceFields({ value, onChange, disabled }: { value: CadenceForm; onCh
   const set = (patch: Partial<CadenceForm>) => onChange({ ...value, ...patch });
   const daySelect = (label: string, v: number, key: 'day' | 'day2') => (
     <label>{label}
-      <select className="inp" value={v} disabled={disabled} onChange={(e) => set({ [key]: Number(e.target.value) })}>
+      <Select className="inp" value={v} disabled={disabled} onChange={(e) => set({ [key]: Number(e.target.value) })}>
         {days(1, 31).map((d) => <option key={d} value={d}>{d}</option>)}
-      </select>
+      </Select>
     </label>
   );
   return (
     <div className="fgrid aw-cadence">
       <label>Периодичность
-        <select className="inp" value={value.kind} disabled={disabled} onChange={(e) => set({ kind: e.target.value as CadenceForm['kind'] })}>
+        <Select className="inp" value={value.kind} disabled={disabled} onChange={(e) => set({ kind: e.target.value as CadenceForm['kind'] })}>
           {CADENCE_KINDS.map((k) => <option key={k.key} value={k.key}>{k.title}</option>)}
-        </select>
+        </Select>
       </label>
       {value.kind === 'monthly' && daySelect('День месяца', value.day, 'day')}
       {value.kind === 'twice_monthly' && <>{daySelect('Первый день', value.day, 'day')}{daySelect('Второй день', value.day2, 'day2')}</>}
       {value.kind === 'quarterly' && (
         <>
           <label>Месяц квартала
-            <select className="inp" value={value.quarterMonth} disabled={disabled} onChange={(e) => set({ quarterMonth: Number(e.target.value) })}>
+            <Select className="inp" value={value.quarterMonth} disabled={disabled} onChange={(e) => set({ quarterMonth: Number(e.target.value) })}>
               <option value={1}>первый (январь, апрель…)</option><option value={2}>второй (февраль, май…)</option><option value={3}>третий (март, июнь…)</option>
-            </select>
+            </Select>
           </label>
           {daySelect('День', value.day, 'day')}
         </>
@@ -71,9 +72,9 @@ function CadenceFields({ value, onChange, disabled }: { value: CadenceForm; onCh
       {value.kind === 'yearly' && (
         <>
           <label>Месяц
-            <select className="inp" value={value.month} disabled={disabled} onChange={(e) => set({ month: Number(e.target.value) })}>
+            <Select className="inp" value={value.month} disabled={disabled} onChange={(e) => set({ month: Number(e.target.value) })}>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-            </select>
+            </Select>
           </label>
           {daySelect('День', value.day, 'day')}
         </>
@@ -81,14 +82,14 @@ function CadenceFields({ value, onChange, disabled }: { value: CadenceForm; onCh
       {value.kind === 'weekly' && (
         <>
           <label>Каждую N-ю неделю
-            <select className="inp" value={value.every} disabled={disabled} onChange={(e) => set({ every: Number(e.target.value) })}>
+            <Select className="inp" value={value.every} disabled={disabled} onChange={(e) => set({ every: Number(e.target.value) })}>
               {days(1, 12).map((n) => <option key={n} value={n}>{n === 1 ? 'каждую' : `каждую ${n}-ю`}</option>)}
-            </select>
+            </Select>
           </label>
           <label>День недели
-            <select className="inp" value={value.weekday} disabled={disabled} onChange={(e) => set({ weekday: Number(e.target.value) })}>
+            <Select className="inp" value={value.weekday} disabled={disabled} onChange={(e) => set({ weekday: Number(e.target.value) })}>
               {WEEKDAYS.map((w, i) => <option key={w} value={i + 1}>{w}</option>)}
-            </select>
+            </Select>
           </label>
         </>
       )}
@@ -218,19 +219,19 @@ function RulePanel({ id, onClose, onOpen }: { id: string; onClose: () => void; o
           </div>
           <div className="fgrid">
             <label>Роль-исполнитель
-              <select className="inp" required value={f.roleId} disabled={!editable} onChange={(e) => setF({ ...f, roleId: e.target.value })}>
+              <Select className="inp" required value={f.roleId} disabled={!editable} onChange={(e) => setF({ ...f, roleId: e.target.value })}>
                 <option value="" disabled>Выберите роль…</option>
                 {roles.data?.items.map((x) => <option key={x.id} value={x.id}>{x.name} — участников: {x.holders}</option>)}
                 {r && !roles.data?.items.some((x) => x.id === r.role.id) && <option value={r.role.id}>{r.role.name} — нет права «Работа в разделах ИБ»</option>}
-              </select>
+              </Select>
               <span className="hint">{role && role.holders === 0 ? 'У роли нет участников: задача будет без кандидатов, сразу эскалация начальнику ИБ' : 'Задачу видят все сотрудники ИБ, взять её могут держатели роли'}</span>
             </label>
             <label>Шаблон (необязательно)
-              <select className="inp" value={f.templateId} disabled={!editable} onChange={(e) => setF({ ...f, templateId: e.target.value })}>
+              <Select className="inp" value={f.templateId} disabled={!editable} onChange={(e) => setF({ ...f, templateId: e.target.value })}>
                 <option value="">— без шаблона</option>
                 {tplOptions.map((t) => <option key={t.id} value={t.id}>{t.title}{t.tooLarge ? ' — больше лимита' : ''}</option>)}
                 {currentArchivedTpl && <option value={currentArchivedTpl.id}>{currentArchivedTpl.title} — в архиве</option>}
-              </select>
+              </Select>
               <span className="hint">С шаблоном черновик письма создаётся сразу; без шаблона — письмо создают из задачи.</span>
             </label>
           </div>

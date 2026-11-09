@@ -4,6 +4,7 @@ import { assessmentsApi, type Assessment, type AssessmentSummary, type Profile }
 import { Overlay } from '../../components/Overlay';
 import { defaultTitle } from './logic';
 import { useAssessmentAction } from './useAssessmentAction';
+import { Select } from '../../components/Select';
 
 function todayIso(): string {
   const d = new Date();
@@ -53,10 +54,10 @@ export function NewAssessmentDialog({ items, onClose, onCreated }: { items: read
       <label className="fd-label">Название<input className="inp" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
       <label className="fd-label">Дата проведения<input className="inp" type="date" required value={assessedOn} onChange={(e) => setDate(e.target.value)} /></label>
       <label className="fd-label">Начать с
-        <select className="inp" value={copyFromId} onChange={(e) => setCopy(e.target.value)}>
+        <Select className="inp" value={copyFromId} onChange={(e) => setCopy(e.target.value)}>
           {lastFinal && <option value={lastFinal.id}>Копии «{lastFinal.title}» (баллы и цели)</option>}
           <option value="">Пустого чек-листа</option>
-        </select>
+        </Select>
       </label>
       {copyFromId && <p className="hint">Комментарии к ответам не копируются.</p>}
     </Modal>

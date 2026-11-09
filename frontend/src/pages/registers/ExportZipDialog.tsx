@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { registersApi, type RegisterDetail } from '../../api/registers';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
+import { Select } from '../../components/Select';
 
 /**
  * Выгрузка для проверки (этап 8б): записи за период по полю-дате (с архивными) в Excel и все файлы полей «Файл»
@@ -63,24 +64,24 @@ export function ExportZipDialog({ reg, onClose }: { reg: RegisterDetail; onClose
             {dates.length === 0 ? <div className="form-error">В реестре нет поля-даты — выгрузить за период нельзя.</div> : (
               <>
                 <label>Период по полю
-                  <select className="inp" value={dateFieldId} onChange={(e) => setDateFieldId(e.target.value)}>
+                  <Select className="inp" value={dateFieldId} onChange={(e) => setDateFieldId(e.target.value)}>
                     {dates.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 <div className="row nowrap">
                   <label>С<input className="inp" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
                   <label>По<input className="inp" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
                 </div>
                 <label>Номер в имени файла
-                  <select className="inp" value={nameFieldId} onChange={(e) => setNameFieldId(e.target.value)}>
+                  <Select className="inp" value={nameFieldId} onChange={(e) => setNameFieldId(e.target.value)}>
                     {texts.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 {links.length > 0 && (
                   <label>Хосты в имени файла
-                    <select className="inp" value={linkFieldId} onChange={(e) => setLinkFieldId(e.target.value)}>
+                    <Select className="inp" value={linkFieldId} onChange={(e) => setLinkFieldId(e.target.value)}>
                       {links.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-                    </select>
+                    </Select>
                   </label>
                 )}
               </>

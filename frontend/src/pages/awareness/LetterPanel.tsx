@@ -17,6 +17,7 @@ import { EVENT_NAME, KIND_NAME, letterMarks, ru, ruDateTime, STATUS_NAME, STATUS
 import { LetterVersions } from './LetterVersions';
 import { LetterExport } from './LetterExport';
 import { MailPreview } from './MailPreview';
+import { Select } from '../../components/Select';
 
 interface Draft {
   title: string;
@@ -283,10 +284,10 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
                   <input className="inp" maxLength={200} required value={draft.title} disabled={!editable} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
                 </label>
                 <label>Тип
-                  <select className="inp" value={draft.kind} disabled={!editable} onChange={(e) => setDraft({ ...draft, kind: e.target.value as LetterKind })}>
+                  <Select className="inp" value={draft.kind} disabled={!editable} onChange={(e) => setDraft({ ...draft, kind: e.target.value as LetterKind })}>
                     <option value="planned">Плановое</option>
                     <option value="urgent">Срочное</option>
-                  </select>
+                  </Select>
                 </label>
               </div>
               {(draft.kind === 'urgent' || draft.reason) && (
@@ -393,9 +394,9 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
           </div>
           <div className="fgrid">
             <label>Языки
-              <select className="inp" value={formLangs} onChange={(e) => setForm({ ...form, langs: e.target.value as ExportLang, exportId: '' })}>
+              <Select className="inp" value={formLangs} onChange={(e) => setForm({ ...form, langs: e.target.value as ExportLang, exportId: '' })}>
                 {l.exportLangs.map((x) => <option key={x} value={x}>{LANGS_NAME[x]}</option>)}
-              </select>
+              </Select>
             </label>
             <label>Получатели
               <input className="inp" maxLength={500} placeholder="Например, адрес общей рассылки" value={form.recipients}
@@ -403,10 +404,10 @@ export function LetterPanel({ id, onClose, onOpen }: { id: string; onClose: () =
             </label>
           </div>
           <label>Файл письма
-            <select className="inp" value={form.exportId} onChange={(e) => setForm({ ...form, exportId: e.target.value })} data-testid="send-file">
+            <Select className="inp" value={form.exportId} onChange={(e) => setForm({ ...form, exportId: e.target.value })} data-testid="send-file">
               <option value="">{langExports[0] ? `Последняя выгрузка: ${langExports[0].fileName}` : 'Выгрузки с этими языками нет — собрать при отметке'}</option>
               {langExports.slice(1).map((x) => <option key={x.id} value={x.id}>{x.fileName} · {ruDateTime(x.createdAt)}</option>)}
-            </select>
+            </Select>
             <span className="hint">Файл .eml, который отправили, сохраняется в записи «Рассылок» как доказательство.</span>
           </label>
           {dialog === 'send_without_approval' && (

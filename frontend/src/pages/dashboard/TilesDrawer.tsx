@@ -4,6 +4,7 @@ import { dashboardApi, dashkeys, type Tile } from '../../api/dashboard';
 import { registersApi } from '../../api/registers';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
+import { Select } from '../../components/Select';
 
 const TILE_TYPES = new Set(['select', 'catalog']);
 const empty = { registerId: '', fieldId: '', optionIds: [] as string[], title: '' };
@@ -82,16 +83,16 @@ export function TilesDrawer({ onClose }: { onClose: () => void }) {
           <form className="task-form tile-form" onSubmit={submit} aria-label={editing ? 'Изменить плитку' : 'Новая плитка'}>
             <b>{editing ? `Изменить «${editing.title}»` : 'Новая плитка'}</b>
             <label>Реестр
-              <select className="inp" required disabled={!!editing} value={form.registerId} onChange={(e) => setForm({ ...empty, registerId: e.target.value, title: form.title })}>
+              <Select className="inp" required disabled={!!editing} value={form.registerId} onChange={(e) => setForm({ ...empty, registerId: e.target.value, title: form.title })}>
                 <option value="">Выберите реестр</option>
                 {regs.data?.items.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+              </Select>
             </label>
             <label>Поле
-              <select className="inp" required disabled={!!editing || !form.registerId} value={form.fieldId} onChange={(e) => setForm({ ...form, fieldId: e.target.value, optionIds: [] })}>
+              <Select className="inp" required disabled={!!editing || !form.registerId} value={form.fieldId} onChange={(e) => setForm({ ...form, fieldId: e.target.value, optionIds: [] })}>
                 <option value="">{form.registerId && reg.isSuccess && fields.length === 0 ? 'В реестре нет полей-списков' : 'Выберите поле-список'}</option>
                 {fields.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-              </select>
+              </Select>
             </label>
             {field && (
               <fieldset className="opts">

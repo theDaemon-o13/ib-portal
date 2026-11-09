@@ -9,6 +9,7 @@ import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/r
 import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { checkImageFile, countLinkedImages, IMAGE_TYPES, imagesWarning, readAsDataUrl, replaceLinkedImages } from './paste';
+import { Select } from '../../../components/Select';
 
 export interface LetterEditorProps {
   value: string;
@@ -216,13 +217,13 @@ export default function LetterEditor(p: LetterEditorProps) {
     <div className={`aw-editor${p.readOnly ? ' ro' : ''}`}>
       {!p.readOnly && s && (
         <div className="aw-toolbar" role="toolbar" aria-label={`Оформление: ${p.label}`}>
-          <select className="inp sm" aria-label="Стиль абзаца" value={s.h}
+          <Select className="inp sm" aria-label="Стиль абзаца" value={s.h}
             onChange={(e) => { const lv = Number(e.target.value); if (lv) c().setHeading({ level: lv as 2 | 3 | 4 }).run(); else c().setParagraph().run(); }}>
             <option value={0}>Обычный текст</option>
             <option value={2}>Заголовок 1</option>
             <option value={3}>Заголовок 2</option>
             <option value={4}>Заголовок 3</option>
-          </select>
+          </Select>
           <span className="aw-sep" />
           <Btn on={s.bold} title="Жирный" onClick={() => c().toggleBold().run()}><b>Ж</b></Btn>
           <Btn on={s.italic} title="Курсив" onClick={() => c().toggleItalic().run()}><i>К</i></Btn>

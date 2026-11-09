@@ -17,6 +17,7 @@ import { rkeys } from './keys';
 import { RecordDrawer } from './RecordDrawer';
 import { LetterRefText, useLetterRefs, type LetterRefs } from '../awareness/LetterRef';
 import { MAILINGS_KEY } from '../awareness/logic';
+import { Select } from '../../components/Select';
 
 interface Col {
   key: string;
@@ -310,11 +311,11 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
       <div className="rec-tools">
         <input className="inp" type="search" placeholder="Поиск по реестру" value={qInput} onChange={(e) => setQInput(e.target.value)} aria-label="Поиск по реестру" />
         <label className="hint" htmlFor="rec-pin">Закрепить столбцов</label>
-        <select id="rec-pin" className="inp" value={pin} onChange={(e) => { const n = Number(e.target.value); setPin(n); savePin(reg.id, n); }}>
+        <Select id="rec-pin" className="inp" value={pin} onChange={(e) => { const n = Number(e.target.value); setPin(n); savePin(reg.id, n); }}>
           {[0, 1, 2, 3, 4].map((n) => (
             <option key={n} value={n}>{n === 0 ? 'нет' : `${n}: ${cols.slice(0, n).map((c) => c.label).join(', ')}`}</option>
           ))}
-        </select>
+        </Select>
         <button className={`btn sm${archiveView ? ' acc' : ''}`} type="button" aria-pressed={archiveView}
           title={archiveView ? 'Вернуться к действующим записям' : 'Записи в архиве: посмотреть и вернуть'} onClick={() => setArchiveView(!archiveView)}>
           {archiveView ? '← К записям' : 'Архив'}
@@ -323,15 +324,15 @@ export function RecordsTab({ reg, canEdit, canDelete }: { reg: RegisterDetail; c
         <label className="check"><input type="checkbox" checked={withTasks} onChange={(e) => setWithTasks(e.target.checked)} /> С задачами</label>
         {dims.length > 0 && filterParts.length === 0 && (
           <span className="row nowrap field-filter">
-            <select className="inp sm-inp" value={dimField} onChange={(e) => setDimField(e.target.value)} aria-label="Фильтр: поле">
+            <Select className="inp sm-inp" value={dimField} onChange={(e) => setDimField(e.target.value)} aria-label="Фильтр: поле">
               <option value="">Фильтр по полю…</option>
               {dims.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
             {dimField && (
-              <select className="inp sm-inp" value="" onChange={(e) => setFieldFilter(dimField, e.target.value)} aria-label="Фильтр: значение">
+              <Select className="inp sm-inp" value="" onChange={(e) => setFieldFilter(dimField, e.target.value)} aria-label="Фильтр: значение">
                 <option value="">— значение</option>
                 {dims.find((f) => f.id === dimField)?.options.filter((o) => !o.archived).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </select>
+              </Select>
             )}
           </span>
         )}

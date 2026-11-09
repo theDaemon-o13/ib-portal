@@ -2,6 +2,7 @@
 // нет ни одного — «Шаблонов пока нет» и «Создать шаблон» (переход в «Шаблоны → Новый шаблон»).
 import { useNavigate } from 'react-router-dom';
 import type { TemplatePage } from '../../api/awareness';
+import { Select } from '../../components/Select';
 
 export const NEW_TEMPLATE_HREF = '/awareness/templates?template=new';
 
@@ -28,10 +29,10 @@ export function TemplatePicker({ items, loading, value, onChange, label, optiona
   }
   return (
     <label>{label}
-      <select className="inp" required={required} value={value} onChange={(e) => onChange(e.target.value)} data-testid="template-select">
+      <Select className="inp" required={required} value={value} onChange={(e) => onChange(e.target.value)} data-testid="template-select">
         {optional ? <option value="">— без шаблона</option> : <option value="" disabled>{loading ? 'Загрузка…' : 'Выберите шаблон…'}</option>}
         {items?.map((x) => <option key={x.id} value={x.id}>{x.title}{x.tooLarge ? ' — больше лимита' : ''}</option>)}
-      </select>
+      </Select>
     </label>
   );
 }

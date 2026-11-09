@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AUDIT_FILTERS, auditApi, type AuditEntry, type AuditFilter } from '../../api/audit';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
+import { Select } from '../../components/Select';
 
 /** YYYY-MM-DD в часовом поясе браузера. */
 function isoDay(d: Date): string {
@@ -104,23 +105,23 @@ export function AuditPage() {
         <label>С<input className="inp" type="date" value={filter.from ?? ''} onChange={(e) => set({ from: e.target.value })} /></label>
         <label>По<input className="inp" type="date" value={filter.to ?? ''} onChange={(e) => set({ to: e.target.value })} /></label>
         <label>Пользователь
-          <select className="inp" value={filter.userId ?? ''} onChange={(e) => set({ userId: e.target.value })}>
+          <Select className="inp" value={filter.userId ?? ''} onChange={(e) => set({ userId: e.target.value })}>
             <option value="">Все</option>
             <option value="system">Система</option>
             {facets.data?.users.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.login}){u.isActive ? '' : ' — отключён'}</option>)}
-          </select>
+          </Select>
         </label>
         <label>Раздел
-          <select className="inp" value={filter.entity ?? ''} onChange={(e) => set({ entity: e.target.value })}>
+          <Select className="inp" value={filter.entity ?? ''} onChange={(e) => set({ entity: e.target.value })}>
             <option value="">Все</option>
             {facets.data?.entities.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-          </select>
+          </Select>
         </label>
         <label>Действие
-          <select className="inp" value={filter.action ?? ''} onChange={(e) => set({ action: e.target.value })}>
+          <Select className="inp" value={filter.action ?? ''} onChange={(e) => set({ action: e.target.value })}>
             <option value="">Все</option>
             {facets.data?.actions.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-          </select>
+          </Select>
         </label>
         <label>IP<input className="inp mono" value={ip} onChange={(e) => setIp(e.target.value)} placeholder="10.0.5." /></label>
         <label className="grow">Поиск<input className="inp" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Что сделано, ФИО, логин, ID объекта" /></label>

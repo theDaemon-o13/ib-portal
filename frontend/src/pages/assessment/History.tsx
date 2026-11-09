@@ -7,6 +7,7 @@ import { dateRu } from '../dashboard/logic';
 import { formatDateTime } from '../settings/logic';
 import { LevelPill } from './Charts';
 import { deltaTone, logText, shortTitle, signed, STATUS_TONE } from './logic';
+import { Select } from '../../components/Select';
 
 function Compare({ items, current }: { items: readonly AssessmentSummary[]; current: Assessment }) {
   // По умолчанию: прошлая оценка → открытая.
@@ -20,9 +21,9 @@ function Compare({ items, current }: { items: readonly AssessmentSummary[]; curr
       <div className="panel-h">
         <h3>Сравнение</h3>
         <div className="row">
-          <select className="inp sm-inp" aria-label="Первая оценка" value={aId} onChange={(e) => setA(e.target.value)}>{options}</select>
+          <Select className="inp sm-inp" aria-label="Первая оценка" value={aId} onChange={(e) => setA(e.target.value)}>{options}</Select>
           <span className="hint">→</span>
-          <select className="inp sm-inp" aria-label="Вторая оценка" value={bId} onChange={(e) => setB(e.target.value)}>{options}</select>
+          <Select className="inp sm-inp" aria-label="Вторая оценка" value={bId} onChange={(e) => setB(e.target.value)}>{options}</Select>
         </div>
       </div>
       {cmp.isPending ? <div className="panel-b hint">Загрузка…</div>

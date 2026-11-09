@@ -18,6 +18,7 @@ import { useMe } from '../../auth/useMe';
 import { LetterRefLink } from '../awareness/LetterRef';
 import { MAILINGS_KEY } from '../awareness/logic';
 import { awarenessApi } from '../../api/awareness';
+import { Select } from '../../components/Select';
 
 const LONG = /описан|коммент|мер|примечан/i;
 // Лимиты — как на backend (lib/field-settings.ts).
@@ -82,20 +83,20 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
       // Значения — из справочника (правятся в настройках).
       const opts = f.options.filter((o) => !o.archived || o.id === v);
       control = (
-        <select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
+        <Select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
           <option value="">—</option>
           {opts.map((o) => <option key={o.id} value={o.id}>{o.label}{o.archived ? ' (архив)' : ''}</option>)}
-        </select>
+        </Select>
       );
       break;
     }
     case 'select': {
       const opts = f.options.filter((o) => !o.archived || o.id === v);
       const select = (
-        <select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
+        <Select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
           <option value="">{isDerived(reg, f) ? '— считать автоматически' : '—'}</option>
           {opts.map((o) => <option key={o.id} value={o.id}>{o.label}{o.archived ? ' (архив)' : ''}</option>)}
-        </select>
+        </Select>
       );
       if (!isDerived(reg, f)) {
         control = select;
@@ -123,10 +124,10 @@ function FieldControl({ reg, f, rec, draft, setDraft, disabled, onResetAuto, res
       const list = users.data?.items ?? [];
       const current = v && !list.some((u) => u.id === v) ? [{ id: v, fullName: rec?.display[f.id] || 'Сотрудник', login: '' }] : [];
       control = (
-        <select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
+        <Select id={id} className="inp" value={v} disabled={disabled} onChange={(e) => set(e.target.value)}>
           <option value="">—</option>
           {[...list, ...current].map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-        </select>
+        </Select>
       );
       break;
     }

@@ -12,6 +12,7 @@ import { todayLocal } from './logic';
 import { CLOSED_BY, days, pct, PRESETS, presetOf, presetRange, sortItems, type SortKey } from './stats';
 import { CategoriesChart, PeopleChart, WeeksChart } from './StatsCharts';
 import { TaskReportDialog } from './TaskReportDialog';
+import { Select } from '../../components/Select';
 
 const COLUMNS: { key: SortKey; title: string }[] = [
   { key: 'number', title: '№' },
@@ -120,14 +121,14 @@ export function TaskStatsPage() {
         </div>
         <label className="st-f">С<input className="inp" type="date" value={from} max={to} onChange={(e) => e.target.value && set({ from: e.target.value })} aria-label="С даты" /></label>
         <label className="st-f">по<input className="inp" type="date" value={to} min={from} onChange={(e) => e.target.value && set({ to: e.target.value })} aria-label="По дату" /></label>
-        <select className="inp" value={f.assigneeId ?? ''} aria-label="Сотрудник" onChange={(e) => set({ assignee: e.target.value })}>
+        <Select className="inp" value={f.assigneeId ?? ''} aria-label="Сотрудник" onChange={(e) => set({ assignee: e.target.value })}>
           <option value="">Все сотрудники</option>
           {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-        </select>
-        <select className="inp" value={f.categoryId ?? ''} aria-label="Категория" onChange={(e) => set({ category: e.target.value })}>
+        </Select>
+        <Select className="inp" value={f.categoryId ?? ''} aria-label="Категория" onChange={(e) => set({ category: e.target.value })}>
           <option value="">Все категории</option>
           {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.value}</option>)}
-        </select>
+        </Select>
         <label className="check"><input type="checkbox" checked={!!f.late} onChange={(e) => set({ late: e.target.checked ? '1' : null })} /> только с опозданием</label>
         <label className="check"><input type="checkbox" checked={!!f.archived} onChange={(e) => set({ archived: e.target.checked ? '1' : null })} /> с архивом</label>
       </div>

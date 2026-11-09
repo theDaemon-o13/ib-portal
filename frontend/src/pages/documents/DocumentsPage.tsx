@@ -12,6 +12,7 @@ import { DocumentPanel } from './DocumentPanel';
 import { HoldersLine } from './Holders';
 import { DUE_FILTERS, groupByType, isDocDue, parseSort, reviewLabel, SORTS, STATUS_TONE, stageHint, versionLabel } from './logic';
 import { NewDocumentDrawer } from './NewDocumentDrawer';
+import { Select } from '../../components/Select';
 
 const STATUS_FILTERS: { key: DocStatus; title: string }[] = [
   { key: 'draft', title: 'Черновики' },
@@ -270,20 +271,20 @@ export function DocumentsPage() {
 
       <div className="row docs-bar docs-filters" data-testid="docs-filters">
         <div className="row">
-          <select className="inp" value={typeId ?? ''} aria-label="Тип документа" onChange={(e) => setParam({ type: e.target.value || null, doc: null })}>
+          <Select className="inp" value={typeId ?? ''} aria-label="Тип документа" onChange={(e) => setParam({ type: e.target.value || null, doc: null })}>
             <option value="">Все типы</option>
             {facets.types.map((t) => <option key={t.id} value={t.id}>{t.value}</option>)}
-          </select>
-          <select className="inp" value={ownerId ?? ''} aria-label="Автор" onChange={(e) => setParam({ owner: e.target.value || null, doc: null })}>
+          </Select>
+          <Select className="inp" value={ownerId ?? ''} aria-label="Автор" onChange={(e) => setParam({ owner: e.target.value || null, doc: null })}>
             <option value="">Все авторы</option>
             {facets.owners.map((o) => <option key={o.id} value={o.id}>{o.fullName}</option>)}
-          </select>
-          <select className="inp" value={dueMode} aria-label="Срок пересмотра"
+          </Select>
+          <Select className="inp" value={dueMode} aria-label="Срок пересмотра"
             onChange={(e) => setParam({ due: e.target.value || null, dueTo: e.target.value === 'to' ? dueTo ?? null : null, doc: null })}>
             <option value="">Любой срок пересмотра</option>
             {DUE_FILTERS.map((f) => <option key={f.key} value={f.key}>{f.title}</option>)}
             <option value="to">До даты…</option>
-          </select>
+          </Select>
           {dueMode === 'to' && (
             <input className="inp" type="date" value={dueTo ?? ''} aria-label="Пересмотр не позже" onChange={(e) => setParam({ due: 'to', dueTo: e.target.value || null, doc: null })} />
           )}

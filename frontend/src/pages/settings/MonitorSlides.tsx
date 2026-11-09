@@ -6,6 +6,7 @@ import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { rowsPerPage } from '../dashboard/logic';
 import { SlideView } from '../monitor/SlideView';
+import { Select } from '../../components/Select';
 
 type Kind = SlideInput['kind'];
 type Filter = SlideInput['filter'];
@@ -45,11 +46,11 @@ function FilterEditor({ kind, filter, options, onChange }: { kind: Kind; filter:
       {period && (
         <div className="row">
           <label className="fd-label">Сроки
-            <select className="inp" value={filter.period ?? 'all'} onChange={(e) => set({ period: e.target.value as Filter['period'], ...(e.target.value === 'within' && !filter.days ? { days: 7 } : {}) })} aria-label="Сроки">
+            <Select className="inp" value={filter.period ?? 'all'} onChange={(e) => set({ period: e.target.value as Filter['period'], ...(e.target.value === 'within' && !filter.days ? { days: 7 } : {}) })} aria-label="Сроки">
               <option value="all">все</option>
               <option value="overdue">только просроченные</option>
               <option value="within">просроченные и в ближайшие N дней</option>
-            </select>
+            </Select>
           </label>
           {filter.period === 'within' && (
             <label className="fd-label">Дней
@@ -70,10 +71,10 @@ function FilterEditor({ kind, filter, options, onChange }: { kind: Kind; filter:
       {kind === 'documents' && <Pick label="Типы документов" options={options.types} value={filter.types} onChange={(types) => set({ types })} />}
       {kind === 'dlp' && (
         <label className="fd-label">Реестр со статусом основания
-          <select className="inp" value={filter.registerId ?? ''} onChange={(e) => set({ registerId: e.target.value || undefined })} aria-label="Реестр DLP">
+          <Select className="inp" value={filter.registerId ?? ''} onChange={(e) => set({ registerId: e.target.value || undefined })} aria-label="Реестр DLP">
             <option value="">— выберите</option>
             {options.registers.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-          </select>
+          </Select>
         </label>
       )}
     </div>
@@ -185,10 +186,10 @@ export function MonitorSlides() {
           <div className="panel-b grid-gap">
             <div className="row">
               <label className="fd-label">Вид
-                <select className="inp" value={edit.input.kind} disabled={!!edit.id} aria-label="Вид слайда"
+                <Select className="inp" value={edit.input.kind} disabled={!!edit.id} aria-label="Вид слайда"
                   onChange={(e) => setEdit({ ...edit, input: blank(e.target.value as Kind) })}>
                   {opts.kinds.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-                </select>
+                </Select>
               </label>
               <label className="fd-label">Название
                 <input className="inp" value={edit.input.title} maxLength={120} onChange={(e) => setEdit({ ...edit, input: { ...edit.input, title: e.target.value } })} aria-label="Название слайда" />

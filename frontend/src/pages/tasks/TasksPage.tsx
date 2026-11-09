@@ -16,6 +16,7 @@ import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
 import { TaskBulkDialog } from './TaskBulkDialog';
+import { Select } from '../../components/Select';
 
 /** Сдвиг указателя, после которого нажатие на карточку — перетаскивание, а не щелчок. */
 const DRAG_PX = 5;
@@ -365,20 +366,20 @@ export function TasksPage() {
           </button>
         </ChipScroller>
         {(automations.length > 0 || automationId) && (
-          <select className="inp auto-filter" value={automationId} aria-label="Создано автоматизацией" onChange={(e) => setParam({ automation: e.target.value || null })}>
+          <Select className="inp auto-filter" value={automationId} aria-label="Создано автоматизацией" onChange={(e) => setParam({ automation: e.target.value || null })}>
             <option value="">Все источники</option>
             {automations.map((a) => <option key={a.automationId} value={a.automationId}>Автоматизация «{a.label}»: {a.count}</option>)}
-          </select>
+          </Select>
         )}
         <button type="button" className="btn" aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? 'Отменить выбор' : 'Выбрать'}</button>
       </div>
       <div className="toolbar board-find" aria-label="Поиск и цепочки">
         <input className="inp grow" type="search" placeholder="Поиск: номер, название задачи или цепочки" aria-label="Поиск по доске" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="inp" aria-label="Цепочка" value={chainId} onChange={(e) => setParam({ chainId: e.target.value || null })}>
+        <Select className="inp" aria-label="Цепочка" value={chainId} onChange={(e) => setParam({ chainId: e.target.value || null })}>
           <option value="">Все цепочки</option>
           {chainId && !chainInfo.has(chainId) && <option value={chainId}>Выбранная цепочка</option>}
           {(chainList.data?.items ?? []).filter((c) => c.status === 'open' || c.id === chainId).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-        </select>
+        </Select>
         <button type="button" className="btn" aria-pressed={group} onClick={toggleGroup}>Группировать по цепочкам</button>
         {!showWorkload && <button type="button" className="btn" aria-expanded={false} onClick={toggleWorkload}>Загрузка сотрудников</button>}
       </div>
@@ -406,16 +407,16 @@ export function TasksPage() {
         <form className="quick" onSubmit={submitQuick} aria-label="Быстрая задача">
           <input className="inp" required maxLength={300} placeholder="Новая задача, например: Проверить права в АБС после увольнения" value={quick.title}
             onChange={(e) => setQuick({ ...quick, title: e.target.value })} aria-label="Новая задача" />
-          <select className="inp" value={quickCategory} onChange={(e) => setQuick({ ...quick, categoryId: e.target.value })} aria-label="Категория">
+          <Select className="inp" value={quickCategory} onChange={(e) => setQuick({ ...quick, categoryId: e.target.value })} aria-label="Категория">
             {quickCategories.map((c) => <option key={c.id} value={c.id}>{c.value}</option>)}
-          </select>
-          <select className="inp" value={quick.assigneeId} onChange={(e) => setQuick({ ...quick, assigneeId: e.target.value })} aria-label="Ответственный"
+          </Select>
+          <Select className="inp" value={quick.assigneeId} onChange={(e) => setQuick({ ...quick, assigneeId: e.target.value })} aria-label="Ответственный"
             title={canAssign ? undefined : 'Поставить задачу другому может пользователь с правом «Задачи: постановка другим»'}>
             <option value="">— не назначен</option>
             {canAssign
               ? people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)
               : <option value={me.id}>{me.fullName} (я)</option>}
-          </select>
+          </Select>
           <input className="inp" type="date" value={quick.dueDate} onChange={(e) => setQuick({ ...quick, dueDate: e.target.value })} aria-label="Срок" />
           <button className="btn primary" type="submit" disabled={create.isPending || !quickCategory}>Назначить</button>
         </form>

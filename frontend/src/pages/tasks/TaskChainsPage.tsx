@@ -10,6 +10,7 @@ import { formatDate } from '../registers/logic';
 import { ChainPanel } from './ChainPanel';
 import { DiscoverDialog } from './DiscoverDialog';
 import { chainCounts } from './logic';
+import { Select } from '../../components/Select';
 
 export function TaskChainsPage() {
   const me = useOutletContext<Me>();
@@ -52,10 +53,10 @@ export function TaskChainsPage() {
             <button key={k} type="button" aria-pressed={status === k} onClick={() => set({ status: k === 'open' ? null : k })}>{title}</button>
           ))}
         </div>
-        <select className="inp" aria-label="Ответственный" value={ownerId} onChange={(e) => set({ owner: e.target.value })}>
+        <Select className="inp" aria-label="Ответственный" value={ownerId} onChange={(e) => set({ owner: e.target.value })}>
           <option value="">Все ответственные</option>
           {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-        </select>
+        </Select>
         <form className="grow" onSubmit={(e) => { e.preventDefault(); set({ q: text.trim() }); }}>
           <input className="inp" type="search" placeholder="Поиск по названию или номеру" aria-label="Поиск цепочки" value={text}
             onChange={(e) => { setText(e.target.value); if (!e.target.value) set({ q: null }); }} />
