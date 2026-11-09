@@ -97,7 +97,7 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
     return (
       <article className="card ghost" aria-hidden="true">
         <div className="card-t">{t.urgent && <span className="chip crit">срочно</span>}{t.title}</div>
-        <div className="meta"><span className={`tag ${categoryTone(t.category)}`}>{t.category.value}</span></div>
+        <div className="meta"><span className={`tag ${categoryTone(t.category)}`}><span className="tag-t">{t.category.value}</span></span></div>
       </article>
     );
   }
@@ -107,17 +107,17 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
       onPointerDown={draggable ? (e) => onPointerDown(e, t) : undefined}
       onClick={picking ? () => onPick(t.id) : draggable ? undefined : () => onOpen(t.id)}
       onKeyDown={(e) => { if (e.key === 'Enter') (picking ? onPick : onOpen)(t.id); }}>
-      <div className="card-t">
+      <div className="card-t" title={t.title}>
         {picking && <input type="checkbox" className="card-pick" checked={picked} readOnly tabIndex={-1} aria-hidden="true" />}
         {t.urgent && <span className="chip crit">срочно</span>}{t.title}
       </div>
-      <div className="meta">
-        <span className={`tag ${categoryTone(t.category)}`}>{t.category.value}</span>
-        <span className={`mono${due.late ? ' late-t' : ''}`}>{due.text}</span>
+      <div className="meta card-top">
+        <span className={`tag ${categoryTone(t.category)}`} title={t.category.value}><span className="tag-t">{t.category.value}</span></span>
+        <span className={`mono card-due${due.late ? ' late-t' : ''}`}>{due.text}</span>
       </div>
       <div className="meta">
         {t.assignee
-          ? <span className="row nowrap gap6"><span className="av">{initials(t.assignee.fullName)}</span>{t.assignee.fullName}</span>
+          ? <span className="row nowrap gap6 who" title={t.assignee.fullName}><span className="av" aria-hidden="true">{initials(t.assignee.fullName)}</span><span className="who-n">{t.assignee.fullName}</span></span>
           : t.candidates.length
             ? (
               <span className="chip acc cand" data-testid="task-candidates" title={`Могут взять: ${candidatesLabel(t.candidates, t.candidates.length)}`}
@@ -126,9 +126,9 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
               </span>
             )
             : <span className="chip high" title={t.recipientLabel ? `Получатели: ${t.recipientLabel}` : undefined}>не назначен</span>}
-        <span className="row nowrap gap6">
+        <span className="row nowrap gap6 card-ind">
           {t.commentCount > 0 && (
-            <span className="clip" title="Комментарии">
+            <span className="clip" title={`Комментариев: ${t.commentCount}`} data-testid="card-comments">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>{t.commentCount}
             </span>
           )}

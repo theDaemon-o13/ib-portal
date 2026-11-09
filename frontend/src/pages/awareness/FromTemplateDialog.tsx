@@ -6,11 +6,15 @@ import { useEffect, useState } from 'react';
 import { awarenessApi, awarenessKeys, type LetterKind, type LetterSave } from '../../api/awareness';
 import { useToast } from '../../components/Toast';
 import { FormDialog } from './FormDialog';
+import { TemplatePicker } from './TemplatePicker';
 
-export function FromTemplateDialog({ templateId: fixed, taskId, defaultTitle = '', onClose, onCreated }: {
+export function FromTemplateDialog({ templateId: fixed, taskId, defaultTitle = '', defaultKind = 'planned', defaultReason = '', onClose, onCreated }: {
   templateId?: string;
   taskId?: string;
   defaultTitle?: string;
+  /** Из «Нового письма» (1.13.2): тип и повод, уже введённые там. */
+  defaultKind?: LetterKind;
+  defaultReason?: string;
   onClose: () => void;
   onCreated: (r: LetterSave) => void;
 }) {
@@ -18,8 +22,8 @@ export function FromTemplateDialog({ templateId: fixed, taskId, defaultTitle = '
   const toast = useToast();
   const [templateId, setTemplateId] = useState(fixed ?? '');
   const [title, setTitle] = useState(defaultTitle);
-  const [kind, setKind] = useState<LetterKind>('planned');
-  const [reason, setReason] = useState('');
+  const [kind, setKind] = useState<LetterKind>(defaultKind);
+  const [reason, setReason] = useState(defaultReason);
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const list = useQuery({ queryKey: awarenessKeys.templates, queryFn: () => awarenessApi.templates(), enabled: !fixed });
@@ -50,13 +54,10 @@ export function FromTemplateDialog({ templateId: fixed, taskId, defaultTitle = '
       disabled={!templateId || !t.data || !title.trim() || missing.length > 0 || (kind === 'urgent' && !reason.trim())}
       onClose={onClose} onSubmit={() => { setError(null); create.mutate(); }}>
       {!fixed && (
-        <label>Шаблон
-          <select className="inp" required value={templateId} onChange={(e) => { setTemplateId(e.target.value); setValues({}); setTitle(''); }}>
-            <option value="" disabled>Выберите шаблон…</option>
-            {list.data?.items.map((x) => <option key={x.id} value={x.id}>{x.title}{x.tooLarge ? ' — больше лимита' : ''}</option>)}
-          </select>
-        </label>
+        <TemplatePicker label="Шаблон" required items={list.data?.items} loading={list.isLoading} value={templateId} onLeave={onClose}
+          onChange={(id) => { setTemplateId(id); setValues({}); setTitle(''); }} />
       )}
+      {fixed && t.data && <p className="hint" data-testid="from-template-name">Шаблон «{t.data.title}»</p>}
       {t.data?.tooLarge && <div className="note aw-warn" role="status">Шаблон больше текущего лимита: {t.data.tooLarge}</div>}
       <label>Название письма (для списков)
         <input className="inp" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />

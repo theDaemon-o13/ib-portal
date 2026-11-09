@@ -190,6 +190,47 @@ describe('Ширина доски', () => {
   });
 });
 
+describe('Раскладка карточки (1.13.2)', () => {
+  it('длинный заголовок, длинная категория, 12 и 123 комментария, без исполнителя: строки не пересекаются на 1440, 1100, 860, 375 px', async () => {
+    const longCat = await api('POST', '/api/v1/catalogs/task_categories/items', { value: `${RUN} проверка соответствия требованиям регулятора по защите информации` });
+    const title = 'Пересмотреть политику управления доступом к информационным системам банка и согласовать изменения с владельцами систем';
+    const a = await makeTask(title, { assigneeId: null, categoryId: longCat.id, dueDate: '2026-11-12' });
+    const b = await makeTask(`${title} (с исполнителем)`, { dueDate: '2026-11-12' });
+    for (let i = 0; i < 12; i++) await api('POST', `/api/v1/tasks/${a.id}/comments`, { body: `Комментарий ${i + 1}` });
+    for (let i = 0; i < 123; i++) await api('POST', `/api/v1/tasks/${b.id}/comments`, { body: `Комментарий ${i + 1}` });
+    // Все прямые строки карточки — без вертикального пересечения; счётчик целиком виден и не наезжает на заголовок.
+    const check = (full) => `(() => { const c = ${card(full)}; if (!c) return 'нет карточки';
+      const rows = [...c.children].filter((k) => k.offsetParent).map((k) => [k.className, k.getBoundingClientRect()]);
+      for (let i = 1; i < rows.length; i++) if (rows[i][1].top < rows[i - 1][1].bottom - 0.5) return 'пересекаются: ' + rows[i - 1][0] + ' / ' + rows[i][0];
+      const t = c.querySelector('.card-t').getBoundingClientRect(), top = c.querySelector('.card-top').getBoundingClientRect();
+      if (t.bottom > top.top + 0.5) return 'заголовок наезжает на строку категории и даты';
+      if (t.height > parseFloat(getComputedStyle(c.querySelector('.card-t')).lineHeight) * 3 + 1) return 'заголовок длиннее 3 строк';
+      const n = c.querySelector('[data-testid=card-comments]'); if (!n) return 'нет счётчика';
+      const r = n.getBoundingClientRect(), cr = c.getBoundingClientRect();
+      if (n.scrollWidth > n.clientWidth + 1) return 'счётчик обрезан';
+      if (r.top < t.bottom - 0.5) return 'счётчик поверх заголовка';
+      if (r.right > cr.right || r.left < cr.left) return 'счётчик за краем карточки';
+      return 'ok'; })()`;
+    try {
+      for (const w of [1440, 1100, 860, 375]) {
+        await ui.viewport(w, w < 500 ? 812 : 1000);
+        await openBoard();
+        for (const t of [title, `${title} (с исполнителем)`]) {
+          await ui.waitFor(`!!${card(t)}`, `карточка на ${w} px`);
+          assert.equal(await ui.evaluate(check(t)), 'ok', `${w} px: «${t.slice(0, 30)}…»`);
+        }
+        assert.equal(await ui.evaluate(`${card(title)}.querySelector('[data-testid=card-comments]').textContent`), '12');
+        assert.equal(await ui.evaluate(`${card(`${title} (с исполнителем)`)}.querySelector('[data-testid=card-comments]').textContent`), '123');
+      }
+    } finally {
+      await ui.viewport(1440, 1000);
+      // Категория используется задачами прогона — только в архив (раздел 3.4).
+      const item = (await api('GET', '/api/v1/catalogs/task_categories/items')).items.find((x) => x.id === longCat.id);
+      if (item) await api('POST', `/api/v1/catalog-items/${longCat.id}/archive`, { version: item.version }).catch(() => undefined);
+    }
+  });
+});
+
 describe('Карточка задачи', () => {
   it('правка только изменённого, комментарий, история; «Отметить выполненной» больше нет', async () => {
     await makeTask('карточка');

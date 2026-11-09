@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cadenceOf, DEFAULT_CADENCE, letterRefHref, parseLetterRef, formOfCadence, leadDaysProblem, hasChanges, htmlToLines, letterMarks, lineDiff, templateVariables, withoutApprovalComment } from './logic';
+import { cadenceOf, DEFAULT_CADENCE, letterRefHref, parseLetterRef, formOfCadence, leadDaysProblem, hasChanges, htmlToLines, letterMarks, lineDiff, newLetterStep, templateVariables, withoutApprovalComment } from './logic';
 
 describe('сравнение версий', () => {
   it('текст из HTML построчно: абзацы, списки, таблица, ссылка, изображение, подпись', () => {
@@ -69,5 +69,18 @@ describe('«Письмо» в «Рассылках»', () => {
     expect(letterRefHref('№ 12, версия 4', refs)).toBeNull();
     expect(letterRefHref('№ 13, версия 1', refs)).toBeNull();
     expect(letterRefHref('Рассылка 2023 года', refs)).toBeNull();
+  });
+});
+
+describe('«Новое письмо»: выбор шаблона (1.13.2)', () => {
+  const base = { title: '  Фишинг: звонки  ', kind: 'planned' as const, reason: '', templateId: '' };
+  it('без шаблона — письмо создаётся сразу', () => {
+    expect(newLetterStep(base)).toEqual({ kind: 'create' });
+    expect(newLetterStep({ ...base, templateId: '   ' })).toEqual({ kind: 'create' });
+  });
+  it('с шаблоном — «Письмо из шаблона» с ним: название, тип; повод — только у срочного', () => {
+    expect(newLetterStep({ ...base, templateId: 't1', reason: 'не нужен' })).toEqual({ kind: 'fromTemplate', templateId: 't1', title: 'Фишинг: звонки', letterKind: 'planned', reason: '' });
+    expect(newLetterStep({ ...base, templateId: 't1', kind: 'urgent', reason: 'Новая схема' }))
+      .toEqual({ kind: 'fromTemplate', templateId: 't1', title: 'Фишинг: звонки', letterKind: 'urgent', reason: 'Новая схема' });
   });
 });
