@@ -58,6 +58,14 @@ export async function letterIntegrity(db: Db): Promise<IntegrityCheck[]> {
     ORDER BY l.number LIMIT ${LIMIT}`;
   check(frozen.length === 0, 'учебные письма: у отправленного есть версия sent и событие «Отправлено»', nums(frozen));
 
+  // Удалённое письмо (1.13.3, ADR-0048): только из архива и ни разу не отмеченное отправленным.
+  const badDeleted = await db.$queryRaw<{ number: number }[]>`
+    SELECT l.number FROM awareness_letters l
+    WHERE l.deleted_at IS NOT NULL AND (l.archived_at IS NULL OR l.frozen OR l.status = 'sent' OR l.sent_version_id IS NOT NULL
+      OR EXISTS (SELECT 1 FROM awareness_letter_events e WHERE e.letter_id = l.id AND e.action = 'sent'))
+    ORDER BY l.number LIMIT ${LIMIT}`;
+  check(badDeleted.length === 0, 'учебные письма: удалены только архивные и неотправленные', `письма ${nums(badDeleted)} — удалены вне правил; сообщите разработчику`);
+
   // Запись «Рассылок» из события отправки существует и не удалена.
   const lostRecords = await db.$queryRaw<{ number: number }[]>`
     SELECT DISTINCT l.number FROM awareness_letter_events e JOIN awareness_letters l ON l.id = e.letter_id

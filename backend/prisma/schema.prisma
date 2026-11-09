@@ -2031,6 +2031,8 @@ model AwarenessLetter {
   sentVersionId     String?   @map("sent_version_id") @db.Uuid
   version           Int       @default(1)
   archivedAt        DateTime? @map("archived_at") @db.Timestamptz(3)
+  /// Мягкое удаление (1.13.3, ADR-0048): только архивное и ни разу не отправленное письмо.
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdBy         String    @map("created_by") @db.Uuid
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)

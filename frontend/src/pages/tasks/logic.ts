@@ -218,7 +218,7 @@ export const OTHER_SOURCE = 'другое';
 /** Откуда задача: у задач учебных писем — по таблицам модуля (source у них manual), иначе — по source. */
 export function originText(t: Pick<Task, 'source' | 'origin'>): string {
   if (t.origin?.kind === 'schedule') return `создана расписанием: ${t.origin.rule.title}`;
-  if (t.origin?.kind === 'letter') return `учебное письмо № ${t.origin.letter.number}`;
+  if (t.origin?.kind === 'letter') return `учебное письмо № ${t.origin.letter.number}${t.origin.letter.deleted ? ' (удалено)' : ''}`;
   if (t.origin?.kind === 'document_control') return `контроль по документу #${t.origin.document.number}`;
   return SOURCE_LABEL[t.source] ?? OTHER_SOURCE;
 }

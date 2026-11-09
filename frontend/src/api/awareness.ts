@@ -78,6 +78,8 @@ export const awarenessApi = {
   copy: (id: string) => request<Letter>('POST', `/api/v1/awareness/letters/${id}/copy`),
   archive: (id: string, version: number, archived: boolean) =>
     request<Letter>('POST', `/api/v1/awareness/letters/${id}/${archived ? 'archive' : 'unarchive'}`, { version }),
+  /** 1.13.3: мягкое удаление — только архивное и ни разу не отправленное (право awareness.delete). */
+  remove: (id: string, version: number) => request<{ id: string; number: number; deleted: true }>('POST', `/api/v1/awareness/letters/${id}/delete`, { version }),
   urgent: (body: { title: string; reason: string; templateId?: string | null }) => request<LetterSave>('POST', '/api/v1/awareness/urgent', body),
   fromTask: (taskId: string, body: { title: string; templateId?: string; values?: Record<string, string> }) =>
     request<LetterSave>('POST', `/api/v1/awareness/tasks/${taskId}/letter`, body),

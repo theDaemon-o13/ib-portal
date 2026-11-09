@@ -128,8 +128,10 @@ function Card({ t, today, archived, drag, canDrag, onPointerDown, onOpen, onStep
             : <span className="chip high" title={t.recipientLabel ? `Получатели: ${t.recipientLabel}` : undefined}>не назначен</span>}
         <span className="row nowrap gap6 card-ind">
           {t.commentCount > 0 && (
-            <span className="clip" title={`Комментариев: ${t.commentCount}`} data-testid="card-comments">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>{t.commentCount}
+            <span className="clip card-cmt" title={`Комментариев: ${t.commentCount}`} aria-label={`Комментариев: ${t.commentCount}`} data-testid="card-comments">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 9h8M8 13h5" />
+              </svg>{t.commentCount}
             </span>
           )}
           {src && <span className="chip src" title={src.title} data-testid="task-source">{src.label}</span>}

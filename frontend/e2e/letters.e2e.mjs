@@ -345,6 +345,42 @@ describe('Учебные письма: «Новое письмо» с шабло
   });
 });
 
+describe('Учебные письма: удаление (1.13.3)', () => {
+  it('архивное неотправленное — «Удалить» с подтверждением (право awareness.delete); у сотрудника кнопки нет; отправленное — 409 LETTER_SENT', async () => {
+    // Сотрудник ИБ: черновик → в архив через интерфейс; права на удаление нет — кнопки нет.
+    await loginAs(users.staff);
+    const { letter } = await api('POST', '/api/v1/awareness/letters', { title: `${RUN} На удаление`, kind: 'planned', subjectRu: 'Тема', htmlRu: '<p>Текст</p>' });
+    ids.letters.add(letter.id);
+    await openLetter(letter.id);
+    await ui.click($.button('В архив', panel));
+    await ui.waitFor(toastIs('Письмо в архиве'), 'письмо в архиве');
+    assert.equal(await ui.evaluate(`!!document.querySelector('[data-testid=letter-delete]')`), false, 'без права awareness.delete кнопки нет');
+
+    // Начальник ИБ (системная роль с awareness.delete): «Удалить» → подтверждение → письма нет.
+    await loginAs(users.head);
+    await openLetter(letter.id);
+    await ui.click(`document.querySelector('[data-testid=letter-delete]')`, 'Удалить');
+    await ui.waitFor(`!!document.querySelector('[role=alertdialog]')`, 'подтверждение удаления');
+    assert.match(await ui.text(`document.querySelector('[role=alertdialog]')`), new RegExp(`Удалить письмо № ${letter.number}\\?`));
+    await ui.click($.button('Удалить', `document.querySelector('[role=alertdialog]')`));
+    await ui.waitFor(toastIs(`Письмо № ${letter.number} удалено`), 'письмо удалено');
+    await ui.waitFor(`!${panel}`, 'карточка закрыта');
+    assert.equal((await status('GET', `/api/v1/awareness/letters/${letter.id}`)).status, 404);
+    const all = await api('GET', `/api/v1/awareness/letters?scope=all&q=${encodeURIComponent(`${RUN} На удаление`)}`);
+    assert.equal(all.total, 0, 'удалённого нет в списке и поиске');
+
+    // Отправленное письмо прогона (первый тест) — в архив; удалить нельзя ни кнопкой, ни через API.
+    const sent = (await api('GET', `/api/v1/awareness/letters?scope=all&q=${encodeURIComponent(`${RUN} Ежегодная`)}`)).items.find((l) => l.status === 'sent');
+    assert.ok(sent, 'отправленное письмо прогона');
+    const arch = sent.archived ? sent : await api('POST', `/api/v1/awareness/letters/${sent.id}/archive`, { version: sent.version });
+    await openLetter(sent.id);
+    assert.equal(await ui.evaluate(`!!document.querySelector('[data-testid=letter-delete]')`), false, 'у отправленного кнопки нет');
+    const refused = await ui.evaluate(`fetch('/api/v1/awareness/letters/${sent.id}/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: ${arch.version} }) })
+      .then(async (r) => ({ status: r.status, code: (await r.json()).error?.code }))`);
+    assert.deepEqual(refused, { status: 409, code: 'LETTER_SENT' });
+  });
+});
+
 describe('Учебные письма: права', () => {
   it('«Подпись ИБ» — только при settings.manage и ib.work; без ib.work и служебной учётной записи раздела нет', async () => {
     await loginAs(admin);

@@ -36,7 +36,7 @@ interface Picked {
 }
 
 async function pick(db: Db, id: string, lang: ExportLang, versionNo?: number): Promise<Picked> {
-  const l = await db.awarenessLetter.findUnique({ where: { id }, select: { id: true, number: true, title: true, kind: true, currentVersion: true } });
+  const l = await db.awarenessLetter.findUnique({ where: { id, deletedAt: null }, select: { id: true, number: true, title: true, kind: true, currentVersion: true } });
   if (!l) throw notFound('Письмо');
   const v = versionNo === undefined
     ? l.currentVersion

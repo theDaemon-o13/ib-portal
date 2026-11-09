@@ -29,7 +29,7 @@ export async function letterRefs(db: Db, numbers: readonly number[]) {
   const nums = [...new Set(numbers.filter((n) => Number.isInteger(n) && n > 0 && n <= 2_147_483_647))];
   if (!nums.length) return { items: [] };
   const rows = await db.awarenessLetter.findMany({
-    where: { number: { in: nums } },
+    where: { number: { in: nums }, deletedAt: null },
     select: { id: true, number: true, versions: { select: { no: true }, orderBy: { no: 'desc' }, take: 1 } },
   });
   return { items: rows.map((r) => ({ number: r.number, id: r.id, lastVersionNo: r.versions[0]?.no ?? 0 })) };

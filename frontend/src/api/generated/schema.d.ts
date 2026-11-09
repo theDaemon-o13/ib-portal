@@ -100,7 +100,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                                 service: boolean;
                             };
@@ -254,7 +254,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                                 service: boolean;
                             };
@@ -328,7 +328,7 @@ export interface paths {
                                 mustChangePassword: boolean;
                                 passwordExpired: boolean;
                                 roles: string[];
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 kiosk: boolean;
                                 service: boolean;
                             };
@@ -6304,9 +6304,9 @@ export interface paths {
                                 description: string;
                                 isSystem: boolean;
                                 version: number;
-                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                                forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                                 service: boolean;
                                 activeUserCount: number;
                                 userCount: number;
@@ -6433,9 +6433,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             service: boolean;
                             activeUserCount: number;
                             userCount: number;
@@ -6581,9 +6581,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             service: boolean;
                             activeUserCount: number;
                             userCount: number;
@@ -6821,7 +6821,7 @@ export interface paths {
                 header?: never;
                 path: {
                     id: string;
-                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
+                    code: "ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk";
                 };
                 cookie?: never;
             };
@@ -6846,9 +6846,9 @@ export interface paths {
                             description: string;
                             isSystem: boolean;
                             version: number;
-                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
-                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            permissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            lockedPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
+                            forbiddenPermissions: ("ib.work" | "records.edit" | "records.delete" | "registers.manage" | "tasks.delete" | "tasks.assign" | "tasks.review" | "tasks.status.override" | "tasks.report" | "vulns.deadlines" | "data.delete" | "evidence.review" | "docs.manage" | "docs.delete" | "awareness.delete" | "docs.approve.head" | "settings.manage" | "users.manage" | "history.view" | "audit.view" | "assessment.manage" | "monitor.kiosk")[];
                             service: boolean;
                             activeUserCount: number;
                             userCount: number;
@@ -26751,6 +26751,7 @@ export interface paths {
                                         number: number;
                                         /** @enum {string} */
                                         status: "draft" | "review" | "approved" | "sent";
+                                        deleted: boolean;
                                     } | null;
                                     stages: {
                                         /** @enum {string} */
@@ -26770,6 +26771,7 @@ export interface paths {
                                         number: number;
                                         /** @enum {string} */
                                         status: "draft" | "review" | "approved" | "sent";
+                                        deleted: boolean;
                                     };
                                     letterSent: boolean;
                                 } | {
@@ -27027,6 +27029,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -27046,6 +27049,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -27772,6 +27776,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -27791,6 +27796,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -28050,6 +28056,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -28069,6 +28076,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -28305,6 +28313,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -28324,6 +28333,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -28565,6 +28575,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -28584,6 +28595,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -28822,6 +28834,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -28841,6 +28854,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -29079,6 +29093,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 } | null;
                                 stages: {
                                     /** @enum {string} */
@@ -29098,6 +29113,7 @@ export interface paths {
                                     number: number;
                                     /** @enum {string} */
                                     status: "draft" | "review" | "approved" | "sent";
+                                    deleted: boolean;
                                 };
                                 letterSent: boolean;
                             } | {
@@ -53709,6 +53725,7 @@ export interface paths {
                                 latestIsApproved: boolean;
                                 selfApproved: boolean;
                                 sentWithoutApproval: boolean;
+                                deletable: boolean;
                                 versions: {
                                     no: number;
                                     /** @enum {string} */
@@ -53951,6 +53968,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -54197,6 +54215,7 @@ export interface paths {
                                 latestIsApproved: boolean;
                                 selfApproved: boolean;
                                 sentWithoutApproval: boolean;
+                                deletable: boolean;
                                 versions: {
                                     no: number;
                                     /** @enum {string} */
@@ -54612,6 +54631,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -54858,6 +54878,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -55104,6 +55125,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -55351,6 +55373,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -55598,6 +55621,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -55852,6 +55876,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -56093,6 +56118,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -56339,6 +56365,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -56383,6 +56410,157 @@ export interface paths {
                                 } | null;
                             }[];
                             actions: ("save" | "submit" | "withdraw" | "approve" | "return" | "send" | "send_without_approval" | "resend" | "restore" | "copy" | "archive" | "unarchive")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/awareness/letters/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Удалить письмо (мягко): только из архива и ни разу не отмеченное отправленным (1.13.3) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: number;
+                            /** @enum {boolean} */
+                            deleted: true;
                         };
                     };
                 };
@@ -56585,6 +56763,7 @@ export interface paths {
                             latestIsApproved: boolean;
                             selfApproved: boolean;
                             sentWithoutApproval: boolean;
+                            deletable: boolean;
                             versions: {
                                 no: number;
                                 /** @enum {string} */
@@ -57946,6 +58125,7 @@ export interface paths {
                                 latestIsApproved: boolean;
                                 selfApproved: boolean;
                                 sentWithoutApproval: boolean;
+                                deletable: boolean;
                                 versions: {
                                     no: number;
                                     /** @enum {string} */
@@ -61531,6 +61711,7 @@ export interface paths {
                                 latestIsApproved: boolean;
                                 selfApproved: boolean;
                                 sentWithoutApproval: boolean;
+                                deletable: boolean;
                                 versions: {
                                     no: number;
                                     /** @enum {string} */
@@ -61787,6 +61968,7 @@ export interface paths {
                                 latestIsApproved: boolean;
                                 selfApproved: boolean;
                                 sentWithoutApproval: boolean;
+                                deletable: boolean;
                                 versions: {
                                     no: number;
                                     /** @enum {string} */

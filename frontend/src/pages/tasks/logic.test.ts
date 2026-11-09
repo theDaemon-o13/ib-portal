@@ -123,7 +123,7 @@ describe('доска: группировка по цепочкам и поиск
 });
 
 describe('происхождение задачи (1.9.0)', () => {
-  const letter = { id: 'l1', number: 12, status: 'draft' as const };
+  const letter = { id: 'l1', number: 12, status: 'draft' as const, deleted: false };
   it('расписание и учебное письмо — по origin; известный source — словами; неизвестный — «другое», без падения', () => {
     const sched = task(1, { origin: { kind: 'schedule', rule: { id: 'r', title: 'Ежемесячная' }, plannedDate: '2041-01-15', letter: null, stages: [], letterSent: false } });
     expect([originText(sched), sourceChip(sched)?.label]).toEqual(['создана расписанием: Ежемесячная', 'рассылка']);
@@ -136,3 +136,10 @@ describe('происхождение задачи (1.9.0)', () => {
   });
 });
 
+
+describe('задача с удалённым письмом (1.13.3)', () => {
+  it('«учебное письмо № N (удалено)»', () => {
+    const t = { source: 'manual', origin: { kind: 'letter' as const, reason: 'urgent' as const, letter: { id: 'l', number: 7, status: 'draft' as const, deleted: true }, letterSent: false } };
+    expect(originText(t)).toBe('учебное письмо № 7 (удалено)');
+  });
+});

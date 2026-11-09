@@ -31,15 +31,19 @@ export function TaskOriginBlock({ task, actions }: { task: Pick<Task, 'origin' |
   const sentHint = o.letterSent && !task.completedAt
     ? <div className="note aw-hint" role="status">Письмо отправлено — завершите задачу</div>
     : null;
+  // Удалённое письмо (1.13.3): без ссылки, с пометкой; задача остаётся.
   const letterLine = o.letter
-    ? <Link to={letterHref(o.letter.id)}>Учебное письмо № {o.letter.number}</Link>
+    ? o.letter.deleted
+      ? <span data-testid="origin-letter-deleted">Учебное письмо № {o.letter.number} — <b>письмо удалено</b></span>
+      : <Link to={letterHref(o.letter.id)}>Учебное письмо № {o.letter.number}</Link>
     : null;
+  const letterStatus = (x: { status: string; deleted: boolean }) => (x.deleted ? '' : STATUS[x.status] ?? x.status);
 
   if (o.kind === 'letter') {
     return (
       <div className="chain-block aw-origin" aria-label="Учебное письмо" data-testid="task-origin">
         <div className="eyebrow">{o.reason === 'urgent' ? 'Срочная рассылка' : 'Доработка письма'}</div>
-        <div className="row">{letterLine}<span className="muted">{STATUS[o.letter.status] ?? o.letter.status}</span></div>
+        <div className="row">{letterLine}<span className="muted">{letterStatus(o.letter)}</span></div>
         {sentHint}
       </div>
     );
@@ -58,7 +62,7 @@ export function TaskOriginBlock({ task, actions }: { task: Pick<Task, 'origin' |
         ))}
       </ol>
       {letterLine
-        ? <div className="row">{letterLine}<span className="muted">{o.letter ? STATUS[o.letter.status] ?? o.letter.status : ''}</span></div>
+        ? <div className="row">{letterLine}<span className="muted">{o.letter ? letterStatus(o.letter) : ''}</span></div>
         : <div className="muted">Письма пока нет{actions ? '' : ' — создайте его в разделе «Осведомлённость»'}</div>}
       {!o.letter && actions}
       {sentHint}

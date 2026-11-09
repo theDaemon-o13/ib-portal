@@ -231,6 +231,29 @@ describe('Раскладка карточки (1.13.2)', () => {
   });
 });
 
+describe('Кнопки «Обновить / вверх / вниз» (1.13.3)', () => {
+  it('на доске: «Обновить» перечитывает задачи; «Вниз» и «Вверх» прокручивают страницу и колонку', async () => {
+    for (let i = 0; i < 25; i++) await makeTask(`Прокрутка ${i + 1}`, { assigneeId: null });
+    try {
+      await ui.viewport(1440, 800);
+      await openBoard();
+      const ctl = `document.querySelector('[data-testid=scroll-controls]')`;
+      await ui.waitFor(`!!${ctl}?.querySelector('[aria-label="В самый низ"]')`, 'кнопка «В самый низ»');
+      const m = ui.mark();
+      await ui.click(`${ctl}.querySelector('[aria-label="Обновить"]')`, 'Обновить');
+      assert.equal((await ui.request(m, 'GET', '/api/v1/tasks')).status, 200, '«Обновить» перечитал задачи');
+      const backlog = col('Backlog');
+      await ui.click(`${ctl}.querySelector('[aria-label="В самый низ"]')`, 'В самый низ');
+      await ui.waitFor(`(() => { const c = ${backlog}; return c.scrollTop + c.clientHeight >= c.scrollHeight - 2; })()`, 'колонка Backlog внизу');
+      await ui.waitFor(`!!${ctl}.querySelector('[aria-label="В самый верх"]')`, 'кнопка «В самый верх»');
+      await ui.click(`${ctl}.querySelector('[aria-label="В самый верх"]')`, 'В самый верх');
+      await ui.waitFor(`${backlog}.scrollTop === 0 && scrollY === 0`, 'колонка и страница наверху');
+    } finally {
+      await ui.viewport(1440, 1000);
+    }
+  });
+});
+
 describe('Карточка задачи', () => {
   it('правка только изменённого, комментарий, история; «Отметить выполненной» больше нет', async () => {
     await makeTask('карточка');

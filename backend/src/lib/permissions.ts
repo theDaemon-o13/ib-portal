@@ -26,6 +26,10 @@ export const PERMISSIONS = [
   { code: 'docs.manage', name: 'Документы: управление', description: 'Создание, запуск пересмотра, отправка на согласование за автора' },
   { code: 'docs.delete', name: 'Документы: удаление', description: 'Только неподписанные документы; подписанные — в архив' },
   {
+    code: 'awareness.delete', name: 'Осведомлённость: удаление писем',
+    description: 'Только письма в архиве, ни разу не отмеченные отправленными; удаление мягкое. Архивировать может любой сотрудник ИБ (1.13.3)',
+  },
+  {
     code: 'docs.approve.head', name: 'Документы: начальник ИБ',
     description: 'Не используется с 1.4.0: этап «Начальник ИБ» выполняет пользователь с отметкой «Является начальником ИБ». Остаётся ради отката на 1.3.0',
   },
@@ -88,7 +92,7 @@ export const SYSTEM_ROLES = [
     description: 'Полный доступ к настройкам, удаление задач и записей',
     permissions: [
       'ib.work', 'records.edit', 'records.delete', 'registers.manage', 'tasks.delete', 'evidence.review',
-      'docs.manage', 'settings.manage', 'users.manage', 'history.view', 'audit.view',
+      'docs.manage', 'awareness.delete', 'settings.manage', 'users.manage', 'history.view', 'audit.view',
     ],
   },
   {
@@ -109,7 +113,7 @@ export const SYSTEM_ROLES = [
     description: 'Проверяет задачи, видит журнал. Этап «Начальник ИБ» в документах — по отметке в карточке пользователя',
     // С 1.4.0 без docs.approve.head (только новая установка; существующая роль не перезаписывается).
     permissions: [
-      'tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete',
+      'tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete', 'awareness.delete',
       'history.view', 'audit.view',
     ],
   },
@@ -160,6 +164,12 @@ export const PERMISSION_GRANTS: readonly { key: string; release: string; grants:
       ib_head: ['tasks.assign', 'tasks.review', 'tasks.status.override', 'tasks.report', 'docs.delete', 'history.view', 'audit.view'],
       super_admin: ['history.view', 'audit.view'],
     },
+  },
+  {
+    // Удаление архивных неотправленных учебных писем (1.13.3, ADR-0048).
+    key: 'rbac.permissions.v1_13_3',
+    release: '1.13.3',
+    grants: { ib_head: ['awareness.delete'], super_admin: ['awareness.delete'] },
   },
 ];
 

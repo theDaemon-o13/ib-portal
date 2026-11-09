@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import type { Me } from '../api/client';
+import { ScrollControls } from './ScrollControls';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
@@ -26,6 +27,7 @@ export function Shell({ me }: { me: Me }) {
           <Outlet context={me} />
         </main>
       </div>
+      <ScrollControls />
     </div>
   );
 }

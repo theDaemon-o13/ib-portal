@@ -1,0 +1,77 @@
+Портал ИБ 1.13.3 — обновление прода с 1.13.1 (выложена 09.11.2026). Включает 1.13.2 (её отдельно не выкладывать).
+Миграция одна (колонка deleted_at у учебных писем), шаг seed выдаёт новое право «Осведомлённость: удаление писем».
+Подробная инструкция — RELEASE.md в архиве; этот файл — короткий порядок и ожидаемые числа.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.3            → 13f60490a1e9231901bfeb3aac109da0c7fbbd7e   (объект тега)
+     git rev-parse 'v1.13.3^{commit}' → 42de0d7e107e0d67179395e5b66cd3cadd272f07   (коммит)
+   Архив: ibportal-1.13.3.tar.gz + ibportal-1.13.3.tar.gz.sha256
+     sha256 ibportal-1.13.3.tar.gz = eb3ec2870b6efe049b7c3eab7d2a40a43a024d871f701aeecd9db9f6c422e0b5
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.3.tar.gz.sha256          → OK
+     tar -xzf ibportal-1.13.3.tar.gz && cd ibportal-1.13.3 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.3.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ — на работающей 1.13.1, до backup.sh (запросы только читают; числа — в журнал выкладок):
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -c "
+SELECT count(*) AS писем, count(*) FILTER (WHERE archived_at IS NOT NULL) AS в_архиве,
+       count(*) FILTER (WHERE frozen) AS отправленных,
+       count(*) FILTER (WHERE archived_at IS NOT NULL AND NOT frozen) AS можно_будет_удалить
+FROM awareness_letters;
+SELECT count(*) AS колонка_уже_есть FROM information_schema.columns
+WHERE table_name = \$\$awareness_letters\$\$ AND column_name = \$\$deleted_at\$\$;
+SELECT r.name AS роль, count(rp.permission_code) AS прав FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.id
+WHERE r.code IN (\$\$super_admin\$\$, \$\$ib_head\$\$) GROUP BY r.name ORDER BY r.name;"'
+
+   Записать: писем, в_архиве, отправленных, можно_будет_удалить; колонка_уже_есть (ожидается 0); прав у «Начальника ИБ» и
+   «Супер-администратора».
+
+2. РЕЗЕРВНАЯ КОПИЯ — ОБЯЗАТЕЛЬНО, И КОПИЯ ЗА ПРЕДЕЛЫ ТОМА. БЕЗ НЕЁ migrate НЕ ЗАПУСКАТЬ.
+   ./scripts/backup.sh          → «Копия создана: <N>»; иначе — стоп.
+   B=$(docker volume inspect -f '{{.Mountpoint}}' ibportal_backups)
+   N=<имя из строки «Копия создана»>
+   sudo tar -C "$B" -cf /tmp/ibportal-backup-$N.tar "$N"
+   sha256sum /tmp/ibportal-backup-$N.tar > /tmp/ibportal-backup-$N.tar.sha256
+   Перенести оба файла в место хранения вне сервера и там проверить:
+     sha256sum -c ibportal-backup-$N.tar.sha256                           → OK
+     tar -xf ibportal-backup-$N.tar && (cd $N && sha256sum -c SHA256SUMS) → все OK
+   Только после двух OK вне сервера — шаг 3.
+
+3. ВЫКЛАДКА
+   cp /srv/ibportal/releases/ibportal-1.13.3/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.3/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.3/' .env          (новых переменных .env нет)
+   docker compose --profile tools run --rm migrate       — ОБЯЗАТЕЛЬНО
+   Ожидается: «Applying migration `20261109120000_awareness_letter_deleted`», «Seed выполнен: прав 22, …».
+   docker compose up -d backend frontend
+
+4. ПОСЛЕ ВЫКЛАДКИ
+   ./scripts/smoke.sh --after   → все «✓», «Smoke-проверка пройдена»
+   docker compose run --rm -T --no-deps backend node dist/scripts/check-integrity.js
+     → «✓ учебные письма: удалены только архивные и неотправленные», «Целостность в порядке»
+   Повторить запросы шага 1: писем, в_архиве, отправленных — столько же; колонка_уже_есть = 1;
+   прав у каждой из двух ролей — на одно больше. И:
+
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -c "
+SELECT count(*) FILTER (WHERE deleted_at IS NOT NULL) AS удалённых FROM awareness_letters;
+SELECT r.name AS роль FROM roles r JOIN role_permissions rp ON rp.role_id = r.id
+WHERE rp.permission_code = \$\$awareness.delete\$\$ ORDER BY r.name;"'
+
+   Ожидается: удалённых = 0; роли с правом — «Начальник ИБ» и «Супер-администратор».
+   Вручную: вход; «Задачи» — счётчик комментариев виден, справа внизу «Обновить» и «В самый низ»;
+   «Осведомлённость → Письма → Новое письмо» — есть «Шаблон (необязательно)».
+
+5. ОТКАТ НА 1.13.1 (образы 1.13.1 не удалять минимум неделю)
+   sed -i 's/^VERSION=.*/VERSION=1.13.1/' .env && docker compose up -d backend frontend
+   База не восстанавливается: 1.13.1 колонку deleted_at и право awareness.delete не читает; письма, удалённые на 1.13.3,
+   снова видны в архиве. Восстановление из копии (restore.sh <N>) — только если релиз испортил данные, по RELEASE.md.
+
+6. СТОП — backend на 1.13.3 не поднимать и сообщить разработчику, если: sha256 не совпал; копия не создалась или не вынесена
+   за пределы тома; ошибка migrate; любой «✗» в smoke или check-integrity; числа «столько же» не сходятся.
+
+7. В журнал выкладок: дата, версия 1.13.3 (с 1.13.1), кто, имя копии и место хранения вне сервера, числа шагов 1 и 4, результат.
+
+Проверено: репетиция 1.13.1 → 1.13.3 на стенде 09.11.2026 — deploy/verification/1.13.3.md (и RELEASE.md, «Проверено перед выпуском»).

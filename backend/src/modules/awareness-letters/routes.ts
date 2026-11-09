@@ -93,6 +93,8 @@ export const LetterDetail = LetterItem.extend({
   /** Утвердил автор-начальник ИБ — «без независимого согласования». */
   selfApproved: z.boolean(),
   sentWithoutApproval: z.boolean(),
+  /** 1.13.3: в архиве и ни разу не отмечено отправленным — можно удалить (с правом awareness.delete). */
+  deletable: z.boolean(),
   versions: z.array(z.object({
     no: z.number().int(), reason: VersionReason, restoredFrom: z.number().int().nullable(), createdBy: Person, createdAt: z.string(),
   })),
@@ -280,6 +282,14 @@ export const letterRoutes: FastifyPluginAsyncZod<{ db: Db; portalUrl: string; st
     preHandler: work,
     schema: { tags, summary: 'В архив (в том числе отправленное)', params: IdParams, body: Version, response: { 200: LetterDetail, ...errors } },
   }, async (request) => letters.archiveLetter(db, actorOf(request), request.params.id, { version: request.body.version, archived: true }));
+
+  app.post('/awareness/letters/:id/delete', {
+    preHandler: requireAllPerms(['ib.work', 'awareness.delete']),
+    schema: {
+      tags, summary: 'Удалить письмо (мягко): только из архива и ни разу не отмеченное отправленным (1.13.3)', params: IdParams, body: Version,
+      response: { 200: z.object({ id: z.string(), number: z.number().int(), deleted: z.literal(true) }), ...errors },
+    },
+  }, async (request) => letters.deleteLetter(db, actorOf(request), request.params.id, { version: request.body.version }));
 
   app.post('/awareness/letters/:id/unarchive', {
     preHandler: work,

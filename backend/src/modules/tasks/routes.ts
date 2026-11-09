@@ -23,7 +23,7 @@ const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата в форма�
 
 const Item = z.object({ id: z.string(), value: z.string(), color: z.string().nullable(), systemKey: z.string().nullable() });
 const Person = z.object({ id: z.string(), fullName: z.string() });
-const OriginLetter = z.object({ id: z.string(), number: z.number().int(), status: z.enum(['draft', 'review', 'approved', 'sent']) });
+const OriginLetter = z.object({ id: z.string(), number: z.number().int(), status: z.enum(['draft', 'review', 'approved', 'sent']), deleted: z.boolean() });
 export const Task = z.object({
   id: z.string(),
   number: z.number().int(),
