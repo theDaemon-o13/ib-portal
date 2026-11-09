@@ -12,7 +12,8 @@ import { filterIndexes, onKey, place, SEARCH_THRESHOLD, typeahead, type SelKey, 
 
 type Props = SelectHTMLAttributes<HTMLSelectElement> & { 'data-testid'?: string };
 
-const valueSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+/** Setter значения нативного <select> — тот же путь, что у выбора пользователем; лениво: модуль грузится и вне браузера (unit-тесты). */
+const setNativeValue = (s: HTMLSelectElement, v: string) => Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(s, v);
 
 /** Открыт ли сейчас список Select: окна с Esc в фазе захвата пропускают клавишу — её закрывает список. */
 export const selectListOpen = () => typeof document !== 'undefined' && document.querySelector('[data-sel-pop]') !== null;
@@ -79,7 +80,7 @@ export function Select({ className, style, id, title, autoFocus, children, disab
     if (!o || o.disabled || !s) return;
     close();
     if (s.value === o.value) return;
-    valueSetter?.call(s, o.value);
+    setNativeValue(s, o.value);
     s.dispatchEvent(new Event('change', { bubbles: true }));
   };
 
