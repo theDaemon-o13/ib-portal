@@ -9,6 +9,7 @@ import { formatDate } from '../registers/logic';
 import { Modal } from './Dialogs';
 import { applyLabel, defaultSelection, groupCount, selectionBody, toggleAll, toggleOne, type ImportGroup, type Selection } from './logic';
 import { useTodayIso } from './today';
+import { Select } from '../../components/Select';
 
 const GROUPS: { key: ImportGroup | 'unchanged'; title: string; hint: string }[] = [
   { key: 'new', title: 'Новые', hint: 'Ключа нет в узле — создаётся запись. Срока нет до передачи ИКТ.' },
@@ -121,10 +122,10 @@ export function GroupScanImportDialog({ group, canStructure, onClose, onDone }: 
           <p>Файл «{file.name}». {!detected ? 'Профиль по имени файла не определён: выберите узел.' : missing ? `Похоже на профиль ${missing.label}, такого типа в группе нет.` : `Похоже на профиль ${detected.label}.`}</p>
           {missing && !canStructure && <p className="note v-warn" role="alert">Добавить тип {missing.label} в группу может сотрудник с правом «Конструктор реестров». Либо выберите существующий узел.</p>}
           <label className="fd-label">Узел
-            <select className="inp" value={nodeId} aria-label="Узел" onChange={(e) => setNodeId(e.target.value)}>
+            <Select className="inp" value={nodeId} aria-label="Узел" onChange={(e) => setNodeId(e.target.value)}>
               <option value="">— выберите</option>
               {group.nodes.map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
-            </select>
+            </Select>
           </label>
         </>
       )}
@@ -179,10 +180,10 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
           <input className="inp" type="date" value={scanDate} max={today} onChange={(e) => setScanDate(e.target.value)} aria-label="Дата скана" />
         </label>
         <label className="fd-label">Система
-          <select className="inp" value={systemId} onChange={(e) => setSystemId(e.target.value)} aria-label="Система">
+          <Select className="inp" value={systemId} onChange={(e) => setSystemId(e.target.value)} aria-label="Система">
             <option value="">— не указана</option>
             {systems.data?.items.map((i) => <option key={i.id} value={i.id}>{i.value}{i.owner ? ` · владелец ${i.owner.fullName}` : ''}</option>)}
-          </select>
+          </Select>
         </label>
         <span className="hint v-grow">Система ставится новым записям: по ней уведомление находит владельца системы.{s.systemId ? ' Взята из прошлого импорта узла.' : ''}</span>
       </div>

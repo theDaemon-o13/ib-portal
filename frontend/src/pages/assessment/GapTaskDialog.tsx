@@ -7,6 +7,7 @@ import { settingsApi } from '../../api/settings';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { defaultTaskTitle, type Section } from './logic';
+import { Select } from '../../components/Select';
 
 export function GapTaskDialog({ a, s, onClose }: { a: Assessment; s: Section; onClose: () => void }) {
   const qc = useQueryClient();
@@ -39,16 +40,16 @@ export function GapTaskDialog({ a, s, onClose }: { a: Assessment; s: Section; on
           <div className="note">Задача будет видна всем на доске «Задачи»: название, исполнитель, срок. Баллы и ссылка на самооценку туда не попадают.</div>
           <label className="fd-label">Название<input className="inp" required maxLength={300} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
           <label className="fd-label">Категория
-            <select className="inp" required value={categoryId} onChange={(e) => setCategory(e.target.value)}>
+            <Select className="inp" required value={categoryId} onChange={(e) => setCategory(e.target.value)}>
               <option value="">{categories.isPending ? 'Загрузка…' : 'Выберите'}</option>
               {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.value}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="fd-label">Исполнитель
-            <select className="inp" required value={assigneeId} onChange={(e) => setAssignee(e.target.value)}>
+            <Select className="inp" required value={assigneeId} onChange={(e) => setAssignee(e.target.value)}>
               <option value="">{assignees.isPending ? 'Загрузка…' : 'Выберите'}</option>
               {assignees.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="fd-label">Срок<input className="inp" type="date" value={dueDate} onChange={(e) => setDue(e.target.value)} /></label>
           <div className="row end">

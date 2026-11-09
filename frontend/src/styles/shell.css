@@ -168,17 +168,83 @@ table tbody tr:hover > td{background:var(--hover)}
 
 /* «Обновить», «В самый верх», «В самый низ» на страницах-списках (1.13.3). Под открытой карточкой и окнами — скрыты:
    у них свои кнопки внизу. */
-.scroll-ctl{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:14;
-  display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:999px;background:var(--side-bg);border:1px solid var(--side-border);
+/* 1.13.4: компактнее и у самого края — в поле отступа сцены (20 + 30 px), не поверх кнопок страницы. */
+.scroll-ctl{position:fixed;right:max(5px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:14;
+  display:flex;flex-direction:column;gap:4px;padding:4px;border-radius:999px;background:var(--side-bg);border:1px solid var(--side-border);
   box-shadow:var(--shadow-lg),inset 0 1px 0 rgba(255,255,255,.12);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
-.scroll-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1px solid var(--field-border);
+.scroll-btn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1px solid var(--field-border);
   background:var(--field-bg);color:var(--side-text)}
 .scroll-btn:hover{background:var(--side-hover)}
 .scroll-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .scroll-btn:disabled{cursor:progress}
-.scroll-btn svg{width:18px;height:18px}
+.scroll-btn svg{width:16px;height:16px}
 .scroll-btn svg.spin{animation:scroll-spin .9s linear infinite}
 @keyframes scroll-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.scroll-btn svg.spin{animation:none}}
 body:has(.dp, .backdrop, .app.menu-open) .scroll-ctl{display:none}
 @media (max-width:860px){.scroll-ctl{right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px)}.scroll-btn{width:44px;height:44px}}
+
+/* ---------- Элементы форм (1.13.4, docs/tasks/1.13.4-forms.md) ---------- */
+/* Select: обёртка не участвует в раскладке — кнопка встаёт на место прежнего <select> с теми же классами (inp …). */
+/* Класс ui-sel, не sel: .sel уже помечает выбранную строку и карточку. */
+.ui-sel{display:contents}
+.sel-native{position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;opacity:0;pointer-events:none}
+.sel-btn{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;color:var(--fg);line-height:1.35;min-width:0}
+.sel-btn.inp{padding-right:9px}
+.sel-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sel-chev{width:16px;height:16px;flex:none;color:var(--muted);transition:transform .15s}
+.ui-sel.open .sel-chev{transform:rotate(180deg)}
+.sel-btn:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sel-btn:disabled{opacity:.55;cursor:not-allowed}
+.sel-pop{position:fixed;z-index:80;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-radius:14px;color:var(--fg);
+  background:var(--sheen),var(--glass-strong);border:1px solid var(--card-border);box-shadow:var(--shadow-lg),inset 0 1px 0 var(--hl);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.sel-search{margin:8px 8px 2px;padding:7px 10px;border-radius:9px;border:1px solid var(--inp-border);background:var(--inp-bg);color:var(--fg);font-size:13.5px;min-width:0}
+.sel-search:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sel-list{list-style:none;margin:0;padding:6px;overflow-y:auto;overscroll-behavior:contain;flex:1;min-height:0}
+.sel-o{display:flex;align-items:center;gap:8px;min-height:34px;padding:7px 10px;border-radius:9px;cursor:pointer;font-size:13.5px;line-height:1.3}
+.sel-o.active{background:var(--accent-soft);color:var(--accent-ink)}
+.sel-o.cur{font-weight:600}
+.sel-o[aria-disabled]{opacity:.45;cursor:default}
+.sel-o[aria-disabled].active{background:none;color:inherit}
+.sel-ol{min-width:0;overflow-wrap:anywhere}
+.sel-tick{width:16px;height:16px;flex:none;margin-left:auto;color:var(--accent-ink)}
+.sel-empty{padding:10px;color:var(--muted);font-size:13px}
+@media (max-width:860px){.sel-o{min-height:42px}}
+/* Нативные списки, если где-то остались: варианты — в цветах темы. */
+select option{background:var(--paper);color:var(--paper-fg)}
+
+/* Чекбоксы и переключатели: акцентная заливка с галочкой или точкой; клик по подписи — как раньше. */
+input[type="checkbox"],input[type="radio"]{-webkit-appearance:none;appearance:none;flex:none;width:16px;height:16px;margin:0;display:inline-grid;place-content:center;
+  vertical-align:-3px;cursor:pointer;background:var(--inp-bg);border:1.5px solid var(--line-2);border-radius:5px;transition:background .15s,border-color .15s,box-shadow .15s}
+input[type="radio"]{border-radius:50%}
+input[type="checkbox"]::before,input[type="radio"]::before{content:"";transform:scale(0);transition:transform .12s ease-out;background:#FFFFFF}
+input[type="checkbox"]::before{width:11px;height:11px;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/contain no-repeat}
+input[type="checkbox"]:indeterminate::before{width:8px;height:2px;border-radius:1px;-webkit-mask:none;mask:none;transform:scale(1)}
+input[type="radio"]::before{width:6px;height:6px;border-radius:50%}
+input[type="checkbox"]:checked,input[type="checkbox"]:indeterminate,input[type="radio"]:checked{background:var(--accent-btn);border-color:var(--accent-btn)}
+input[type="checkbox"]:checked::before,input[type="radio"]:checked::before{transform:scale(1)}
+input[type="checkbox"]:hover:not(:disabled),input[type="radio"]:hover:not(:disabled){border-color:var(--accent)}
+input[type="checkbox"]:focus-visible,input[type="radio"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type="checkbox"]:disabled,input[type="radio"]:disabled{opacity:.5;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){input[type="checkbox"]::before,input[type="radio"]::before{transition:none}}
+
+/* Дата и время: значок календаря читается в обеих темах; календарь — системный в цветах color-scheme (на <html>). */
+input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,input[type="month"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.75;border-radius:4px;padding:2px}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover{opacity:1;background:var(--fill)}
+input[type="date"],input[type="time"],input[type="datetime-local"],input[type="month"]{font-variant-numeric:tabular-nums}
+/* Выбор файла — кнопка в стиле портала. */
+input[type="file"]{color:var(--muted);font-size:13px;max-width:100%}
+input[type="file"]::file-selector-button{font:inherit;font-weight:600;font-size:13px;margin-right:10px;padding:7px 14px;border-radius:999px;cursor:pointer;
+  border:0;background:var(--chip-strong,var(--fill));color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--card-border)}
+input[type="file"]::file-selector-button:hover{background:var(--card-bg,var(--fill))}
+input[type="file"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+/* number: стрелки — в цветах темы (color-scheme), без светлой подложки. */
+input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{opacity:.6;cursor:pointer}
+input[type="number"]:hover::-webkit-inner-spin-button{opacity:1}
+textarea.inp{resize:vertical;line-height:1.45}
+/* Полосы прокрутки — из токенов темы (в «Чёрном океане» тёмные). */
+:root{scrollbar-color:var(--line-2) transparent}

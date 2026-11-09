@@ -20,6 +20,7 @@ import { useTodayIso } from './today';
 import { VulnRecordBlock } from './VulnRecordBlock';
 import { DeletedStats, DeleteGroupDialog, DeleteNodeDialog } from './Deletion';
 import '../../styles/vulns.css';
+import { Select } from '../../components/Select';
 
 type Go = (v: VulnView) => void;
 const NO_STATS: NodeStats = { nodeId: '', open: 0, overdue: 0, critical: 0, notHandedOver: 0, fixed: 0, total: 0, lastScan: null, scans: [], scanAgeDays: null, scanStale: false };
@@ -333,13 +334,13 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
         <section className="panel">
           <div className="panel-h v-filters">
             <input className="inp v-grow" type="search" value={search} placeholder="Пакет, идентификатор, описание" aria-label="Поиск" onChange={(e) => { setSearch(e.target.value); resetPage(); }} />
-            <select className="inp" value={crit} aria-label="Критичность" onChange={(e) => { setCrit(e.target.value); resetPage(); }}>
+            <Select className="inp" value={crit} aria-label="Критичность" onChange={(e) => { setCrit(e.target.value); resetPage(); }}>
               <option value="">Любая критичность</option>
               {critField?.options.filter((o) => !o.archived).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-            <select className="inp" value={state} aria-label="Статус" onChange={(e) => { setState(e.target.value as typeof state); resetPage(); }}>
+            </Select>
+            <Select className="inp" value={state} aria-label="Статус" onChange={(e) => { setState(e.target.value as typeof state); resetPage(); }}>
               {STATE_FILTERS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-            </select>
+            </Select>
             {legacy && canEdit && picked.length > 0 && <button className="btn primary" type="button" onClick={() => setMoving(picked)}>Перенести выбранные: {picked.length}</button>}
             {canDelete && picked.length > 0 && <button className="btn danger-t" type="button" onClick={() => setDialog('delete-records')}>Удалить выбранные: {picked.length}</button>}
           </div>

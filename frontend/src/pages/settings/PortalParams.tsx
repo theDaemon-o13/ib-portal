@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { settingsApi, type PortalParam, type PortalParamOptions } from '../../api/settings';
 import { useAction } from './useAction';
+import { Select } from '../../components/Select';
 
 const paramsKey = ['settings', 'portal-params'] as const;
 type Assets = { significantLevelOptionIds: string[]; dlpRegisterId: string | null };
@@ -77,10 +78,10 @@ function AssetsForm({ value, onChange, options }: { value: Assets; onChange: (v:
     <>
       <Checks title="Значимые категории" options={options.levels} value={value.significantLevelOptionIds} onChange={(significantLevelOptionIds) => onChange({ ...value, significantLevelOptionIds })} />
       <label className="fd-label">Реестр устройств DLP
-        <select className="inp" value={value.dlpRegisterId ?? ''} onChange={(e) => onChange({ ...value, dlpRegisterId: e.target.value || null })}>
+        <Select className="inp" value={value.dlpRegisterId ?? ''} onChange={(e) => onChange({ ...value, dlpRegisterId: e.target.value || null })}>
           <option value="">— не задан</option>
           {options.registers.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-        </select>
+        </Select>
       </label>
     </>
   );
@@ -153,11 +154,11 @@ function ParamPanel({ param, options }: { param: PortalParam; options: PortalPar
         {param.form === 'grades' && <GradesForm value={draft as Grades} onChange={setDraft} />}
         {param.form === 'reviewRole' && (
           <label className="fd-label">Роль
-            <select className="inp" aria-label="Роль проверки сотрудниками" value={(draft as { roleId: string | null }).roleId ?? ''}
+            <Select className="inp" aria-label="Роль проверки сотрудниками" value={(draft as { roleId: string | null }).roleId ?? ''}
               onChange={(e) => setDraft({ roleId: e.target.value || null })}>
               <option value="">— все сотрудники ИБ</option>
               {options.roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-            </select>
+            </Select>
           </label>
         )}
         {param.form === 'text' && <input className="inp" aria-label={param.title} value={String(draft)} onChange={(e) => setDraft(e.target.value)} />}

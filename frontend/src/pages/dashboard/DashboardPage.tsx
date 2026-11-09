@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast';
 import { groupOf, moveEntry, patchEntry, sizeClass, timeOf, type LayoutGroup } from './logic';
 import { TilesDrawer } from './TilesDrawer';
 import { KpiCard, TilePanel, WidgetPanel } from './Widgets';
+import { Select } from '../../components/Select';
 
 // Кэш последней раскладки — только чтобы экран не «прыгал» при загрузке; источник — сервер (ADR-0018).
 const CACHE_KEY = 'ibportal.dashboard.layout';
@@ -171,10 +172,10 @@ export function DashboardPage() {
       {editing && (
         <div className="panel lay-bar" role="toolbar" aria-label="Настройка дашборда">
           {canRoles && (
-            <select className="inp sm-inp" value={target} onChange={(e) => void pickTarget(e.target.value)} aria-label="Чья раскладка">
+            <Select className="inp sm-inp" value={target} onChange={(e) => void pickTarget(e.target.value)} aria-label="Чья раскладка">
               <option value="me">Моя раскладка</option>
               {roles.data?.items.map((r) => <option key={r.id} value={r.id}>По умолчанию для роли «{r.name}»</option>)}
-            </select>
+            </Select>
           )}
           <span className="hint">Перетащите элемент за ⠿, выберите размер или скройте. {layout.data?.source === 'role' && target === 'me' ? `Сейчас действует раскладка роли «${layout.data.role?.name}».` : ''}</span>
           <span className="row">

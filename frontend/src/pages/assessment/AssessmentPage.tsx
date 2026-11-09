@@ -16,6 +16,7 @@ import { Plan } from './Plan';
 import { Presentation } from './Presentation';
 import { useAssessmentAction } from './useAssessmentAction';
 import { useToast } from '../../components/Toast';
+import { Select } from '../../components/Select';
 
 const TABS = [
   { key: 'overview', title: 'Обзор' },
@@ -89,11 +90,11 @@ export function AssessmentPage() {
           ) : (
             <>
               <div className="sa-bar">
-                <select className="inp" aria-label="Оценка" value={id ?? ''} onChange={(e) => open(e.target.value)}>
+                <Select className="inp" aria-label="Оценка" value={id ?? ''} onChange={(e) => open(e.target.value)}>
                   {items.filter((x) => x.status !== 'archived' || x.id === id).map((x) => (
                     <option key={x.id} value={x.id}>{x.title} · {dateRu(x.assessedOn)}{x.status === 'archived' ? ' · архив' : ''}</option>
                   ))}
-                </select>
+                </Select>
                 {a && <span className={`chip ${STATUS_TONE[a.status]}`} data-status={a.status}><span className="dot" />{a.statusName}</span>}
                 <span className="grow" />
                 {a?.status === 'draft' && (

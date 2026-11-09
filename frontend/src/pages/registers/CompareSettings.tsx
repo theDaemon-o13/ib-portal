@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { registersApi, type FieldType, type RegisterDetail } from '../../api/registers';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
+import { Select } from '../../components/Select';
 
 // Те же типы, что проверяет backend (structure.service.ts: COMPARE_KEY_TYPES, COMPARE_SCOPE_TYPES).
 const KEY_TYPES: readonly FieldType[] = ['text', 'number', 'date', 'select', 'catalog', 'user'];
@@ -26,10 +27,10 @@ export function CompareSettings({ reg }: { reg: RegisterDetail }) {
       <div className="row">
         <span className="hint">Ключ:</span>
         {key.map((k, i) => (
-          <select key={i} className="inp sm-inp" value={k} aria-label={`Поле ключа ${i + 1}`} onChange={(e) => setKeyAt(i, e.target.value)}>
+          <Select key={i} className="inp sm-inp" value={k} aria-label={`Поле ключа ${i + 1}`} onChange={(e) => setKeyAt(i, e.target.value)}>
             <option value="">{i === 0 ? '— по ID записи' : '—'}</option>
             {live.filter((f) => KEY_TYPES.includes(f.type) && (f.id === k || !key.includes(f.id))).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
+          </Select>
         ))}
       </div>
       <div className="row">

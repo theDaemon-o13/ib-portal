@@ -5,6 +5,7 @@ import { tasksApi, tkeys, type MailDraft } from '../../api/tasks';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
+import { Select } from '../../components/Select';
 
 const EXAMPLE = 'От: Отдел кадров <hr@example.tj>\nОтправлено: 23.10.2026 10:15\nТема: Блокировка учётных записей\n\nПросим до 27.10 заблокировать…';
 
@@ -65,12 +66,12 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
               <ChainSuggest title={parsed.subject || form.title} choice={chain} onPick={setChain} />
               <div className="fgrid">
                 <label>Ответственный
-                  <select className="inp" value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}>
+                  <Select className="inp" value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}>
                     <option value="">— не назначен</option>
                     {canAssign
                       ? people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)
                       : <option value={meId}>Я</option>}
-                  </select>
+                  </Select>
                   <span className="why">{parsed.rule ? `Категория письма «${parsed.rule.label}» · ` : ''}{parsed.assigneeReason}</span>
                   {!canAssign && parsed.assignee && parsed.assignee.id !== meId && (
                     <span className="why">Поставить задачу «{parsed.assignee.fullName}» может пользователь с правом «Задачи: постановка другим»</span>
@@ -81,9 +82,9 @@ export function MailDrawer({ meId, canAssign, onClose, onCreated }: { meId: stri
                   <span className="why">{parsed.dueReason}</span>
                 </label>
                 <label>Приоритет
-                  <select className="inp" value={form.priorityId} onChange={(e) => setForm({ ...form, priorityId: e.target.value })}>
+                  <Select className="inp" value={form.priorityId} onChange={(e) => setForm({ ...form, priorityId: e.target.value })}>
                     {priorities.data?.items.map((p) => <option key={p.id} value={p.id}>{p.value}</option>)}
-                  </select>
+                  </Select>
                   {parsed.urgent && <span className="why">в письме «срочно»</span>}
                 </label>
                 <label>Отправитель<input className="inp" readOnly value={parsed.from || '—'} /></label>

@@ -1,0 +1,42 @@
+Портал ИБ 1.13.4 — обновление прода с 1.13.3. Только интерфейс (frontend): миграций, новых переменных .env и изменений базы нет;
+образы db и backend по содержимому те же, что у 1.13.3. Подробно — RELEASE.md в архиве.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.4            → 8fda1beeb50c44a1dc52f09fe5916441a304f882   (объект тега)
+     git rev-parse 'v1.13.4^{commit}' → c391b00f0a2fb3557a5a03ff3835786d3c45b57d   (коммит)
+   Архив: ibportal-1.13.4.tar.gz + ibportal-1.13.4.tar.gz.sha256
+     sha256 ibportal-1.13.4.tar.gz = ef082884d5bdd44dd5766b20fc7117544b75c6fad52677e20d0c4a1f04aa9ab8
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.4.tar.gz.sha256          → OK
+     tar -xzf ibportal-1.13.4.tar.gz && cd ibportal-1.13.4 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.4.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.3)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома, как при выкладке 1.13.3
+   (tar копии + sha256sum, проверка на месте хранения). Нет копии — стоп.
+
+2. ВЫКЛАДКА
+   cp /srv/ibportal/releases/ibportal-1.13.4/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.4/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.4/' .env
+   docker compose --profile tools run --rm migrate   → «No pending migrations to apply», «Seed выполнен: …»
+   docker compose up -d backend frontend
+
+3. ПОСЛЕ
+   ./scripts/smoke.sh --after   → «Smoke-проверка пройдена», число записей не изменилось
+   Вручную в Chrome и в Edge на Windows, обе темы (переключатель вверху «Океан» / «Чёрный»):
+     - «Задачи» → быстрая постановка → список «Категория»: раскрывается панелью в цветах темы (не белой), ↓ ↑ Enter выбирают;
+       карточки задач на доске — заголовок не наезжает на строку категории и срока;
+     - «Осведомлённость → Письма → Новое письмо»: список «Тип» открывается в окне, Esc закрывает только список;
+     - «Журнал»: значок календаря у поля даты виден в «Чёрном океане»; «Настройки → Пользователи и роли» — чекбоксы.
+   Если что-то из этого не так — снимок экрана разработчику (выкладку не откатывать, если данные в порядке).
+
+4. ОТКАТ НА 1.13.3 (только образ frontend, база не меняется)
+   sed -i 's/^VERSION=.*/VERSION=1.13.3/' .env && docker compose up -d backend frontend
+   Образы 1.13.3 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; migrate применил миграции или упал; любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.13.4 (с 1.13.3), кто, имя копии и место хранения, результат, проверка в Chrome и Edge.

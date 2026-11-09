@@ -9,6 +9,7 @@ import { formatDateTime, initials } from './logic';
 import { TemporaryPasswordDialog } from './TemporaryPasswordDialog';
 import { UserSessionsDialog } from './UserSessionsDialog';
 import { keys, useAction } from './useAction';
+import { Select } from '../../components/Select';
 
 interface Draft {
   fullName: string;
@@ -52,10 +53,10 @@ function RoleChecks({ value, onChange }: { value: string[]; onChange: (ids: stri
 function ManagerSelect({ value, onChange, exclude, form }: { value: string; onChange: (id: string) => void; exclude?: string; form?: string }) {
   const options = useQuery({ queryKey: keys.userOptions, queryFn: settingsApi.userOptions });
   return (
-    <select className="inp" form={form} value={value} onChange={(e) => onChange(e.target.value)} aria-label="Руководитель">
+    <Select className="inp" form={form} value={value} onChange={(e) => onChange(e.target.value)} aria-label="Руководитель">
       <option value="">Руководитель не назначен</option>
       {options.data?.items.filter((o) => o.id !== exclude).map((o) => <option key={o.id} value={o.id}>{o.fullName}</option>)}
-    </select>
+    </Select>
   );
 }
 

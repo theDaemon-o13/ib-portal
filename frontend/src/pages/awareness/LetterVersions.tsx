@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { awarenessApi, awarenessKeys, type Letter, type LetterVersion } from '../../api/awareness';
 import { hasChanges, htmlToLines, lineDiff, ruDateTime, VERSION_REASON, type DiffLine } from './logic';
+import { Select } from '../../components/Select';
 
 const SIG_RE = /<div data-ib-fragment="signature"><\/div>/g;
 
@@ -84,14 +85,14 @@ export function LetterVersions({ letter, signature, onRestore, busy }: {
       {letter.versions.length > 1 && (
         <div className="row aw-cmp" role="group" aria-label="Сравнить версии">
           <span>Сравнить</span>
-          <select className="inp sm" aria-label="Версия «было»" value={cmp?.a ?? ''} onChange={(e) => setCmp({ a: Number(e.target.value), b: cmp?.b ?? latest })}>
+          <Select className="inp sm" aria-label="Версия «было»" value={cmp?.a ?? ''} onChange={(e) => setCmp({ a: Number(e.target.value), b: cmp?.b ?? latest })}>
             <option value="" disabled>версию…</option>
             {letter.versions.map((v) => <option key={v.no} value={v.no}>{v.no}</option>)}
-          </select>
+          </Select>
           <span>и</span>
-          <select className="inp sm" aria-label="Версия «стало»" value={cmp?.b ?? latest} onChange={(e) => setCmp({ a: cmp?.a ?? 1, b: Number(e.target.value) })}>
+          <Select className="inp sm" aria-label="Версия «стало»" value={cmp?.b ?? latest} onChange={(e) => setCmp({ a: cmp?.a ?? 1, b: Number(e.target.value) })}>
             {letter.versions.map((v) => <option key={v.no} value={v.no}>{v.no}</option>)}
-          </select>
+          </Select>
         </div>
       )}
 

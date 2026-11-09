@@ -8,6 +8,7 @@ import { settingsApi } from '../../api/settings';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { todayLocal } from '../tasks/logic';
+import { Select } from '../../components/Select';
 
 type Kind = ControlCadence['kind'];
 const KINDS: { kind: Kind; title: string }[] = [
@@ -139,17 +140,17 @@ export function DocumentAutomations({ docId }: { docId: string }) {
           <label>Название задачи<input className="inp" required maxLength={300} value={form.title} onChange={set('title')} /></label>
           <label>Описание задачи (необязательно)<textarea className="inp" maxLength={4000} value={form.description} onChange={set('description')} /></label>
           <label>Механизм контроля (необязательно)
-            <select className="inp" value={form.controlId} onChange={set('controlId')}>
+            <Select className="inp" value={form.controlId} onChange={set('controlId')}>
               <option value="">— без механизма</option>
               {(controls.data?.items ?? []).filter((c) => c.active || c.id === form.controlId).map((c) => <option key={c.id} value={c.id}>{c.position}. {c.requirement}</option>)}
-            </select>
+            </Select>
           </label>
           <div className="fgrid">
             <label>Периодичность
-              <select className="inp" value={form.kind} onChange={set('kind')}>{KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.title}</option>)}</select>
+              <Select className="inp" value={form.kind} onChange={set('kind')}>{KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.title}</option>)}</Select>
             </label>
             {form.kind === 'weekly' && (
-              <label>День недели<select className="inp" value={form.weekday} onChange={set('weekday')}>{WEEKDAYS.map((w, i) => <option key={w} value={i + 1}>{w}</option>)}</select></label>
+              <label>День недели<Select className="inp" value={form.weekday} onChange={set('weekday')}>{WEEKDAYS.map((w, i) => <option key={w} value={i + 1}>{w}</option>)}</Select></label>
             )}
             {(form.kind === 'quarterly' || form.kind === 'semiannual' || form.kind === 'yearly') && (
               <label>{form.kind === 'yearly' ? 'Месяц' : form.kind === 'quarterly' ? 'Месяц квартала' : 'Месяц полугодия'}
@@ -164,16 +165,16 @@ export function DocumentAutomations({ docId }: { docId: string }) {
           <div className="fgrid">
             <label>Срок, дней<input className="inp" type="number" min={1} max={365} required value={form.dueDays} onChange={set('dueDays')} /></label>
             <label>Дни
-              <select className="inp" value={form.dueKind} onChange={set('dueKind')}>
+              <Select className="inp" value={form.dueKind} onChange={set('dueKind')}>
                 <option value="working">рабочие (по производственному календарю)</option>
                 <option value="calendar">календарные</option>
-              </select>
+              </Select>
             </label>
             <label>Ответственный
-              <select className="inp" required value={form.assigneeId} onChange={set('assigneeId')}>
+              <Select className="inp" required value={form.assigneeId} onChange={set('assigneeId')}>
                 <option value="">— выберите</option>
                 {(people.data?.items ?? []).filter((p) => p.ibWork).map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-              </select>
+              </Select>
             </label>
           </div>
           <div className="hint">Срок в рабочих днях: запуск с выходного или праздника — в предыдущий рабочий день. Срок задачи считается от дня её создания.</div>

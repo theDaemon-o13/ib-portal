@@ -11,6 +11,7 @@ import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from './logic';
 import { deletionCounts, deletionReason } from './trash';
+import { Select } from '../../components/Select';
 
 const ENTITY_FILTERS: { value: '' | DeletionEntity | 'vulns'; label: string }[] = [
   { value: '', label: 'Всё' },
@@ -103,9 +104,9 @@ export function TrashTab({ canRestore }: { canRestore: boolean }) {
         <span className="hint">Удалённое не стирается: реестры, группы, типы систем и записи скрыты вместе со всем, что скрыло это удаление. {canRestore ? 'Восстановление возвращает всё событие целиком.' : 'Восстановить может супер-администратор.'}</span>
       </div>
       <div className="trash-filters">
-        <select className="inp" value={filterValue} aria-label="Что удалено" onChange={(e) => pickFilter(e.target.value)}>
+        <Select className="inp" value={filterValue} aria-label="Что удалено" onChange={(e) => pickFilter(e.target.value)}>
           {ENTITY_FILTERS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-        </select>
+        </Select>
         {(params.get('nodeId') || params.get('groupId')) && <span className="chip">только выбранная группа или тип <button className="btn sm ghost" type="button" onClick={() => pickFilter('vulns')}>×</button></span>}
         <label className="check"><input type="checkbox" checked={showRestored} onChange={(e) => setShowRestored(e.target.checked)} /> Показать восстановленные</label>
       </div>

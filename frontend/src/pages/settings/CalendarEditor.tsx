@@ -5,6 +5,7 @@ import { ReadOnlyNote } from '../../components/LockIcon';
 import { useToast } from '../../components/Toast';
 import { formatCalendarDay, toggleWeekend, WEEKDAYS } from './logic';
 import { keys, useAction } from './useAction';
+import { Select } from '../../components/Select';
 
 type Kind = CalendarDay['kind'];
 const KIND_LABEL: Record<Kind, string> = { holiday: 'Праздник (нерабочий)', workday: 'Рабочий день (перенос)' };
@@ -116,9 +117,9 @@ export function CalendarEditor({ canEdit }: { canEdit: boolean }) {
                       onChange={(e) => setEdit({ ...edit, day: e.target.value })} aria-label="Дата" />
                   </td>
                   <td>
-                    <select form={`cd-${d.id}`} className="inp" value={edit.kind} onChange={(e) => setEdit({ ...edit, kind: e.target.value as Kind })} aria-label="Вид">
+                    <Select form={`cd-${d.id}`} className="inp" value={edit.kind} onChange={(e) => setEdit({ ...edit, kind: e.target.value as Kind })} aria-label="Вид">
                       {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-                    </select>
+                    </Select>
                   </td>
                   <td>
                     <input form={`cd-${d.id}`} className="inp" required value={edit.title}
@@ -161,9 +162,9 @@ export function CalendarEditor({ canEdit }: { canEdit: boolean }) {
           <label>Дата<input className="inp" type="date" required value={add.day} onChange={(e) => setAdd({ ...add, day: e.target.value })} /></label>
           <label>
             Вид
-            <select className="inp" value={add.kind} onChange={(e) => setAdd({ ...add, kind: e.target.value as Kind })}>
+            <Select className="inp" value={add.kind} onChange={(e) => setAdd({ ...add, kind: e.target.value as Kind })}>
               {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-            </select>
+            </Select>
           </label>
           <label>Название<input className="inp" required placeholder="Например: Иди Рамазон" value={add.title} onChange={(e) => setAdd({ ...add, title: e.target.value })} /></label>
           <button className="btn primary" type="submit" disabled={create.isPending}>Добавить</button>

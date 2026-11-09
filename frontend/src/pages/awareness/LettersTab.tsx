@@ -12,6 +12,7 @@ import { FromTemplateDialog } from './FromTemplateDialog';
 import { KIND_NAME, letterMarks, newLetterStep, ruDateTime, STATUS_NAME, STATUS_TONE, type NewLetterStep } from './logic';
 import { LetterPanel } from './LetterPanel';
 import { TemplatePicker } from './TemplatePicker';
+import { Select } from '../../components/Select';
 
 const STATUSES: LetterStatus[] = ['draft', 'review', 'approved', 'sent'];
 
@@ -101,11 +102,11 @@ export function LettersTab() {
           ))}
           <button type="button" className="arch-btn" aria-pressed={archived} onClick={() => setParam({ archive: archived ? null : '1', status: null })}>Архив</button>
         </ChipScroller>
-        <select className="inp" aria-label="Тип письма" value={kind ?? ''} onChange={(e) => setParam({ kind: e.target.value || null })}>
+        <Select className="inp" aria-label="Тип письма" value={kind ?? ''} onChange={(e) => setParam({ kind: e.target.value || null })}>
           <option value="">Все типы</option>
           <option value="planned">Плановые</option>
           <option value="urgent">Срочные</option>
-        </select>
+        </Select>
         <input className="inp docs-search" type="search" placeholder="Название или номер" aria-label="Поиск писем" value={search} onChange={(e) => setSearch(e.target.value)} />
         <button className="btn" type="button" onClick={() => open('urgent')}>Срочная рассылка</button>
         <button className="btn primary" type="button" onClick={() => open('new')}>Новое письмо</button>
@@ -142,10 +143,10 @@ export function LettersTab() {
           </label>
           {nf.open === 'new' && (
             <label>Тип
-              <select className="inp" value={nf.kind} onChange={(e) => setNf({ ...nf, kind: e.target.value as LetterKind })}>
+              <Select className="inp" value={nf.kind} onChange={(e) => setNf({ ...nf, kind: e.target.value as LetterKind })}>
                 <option value="planned">Плановое</option>
                 <option value="urgent">Срочное</option>
-              </select>
+              </Select>
             </label>
           )}
           {(nf.open === 'urgent' || nf.kind === 'urgent') && (

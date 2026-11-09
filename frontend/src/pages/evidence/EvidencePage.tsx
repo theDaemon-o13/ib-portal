@@ -13,6 +13,7 @@ import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { EvidenceDrawer } from './EvidenceDrawer';
 import { liveCheck, requirementText, resultText, STATE_FILTERS, STATE_TONE, validText } from './logic';
+import { Select } from '../../components/Select';
 
 type ObjectType = NewEvidence['object']['type'];
 
@@ -29,44 +30,44 @@ function ObjectPicker({ type, setType, id, setId }: { type: ObjectType; setType:
   return (
     <>
       <label>Объект
-        <select className="inp" value={type} onChange={(e) => { setType(e.target.value as ObjectType); setId(''); }}>
+        <Select className="inp" value={type} onChange={(e) => { setType(e.target.value as ObjectType); setId(''); }}>
           <option value="system">Система</option>
           <option value="document">Документ</option>
           <option value="record">Запись реестра</option>
-        </select>
+        </Select>
       </label>
       {type === 'system' && (
         <label>Система
-          <select className="inp" required value={id} onChange={(e) => setId(e.target.value)}>
+          <Select className="inp" required value={id} onChange={(e) => setId(e.target.value)}>
             <option value="">—</option>
             {systems.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       {type === 'document' && (
         <label>Документ
-          <select className="inp" required value={id} onChange={(e) => setId(e.target.value)}>
+          <Select className="inp" required value={id} onChange={(e) => setId(e.target.value)}>
             <option value="">—</option>
             {docs.data?.items.map((d) => <option key={d.id} value={d.id}>#{d.number} {d.title}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       {type === 'record' && (
         <>
           <label>Реестр
-            <select className="inp" required value={registerId} onChange={(e) => { setRegisterId(e.target.value); setId(''); }}>
+            <Select className="inp" required value={registerId} onChange={(e) => { setRegisterId(e.target.value); setId(''); }}>
               <option value="">—</option>
               {regs.data?.items.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            </Select>
           </label>
           {registerId && (
             <>
               <input className="inp" type="search" placeholder="Поиск записи" aria-label="Поиск записи" value={q} onChange={(e) => setQ(e.target.value)} />
               <label>Запись
-                <select className="inp" required value={id} onChange={(e) => setId(e.target.value)}>
+                <Select className="inp" required value={id} onChange={(e) => setId(e.target.value)}>
                   <option value="">—</option>
                   {recs.data?.items.map((r) => <option key={r.id} value={r.id}>#{r.number} {r.display[title] ?? ''}</option>)}
-                </select>
+                </Select>
               </label>
             </>
           )}
@@ -143,9 +144,9 @@ function UploadPanel({ meId, onCreated }: { meId: string; onCreated: (id: string
           </div>
           {kind === 'form' && (
             <label>Шаблон формы
-              <select className="inp" value={tpl?.id ?? ''} onChange={(e) => { setTemplateId(e.target.value); setValues({}); }}>
+              <Select className="inp" value={tpl?.id ?? ''} onChange={(e) => { setTemplateId(e.target.value); setValues({}); }}>
                 {templates.data?.items.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+              </Select>
             </label>
           )}
           <ObjectPicker type={type} setType={setType} id={objectId} setId={setObjectId} />
@@ -158,9 +159,9 @@ function UploadPanel({ meId, onCreated }: { meId: string; onCreated: (id: string
                   <div key={f.id} className="req">
                     <div>{f.label}<small>требование: {requirementText(f)}</small></div>
                     {f.checkKind === 'yes' ? (
-                      <select className="inp" aria-label={f.label} required value={values[f.id] ?? ''} onChange={(e) => set(e.target.value)}>
+                      <Select className="inp" aria-label={f.label} required value={values[f.id] ?? ''} onChange={(e) => set(e.target.value)}>
                         <option value="">—</option><option>да</option><option>нет</option>
-                      </select>
+                      </Select>
                     ) : (
                       <input className="inp" aria-label={f.label} required inputMode={f.checkKind === 'text' ? undefined : 'decimal'} value={values[f.id] ?? ''} onChange={(e) => set(e.target.value)} />
                     )}
@@ -181,9 +182,9 @@ function UploadPanel({ meId, onCreated }: { meId: string; onCreated: (id: string
           <FileUpload label={kind === 'form' ? 'Скриншот или выгрузка настроек' : 'Файлы'} value={files} onChange={setFiles} required />
           <label>Подтвердил со стороны ДИКТ<input className="inp" required={kind === 'form'} maxLength={300} placeholder="ФИО и должность администратора" value={confirmedBy} onChange={(e) => setConfirmedBy(e.target.value)} /></label>
           <label>Ответственный за продление
-            <select className="inp" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+            <Select className="inp" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
               {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-            </select>
+            </Select>
           </label>
           {error && <div className="form-error" role="alert">{error}</div>}
           <button className="btn primary" type="submit" disabled={create.isPending || !objectId || files.length === 0}>Загрузить на проверку</button>

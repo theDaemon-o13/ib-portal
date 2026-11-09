@@ -9,6 +9,7 @@ import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { GapTaskDialog } from './GapTaskDialog';
 import { changedText, LEVELS, levelName, logText, n1, type Section, sectionsOf, taskState } from './logic';
+import { Select } from '../../components/Select';
 
 /** Ответ сервера — в кэш оценки: ответ раздела, итог и версия оценки. */
 function applySaved(old: Assessment | undefined, code: string, res: SaveAnswerResult): Assessment | undefined {
@@ -91,11 +92,11 @@ function SectionCard({ a, s, answer, editable, flash, save, busy }: {
       </div>
       <div className="sa-sec-f">
         <label className="fd-label">Целевой уровень
-          <select className="inp" value={answer.targetLevel ?? ''} disabled={!editable || busy}
+          <Select className="inp" value={answer.targetLevel ?? ''} disabled={!editable || busy}
             onChange={(e) => save(s.code, { targetLevel: e.target.value ? Number(e.target.value) : null })}>
             <option value="">—</option>
             {LEVELS.map((l) => <option key={l} value={l}>{l} · {levelName(m, l)}</option>)}
-          </select>
+          </Select>
         </label>
         <label className="fd-label">Комментарий
           {/* key — версия ответа: после сохранения или перечитывания поле показывает текст с сервера. */}

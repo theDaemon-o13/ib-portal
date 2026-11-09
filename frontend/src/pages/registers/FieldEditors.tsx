@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { registersApi, type BasisRule, type DueRule, type FieldSettings, type RegisterDetail, type RegisterField } from '../../api/registers';
 import { useAction } from '../settings/useAction';
 import { rkeys } from './keys';
+import { Select } from '../../components/Select';
 
 /** Правило вычисляемого поля: дата + срок в днях по значению списка, с переопределением датой. */
 export function CalcRuleEditor({ reg, value, onChange, selfId }: { reg: RegisterDetail; value: DueRule | null; onChange: (r: DueRule | null) => void; selfId?: string }) {
@@ -19,27 +20,27 @@ export function CalcRuleEditor({ reg, value, onChange, selfId }: { reg: Register
   return (
     <div className="calc-editor">
       <label>От даты
-        <select className="inp" value={rule.fromFieldId} onChange={(e) => set({ fromFieldId: e.target.value })} aria-label="Поле-дата">
+        <Select className="inp" value={rule.fromFieldId} onChange={(e) => set({ fromFieldId: e.target.value })} aria-label="Поле-дата">
           {dates.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
+        </Select>
       </label>
       <label>Срок по значению
-        <select className="inp" value={rule.byFieldId} onChange={(e) => set({ byFieldId: e.target.value, days: {} })} aria-label="Поле-список">
+        <Select className="inp" value={rule.byFieldId} onChange={(e) => set({ byFieldId: e.target.value, days: {} })} aria-label="Поле-список">
           {selects.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
+        </Select>
       </label>
       <label>Если задано, берётся
-        <select className="inp" value={rule.overrideFieldId ?? ''} onChange={(e) => set({ overrideFieldId: e.target.value || null })} aria-label="Переопределение">
+        <Select className="inp" value={rule.overrideFieldId ?? ''} onChange={(e) => set({ overrideFieldId: e.target.value || null })} aria-label="Переопределение">
           <option value="">— не переопределяется</option>
           {dates.filter((f) => f.id !== rule.fromFieldId).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
+        </Select>
       </label>
       {rule.overrideFieldId && (
         <label>…только если заполнено
-          <select className="inp" value={rule.overrideWhenFilledFieldId ?? ''} onChange={(e) => set({ overrideWhenFilledFieldId: e.target.value || null })} aria-label="Условие переопределения">
+          <Select className="inp" value={rule.overrideWhenFilledFieldId ?? ''} onChange={(e) => set({ overrideWhenFilledFieldId: e.target.value || null })} aria-label="Условие переопределения">
             <option value="">— без условия</option>
             {fillable.filter((f) => f.id !== rule.overrideFieldId).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       <label className="check">
@@ -173,9 +174,9 @@ export function BasisRuleEditor({ reg, value, onChange, selfId }: { reg: Registe
   return (
     <div className="calc-editor">
       <label>Канал (в этом реестре)
-        <select className="inp" value={rule.channelFieldId} onChange={(e) => set({ channelFieldId: e.target.value, closedOptionIds: [] })} aria-label="Поле канала">
+        <Select className="inp" value={rule.channelFieldId} onChange={(e) => set({ channelFieldId: e.target.value, closedOptionIds: [] })} aria-label="Поле канала">
           {channels.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-        </select>
+        </Select>
       </label>
       <div className="row"><span className="hint">Канал закрыт, если:</span>
         {channel?.options.filter((o) => !o.archived).map((o) => (
@@ -183,24 +184,24 @@ export function BasisRuleEditor({ reg, value, onChange, selfId }: { reg: Registe
         ))}
       </div>
       <label>Реестр разрешений
-        <select className="inp" value={rule.sourceRegisterId} onChange={(e) => set({ sourceRegisterId: e.target.value, linkFieldId: '', kindFieldId: null, kindOptionIds: [], activeOptionIds: [] })} aria-label="Реестр разрешений">
+        <Select className="inp" value={rule.sourceRegisterId} onChange={(e) => set({ sourceRegisterId: e.target.value, linkFieldId: '', kindFieldId: null, kindOptionIds: [], activeOptionIds: [] })} aria-label="Реестр разрешений">
           <option value="">— выберите</option>
           {regs.data?.items.filter((r) => r.id !== reg.id).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </select>
+        </Select>
       </label>
       {src.data && (
         <>
           <label>Связь с этим реестром
-            <select className="inp" value={rule.linkFieldId} onChange={(e) => set({ linkFieldId: e.target.value })} aria-label="Поле связи">
+            <Select className="inp" value={rule.linkFieldId} onChange={(e) => set({ linkFieldId: e.target.value })} aria-label="Поле связи">
               <option value="">— выберите</option>
               {sf.filter((f) => f.type === 'link' && f.linkRegisterId === reg.id).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
           <label>Вид разрешения
-            <select className="inp" value={rule.kindFieldId ?? ''} onChange={(e) => set({ kindFieldId: e.target.value || null, kindOptionIds: [] })} aria-label="Поле вида">
+            <Select className="inp" value={rule.kindFieldId ?? ''} onChange={(e) => set({ kindFieldId: e.target.value || null, kindOptionIds: [] })} aria-label="Поле вида">
               <option value="">— любой</option>
               {sf.filter((f) => f.type === 'select' && !f.isStatus).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
           {kind && (
             <div className="row"><span className="hint">Подходит каналу:</span>
@@ -217,16 +218,16 @@ export function BasisRuleEditor({ reg, value, onChange, selfId }: { reg: Registe
             </div>
           )}
           <label>Действует до
-            <select className="inp" value={rule.untilFieldId ?? ''} onChange={(e) => set({ untilFieldId: e.target.value || null })} aria-label="Поле срока">
+            <Select className="inp" value={rule.untilFieldId ?? ''} onChange={(e) => set({ untilFieldId: e.target.value || null })} aria-label="Поле срока">
               <option value="">— бессрочно</option>
               {sf.filter((f) => f.type === 'date').map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
           <label>Номер документа
-            <select className="inp" value={rule.numberFieldId ?? ''} onChange={(e) => set({ numberFieldId: e.target.value || null })} aria-label="Поле номера">
+            <Select className="inp" value={rule.numberFieldId ?? ''} onChange={(e) => set({ numberFieldId: e.target.value || null })} aria-label="Поле номера">
               <option value="">— номер записи</option>
               {sf.filter((f) => f.type === 'text').map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
         </>
       )}
@@ -269,10 +270,10 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
           </div>
           {lockIds.length > 0 && (
             <label className="fd-label">Режим
-              <select className="inp" value={mode} onChange={(e) => setMode(e.target.value as 'locked' | 'reason')}>
+              <Select className="inp" value={mode} onChange={(e) => setMode(e.target.value as 'locked' | 'reason')}>
                 <option value="locked">Не меняется — только новой записью</option>
                 <option value="reason">Меняется только с причиной</option>
-              </select>
+              </Select>
             </label>
           )}
         </>
@@ -280,10 +281,10 @@ export function SettingsEditor({ reg, field, onSave, pending }: { reg: RegisterD
       {field.type === 'date' && (
         <>
           <label className="fd-label">Не позже 31.12 года поля
-            <select className="inp" value={anchor} onChange={(e) => setAnchor(e.target.value)}>
+            <Select className="inp" value={anchor} onChange={(e) => setAnchor(e.target.value)}>
               <option value="">— без ограничения</option>
               {dates.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="check"><input type="checkbox" checked={endOfYear} onChange={(e) => setEndOfYear(e.target.checked)} />По умолчанию — 31.12 текущего года</label>
         </>

@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { registersApi, type ImportChoices } from '../../api/registers';
+import { Select } from '../../components/Select';
 
 export type ChoiceMap = Record<string, string | null>;
 
@@ -69,11 +70,11 @@ export function ImportChoicesBlock({ choices, value, onChange }: { choices: Impo
                   <td><span className="chip">{r.reason}</span></td>
                   <td className="min0">
                     <div className="row">
-                      <select className="inp" aria-label={`Сотрудник для строки ${r.row}`} value={sel}
+                      <Select className="inp" aria-label={`Сотрудник для строки ${r.row}`} value={sel}
                         onChange={(e) => onChange({ ...value, [key]: e.target.value || null })}>
                         <option value="">— не выбрано (останется «Не сопоставлен»)</option>
                         {options.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                      </select>
+                      </Select>
                       <button className="btn sm" type="button" onClick={() => setSearching(searching === r.row ? null : r.row)}>Найти…</button>
                     </div>
                     {searching === r.row && (

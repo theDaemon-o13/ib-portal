@@ -4,6 +4,7 @@ import { docsApi, dkeys } from '../../api/documents';
 import { settingsApi } from '../../api/settings';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
+import { Select } from '../../components/Select';
 
 export function NewDocumentDrawer({ meId, onClose, onCreated }: { meId: string; onClose: () => void; onCreated: (id: string) => void }) {
   const qc = useQueryClient();
@@ -32,14 +33,14 @@ export function NewDocumentDrawer({ meId, onClose, onCreated }: { meId: string; 
             <label>Название<input className="inp" required maxLength={300} placeholder="например, Политика информационной безопасности" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
             <div className="fgrid">
               <label>Тип документа
-                <select className="inp" required value={typeId} onChange={(e) => setForm({ ...form, typeId: e.target.value })}>
+                <Select className="inp" required value={typeId} onChange={(e) => setForm({ ...form, typeId: e.target.value })}>
                   {types.data?.items.map((t) => <option key={t.id} value={t.id}>{t.value}</option>)}
-                </select>
+                </Select>
               </label>
               <label>Владелец
-                <select className="inp" required value={form.ownerId} onChange={(e) => setForm({ ...form, ownerId: e.target.value })}>
+                <Select className="inp" required value={form.ownerId} onChange={(e) => setForm({ ...form, ownerId: e.target.value })}>
                   {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-                </select>
+                </Select>
               </label>
               <label>Редакция<input className="inp" maxLength={20} placeholder="например, 1.0" value={form.edition} onChange={(e) => setForm({ ...form, edition: e.target.value })} /></label>
               <label>Цикл пересмотра, мес.

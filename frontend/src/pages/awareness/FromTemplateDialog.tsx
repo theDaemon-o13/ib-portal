@@ -7,6 +7,7 @@ import { awarenessApi, awarenessKeys, type LetterKind, type LetterSave } from '.
 import { useToast } from '../../components/Toast';
 import { FormDialog } from './FormDialog';
 import { TemplatePicker } from './TemplatePicker';
+import { Select } from '../../components/Select';
 
 export function FromTemplateDialog({ templateId: fixed, taskId, defaultTitle = '', defaultKind = 'planned', defaultReason = '', onClose, onCreated }: {
   templateId?: string;
@@ -65,10 +66,10 @@ export function FromTemplateDialog({ templateId: fixed, taskId, defaultTitle = '
       {!taskId && (
         <div className="fgrid">
           <label>Тип
-            <select className="inp" value={kind} onChange={(e) => setKind(e.target.value as LetterKind)}>
+            <Select className="inp" value={kind} onChange={(e) => setKind(e.target.value as LetterKind)}>
               <option value="planned">Плановое</option>
               <option value="urgent">Срочное</option>
-            </select>
+            </Select>
           </label>
           {kind === 'urgent' && (
             <label>Повод<input className="inp" required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} /></label>

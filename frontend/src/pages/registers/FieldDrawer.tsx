@@ -5,6 +5,7 @@ import { useAction } from '../settings/useAction';
 import { BasisRuleEditor, CalcRuleEditor, OptionsEditor, SettingsEditor } from './FieldEditors';
 import { ALLOWED_ROLES, describeRule, dueRuleOf, isBasisRule, ROLE_NAMES, TYPE_NAMES, typeTargets } from './logic';
 import { rkeys } from './keys';
+import { Select } from '../../components/Select';
 
 const KIND_TEXT: Record<TypePreview['kind'], string> = {
   empty: 'В поле нет данных — тип меняется без изменения записей.',
@@ -37,9 +38,9 @@ function TypeChange({ reg, field, onDone }: { reg: RegisterDetail; field: Regist
   return (
     <div className="type-change grid-gap">
       <label className="fd-label">Новый тип
-        <select className="inp" value={to} onChange={(e) => setTo(e.target.value as FieldType)} aria-label="Новый тип">
+        <Select className="inp" value={to} onChange={(e) => setTo(e.target.value as FieldType)} aria-label="Новый тип">
           {targets.map((t) => <option key={t} value={t}>{TYPE_NAMES[t]}</option>)}
-        </select>
+        </Select>
       </label>
       {loading && <div className="hint">Считаем…</div>}
       {error && <p className="form-error" role="alert">{error}</p>}
@@ -217,10 +218,10 @@ export function FieldDrawer({ reg, fieldId, onClose }: { reg: RegisterDetail; fi
               {field.type !== 'text' && field.type !== 'select' && <span className="hint">Заголовком бывает текстовое поле, статусом — список.</span>}
             </div>
             <label className="fd-label">Для аналитики
-              <select className="inp" value={field.analyticsRole ?? ''} disabled={roles.length === 0 || field.archived || patch.isPending}
+              <Select className="inp" value={field.analyticsRole ?? ''} disabled={roles.length === 0 || field.archived || patch.isPending}
                 onChange={(e) => patch.mutate({ body: { analyticsRole: (e.target.value || null) as 'dimension' | null }, ok: 'Роль для аналитики сохранена' })}>
                 {['', ...roles].map((r) => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}
-              </select>
+              </Select>
             </label>
           </section>
 

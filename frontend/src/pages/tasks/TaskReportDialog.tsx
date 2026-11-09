@@ -4,6 +4,7 @@ import { settingsApi } from '../../api/settings';
 import { tasksApi, tkeys, type TaskReportFilter } from '../../api/tasks';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
+import { Select } from '../../components/Select';
 
 /** Отчёт по задачам в Excel (релиз 1.2.0, право «Задачи: отчёт»): фильтры и выгрузка. */
 export function TaskReportDialog({ onClose }: { onClose: () => void }) {
@@ -40,10 +41,10 @@ export function TaskReportDialog({ onClose }: { onClose: () => void }) {
   };
   const person = (label: string, key: 'assigneeId' | 'creatorId') => (
     <label>{label}
-      <select className="inp" value={f[key] ?? ''} onChange={(e) => set({ [key]: e.target.value || undefined })}>
+      <Select className="inp" value={f[key] ?? ''} onChange={(e) => set({ [key]: e.target.value || undefined })}>
         <option value="">Все</option>
         {people.data?.items.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-      </select>
+      </Select>
     </label>
   );
 
@@ -54,27 +55,27 @@ export function TaskReportDialog({ onClose }: { onClose: () => void }) {
           <h2 id="tr-title">Отчёт по задачам</h2>
           <div className="fgrid">
             <label>Период
-              <select className="inp" value={f.period ?? 'created'} onChange={(e) => set({ period: e.target.value as TaskReportFilter['period'] })}>
+              <Select className="inp" value={f.period ?? 'created'} onChange={(e) => set({ period: e.target.value as TaskReportFilter['period'] })}>
                 <option value="created">по дате создания</option>
                 <option value="due">по сроку</option>
                 <option value="completed">по дате выполнения</option>
-              </select>
+              </Select>
             </label>
             <label>С<input className="inp" type="date" value={f.from ?? ''} onChange={(e) => set({ from: e.target.value || undefined })} /></label>
             <label>По<input className="inp" type="date" value={f.to ?? ''} onChange={(e) => set({ to: e.target.value || undefined })} /></label>
             {person('Исполнитель', 'assigneeId')}
             {person('Автор', 'creatorId')}
             <label>Категория
-              <select className="inp" value={f.categoryId ?? ''} onChange={(e) => set({ categoryId: e.target.value || undefined })}>
+              <Select className="inp" value={f.categoryId ?? ''} onChange={(e) => set({ categoryId: e.target.value || undefined })}>
                 <option value="">Все</option>
                 {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.value}</option>)}
-              </select>
+              </Select>
             </label>
             <label>Колонка
-              <select className="inp" value={f.statusId ?? ''} onChange={(e) => set({ statusId: e.target.value || undefined })}>
+              <Select className="inp" value={f.statusId ?? ''} onChange={(e) => set({ statusId: e.target.value || undefined })}>
                 <option value="">Все</option>
                 {statuses.data?.items.map((s) => <option key={s.id} value={s.id}>{s.value}</option>)}
-              </select>
+              </Select>
             </label>
           </div>
           <label className="chk"><input type="checkbox" checked={f.overdue === 'true'} onChange={(e) => set({ overdue: e.target.checked ? 'true' : undefined })} /> только просроченные</label>

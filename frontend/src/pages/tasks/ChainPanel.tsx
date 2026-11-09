@@ -7,6 +7,7 @@ import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { chainCounts } from './logic';
+import { Select } from '../../components/Select';
 
 interface Draft { title: string; ownerId: string; dueDate: string; summary: string }
 const draftOf = (c: ChainDetail): Draft => ({ title: c.title, ownerId: c.owner?.id ?? '', dueDate: c.dueDate ?? '', summary: c.summary });
@@ -124,11 +125,11 @@ export function ChainPanel({ id, onClose, onOpenTask }: { id: string; onClose: (
           <label>Название<input className="inp" required maxLength={300} value={draft.title} disabled={ro} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
           <div className="fgrid">
             <label>Ответственный
-              <select className="inp" value={draft.ownerId} disabled={ro} onChange={(e) => setDraft({ ...draft, ownerId: e.target.value })}>
+              <Select className="inp" value={draft.ownerId} disabled={ro} onChange={(e) => setDraft({ ...draft, ownerId: e.target.value })}>
                 <option value="">— не назначен</option>
                 {c.owner && !owners.some((p) => p.id === c.owner?.id) && <option value={c.owner.id}>{c.owner.fullName}</option>}
                 {owners.map((p) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
-              </select>
+              </Select>
             </label>
             <label>Срок<input className="inp" type="date" value={draft.dueDate} disabled={ro} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} /></label>
             <div className="field-ro"><span>Статус</span><b>{c.status === 'open' ? 'Открыта' : 'Закрыта'}</b></div>

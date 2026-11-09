@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { awarenessApi, awarenessKeys, type ExportLang, type Letter } from '../../api/awareness';
 import { useToast } from '../../components/Toast';
 import { MailPreview } from './MailPreview';
+import { Select } from '../../components/Select';
 
 const LANG_NAME: Record<ExportLang, string> = { ru: 'RU', tj: 'TJ', both: 'RU + TJ' };
 
@@ -87,9 +88,9 @@ export function LetterExport({ letter, dirty }: { letter: Letter; dirty: boolean
         </div>
         {letter.versions.length > 1 && (
           <label className="row gap6">Версия
-            <select className="inp sm" value={version} onChange={(e) => setVersion(Number(e.target.value))}>
+            <Select className="inp sm" value={version} onChange={(e) => setVersion(Number(e.target.value))}>
               {letter.versions.map((x) => <option key={x.no} value={x.no}>{x.no}{x.no === latest ? ' — последняя' : ''}{x.reason === 'sent' ? ' (отправленная)' : ''}</option>)}
-            </select>
+            </Select>
           </label>
         )}
       </div>

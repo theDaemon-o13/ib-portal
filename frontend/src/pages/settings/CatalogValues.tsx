@@ -5,6 +5,7 @@ import { LockIcon, ReadOnlyNote } from '../../components/LockIcon';
 import { parseKeywords, type ToneKey } from './logic';
 import { ToneDot, ToneSelect } from './ToneSelect';
 import { keys, useAction } from './useAction';
+import { Select } from '../../components/Select';
 
 interface Draft {
   value: string;
@@ -64,7 +65,7 @@ function MembersEditor({ draft, setDraft, people }: {
         ))}
         {draft.members.length === 0 && <span className="hint">участников нет</span>}
       </div>
-      <select className="inp" value="" aria-label="Добавить участника" onChange={(e) => {
+      <Select className="inp" value="" aria-label="Добавить участника" onChange={(e) => {
         const u = people.find((x) => x.id === e.target.value);
         if (!u) return;
         if (!u.ibWork) {
@@ -76,7 +77,7 @@ function MembersEditor({ draft, setDraft, people }: {
       }}>
         <option value="">+ участник…</option>
         {people.map((u) => <option key={u.id} value={u.id}>{u.fullName}{u.ibWork ? '' : ' — нет доступа к ИБ'}</option>)}
-      </select>
+      </Select>
       {refused && <div className="form-error" role="alert">{refused}</div>}
     </div>
   );
@@ -106,10 +107,10 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
     </div>
   );
   const afterSelect = (d: Draft, set: (d: Draft) => void, exclude?: string, form?: string) => (
-    <select className="inp" form={form} value={d.afterId} onChange={(e) => set({ ...d, afterId: e.target.value })} aria-label="Место колонки">
+    <Select className="inp" form={form} value={d.afterId} onChange={(e) => set({ ...d, afterId: e.target.value })} aria-label="Место колонки">
       <option value="">{exclude ? 'Первой' : 'В конце'}</option>
       {rows.filter((r) => r.id !== exclude && !r.archived).map((r) => <option key={r.id} value={r.id}>после «{r.value}»</option>)}
-    </select>
+    </Select>
   );
   const save = useAction(
     ({ item, d }: { item: CatalogItem; d: Draft }) =>
@@ -170,19 +171,19 @@ export function CatalogValues({ catalog, canEdit }: { catalog: Catalog; canEdit:
   };
 
   const ownerSelect = (d: Draft, set: (d: Draft) => void, id: string) => (
-    <select id={id} className="inp" value={d.ownerUserId} onChange={(e) => set({ ...d, ownerUserId: e.target.value })}>
+    <Select id={id} className="inp" value={d.ownerUserId} onChange={(e) => set({ ...d, ownerUserId: e.target.value })}>
       <option value="">— не назначен</option>
       {owners.data?.items.map((u) => (
         <option key={u.id} value={u.id}>{u.fullName}</option>
       ))}
-    </select>
+    </Select>
   );
 
   const systemOwnerSelect = (d: Draft, set: (d: Draft) => void, id: string) => (
-    <select id={id} className="inp" value={d.ownerUserId} onChange={(e) => set({ ...d, ownerUserId: e.target.value })} aria-label="Владелец системы">
+    <Select id={id} className="inp" value={d.ownerUserId} onChange={(e) => set({ ...d, ownerUserId: e.target.value })} aria-label="Владелец системы">
       <option value="">— не назначен</option>
       {everyone.data?.items.map((u) => <option key={u.id} value={u.id}>{u.fullName}{u.ibWork ? '' : ' — нет доступа к ИБ'}</option>)}
-    </select>
+    </Select>
   );
   const people = everyone.data?.items ?? [];
   const ownerNote = (i: CatalogItem) =>

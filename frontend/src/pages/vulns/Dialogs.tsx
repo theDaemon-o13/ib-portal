@@ -9,6 +9,7 @@ import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { formatDate } from '../registers/logic';
 import { useTodayIso } from './today';
+import { Select } from '../../components/Select';
 
 export function Modal({ title, sub, wide, onClose, children, footer }: {
   title: string; sub?: ReactNode; wide?: boolean; onClose: () => void; children: ReactNode; footer: ReactNode;
@@ -137,10 +138,10 @@ export function ChangeTypeDialog({ group, node, onClose }: { group: VulnGroup; n
       </>}>
       {types.isSuccess && !rest.length && <p className="hint">Все типы из справочника уже есть в этой группе.</p>}
       <label className="fd-label">Новый тип
-        <select className="inp" value={picked} aria-label="Новый тип" onChange={(e) => setPicked(e.target.value)}>
+        <Select className="inp" value={picked} aria-label="Новый тип" onChange={(e) => setPicked(e.target.value)}>
           <option value="">— выберите</option>
           {rest.map((t) => <option key={t.id} value={t.id}>{t.value}</option>)}
-        </select>
+        </Select>
       </label>
       {change.error && <p className="form-error" role="alert">{change.error.message}</p>}
     </Modal>
@@ -233,10 +234,10 @@ export function TransferDialog({ recordIds, groups, onClose, onDone }: { recordI
         </>}>
       {!result && (
         <label className="fd-label">Куда
-          <select className="inp" value={nodeId} onChange={(e) => setNodeId(e.target.value)} aria-label="Узел">
+          <Select className="inp" value={nodeId} onChange={(e) => setNodeId(e.target.value)} aria-label="Узел">
             <option value="">— выберите группу и тип</option>
             {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
+          </Select>
         </label>
       )}
       {!result && !options.length && <p className="hint">Групп пока нет: сначала создайте группу.</p>}

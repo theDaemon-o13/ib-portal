@@ -4,6 +4,7 @@ import { settingsApi, type FormTemplate, type TemplateField } from '../../api/se
 import { ReadOnlyNote } from '../../components/LockIcon';
 import { CHECK_KINDS, checkKindLabel, needsThreshold, requirementText, type CheckKindKey } from './logic';
 import { keys, useAction } from './useAction';
+import { Select } from '../../components/Select';
 
 interface FieldDraft {
   label: string;
@@ -22,9 +23,9 @@ function fieldBody(d: FieldDraft) {
 
 function KindSelect({ value, onChange, form }: { value: CheckKindKey; onChange: (k: CheckKindKey) => void; form?: string }) {
   return (
-    <select form={form} className="inp" value={value} onChange={(e) => onChange(e.target.value as CheckKindKey)} aria-label="Тип проверки">
+    <Select form={form} className="inp" value={value} onChange={(e) => onChange(e.target.value as CheckKindKey)} aria-label="Тип проверки">
       {CHECK_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-    </select>
+    </Select>
   );
 }
 

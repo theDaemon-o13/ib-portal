@@ -234,7 +234,7 @@ describe('Раздел «Уязвимости»', () => {
     const refused = taken.has(keyOf(candidate)); // такой ключ в узле уже есть — проверяем отказ по строке
     await open(`/vulns/node/${legacy.id}?state=all`, `document.querySelectorAll('.v-recs tbody tr').length > 0`, 'узел «Из прежнего реестра»');
     assert.ok(!(await ui.evaluate(`!!${button('Импорт скана')}`)), 'в «Без группы» импорта нет');
-    await ui.evaluate(`(() => { const s = ${q('select[aria-label="Статус"]')}; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'all'); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await ui.select(q('select[aria-label="Статус"]'), 'all', 'фильтр «Статус»');
     const row = `[...document.querySelectorAll('.v-recs tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(`#${candidate.number}`)}))`;
     await ui.waitFor(`!!${row}`, 'запись в таблице', 15_000);
     await ui.click(button('Перенести', row));
