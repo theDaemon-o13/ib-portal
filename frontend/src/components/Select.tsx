@@ -145,7 +145,7 @@ export function Select({ className, style, id, title, autoFocus, children, disab
 
   const optionId = (i: number) => `${listId}-o${i}`;
   return (
-    <span className={`sel${open ? ' open' : ''}`} style={style}>
+    <span className={`ui-sel${open ? ' open' : ''}`} style={style}>
       <button
         ref={btn} id={id} type="button" className={`${className ?? ''} sel-btn`} title={title ?? (shown.label || undefined)} autoFocus={autoFocus} disabled={disabled}
         role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={ariaLabel}

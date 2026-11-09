@@ -290,8 +290,8 @@ describe('Поля', () => {
   it('строка поля — одна линия, «Для аналитики» в каждой строке', async () => {
     await openReg(base, 'fields');
     const rows = await ui.evaluate(`[...document.querySelectorAll('table.fields-tbl tbody tr')].map((tr) => ({
-      label: tr.querySelector('b')?.textContent, select: !!tr.querySelector('select.role-select'),
-      disabled: tr.querySelector('select.role-select')?.disabled, buttons: tr.querySelectorAll('button').length,
+      label: tr.querySelector('b')?.textContent, select: !!tr.querySelector('[role=combobox].role-select'),
+      disabled: tr.querySelector('[role=combobox].role-select')?.disabled, buttons: tr.querySelectorAll('button:not([role=combobox])').length,
     }))`);
     assert.ok(rows.length >= BASE_FIELDS.length, `строки полей: ${rows.length}`);
     assert.ok(rows.every((r) => r.select), 'список «Для аналитики» есть в каждой строке');

@@ -186,13 +186,14 @@ body:has(.dp, .backdrop, .app.menu-open) .scroll-ctl{display:none}
 
 /* ---------- Элементы форм (1.13.4, docs/tasks/1.13.4-forms.md) ---------- */
 /* Select: обёртка не участвует в раскладке — кнопка встаёт на место прежнего <select> с теми же классами (inp …). */
-.sel{display:contents}
+/* Класс ui-sel, не sel: .sel уже помечает выбранную строку и карточку. */
+.ui-sel{display:contents}
 .sel-native{position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;opacity:0;pointer-events:none}
 .sel-btn{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;color:var(--fg);line-height:1.35;min-width:0}
 .sel-btn.inp{padding-right:9px}
 .sel-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sel-chev{width:16px;height:16px;flex:none;color:var(--muted);transition:transform .15s}
-.sel.open .sel-chev{transform:rotate(180deg)}
+.ui-sel.open .sel-chev{transform:rotate(180deg)}
 .sel-btn:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .sel-btn:disabled{opacity:.55;cursor:not-allowed}
 .sel-pop{position:fixed;z-index:80;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-radius:14px;color:var(--fg);

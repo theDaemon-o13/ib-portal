@@ -247,10 +247,10 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
      */
     async select(expr, value, what = expr) {
       await ui.waitFor(`!!(${expr})`, what);
-      const cb = `((el) => el?.matches('[role=combobox]') ? el : el?.closest('.sel')?.querySelector(':scope > [role=combobox]'))(${expr})`;
+      const cb = `((el) => el?.matches('[role=combobox]') ? el : el?.closest('.ui-sel')?.querySelector(':scope > [role=combobox]'))(${expr})`;
       if (await evaluate(`!!${cb}`)) {
         if (await evaluate(`${cb}.getAttribute('aria-expanded') !== 'true'`)) await ui.click(cb, `${what}: открыть список`);
-        const opt = `document.getElementById(${cb}.getAttribute('aria-controls'))?.querySelector('[role=option][data-value=' + CSS.escape(${JSON.stringify(String(value))}) + ']')`;
+        const opt = `document.getElementById(${cb}.getAttribute('aria-controls'))?.querySelector('[role=option][data-value=' + JSON.stringify(${JSON.stringify(String(value))}) + ']')`;
         await ui.click(opt, `${what}: пункт «${value}»`);
         await ui.waitFor(`${cb}.getAttribute('aria-expanded') === 'false' && ${cb}.dataset.value === ${JSON.stringify(String(value))}`, `${what}: выбрано «${value}»`);
         return;

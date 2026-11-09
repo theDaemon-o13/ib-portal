@@ -2,7 +2,7 @@
    с классами других разделов (.mk, .kpi, .hist в base.css значат другое). Цвета — только токены tokens.css. */
 
 .sa-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.sa-bar > select.inp,.sa-bar > .sel > .sel-btn{width:auto;max-width:100%}
+.sa-bar > select.inp,.sa-bar > .ui-sel > .sel-btn{width:auto;max-width:100%}
 .sa-wait{padding:24px 4px}
 .note.sa-warn{background:var(--high-soft)}
 .sa-nowrap{flex-wrap:nowrap}
