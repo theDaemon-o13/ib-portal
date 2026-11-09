@@ -8,8 +8,10 @@ import { awarenessApi, awarenessKeys, type LetterItem, type LetterKind, type Let
 import { ChipScroller } from '../../components/ChipScroller';
 import { useToast } from '../../components/Toast';
 import { FormDialog } from './FormDialog';
-import { KIND_NAME, letterMarks, ruDateTime, STATUS_NAME, STATUS_TONE } from './logic';
+import { FromTemplateDialog } from './FromTemplateDialog';
+import { KIND_NAME, letterMarks, newLetterStep, ruDateTime, STATUS_NAME, STATUS_TONE, type NewLetterStep } from './logic';
 import { LetterPanel } from './LetterPanel';
+import { TemplatePicker } from './TemplatePicker';
 
 const STATUSES: LetterStatus[] = ['draft', 'review', 'approved', 'sent'];
 
@@ -27,12 +29,14 @@ export function LettersTab() {
   const [search, setSearch] = useState('');
   const [nf, setNf] = useState<NewForm>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  // «Новое письмо» с выбранным шаблоном (1.13.2) — дальше «Письмо из шаблона» с ним.
+  const [fromTpl, setFromTpl] = useState<Extract<NewLetterStep, { kind: 'fromTemplate' }> | null>(null);
 
   const list = useQuery({
     queryKey: [...awarenessKeys.letters, { status, kind, archived, search }],
     queryFn: () => awarenessApi.letters({ scope: archived ? 'archived' : 'active', status, kind, q: search.trim() || undefined }),
   });
-  const templates = useQuery({ queryKey: awarenessKeys.templates, queryFn: () => awarenessApi.templates(), enabled: nf.open === 'urgent' });
+  const templates = useQuery({ queryKey: awarenessKeys.templates, queryFn: () => awarenessApi.templates(), enabled: nf.open !== null });
 
   const setParam = useCallback((patch: Record<string, string | null>) => {
     setParams((p) => {
@@ -125,9 +129,14 @@ export function LettersTab() {
       {selected && <LetterPanel key={selected} id={selected} onClose={() => select(null)} onOpen={(id) => select(id)} />}
 
       {nf.open && (
-        <FormDialog title={nf.open === 'urgent' ? 'Срочная рассылка' : 'Новое письмо'} submit="Создать" busy={create.isPending} error={error}
+        <FormDialog title={nf.open === 'urgent' ? 'Срочная рассылка' : 'Новое письмо'} submit={nf.open === 'new' && nf.templateId ? 'Далее' : 'Создать'} busy={create.isPending} error={error}
           disabled={!nf.title.trim() || ((nf.open === 'urgent' || nf.kind === 'urgent') && !nf.reason.trim())}
-          onClose={() => setNf(EMPTY)} onSubmit={() => { setError(null); create.mutate(); }} testId="new-letter-dialog">
+          onClose={() => setNf(EMPTY)} testId="new-letter-dialog"
+          onSubmit={() => {
+            setError(null);
+            const step = nf.open === 'new' ? newLetterStep(nf) : { kind: 'create' as const };
+            if (step.kind === 'fromTemplate') { setNf(EMPTY); setFromTpl(step); } else create.mutate();
+          }}>
           <label>Название (для списков, в письмо не входит)
             <input className="inp" required autoFocus maxLength={200} value={nf.title} onChange={(e) => setNf({ ...nf, title: e.target.value })} />
           </label>
@@ -145,18 +154,19 @@ export function LettersTab() {
                 value={nf.reason} onChange={(e) => setNf({ ...nf, reason: e.target.value })} />
             </label>
           )}
+          <TemplatePicker label="Шаблон (необязательно)" optional items={templates.data?.items} loading={templates.isLoading}
+            value={nf.templateId} onChange={(id) => setNf({ ...nf, templateId: id })} onLeave={() => setNf(EMPTY)} />
+          {nf.open === 'new' && nf.templateId && <p className="hint">«Далее» — заполнить переменные шаблона; письмо создастся из него.</p>}
           {nf.open === 'urgent' && (
             <>
-              <label>Шаблон (необязательно)
-                <select className="inp" value={nf.templateId} onChange={(e) => setNf({ ...nf, templateId: e.target.value })}>
-                  <option value="">— без шаблона</option>
-                  {templates.data?.items.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
-                </select>
-              </label>
               <p className="hint">Будет создано срочное письмо и задача «Срочная рассылка» вам — срок 1 рабочий день, приоритет «Высокий». Срочное письмо можно отметить отправленным без согласования, указав причину.</p>
             </>
           )}
         </FormDialog>
+      )}
+      {fromTpl && (
+        <FromTemplateDialog templateId={fromTpl.templateId} defaultTitle={fromTpl.title} defaultKind={fromTpl.letterKind} defaultReason={fromTpl.reason}
+          onClose={() => setFromTpl(null)} onCreated={(r) => { setFromTpl(null); select(r.letter.id); }} />
       )}
     </>
   );

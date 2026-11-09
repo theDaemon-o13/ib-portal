@@ -183,3 +183,16 @@ export function letterRefHref(text: string, refs: ReadonlyMap<number, { id: stri
   const r = p ? refs.get(p.number) : undefined;
   return p && r && p.versionNo <= r.lastVersionNo ? `/awareness/letters?letter=${r.id}` : null;
 }
+
+/**
+ * «Новое письмо» (1.13.2): без шаблона — письмо создаётся сразу; с шаблоном — открывается «Письмо из шаблона»
+ * с ним (название, тип и повод переносятся). «Срочная рассылка» шаблон передаёт сама — её не касается.
+ */
+export type NewLetterStep =
+  | { kind: 'create' }
+  | { kind: 'fromTemplate'; templateId: string; title: string; letterKind: 'planned' | 'urgent'; reason: string };
+export function newLetterStep(f: { templateId: string; title: string; kind: 'planned' | 'urgent'; reason: string }): NewLetterStep {
+  const templateId = f.templateId.trim();
+  if (!templateId) return { kind: 'create' };
+  return { kind: 'fromTemplate', templateId, title: f.title.trim(), letterKind: f.kind, reason: f.kind === 'urgent' ? f.reason : '' };
+}

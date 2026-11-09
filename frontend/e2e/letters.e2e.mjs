@@ -315,6 +315,36 @@ describe('Учебные письма: от правила до «Отправл
   });
 });
 
+describe('Учебные письма: «Новое письмо» с шаблоном (1.13.2)', () => {
+  it('«Письма» → «Новое письмо» → «Шаблон (необязательно)» → «Далее» → «Письмо из шаблона» с ним → черновик заполнен', async () => {
+    assert.ok(ids.template, 'шаблон прогона создан первым тестом');
+    await loginAs(users.staff);
+    await ui.goto(`/awareness/letters?n=${++navSeq}`);
+    await ui.click($.button('Новое письмо'));
+    const dlg = `document.querySelector('[data-testid=new-letter-dialog]')`;
+    await ui.waitFor(`[...(${dlg}?.querySelector('[data-testid=template-select]')?.options ?? [])].some((o) => o.value === ${JSON.stringify(ids.template)})`, 'шаблон прогона в выборе');
+    await ui.type($.field('Название', dlg), `${RUN} Новое из шаблона`);
+    await ui.select(`${dlg}.querySelector('[data-testid=template-select]')`, ids.template, 'шаблон');
+    await ui.waitFor(`${dlg}.querySelector('button[type=submit]')?.textContent === 'Далее'`, 'кнопка «Далее»');
+    await ui.click(`${dlg}.querySelector('button[type=submit]')`, 'Далее');
+
+    const fd = `document.querySelector('[data-testid=from-template-dialog]')`;
+    await ui.waitFor(`(${fd}?.querySelector('[data-testid=from-template-name]')?.textContent ?? '').includes(${JSON.stringify(`${RUN} Шаблон звонков`)})`, '«Письмо из шаблона» с выбранным шаблоном');
+    assert.equal(await ui.evaluate(`!!${fd}.querySelector('[data-testid=template-select]')`), false, 'шаблон уже выбран — второго выбора нет');
+    assert.equal(await ui.evaluate(`${$.field('Название письма', fd)}.value`), `${RUN} Новое из шаблона`, 'название перенесено');
+    await ui.type($.field('схема', fd), 'звонок из «банка»');
+    await ui.click($.button('Создать письмо', fd));
+    await ui.waitFor(toastIs('Создано письмо №'), 'письмо создано');
+    await ui.waitFor(`!!${panel}?.querySelector('.aw-doc')`, 'карточка нового письма');
+    const id = await ui.evaluate(`new URLSearchParams(location.search).get('letter')`);
+    ids.letters.add(id);
+    const l = await api('GET', `/api/v1/awareness/letters/${id}`);
+    assert.equal(l.template?.id, ids.template, 'письмо — из выбранного шаблона');
+    assert.equal(l.status, 'draft');
+    assert.equal(l.content.subjectRu, 'Осторожно: звонок из «банка»', 'переменная подставлена');
+  });
+});
+
 describe('Учебные письма: права', () => {
   it('«Подпись ИБ» — только при settings.manage и ib.work; без ib.work и служебной учётной записи раздела нет', async () => {
     await loginAs(admin);
