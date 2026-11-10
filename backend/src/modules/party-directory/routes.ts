@@ -13,6 +13,8 @@ const Person = z.object({
   id: z.string(),
   fullName: z.string(),
   position: z.string(),
+  /** Почта (1.13.6); нет — ''. */
+  email: z.string(),
   active: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
@@ -33,24 +35,26 @@ export const partyDirectoryRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (ap
   app.post('/settings/party-directory', {
     preHandler: manage,
     schema: {
-      tags, summary: 'Добавить запись. Такое же ФИО не запрещено (однофамильцы): sameName — записи с тем же ФИО',
-      body: z.object({ fullName: z.string().max(svc.PERSON_NAME_MAX), position: z.string().max(svc.PERSON_POSITION_MAX).optional() }),
-      response: { 200: z.object({ item: Person, sameName: z.array(Person) }), ...errors },
+      tags, summary: 'Добавить запись. Такое же ФИО и такая же почта не запрещены: sameName и sameEmail — записи с тем же ФИО и той же почтой',
+      body: z.object({ fullName: z.string().max(svc.PERSON_NAME_MAX), position: z.string().max(svc.PERSON_POSITION_MAX).optional(), email: z.string().max(400).optional() }),
+      response: { 200: z.object({ item: Person, sameName: z.array(Person), sameEmail: z.array(Person) }), ...errors },
     },
   }, async (request) => svc.createPerson(db, actorOf(request), request.body));
 
   app.patch('/settings/party-directory/:itemId', {
     preHandler: manage,
     schema: {
-      tags, summary: 'Изменить ФИО и должность, отключить или включить. Удаления нет. Уже добавленные в документы лица не меняются',
+      tags, summary: 'Изменить ФИО, должность и почту, отключить или включить; sameEmail — у кого ещё такая почта. Удаления нет. Уже добавленные в документы лица не меняются',
       params: ItemParams,
       body: z.object({
         version: z.number().int(),
         fullName: z.string().max(svc.PERSON_NAME_MAX).optional(),
         position: z.string().max(svc.PERSON_POSITION_MAX).optional(),
+        /** '' — снять почту. */
+        email: z.string().max(400).optional(),
         active: z.boolean().optional(),
       }),
-      response: { 200: z.object({ item: Person }), ...errors },
+      response: { 200: z.object({ item: Person, sameEmail: z.array(Person) }), ...errors },
     },
   }, async (request) => svc.updatePerson(db, actorOf(request), request.params.itemId, request.body));
 

@@ -16,7 +16,7 @@ import { RISK_FIELDS, RISK_REGISTER_KEY } from '../src/modules/risks/definition.
 import { INCIDENT_DATE_KEY, INCIDENT_REGISTER_KEY } from '../src/modules/dashboard/incidents.js';
 import { personKey } from '../src/lib/person-key.js';
 import { titleKey } from '../src/lib/title-key.js';
-import { DirectorySchema, PARTY_DIRECTORY_KEY } from '../src/modules/party-directory/service.js';
+import { DirectoryEmailsSchema, DirectorySchema, PARTY_DIRECTORY_EMAILS_KEY, PARTY_DIRECTORY_KEY } from '../src/modules/party-directory/service.js';
 import { AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY, EMPLOYEE_FIELDS, RESULT_FIELDS } from '../src/modules/awareness/definition.js';
 import { AWARENESS_GRADES_KEY, GradesSchema } from '../src/modules/awareness/grades.js';
 import { SERVICE_ROLE_CODE } from '../src/lib/work-users.js';
@@ -427,6 +427,13 @@ async function main() {
   const dirIds = dir?.success ? dir.data.items.map((i) => i.id) : [];
   check(!dir || (dir.success && new Set(dirIds).size === dirIds.length), `справочник «Ответственные лица»: ${dir?.success ? `${dirIds.length} записей, значение по схеме` : dir ? 'значение не по схеме' : 'пуст'}`,
     dir && !dir.success ? `app_settings.${PARTY_DIRECTORY_KEY}: ${dir.error.issues.slice(0, 3).map((i) => `${i.path.join('.')} — ${i.message}`).join('; ')}` : `повторяются id записей в app_settings.${PARTY_DIRECTORY_KEY}`);
+  // Почты справочника (1.13.6) — отдельный ключ: по схеме; почта без записи справочника — только отчёт (запись не удаляется,
+  // так не бывает без ручной правки app_settings).
+  const mailRow = await prisma.appSetting.findUnique({ where: { key: PARTY_DIRECTORY_EMAILS_KEY } });
+  const mail = mailRow ? DirectoryEmailsSchema.safeParse(mailRow.value) : null;
+  const orphanMails = mail?.success ? Object.keys(mail.data.emails).filter((id) => !dirIds.includes(id)).length : 0;
+  check(!mail || mail.success, `почты справочника «Ответственные лица»: ${mail?.success ? `${Object.keys(mail.data.emails).length}, значение по схеме${orphanMails ? `; без записи справочника — ${orphanMails}` : ''}` : mail ? 'значение не по схеме' : 'нет'}`,
+    mail && !mail.success ? `app_settings.${PARTY_DIRECTORY_EMAILS_KEY}: ${mail.error.issues.slice(0, 3).map((i) => `${i.path.join('.')} — ${i.message}`).join('; ')}` : '');
   // Дубли лиц в одной версии документа (до 1.6.7 не запрещались) — только отчёт: старые записи не трогаем.
   const partyRows = await prisma.documentParty.findMany({ where: { removedAt: null }, select: { versionId: true, fullName: true, department: true, document: { select: { number: true } } } });
   const seenParty = new Map<string, number>();

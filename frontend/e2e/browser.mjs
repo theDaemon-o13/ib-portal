@@ -384,6 +384,19 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       return Buffer.from(data, 'base64');
     },
 
+    /**
+     * Буфер обмена (1.13.6): разрешение на чтение и запись для адреса портала (как разрешение clipboard в Playwright)
+     * и фокус страницы — без фокуса navigator.clipboard отказывает. Вызвать один раз до копирования.
+     */
+    async allowClipboard() {
+      await send('Browser.grantPermissions', { origin: new URL(baseUrl).origin, permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'] });
+      await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+    },
+    /** Что сейчас в буфере обмена (чистый текст). */
+    clipboard: () => evaluate(`navigator.clipboard.readText()`),
+    /** Положить в буфер постороннее значение — проверка, что копирование действительно перезаписало буфер. */
+    clearClipboard: () => evaluate(`navigator.clipboard.writeText('—пусто—')`),
+
     /** Открыть произвольный адрес (например, file:// прототипа). */
     async open(url) {
       await send('Page.navigate', { url });

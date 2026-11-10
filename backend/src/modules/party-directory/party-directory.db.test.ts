@@ -163,3 +163,84 @@ describe('справочник «Ответственные лица» (1.6.7)',
       await app.close();
     }));
 });
+
+describe('почта ответственных лиц (1.13.6)', () => {
+  const as = (tx: Tx, u: User) => actorFor(tx, u.id);
+
+  it('в справочнике: обрезка и нижний регистр, неверная — 400; основное значение — без почты (его читает 1.13.5), почты — вторым ключом', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const { item } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Иванов И.И.', position: 'Технический директор', email: '  Ivanov@Example.COM ' });
+      expect(item.email).toBe('ivanov@example.com');
+      await expectCode(svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Петров П.П.', email: 'не почта' }), 'BAD_EMAIL');
+      const { item: noMail } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Без Почты Б.Б.' });
+      expect(noMail.email).toBe('');
+      // Основной ключ — прежний формат: схема 1.13.5 (strictObject без email) его принимает.
+      const main = await tx.appSetting.findUniqueOrThrow({ where: { key: svc.PARTY_DIRECTORY_KEY } });
+      expect(svc.DirectorySchema.safeParse(main.value).success).toBe(true);
+      expect(JSON.stringify(main.value)).not.toContain('ivanov@example.com');
+      const mails = await tx.appSetting.findUniqueOrThrow({ where: { key: svc.PARTY_DIRECTORY_EMAILS_KEY } });
+      expect(mails.value).toEqual({ emails: { [item.id]: 'ivanov@example.com' } });
+      // Правка и снятие почты; журнал — было → стало.
+      const upd = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: item.version, email: 'i.ivanov@example.com' });
+      expect([upd.item.email, upd.item.version]).toEqual(['i.ivanov@example.com', 2]);
+      const a = await tx.auditLog.findFirstOrThrow({ where: { entity: 'party_directory', entityId: item.id }, orderBy: { id: 'desc' } });
+      expect(a.diff).toMatchObject({ before: { email: 'ivanov@example.com' }, after: { email: 'i.ivanov@example.com' } });
+      const cleared = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: 2, email: '' });
+      expect(cleared.item.email).toBe('');
+      expect((await tx.appSetting.findUniqueOrThrow({ where: { key: svc.PARTY_DIRECTORY_EMAILS_KEY } })).value).toEqual({ emails: {} });
+      // Правка в 1.13.5 после отката (без почты в теле) почту не трогает: она привязана к id записи.
+      const kept = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: 3, email: 'ivanov@example.com' });
+      const moved = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: kept.item.version, position: 'Директор по технологиям' });
+      expect(moved.item.email).toBe('ivanov@example.com');
+    }));
+
+  it('такая же почта у другого — предупреждение sameEmail, не запрет', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const a = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Иванов И.И.', position: 'Технический директор', email: 'office@example.com' });
+      expect(a.sameEmail).toEqual([]);
+      const b = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Петрова П.П.', position: 'Главный бухгалтер', email: 'OFFICE@example.com' });
+      expect(b.sameEmail.map((p) => p.fullName)).toEqual(['Иванов И.И.']);
+      const c = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Сидоров С.С.' });
+      const u = await svc.updatePerson(tx, await as(tx, x.admin), c.item.id, { version: c.item.version, email: 'office@example.com' });
+      expect(u.sameEmail.map((p) => p.fullName)).toEqual(['Иванов И.И.', 'Петрова П.П.']);
+    }));
+
+  it('в документ почта копируется текстом — одно лицо и пачкой, из справочника и вручную; правка справочника документ не меняет; старые лица без почты читаются; автор дописывает почту — в журнал', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const { item: iv } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Иванов И.И.', position: 'Технический директор', email: 'ivanov@example.com' });
+      const id = await x.createDoc();
+      // Строка как до 1.13.6 (почты нет) — читается.
+      await parties.addParty(tx, await as(tx, x.owner), id, { ...(await cur(tx, id)), fullName: 'Старый С.С.', department: 'Юрист', dueDays: 5 });
+      // Одно лицо (выбор из справочника присылает почту текстом).
+      await parties.addParty(tx, await as(tx, x.owner), id, { ...(await cur(tx, id)), fullName: iv.fullName, department: iv.position, email: iv.email, dueDays: 5 });
+      // Пачка: из справочника и вручную, в ручной строке почта необязательна; неверная — отказ всей пачке со строкой.
+      const err = await parties.addParties(tx, await as(tx, x.owner), id, {
+        ...(await cur(tx, id)), dueDays: 7, people: [{ fullName: 'Петрова П.П.', email: 'petrova@example.com' }, { fullName: 'Кузнецов К.К.', email: 'кузнецов' }],
+      }).then(() => null, (e: unknown) => e as { code: string; details?: { row?: number } });
+      expect([err?.code, err?.details?.row]).toEqual(['BAD_EMAIL', 2]);
+      await parties.addParties(tx, await as(tx, x.owner), id, {
+        ...(await cur(tx, id)), dueDays: 7,
+        people: [{ fullName: 'Петрова П.П.', department: 'Главный бухгалтер', email: ' Petrova@Example.com' }, { fullName: 'Кузнецов К.К.', department: 'Юрист' }],
+      });
+      const view = async () => (await docs.getDocument(tx, await docs.accessOf(tx, x.owner.id), id)).parties.map((p) => [p.fullName, p.email]);
+      expect(await view()).toEqual([['Старый С.С.', ''], ['Иванов И.И.', 'ivanov@example.com'], ['Петрова П.П.', 'petrova@example.com'], ['Кузнецов К.К.', '']]);
+      const log = await tx.auditLog.findMany({ where: { entityId: id, action: 'document.party_added' }, orderBy: { id: 'asc' } });
+      expect(log.map((l) => (l.diff as { after: { email: string } }).after.email)).toEqual(['', 'ivanov@example.com', 'petrova@example.com', '']);
+
+      // Правка почты в справочнике документ не меняет; из справочника в старые лица ничего не дописывается.
+      await svc.updatePerson(tx, await as(tx, x.admin), iv.id, { version: iv.version, email: 'new.ivanov@example.com' });
+      expect((await view())[1]).toEqual(['Иванов И.И.', 'ivanov@example.com']);
+
+      // Автор дописывает почту лицу вручную — журнал «Почта»: было → стало.
+      const kz = await tx.documentParty.findFirstOrThrow({ where: { documentId: id, fullName: 'Кузнецов К.К.' } });
+      await expectCode(parties.updateParty(tx, await as(tx, x.owner), id, kz.id, { ...(await cur(tx, id)), email: 'кузнецов@' }), 'BAD_EMAIL');
+      await expectCode(parties.updateParty(tx, await as(tx, x.staff), id, kz.id, { ...(await cur(tx, id)), email: 'kuznetsov@example.com' }), 'FORBIDDEN');
+      await parties.updateParty(tx, await as(tx, x.owner), id, kz.id, { ...(await cur(tx, id)), email: 'Kuznetsov@example.com ' });
+      expect((await view())[3]).toEqual(['Кузнецов К.К.', 'kuznetsov@example.com']);
+      const upd = await tx.auditLog.findFirstOrThrow({ where: { entityId: id, action: 'document.party_updated' }, orderBy: { id: 'desc' } });
+      expect((upd.diff as { after: { changes: unknown[] } }).after.changes).toEqual([{ label: 'Почта', from: '—', to: 'kuznetsov@example.com' }]);
+    }));
+});

@@ -173,3 +173,112 @@ describe('Справочник «Ответственные лица» (1.6.7)',
     assert.equal(res, 403, 'API справочника без права — 403');
   });
 });
+
+describe('Почта ответственных лиц и копирование полей (1.13.6)', () => {
+  it('лицо с почтой в справочнике → в документ → скопировать ФИО, почту и должность по отдельности → «Копировать все ФИО» для трёх', async () => {
+    await loginAs(LOGIN, PASSWORD);
+    await ui.allowClipboard();
+    const MAILED = { fullName: `Сидорова С.С. ${RUN}`, position: 'Начальник службы поддержки', email: `sidorova.${RUN.toLowerCase()}@example.com` };
+
+    // Справочник: почта — необязательное поле; вводится с заглавными и пробелами — сохраняется в нижнем регистре.
+    await ui.goto(`/settings/catalogs?n=${++navSeq}`);
+    await ui.click(regItem('Ответственные лица'), 'пункт «Ответственные лица»');
+    await ui.waitFor(`!!${dirPanel}`, 'раздел «Ответственные лица»');
+    assert.deepEqual(await ui.evaluate(`[...${dirPanel}.querySelectorAll('thead th')].map((t) => t.textContent)`), ['ФИО', 'Подразделение или должность', 'Почта', 'Активно', '']);
+    const addForm = `${dirPanel}.querySelector('form[aria-label="Добавить ответственное лицо в справочник"]')`;
+    await ui.type(label('ФИО', addForm), MAILED.fullName);
+    await ui.type(label('Подразделение или должность', addForm), MAILED.position);
+    await ui.type(label('Почта', addForm), 'не почта');
+    await ui.waitFor(`${addForm}.querySelector('[role=alert]')?.textContent.includes('ivanov@example.com')`, 'неверная почта подсвечена');
+    assert.equal(await ui.evaluate(`!!${$.button('Добавить', addForm)}`), false, 'с неверной почтой кнопка неактивна');
+    await ui.evaluate(`(() => { const el = ${label('Почта', addForm)}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ''); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await ui.type(label('Почта', addForm), ` ${MAILED.email.toUpperCase()} `);
+    let m = ui.mark();
+    await ui.click($.button('Добавить', addForm));
+    const created = await ui.request(m, 'POST', '/api/v1/settings/party-directory');
+    assert.equal((await ui.response(created)).item.email, MAILED.email, 'почта — в нижнем регистре, без пробелов');
+    const row = `${dirPanel}.querySelector(${JSON.stringify(`tr[data-person="${MAILED.fullName}"]`)})`;
+    await ui.waitFor(`${row}?.textContent.includes(${JSON.stringify(MAILED.email)})`, 'почта в таблице');
+    // Поиск — и по почте.
+    await ui.type(`${dirPanel}.querySelector('input[type=search]')`, `sidorova.${RUN.toLowerCase()}`);
+    await ui.waitFor(`${dirPanel}.querySelectorAll('tbody tr[data-person]').length === 1 && !!${row}`, 'найдено по почте');
+    // Копирование в таблице справочника.
+    await ui.clearClipboard();
+    await ui.click(`${row}.querySelector(${JSON.stringify(`button[aria-label="Копировать почту ${MAILED.email}"]`)})`, 'копировать почту в справочнике');
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Скопировано'`, '«Скопировано»');
+    assert.equal(await ui.clipboard(), MAILED.email);
+
+    // Документ: выбрать из справочника (почта видна под ФИО) + двое вручную, у одного почта.
+    const docType = (await api('GET', '/api/v1/catalogs/document_types/items')).items[0];
+    const doc = (await api('POST', '/api/v1/documents', {
+      title: `${RUN} Политика тестовая (почта)`, typeId: docType.id, ownerId: (await api('GET', '/api/v1/auth/me')).user.id,
+      onlyofficeUrl: 'https://office.example.local/products/files/doceditor.aspx?fileid=e2e-mail', edition: '1.0',
+    })).document;
+    try {
+      await ui.goto(`/documents?n=${++navSeq}&doc=${doc.id}`);
+      await ui.click($.button('Добавить ответственных лиц', panel));
+      const pf = `${panel}.querySelector('form[aria-label="Добавить ответственных лиц"]')`;
+      await ui.waitFor(`!!${pf}?.querySelector('[data-testid=party-pick]')`, 'выбор из справочника');
+      await ui.click(`${pf}.querySelector('[data-testid=party-pick]')`, '«Выбрать из справочника»');
+      const pop = `document.querySelector('[data-ms-pop]')`;
+      await ui.type(`${pop}.querySelector('input[type=search]')`, `sidorova.${RUN.toLowerCase()}@`);
+      const opt = `(${pop} ? [...${pop}.querySelectorAll('[role=option]')].find((o) => o.querySelector('.sel-ol')?.textContent === ${JSON.stringify(MAILED.fullName)}) : null)`;
+      await ui.waitFor(`${opt}?.textContent.includes(${JSON.stringify(MAILED.email)})`, 'найден по почте, почта — под ФИО');
+      await ui.click(opt, 'отметить');
+      await ui.press('Enter');
+      const manual = [
+        { fullName: `Иванов И.И. ${RUN}`, department: 'Технический директор', email: `ivanov.${RUN.toLowerCase()}@example.com` },
+        { fullName: `Петров П.П. ${RUN}`, department: 'Главный бухгалтер', email: '' },
+      ];
+      for (const p of manual) {
+        await ui.click($.button('+ Добавить вручную', pf), '«+ Добавить вручную»');
+        const r = `[...${pf}.querySelectorAll('.party-row')].at(-1)`;
+        await ui.type(label('ФИО', r), p.fullName);
+        await ui.type(label('Подразделение или должность', r), p.department);
+        if (p.email) await ui.type(label('Почта', r), p.email);
+      }
+      m = ui.mark();
+      await ui.click($.button('Добавить (3)', pf));
+      const added = await ui.request(m, 'POST', `/api/v1/documents/${doc.id}/parties/batch`);
+      assert.deepEqual(added.json.people, [{ fullName: MAILED.fullName, department: MAILED.position, email: MAILED.email }, manual[0], { fullName: manual[1].fullName, department: manual[1].department }]);
+
+      // Карточка: у каждого поля — своя кнопка; копируется ровно значение.
+      const party = `${panel}.querySelector(${JSON.stringify(`[data-party="${MAILED.fullName}"]`)})`;
+      await ui.waitFor(`!!${party}?.querySelector('[data-field=email]')`, 'почта лица в карточке');
+      for (const [what, value] of [['ФИО', MAILED.fullName], ['почту', MAILED.email], ['должность', MAILED.position]]) {
+        await ui.clearClipboard();
+        await ui.click(`${party}.querySelector(${JSON.stringify(`button[aria-label="Копировать ${what} ${value}"]`)})`, `копировать ${what}`);
+        await ui.waitFor(`${party}.querySelector(${JSON.stringify(`button[data-copy="${what}"]`)})?.classList.contains('done')`, `«Скопировано» у ${what}`);
+        assert.equal(await ui.clipboard(), value, `в буфере — ${what}`);
+      }
+      // С клавиатуры: Tab до кнопки и Enter.
+      await ui.clearClipboard();
+      await ui.evaluate(`${party}.querySelector('button[data-copy="ФИО"]').focus()`);
+      await ui.press('Enter');
+      await ui.waitFor(`navigator.clipboard.readText().then((t) => t === ${JSON.stringify(MAILED.fullName)})`, 'Enter на кнопке копирует');
+
+      // «Копировать все ФИО» — по строке на значение, в порядке списка; «Копировать все почты» — без пустых.
+      await ui.clearClipboard();
+      await ui.click($.button('Копировать все ФИО', panel));
+      await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Скопировано: 3'`, '«Скопировано: 3»');
+      assert.equal(await ui.clipboard(), [MAILED.fullName, manual[0].fullName, manual[1].fullName].join('\n'));
+      await ui.click($.button('Копировать все почты', panel));
+      await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Скопировано: 2'`, '«Скопировано: 2» — пустая почта пропущена');
+      assert.equal(await ui.clipboard(), [MAILED.email, manual[0].email].join('\n'));
+
+      // Автор дописывает почту лицу без почты — сохраняется и копируется.
+      const petrov = `${panel}.querySelector(${JSON.stringify(`[data-party="${manual[1].fullName}"]`)})`;
+      await ui.click($.button('Почта', petrov));
+      const ef = `${panel}.querySelector('form[aria-label="Почта лица"]')`;
+      await ui.type(label('Почта', ef), `petrov.${RUN.toLowerCase()}@example.com`);
+      m = ui.mark();
+      await ui.click($.button('Сохранить', ef));
+      const patched = await ui.request(m, 'PATCH', `/api/v1/documents/${doc.id}/parties/`);
+      assert.equal(patched.status, 200, patched.body);
+      await ui.waitFor(`${petrov}?.querySelector('[data-field=email]')?.textContent === ${JSON.stringify(`petrov.${RUN.toLowerCase()}@example.com`)}`, 'почта дописана');
+    } finally {
+      const d = await api('GET', `/api/v1/documents/${doc.id}`).catch(() => null);
+      if (d) await api('POST', `/api/v1/documents/${doc.id}/archive`, { version: d.version }).catch(() => undefined);
+    }
+  });
+});

@@ -6,6 +6,7 @@
 // на этапе не участвует. Блокеры открывают и снимают автор, старшие над автором и начальник ИБ; снятие — с комментарием.
 import type { Db } from '../../lib/db.js';
 import { withTx } from '../../lib/db.js';
+import { cleanEmail } from '../../lib/email.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import { personKey } from '../../lib/person-key.js';
 import { formatDateRu } from '../../lib/register-values.js';
@@ -26,13 +27,15 @@ type Stage = { version: number; stage: number };
 
 /**
  * Ответственное лицо — внешний человек (1.4.0, решение владельца 10): ФИО, подразделение или должность, срок ответа;
- * ответ-файл — при «Отметить согласование». E-mail и «пользователь портала» не вводятся: колонки остаются, старые
- * значения показываются в карточке текстом.
+ * ответ-файл — при «Отметить согласование». Почта (1.13.6) — справочно, для титульного листа: копируется из справочника
+ * или вводится вручную, колонка email — та же, что у строк до 1.4.0. «Пользователь портала» не вводится.
  */
 export interface PartyInput {
   fullName: string;
   /** Подразделение или должность. */
   department?: string;
+  /** Почта (1.13.6), необязательна. */
+  email?: string;
   /** Срок ответа, YYYY-MM-DD — на этапе 22. */
   dueDate?: string;
   /** Срок ответа, дней от перехода на этап 22 — на этапе 21. */
@@ -106,7 +109,7 @@ async function assertNotDuplicate(tx: Db, versionId: string, fullName: string, d
 export const PARTIES_BATCH_MAX = 50;
 
 export interface PartiesBatchInput {
-  people: { fullName: string; department?: string }[];
+  people: { fullName: string; department?: string; email?: string }[];
   /** Общий срок для всех, YYYY-MM-DD — на этапе 22. */
   dueDate?: string;
   /** Общий срок для всех, дней от перехода на этап 22 — на этапе 21. */
@@ -129,12 +132,16 @@ function rowError(err: unknown, row: number, fullName: string): never {
  */
 async function insertParties(
   tx: Db, actor: Actor, ctx: { id: string; number: number; title: string; versionId: string },
-  people: { fullName: string; department?: string }[], due: { dueDate: Date; dueDays: number | null }, batch: boolean,
+  people: { fullName: string; department?: string; email?: string }[], due: { dueDate: Date; dueDays: number | null }, batch: boolean,
 ) {
   const rows = people.map((p, i) => {
     const row = i + 1;
     try {
-      return { fullName: cleanText(p.fullName, NAME_MAX, 'ФИО', true), department: cleanText(p.department, DEPARTMENT_MAX, 'подразделение или должность') };
+      return {
+        fullName: cleanText(p.fullName, NAME_MAX, 'ФИО', true),
+        department: cleanText(p.department, DEPARTMENT_MAX, 'подразделение или должность'),
+        email: cleanEmail(p.email),
+      };
     } catch (err) {
       if (batch) rowError(err, row, trimmed(p.fullName ?? '').slice(0, 80));
       throw err;
@@ -157,13 +164,13 @@ async function insertParties(
   });
   for (const [i, r] of rows.entries()) {
     const p = await tx.documentParty.create({
-      data: { documentId: ctx.id, versionId: ctx.versionId, fullName: r.fullName, department: r.department, dueDate: due.dueDate, dueDays: due.dueDays, addedBy: actor.id },
+      data: { documentId: ctx.id, versionId: ctx.versionId, fullName: r.fullName, department: r.department, email: r.email, dueDate: due.dueDate, dueDays: due.dueDays, addedBy: actor.id },
     });
     await auditSettings(tx, actor, {
       action: 'document.party_added', entity: 'document', entityId: ctx.id,
       summary: `Документ #${ctx.number} «${ctx.title}»: ответственное лицо ${r.fullName}${r.department ? ` (${r.department})` : ''}, срок ${due.dueDays ? `${due.dueDays} дн. от этапа «Согласование»` : formatDateRu(iso(due.dueDate))}`,
       after: {
-        partyId: p.id, fullName: r.fullName, department: r.department, dueDate: due.dueDays ? null : iso(due.dueDate), dueDays: due.dueDays,
+        partyId: p.id, fullName: r.fullName, department: r.department, email: r.email, dueDate: due.dueDays ? null : iso(due.dueDate), dueDays: due.dueDays,
         ...(batch ? { batch: { size: rows.length, row: i + 1 } } : {}),
       },
     });
@@ -177,6 +184,7 @@ export async function addParty(db: Db, actor: Actor, id: string, input: Stage & 
     // Порядок проверок как до 1.13.5: ФИО, срок, дубль.
     cleanText(input.fullName, NAME_MAX, 'ФИО', true);
     cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
+    cleanEmail(input.email);
     const due = dueOf(input, onDraft);
     await insertParties(tx, actor, { id, number: d.number, title: w.title, versionId: w.id }, [input], due, false);
   });
@@ -207,7 +215,7 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
   return withTx(db, async (tx) => {
     const { d, w, onDraft } = await partyContext(tx, actor, id, input, input.dueDate !== undefined);
     const p = await getParty(tx, w.id, partyId);
-    const data: { fullName?: string; department?: string; dueDate?: Date; dueDays?: number } = {};
+    const data: { fullName?: string; department?: string; email?: string; dueDate?: Date; dueDays?: number } = {};
     const changes: { label: string; from: string; to: string }[] = [];
     if (input.fullName !== undefined) {
       const v = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
@@ -216,6 +224,11 @@ export async function updateParty(db: Db, actor: Actor, id: string, partyId: str
     if (input.department !== undefined) {
       const v = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
       if (v !== p.department) { data.department = v; changes.push({ label: 'Подразделение или должность', from: p.department || '—', to: v || '—' }); }
+    }
+    // Почта (1.13.6): дописать или исправить — справочно, и у согласовавшего тоже.
+    if (input.email !== undefined) {
+      const v = cleanEmail(input.email);
+      if (v !== p.email) { data.email = v; changes.push({ label: 'Почта', from: p.email || '—', to: v || '—' }); }
     }
     // На этапе 21 срок — днями и не идёт: правится без комментария (решение владельца 11).
     if (input.dueDays !== undefined && onDraft) {

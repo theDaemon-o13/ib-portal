@@ -1371,7 +1371,9 @@ describe('документы: ответственные лица (этапы 21
       const patch = async (body: parties.PartyPatch) => parties.updateParty(tx, await x.as(x.owner), id, p.id, { ...(await cur(tx, id)), ...body });
       await expectCode(patch({ dueDate: '2020-01-20' }), 'EMPTY_COMMENT');
       await expectCode(patch({ dueDate: '2020-02-31', comment: 'x' }), 'BAD_DATE');
-      await patch({ email: 'не почта', userId: x.legal.id } as parties.PartyPatch);
+      // Почта (1.13.6) проверяется; «пользователь портала» по-прежнему не вводится.
+      await expectCode(patch({ email: 'не почта' }), 'BAD_EMAIL');
+      await patch({ userId: x.legal.id } as parties.PartyPatch);
       expect(await tx.documentParty.findUniqueOrThrow({ where: { id: p.id } })).toMatchObject({ email: '', userId: null });
       await patch({ dueDate: '2020-01-20', comment: 'Попросили отсрочку' });
       expect((await list(tx, x.owner)).find((d) => d.id === id)).toMatchObject({ partiesDue: '2020-01-20', partiesOverdue: true });
