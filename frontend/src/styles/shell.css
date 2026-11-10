@@ -259,6 +259,10 @@ body:has(.dp, .backdrop, .app.menu-open) .scroll-ctl{display:none}
 @media (pointer:coarse){.copy-btn{width:40px;height:40px}.copy-btn svg{width:17px;height:17px}}
 .copy-all{flex-wrap:wrap;gap:6px;margin:4px 0 2px}
 .party-dir td .pf{vertical-align:middle}
+/* В таблице справочника ФИО и почта не рвутся посреди слова: узкий экран — прокрутка таблицы по горизонтали (.tbl-wrap). */
+.party-dir td:first-child .pf-v{white-space:nowrap}
+.party-dir .pf-mail{overflow-wrap:normal}
+.party-dir td .pf-v{overflow-wrap:break-word;min-width:min-content}
 /* Нативные списки, если где-то остались: варианты — в цветах темы. */
 select option{background:var(--paper);color:var(--paper-fg)}
 

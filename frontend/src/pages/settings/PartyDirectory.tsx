@@ -21,6 +21,11 @@ function SameEmail({ people, email }: { people: DirectoryPerson[]; email: string
     </div>
   );
 }
+/** Почта с местом переноса после «@»: в узкой колонке адрес не рвётся посреди имени ящика. */
+const mailParts = (e: string) => {
+  const at = e.indexOf('@');
+  return at < 0 ? e : <>{e.slice(0, at + 1)}<wbr />{e.slice(at + 1)}</>;
+};
 const BadEmail = ({ email }: { email: string }) => (emailOk(email) ? null : <div className="form-error span-all" role="alert">Почта — в виде ivanov@example.com</div>);
 
 /** «Уже есть: …» — однофамилец не запрещён, только предупреждение. */
@@ -116,7 +121,7 @@ export function PartyDirectory() {
               <tr key={p.id} className={p.active ? undefined : 'archived'} data-person={p.fullName}>
                 <td><span className="pf"><b className="pf-v">{p.fullName}</b><CopyButton what="ФИО" value={p.fullName} /></span></td>
                 <td>{p.position ? <span className="pf"><span className="pf-v">{p.position}</span><CopyButton what="должность" value={p.position} /></span> : <span className="hint">—</span>}</td>
-                <td>{p.email ? <span className="pf"><span className="pf-v pf-mail">{p.email}</span><CopyButton what="почту" value={p.email} /></span> : <span className="hint">—</span>}</td>
+                <td>{p.email ? <span className="pf"><span className="pf-v pf-mail">{mailParts(p.email)}</span><CopyButton what="почту" value={p.email} /></span> : <span className="hint">—</span>}</td>
                 <td>{p.active ? 'да' : <span className="chip">отключено</span>}</td>
                 <td>
                   <div className="row act">
