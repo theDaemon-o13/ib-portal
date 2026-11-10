@@ -1,4 +1,5 @@
 // Запросы раздела «Документы». Типы — из сгенерированной схемы OpenAPI.
+import type { LanguageCode } from './generated/languages';
 import { ApiError, request, type JsonOf } from './client';
 import { fileNameFrom } from './audit';
 import type { paths } from './generated/schema';
@@ -112,8 +113,8 @@ export const docsApi = {
   /** «Запросить повторно» (этап 22): отметка снимается, новый срок. */
   recheckParty: (id: string, partyId: string, body: At & { dueDate: string; comment?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/recheck`, body),
   /** Этап 23: переводы — язык, переводчик текстом, срок, ссылка на перевод в OnlyOffice. */
-  addTranslation: (id: string, body: At & { language: string; translatorName?: string; dueDate: string; onlyofficeUrl?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
-  updateTranslation: (id: string, tid: string, body: At & { language?: string; translatorName?: string; dueDate?: string; comment?: string; onlyofficeUrl?: string }) =>
+  addTranslation: (id: string, body: At & { code: LanguageCode; translatorName?: string; dueDate: string; onlyofficeUrl?: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/translations`, body),
+  updateTranslation: (id: string, tid: string, body: At & { code?: LanguageCode; translatorName?: string; dueDate?: string; comment?: string; onlyofficeUrl?: string }) =>
     request<DocResult>('PATCH', `/api/v1/documents/${id}/translations/${tid}`, body),
   removeTranslation: (id: string, tid: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/translations/${tid}/remove`, body),
   addBlocker: (id: string, body: At & { text: string }) => request<DocResult>('POST', `/api/v1/documents/${id}/blockers`, body),

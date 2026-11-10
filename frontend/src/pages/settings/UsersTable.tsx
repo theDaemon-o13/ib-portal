@@ -60,6 +60,22 @@ function ManagerSelect({ value, onChange, exclude, form }: { value: string; onCh
   );
 }
 
+/**
+ * Предупреждение у учётки настенного монитора (1.13.7): пустой MONITOR_ALLOWED_IPS или отказ во входе по адресу после
+ * последнего успешного входа. Пользователю на экране входа причина не показывается — только здесь и в «Журнале».
+ */
+function KioskWarning({ empty, denied }: { empty: boolean; denied: { at: string; ip: string | null } | null }) {
+  if (!empty && !denied) return null;
+  return (
+    <div className="kiosk-warn" data-testid="kiosk-warning" role="note">
+      {empty
+        ? <span className="chip high" title="Переменная MONITOR_ALLOWED_IPS на сервере пуста: вход монитора запрещён с любого адреса. Её задаёт администратор сервера">Монитор: адреса не заданы</span>
+        : <span className="chip high" title="Адрес не входит в MONITOR_ALLOWED_IPS. Пользователь видит «Неверный логин или пароль»">Вход отклонён по адресу</span>}
+      {denied && <div className="hint">Последний отказ: {formatDateTime(denied.at)}{denied.ip ? `, адрес ${denied.ip}` : ''}</div>}
+    </div>
+  );
+}
+
 export function UsersTable({ canEdit }: { canEdit: boolean }) {
   const me = useOutletContext<Me>();
   const users = useInfiniteQuery({
@@ -68,6 +84,10 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
+  // Настенный монитор (1.13.7): «Неверный логин или пароль» у монитора часто значит неразрешённый адрес —
+  // предупреждение на строке учётки. Только администратору пользователей (users.manage).
+  const kiosk = useQuery({ queryKey: [...keys.users, 'kiosk-status'], queryFn: settingsApi.kioskStatus, enabled: canEdit });
+  const kioskOf = (id: string) => kiosk.data?.items.find((k) => k.userId === id);
   const [editId, setEditId] = useState<string | null>(null);
   const [edit, setEdit] = useState<Draft>(empty);
   const [add, setAdd] = useState<Draft>(empty);
@@ -236,6 +256,7 @@ export function UsersTable({ canEdit }: { canEdit: boolean }) {
                       {u.locked && <span className="chip crit" title={`до ${formatDateTime(u.lockedUntil)}`}>Вход заблокирован</span>}
                       {u.isActive && u.mustChangePassword && <span className="chip high">Сменит пароль при входе</span>}
                     </div>
+                    {u.isActive && kioskOf(u.id) && <KioskWarning empty={kiosk.data?.allowedIpsEmpty ?? false} denied={kioskOf(u.id)?.lastDenied ?? null} />}
                     <div className="hint">Последний вход: {formatDateTime(u.lastLoginAt)}</div>
                   </td>
                   <td>

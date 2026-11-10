@@ -1,3 +1,4 @@
+import { LANGUAGE_CODES } from '../../lib/languages.js';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
@@ -142,6 +143,8 @@ const DocDetail = DocItem.extend({
   /** Переводы этапа 23 (сотрудникам ИБ): язык, имя переводчика текстом, срок, ссылка OnlyOffice; готов, когда есть ссылка. */
   translations: z.array(z.object({
     id: z.string(), language: z.string(), translatorName: z.string(), dueDate: z.string(), done: z.boolean(), overdue: z.boolean(),
+    /** Код языка из списка (1.13.7): по названию или, у старых строк с языком текстом, по псевдонимам; не сопоставлен — null. */
+    code: z.enum(LANGUAGE_CODES).nullable(),
     onlyofficeUrl: z.string(),
     /** Этап 24: Word перевода (обязателен) и подписанный PDF (по желанию). */
     docx: FileRef.nullable(), pdf: FileRef.nullable(),
@@ -524,10 +527,10 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.post('/documents/:id/translations', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Этап 23: строка перевода — язык, имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23',
+      tags, summary: 'Этап 23: строка перевода — язык из списка (code), имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23',
       params: IdParams,
       body: At.extend({
-        language: z.string().max(translations.LANGUAGE_MAX), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
+        code: z.enum(LANGUAGE_CODES), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
         dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), onlyofficeUrl: z.string().max(svc.URL_MAX).optional(),
       }),
       response: { 200: Result, ...errors },
@@ -540,9 +543,9 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   app.patch('/documents/:id/translations/:translationId', {
     preHandler: anyUser,
     schema: {
-      tags, summary: 'Правка перевода; смена срока — только с комментарием (история сроков)', params: TrParams,
+      tags, summary: 'Правка перевода: язык — только из списка (code; не передан — не меняется); смена срока — только с комментарием (история сроков)', params: TrParams,
       body: At.extend({
-        language: z.string().max(translations.LANGUAGE_MAX).optional(), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
+        code: z.enum(LANGUAGE_CODES).optional(), translatorName: z.string().max(translations.TRANSLATOR_NAME_MAX).optional(),
         dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), comment: z.string().max(svc.COMMENT_MAX).optional(),
         onlyofficeUrl: z.string().max(svc.URL_MAX).optional(),
       }),

@@ -101,7 +101,7 @@ export async function buildApp(deps: AppDeps) {
   });
 
   const auth = createAuthService({ repo: deps.repo, audit: deps.audit, hasher: deps.hasher, now: deps.now, kioskAllowedIps: deps.kioskAllowedIps,
-    adminAllowedIps: deps.adminAllowedIps });
+    adminAllowedIps: deps.adminAllowedIps, log: base.log });
   installAuth(base, auth, deps.portalUrl);
 
   await app.register(healthRoutes, { prefix: '/api', ping: () => deps.repo.ping() });
@@ -118,7 +118,7 @@ export async function buildApp(deps: AppDeps) {
     await open.register(attentionRoutes, { prefix: '/api/v1', db: deps.db });
     await open.register(calendarRoutes, { prefix: '/api/v1', db: deps.db });
     await open.register(formTemplateRoutes, { prefix: '/api/v1', db: deps.db });
-    await open.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher });
+    await open.register(userRoutes, { prefix: '/api/v1', db: deps.db, hasher: deps.hasher, kioskAllowedIps: deps.kioskAllowedIps });
     await open.register(roleRoutes, { prefix: '/api/v1', db: deps.db });
     await open.register(presentationRoutes, { prefix: '/api/v1', db: deps.db });
   });

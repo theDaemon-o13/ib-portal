@@ -4783,6 +4783,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/kiosk-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Настенный монитор (1.13.7): задан ли список адресов MONITOR_ALLOWED_IPS и последний отказ во входе по адресу после последнего успешного входа */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            allowedIpsEmpty: boolean;
+                            items: {
+                                userId: string;
+                                lastDenied: {
+                                    at: string;
+                                    ip: string | null;
+                                } | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -32906,6 +33036,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -33538,6 +33669,7 @@ export interface paths {
                                 dueDate: string;
                                 done: boolean;
                                 overdue: boolean;
+                                code: ("ru" | "tg" | "en") | null;
                                 onlyofficeUrl: string;
                                 docx: {
                                     id: string;
@@ -34011,6 +34143,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -34488,6 +34621,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -34967,6 +35101,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -35448,6 +35583,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -35924,6 +36060,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -36401,6 +36538,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -36878,6 +37016,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -37353,6 +37492,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -37834,6 +37974,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -38317,6 +38458,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -38804,6 +38946,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -39277,6 +39420,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -39757,6 +39901,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -40236,6 +40381,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -40714,6 +40860,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -41191,6 +41338,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -41382,7 +41530,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Этап 23: строка перевода — язык, имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23 */
+        /** Этап 23: строка перевода — язык из списка (code), имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23 */
         post: {
             parameters: {
                 query?: never;
@@ -41397,7 +41545,8 @@ export interface paths {
                     "application/json": {
                         version: number;
                         stage: number;
-                        language: string;
+                        /** @enum {string} */
+                        code: "ru" | "tg" | "en";
                         translatorName?: string;
                         dueDate: string;
                         onlyofficeUrl?: string;
@@ -41671,6 +41820,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -41866,7 +42016,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Правка перевода; смена срока — только с комментарием (история сроков) */
+        /** Правка перевода: язык — только из списка (code; не передан — не меняется); смена срока — только с комментарием (история сроков) */
         patch: {
             parameters: {
                 query?: never;
@@ -41882,7 +42032,8 @@ export interface paths {
                     "application/json": {
                         version: number;
                         stage: number;
-                        language?: string;
+                        /** @enum {string} */
+                        code?: "ru" | "tg" | "en";
                         translatorName?: string;
                         dueDate?: string;
                         comment?: string;
@@ -42157,6 +42308,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -42630,6 +42782,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -43108,6 +43261,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -43586,6 +43740,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -45264,6 +45419,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -45742,6 +45898,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -46218,6 +46375,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -46697,6 +46855,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -47172,6 +47331,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;
@@ -47647,6 +47807,7 @@ export interface paths {
                                     dueDate: string;
                                     done: boolean;
                                     overdue: boolean;
+                                    code: ("ru" | "tg" | "en") | null;
                                     onlyofficeUrl: string;
                                     docx: {
                                         id: string;

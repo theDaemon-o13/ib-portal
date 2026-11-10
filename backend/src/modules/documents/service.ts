@@ -5,6 +5,7 @@
 // начальник ИБ одобряет сам — другого начальника ИБ не бывает — с отметкой «без независимого согласования».
 // Без ib.work видны только подписанные документы, «ждёт вас» и те, где вы действовали в текущем круге.
 // Файлы — только на этапе 24 (подписанный PDF, исходный .docx, .docx переводов); на 21–23 документ — ссылка OnlyOffice.
+import { languageCodeOf } from '../../lib/languages.js';
 import { randomUUID } from 'node:crypto';
 import { workUsersWhere } from '../../lib/work-users.js';
 import type { Prisma } from '../../generated/prisma/client.js';
@@ -876,7 +877,7 @@ export async function getDocument(db: Db, a: DocAccess, id: string) {
       const due = isoDay(t.dueDate) ?? '';
       return {
         /** Имя переводчика текстом (1.4.0); у строк до 1.4.0 заполнено миграцией из ФИО учётной записи. */
-        id: t.id, language: t.language, translatorName: t.translatorName, dueDate: due,
+        id: t.id, language: t.language, code: languageCodeOf(t.language), translatorName: t.translatorName, dueDate: due,
         /** Ссылка на перевод в OnlyOffice (1.11.0): перевод готов, когда она есть. Файлы до 1.11.0 — files. */
         onlyofficeUrl: t.onlyofficeUrl,
         done: t.onlyofficeUrl !== '' || (shown.stage <= 16 && t.files.length > 0),

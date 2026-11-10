@@ -2,6 +2,7 @@
 // макета, текстовая часть. Одна функция для предпросмотра, «Скопировать с оформлением» и .eml — поэтому предпросмотр
 // показывает ровно то, что уйдёт в файл (изображения — data:, файл заменяет их на cid:).
 import type { TemplateTexts } from '../variables.js';
+import { LETTER_LANG_TO_CODE } from '../../../lib/languages.js';
 import { contentToMail, firstSentence } from './content.js';
 import { substituteSignature, type ExportLang, type Signature } from './html.js';
 import { renderMail, type MailCard, type MailLang, type MailLogo } from './layout.js';
@@ -89,6 +90,7 @@ export function composeMail(t: TemplateTexts, o: ComposeOptions): ComposedMail {
     subject,
     html: renderMail({ subject, preheader, cards, tjHint: o.layout.tjHint, logo: o.logo }),
     text: texts.join('\n\n————————————————\n\n'),
-    language: langs.map((l) => (l === 'ru' ? 'ru' : 'tg')).join(', '),
+    // Content-Language — коды общего списка языков (ключ письма tj → tg).
+    language: langs.map((l) => LETTER_LANG_TO_CODE[l]).join(', '),
   };
 }

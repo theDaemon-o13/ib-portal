@@ -391,10 +391,12 @@ describe('Документы: маршрут 1.11.0', () => {
     assert.equal(await noFileInputs(), true, 'на «Переводе» полей загрузки нет');
     await ui.click($.button('Добавить язык', panel));
     const lf = `${panel}.querySelector('form[aria-label="Язык перевода"]')`;
-    await ui.type(label('Язык', lf), 'Таджикский');
+    await ui.select(label('Язык', lf), 'tg', 'язык из списка');
     await ui.type(label('Переводчик (необязательно)', lf), 'Калинова Д. (бюро переводов)');
     await setValue(label('Срок перевода', lf), portalToday());
-    await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
+    const addReq = await act('Добавить', 'POST', `/api/v1/documents/${id}/translations`);
+    assert.equal(addReq.json.code, 'tg', 'язык уходит кодом из списка');
+    assert.equal(addReq.json.language, undefined, 'текстом язык не отправляется');
     const trRow = `${panel}.querySelector('[data-translation="Таджикский"]')`;
     await ui.waitFor(`${trRow}?.textContent.includes('нет ссылки на перевод')`, 'язык без ссылки');
     assert.equal(await ui.evaluate(`!!${$.button('На утверждение', panel)}`), false, 'без ссылки шага нет');
@@ -587,6 +589,89 @@ describe('Документы: несколько ответственных ли
   });
 });
 
+/**
+ * Строка перевода «как до 1.13.7» — язык введён текстом. Вставляется прямо в одноразовую базу прогона (ibportal_e2e)
+ * под ролью приложения: через API текстом язык больше не добавить.
+ */
+async function legacyTranslation(documentId, versionId, language, userId) {
+  const { spawn } = await import('node:child_process');
+  const code = `import('./scripts/e2e-db.ts').then(async (m) => {
+    const { Client } = await import('pg');
+    const c = new Client({ connectionString: m.e2eDbConfig().appUrl });
+    await c.connect();
+    await c.query("INSERT INTO document_translations (document_id, version_id, language, translator_id, added_by, due_date) VALUES ($1, $2, $3, $4, $4, CURRENT_DATE + 7)", JSON.parse(process.env.ROW));
+    await c.end();
+  })`;
+  await new Promise((resolve, reject) => {
+    const p = spawn('npx', ['tsx', '-e', code], {
+      cwd: new URL('../../backend/', import.meta.url).pathname,
+      env: { ...process.env, ROW: JSON.stringify([documentId, versionId, language, userId]) }, stdio: ['ignore', 'inherit', 'inherit'],
+    });
+    p.on('exit', (c) => (c === 0 ? resolve() : reject(new Error(`вставка строки перевода: код ${c}`))));
+  });
+}
+
+describe('Документы: язык перевода из списка (1.13.7)', () => {
+  it('старая строка «TJ» — как есть, занимает «Таджикский»; добавить из списка; занятые недоступны; правка языка только выбором', async () => {
+    assert.ok(process.env.E2E_DB_NAME?.endsWith('_e2e'), 'вставка строки — только в одноразовую базу прогона');
+    const doc = await makeDoc('Перевод: язык из списка');
+    await moveViaApi(doc.id, '23');
+    let d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
+    await legacyTranslation(doc.id, d.working.id, 'TJ', users.owner.id);
+
+    await loginAs(users.owner);
+    // API: язык — только кодом из списка.
+    d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
+    assert.deepEqual(d.translations.map((t) => [t.language, t.code]), [['TJ', 'tg']]);
+    const bad = await ui.evaluate(`fetch('/api/v1/documents/${doc.id}/translations', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: ${d.version}, stage: 23, code: 'uz', dueDate: '${portalToday()}' }) }).then((r) => r.status)`);
+    assert.equal(bad, 400, 'код вне списка — 400');
+
+    await openDocs(doc.id);
+    const tjRow = `${panel}.querySelector('[data-translation="TJ"]')`;
+    await ui.waitFor(`${tjRow}?.querySelector('b')?.textContent === 'TJ'`, 'старая строка — как есть');
+
+    // Добавить: «Таджикский» занят старой строкой, выбираем «Английский».
+    await ui.click($.button('Добавить язык', panel));
+    const lf = `${panel}.querySelector('form[aria-label="Язык перевода"]')`;
+    const combo = `${lf}.querySelector('[role=combobox]')`;
+    await ui.click(combo, 'список языков');
+    const opts = `[...document.getElementById(${combo}.getAttribute('aria-controls')).querySelectorAll('[role=option]')]`;
+    await ui.waitFor(`${opts}.length === 3`, 'три языка');
+    assert.deepEqual(await ui.evaluate(`${opts}.map((o) => [o.dataset.value, o.textContent.trim(), o.getAttribute('aria-disabled') === 'true'])`), [
+      ['ru', 'Русский', false], ['tg', 'Таджикский — уже добавлен («TJ»)', true], ['en', 'Английский', false],
+    ]);
+    await ui.press('Escape');
+    await ui.select(label('Язык', lf), 'en', 'язык из списка');
+    await setValue(label('Срок перевода', lf), portalToday());
+    const req = await act('Добавить', 'POST', `/api/v1/documents/${doc.id}/translations`);
+    assert.equal(req.json.code, 'en');
+    const enRow = `${panel}.querySelector('[data-translation="Английский"]')`;
+    await ui.waitFor(`!!${enRow}`, 'строка «Английский»');
+
+    // Снова «Добавить язык»: «Английский» тоже недоступен.
+    await ui.click($.button('Добавить язык', panel));
+    await ui.click(combo, 'список языков');
+    await ui.waitFor(`${opts}.find((o) => o.dataset.value === 'en')?.getAttribute('aria-disabled') === 'true'`, '«Английский» недоступен');
+    await ui.press('Escape');
+    await ui.click($.button('Отмена', lf));
+
+    // Правка языка старой строки: открывается без выбора, «Сохранить» неактивна — текст не меняется.
+    await ui.click($.button('Язык', tjRow));
+    const ef = `${panel}.querySelector('form[aria-label="Язык строки перевода"]')`;
+    await ui.waitFor(`${ef}?.textContent.includes('Сейчас: «TJ»')`, 'подсказка о старом языке');
+    assert.equal(await ui.evaluate(`${$.button('Сохранить язык', ef)}`), undefined, 'без выбора сохранить нельзя');
+    await ui.click($.button('Отмена', ef));
+    assert.equal((await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`)).translations[0].language, 'TJ', 'открытие правки строку не меняет');
+    // Явный выбор — название из списка.
+    await ui.click($.button('Язык', tjRow));
+    await ui.select(label('Язык', ef), 'tg', 'язык из списка');
+    const patch = await act('Сохранить язык', 'PATCH', '/translations/');
+    assert.deepEqual(Object.keys(patch.json).filter((k) => k === 'code' || k === 'language'), ['code']);
+    await ui.waitFor(`!!${panel}.querySelector('[data-translation="Таджикский"]') && !${panel}.querySelector('[data-translation="TJ"]')`, 'строка — «Таджикский»');
+  });
+});
+
 describe('Документы: возврат на доработку', () => {
   it('с проверки начальника ИБ — только с комментарием; новый круг; автору — задача на доске со ссылкой на документ', async () => {
     const doc = await makeDoc('Регламент доступа');
@@ -733,7 +818,7 @@ describe('Документы: просмотр файлов на весь экр
     const doc = await makeDoc('Просмотр перевода');
     await moveViaApi(doc.id, '23');
     let d = await apiAs(users.owner, 'GET', `/api/v1/documents/${doc.id}`);
-    d = (await api('POST', `/api/v1/documents/${doc.id}/translations`, { version: d.version, stage: 23, language: 'Таджикский', dueDate: portalToday(), onlyofficeUrl: `${URL1}tj` })).document;
+    d = (await api('POST', `/api/v1/documents/${doc.id}/translations`, { version: d.version, stage: 23, code: 'tg', dueDate: portalToday(), onlyofficeUrl: `${URL1}tj` })).document;
     await moveViaApi(doc.id, '24');
     const trName = `${RUN} Перевод.docx`;
     await approvalFileViaApi(doc.id, 'translation_docx', trName, tinyDocx(), d.translations[0].id);

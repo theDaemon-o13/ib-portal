@@ -29,6 +29,8 @@ export type NewDirectoryPerson = Body<'/api/v1/settings/party-directory', 'post'
 export type DirectoryPersonPatch = Body<'/api/v1/settings/party-directory/{itemId}', 'patch'>;
 export type AdminUser = Res<'/api/v1/users', 'get'>['items'][number];
 export type UserPage = Res<'/api/v1/users', 'get'>;
+/** Настенный монитор (1.13.7): пуст ли список адресов и последний отказ по адресу у каждой учётки монитора. */
+export type KioskStatus = Res<'/api/v1/users/kiosk-status', 'get'>;
 export type UserOption = Res<'/api/v1/users/options', 'get'>['items'][number];
 export type Role = Res<'/api/v1/roles', 'get'>['items'][number];
 /** Ответ выдачи и снятия права: роль и предупреждения (снят ib.work с роли-исполнителя правил рассылок, 1.9.0). */
@@ -89,6 +91,7 @@ export const settingsApi = {
   moveField: (id: string, direction: 'up' | 'down') =>
     request<FormTemplate>('POST', `/api/v1/form-template-fields/${id}/move`, { direction }),
 
+  kioskStatus: () => request<KioskStatus>('GET', '/api/v1/users/kiosk-status'),
   users: (cursor?: string) => request<UserPage>('GET', `/api/v1/users?limit=100${cursor ? `&cursor=${enc(cursor)}` : ''}`),
   userOptions: () => request<Res<'/api/v1/users/options', 'get'>>('GET', '/api/v1/users/options'),
   /** Все активные пользователи с отметкой ibWork — владелец системы, проверка участников меток. */

@@ -1,7 +1,8 @@
-// Экспорт контракта API в backend/openapi.json. Из него frontend генерирует типы:
+// Экспорт контракта API в backend/openapi.json (из него frontend генерирует типы) и списка языков для frontend:
 //   cd backend && npm run openapi:export && cd ../frontend && npm run gen:api
 import { writeFile } from 'node:fs/promises';
 import { buildApp } from '../src/app.js';
+import { frontendLanguagesModule } from '../src/lib/languages.js';
 import { createPrisma } from '../src/lib/db.js';
 import { argon2Hasher } from '../src/lib/passwords.js';
 import { MemoryAuditWriter } from '../src/modules/audit/audit.js';
@@ -22,3 +23,7 @@ const out = new URL('../openapi.json', import.meta.url);
 await writeFile(out, `${JSON.stringify(app.swagger(), null, 2)}\n`);
 await app.close();
 console.log(`OpenAPI записан в ${out.pathname}`);
+// Список языков для frontend (1.13.7): тот же, что в backend, — один источник.
+const langs = new URL('../../frontend/src/api/generated/languages.ts', import.meta.url);
+await writeFile(langs, frontendLanguagesModule());
+console.log(`Список языков записан в ${langs.pathname}`);

@@ -8,6 +8,9 @@ import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
 import { CopyButton, useCopy } from '../../components/CopyButton';
 import { MultiSelect, type MsOption } from '../../components/MultiSelect';
+import { Select } from '../../components/Select';
+import type { LanguageCode } from '../../api/generated/languages';
+import { languageOptions, optionLabel, presetCode } from './translation-languages';
 import { matchPerson, personKey } from './logic';
 import { addLabel, BATCH_MAX, buildBatch, emailOk, type ManualRow } from './party-batch';
 
@@ -315,26 +318,39 @@ export function DocumentBlockers({ d, at, onDone, onError }: Omit<Props, 'onPrev
 }
 
 type Translation = DocDetail['translations'][number];
-type TrMode = { kind: 'add' } | { kind: 'due' | 'link'; t: Translation } | null;
+type TrMode = { kind: 'add' } | { kind: 'due' | 'link' | 'lang'; t: Translation } | null;
 
 /**
  * «Перевод» (этап 23, только на нём — замечание владельца): язык, переводчик текстом, срок, ссылка на перевод в
  * OnlyOffice. «На утверждение» — когда у каждого языка есть ссылка. Word и PDF перевода — на «Утверждении».
+ * Язык (1.13.7) — только из списка; занятые недоступны; старая строка с языком текстом показывается как есть.
  */
+function LanguageSelect({ value, onChange, rows, exceptId }: { value: LanguageCode | ''; onChange: (v: LanguageCode | '') => void; rows: readonly Translation[]; exceptId?: string }) {
+  return (
+    <Select className="inp" required aria-label="Язык" value={value} onChange={(e) => onChange(e.target.value as LanguageCode | '')}>
+      <option value="" disabled hidden>Выберите язык</option>
+      {languageOptions(rows, exceptId).map((o) => <option key={o.code} value={o.code} disabled={o.takenBy !== null}>{optionLabel(o)}</option>)}
+    </Select>
+  );
+}
+
 export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Props) {
   const [mode, setMode] = useState<TrMode>(null);
-  const [form, setForm] = useState({ language: '', translatorName: '', dueDate: '', onlyofficeUrl: '' });
+  const [form, setForm] = useState({ translatorName: '', dueDate: '', onlyofficeUrl: '' });
+  const [code, setCode] = useState<LanguageCode | ''>('');
   const [comment, setComment] = useState('');
-  const close = () => { setMode(null); setForm({ language: '', translatorName: '', dueDate: '', onlyofficeUrl: '' }); setComment(''); };
+  const close = () => { setMode(null); setForm({ translatorName: '', dueDate: '', onlyofficeUrl: '' }); setCode(''); setComment(''); };
   const done = async (r: DocResult, text: string) => { close(); await onDone(r, text); };
   const add = useMutation({
-    mutationFn: () => docsApi.addTranslation(d.id, { ...at, language: form.language, translatorName: form.translatorName, dueDate: form.dueDate, onlyofficeUrl: form.onlyofficeUrl.trim() || undefined }),
+    mutationFn: () => docsApi.addTranslation(d.id, { ...at, code: code as LanguageCode, translatorName: form.translatorName, dueDate: form.dueDate, onlyofficeUrl: form.onlyofficeUrl.trim() || undefined }),
     onSuccess: (r) => done(r, 'Язык перевода добавлен'), onError,
   });
   const due = useMutation({ mutationFn: (t: Translation) => docsApi.updateTranslation(d.id, t.id, { ...at, dueDate: form.dueDate, comment }), onSuccess: (r) => done(r, 'Срок перевода изменён'), onError });
   const link = useMutation({ mutationFn: (t: Translation) => docsApi.updateTranslation(d.id, t.id, { ...at, onlyofficeUrl: form.onlyofficeUrl.trim() }), onSuccess: (r, t) => done(r, `Ссылка на перевод (${t.language}) сохранена`), onError });
   const remove = useMutation({ mutationFn: (t: Translation) => docsApi.removeTranslation(d.id, t.id, at), onSuccess: (r) => done(r, 'Язык снят'), onError });
-  const busy = add.isPending || due.isPending || link.isPending || remove.isPending;
+  // Язык строки — только явным выбором: code уходит, только если его выбрали.
+  const lang = useMutation({ mutationFn: (t: Translation) => docsApi.updateTranslation(d.id, t.id, { ...at, code: code as LanguageCode }), onSuccess: (r) => done(r, 'Язык перевода изменён'), onError });
+  const busy = add.isPending || due.isPending || link.isPending || remove.isPending || lang.isPending;
   // На «Утверждении» языки — строками файлов утверждения; здесь — раздел этапа 23 и история утверждённых версий.
   if (d.can.approvalFiles) return null;
   if (!d.translations.length && !d.can.translations) return null;
@@ -355,6 +371,7 @@ export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Prop
                 : <span className={`chip${t.done ? ' low' : ''}`}>{t.done ? 'перевод приложен (прежний маршрут)' : 'нет ссылки на перевод'}</span>}
               {!mode && d.can.translations && <button type="button" className="btn sm" disabled={busy} onClick={() => { setForm({ ...form, onlyofficeUrl: t.onlyofficeUrl }); setMode({ kind: 'link', t }); }}>{t.onlyofficeUrl ? 'Изменить ссылку' : 'Добавить ссылку'}</button>}
               {!mode && d.can.translations && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => { setForm({ ...form, dueDate: t.dueDate }); setMode({ kind: 'due', t }); }}>Срок</button>}
+              {!mode && d.can.translations && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => { setCode(presetCode(t)); setMode({ kind: 'lang', t }); }}>Язык</button>}
               {!mode && d.can.translations && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => remove.mutate(t)}>Снять</button>}
             </div>
             {(t.docx || t.pdf) && (
@@ -377,13 +394,13 @@ export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Prop
       {mode?.kind === 'add' && (
         <form className="task-form" aria-label="Язык перевода" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
           <div className="fgrid">
-            <label>Язык<input className="inp" required maxLength={100} placeholder="например, таджикский" value={form.language} onChange={set('language')} /></label>
+            <label>Язык<LanguageSelect value={code} onChange={setCode} rows={d.translations} /></label>
             <label>Переводчик (необязательно)<input className="inp" maxLength={200} placeholder="ФИО или организация" value={form.translatorName} onChange={set('translatorName')} /></label>
             <label>Срок перевода<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
             <label>Ссылка на перевод в OnlyOffice (можно позже)<input className="inp" type="url" maxLength={2000} placeholder="https://" value={form.onlyofficeUrl} onChange={set('onlyofficeUrl')} /></label>
           </div>
           <div className="row">
-            <button className="btn primary" type="submit" disabled={busy || !form.language.trim() || !form.dueDate}>Добавить</button>
+            <button className="btn primary" type="submit" disabled={busy || !code || !form.dueDate}>Добавить</button>
             <button className="btn" type="button" onClick={close}>Отмена</button>
           </div>
         </form>
@@ -393,6 +410,26 @@ export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Prop
           <label>Ссылка на перевод ({mode.t.language}) в OnlyOffice<input className="inp" type="url" required maxLength={2000} placeholder="https://" value={form.onlyofficeUrl} onChange={set('onlyofficeUrl')} /></label>
           <div className="row">
             <button className="btn primary" type="submit" disabled={busy || !form.onlyofficeUrl.trim() || form.onlyofficeUrl.trim() === mode.t.onlyofficeUrl}>Сохранить ссылку</button>
+            <button className="btn" type="button" onClick={close}>Отмена</button>
+          </div>
+        </form>
+      )}
+      {mode?.kind === 'lang' && (
+        <form className="task-form" aria-label="Язык строки перевода" onSubmit={(e) => { e.preventDefault(); lang.mutate(mode.t); }}>
+          {presetCode(mode.t) === '' && <div className="hint">Сейчас: «{mode.t.language}». Язык не изменится, пока вы не выберете его из списка.</div>}
+          <label>Язык<LanguageSelect value={code} onChange={setCode} rows={d.translations} exceptId={mode.t.id} /></label>
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy || !code || code === presetCode(mode.t)}>Сохранить язык</button>
+            <button className="btn" type="button" onClick={close}>Отмена</button>
+          </div>
+        </form>
+      )}
+      {mode?.kind === 'lang' && (
+        <form className="task-form" aria-label="Язык строки перевода" onSubmit={(e) => { e.preventDefault(); lang.mutate(mode.t); }}>
+          {presetCode(mode.t) === '' && <div className="hint">Сейчас: «{mode.t.language}». Язык не изменится, пока вы не выберете его из списка.</div>}
+          <label>Язык<LanguageSelect value={code} onChange={setCode} rows={d.translations} exceptId={mode.t.id} /></label>
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy || !code || code === presetCode(mode.t)}>Сохранить язык</button>
             <button className="btn" type="button" onClick={close}>Отмена</button>
           </div>
         </form>
