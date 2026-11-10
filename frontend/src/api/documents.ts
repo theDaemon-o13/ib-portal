@@ -27,7 +27,7 @@ export type DocSort = NonNullable<DocListParams['sort']>;
 /** Версия документа и этап на экране: устаревший экран получает 409. */
 export interface At { version: number; stage: number }
 /** Ответственное лицо: внешний человек — ФИО, подразделение или должность; срок — днями в драфте (21), датой на «Согласовании» (22). */
-export interface PartyFields { fullName: string; department?: string; dueDate?: string; dueDays?: number }
+export interface PartyFields { fullName: string; department?: string; email?: string; dueDate?: string; dueDays?: number }
 /** Ячейка файла этапа 24 «Утверждение». */
 export type ApprovalSlot = 'pdf' | 'docx' | 'translation_docx' | 'translation_pdf';
 
@@ -104,7 +104,7 @@ export const docsApi = {
   partyDirectory: (id: string) => request<{ items: Res<'/api/v1/documents/{id}/party-directory', 'get'>['items'] }>('GET', `/api/v1/documents/${id}/party-directory`),
   addParty: (id: string, body: At & PartyFields) => request<DocResult>('POST', `/api/v1/documents/${id}/parties`, body),
   /** Несколько лиц с одним сроком (1.13.5): все или никто; ошибка строки — «Строка N (ФИО): …». */
-  addParties: (id: string, body: At & { people: { fullName: string; department?: string }[]; dueDate?: string; dueDays?: number }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/batch`, body),
+  addParties: (id: string, body: At & { people: { fullName: string; department?: string; email?: string }[]; dueDate?: string; dueDays?: number }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/batch`, body),
   updateParty: (id: string, partyId: string, body: At & Partial<PartyFields> & { comment?: string }) => request<DocResult>('PATCH', `/api/v1/documents/${id}/parties/${partyId}`, body),
   removeParty: (id: string, partyId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/remove`, body),
   /** Отметка согласования (этап 22): дата согласования и комментарий, без файла. */

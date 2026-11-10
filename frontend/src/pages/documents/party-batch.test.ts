@@ -38,4 +38,20 @@ describe('Пачка ответственных лиц (1.13.5)', () => {
     expect(buildBatch(many, [], new Set()).ok).toBe(false);
     expect(buildBatch(many.slice(0, BATCH_MAX), [], new Set()).ok).toBe(true);
   });
+
+  it('почта (1.13.6): из справочника и из ручной строки — текстом, в нижнем регистре; пустая не отправляется; неверная — ошибка строки', () => {
+    const b = buildBatch([{ ...ivanov, email: 'ivanov@example.com' }, petrova], [
+      { key: 'a', fullName: 'Сидоров С.С.', department: 'Юрист', email: ' Sidorov@Example.com ' },
+      { key: 'b', fullName: '', department: '', email: '' },
+    ], new Set());
+    expect(b.people).toEqual([
+      { fullName: 'Иванов И.И.', department: 'Технический директор', email: 'ivanov@example.com' },
+      { fullName: 'Петрова П.П.', department: 'Главный бухгалтер' },
+      { fullName: 'Сидоров С.С.', department: 'Юрист', email: 'sidorov@example.com' },
+    ]);
+    const bad = buildBatch([], [{ key: 'a', fullName: 'Сидоров С.С.', department: '', email: 'сидоров' }], new Set());
+    expect([bad.ok, bad.rowErrors]).toEqual([false, { a: 'Почта — в виде ivanov@example.com' }]);
+    // Строка только с почтой — не пустая: нужна ФИО.
+    expect(buildBatch([], [{ key: 'a', fullName: '', department: '', email: 'x@example.com' }], new Set()).rowErrors).toEqual({ a: 'Укажите ФИО' });
+  });
 });

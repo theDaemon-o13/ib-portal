@@ -6,9 +6,10 @@ import { dkeys, docsApi, type At, type DocDetail, type DocResult } from '../../a
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
+import { CopyButton, useCopy } from '../../components/CopyButton';
 import { MultiSelect, type MsOption } from '../../components/MultiSelect';
 import { matchPerson, personKey } from './logic';
-import { addLabel, BATCH_MAX, buildBatch, type ManualRow } from './party-batch';
+import { addLabel, BATCH_MAX, buildBatch, emailOk, type ManualRow } from './party-batch';
 
 type Party = DocDetail['parties'][number];
 type Done = (r: DocResult, text: string) => Promise<void>;
@@ -22,10 +23,10 @@ interface Props {
   onPreview: (f: Preview) => void;
 }
 
-type PartyMode = { kind: 'add' } | { kind: 'approve' | 'due' | 'recheck'; party: Party } | null;
+type PartyMode = { kind: 'add' } | { kind: 'approve' | 'due' | 'recheck' | 'email'; party: Party } | null;
 
 let rowSeq = 0;
-const newRow = (): ManualRow => ({ key: `r${++rowSeq}`, fullName: '', department: '' });
+const newRow = (): ManualRow => ({ key: `r${++rowSeq}`, fullName: '', department: '', email: '' });
 
 /**
  * «Добавить ответственных лиц» (1.13.5): несколько человек за раз с одним сроком — из справочника «Ответственные лица»
@@ -49,7 +50,8 @@ function AddPartiesForm({ d, at, onDraft, busy, onCancel, onDone, onError }: {
 
   const taken = new Set(d.parties.map((p) => personKey(p.fullName, p.department)));
   const options: MsOption[] = people.map((p) => ({
-    value: p.id, label: p.fullName, hint: p.position, disabled: taken.has(personKey(p.fullName, p.position)), note: 'уже добавлен',
+    // Вторая строка пункта — должность и почта (1.13.6); поиск — по всем трём.
+    value: p.id, label: p.fullName, hint: [p.position, p.email].filter(Boolean).join(' · '), disabled: taken.has(personKey(p.fullName, p.position)), note: 'уже добавлен',
   }));
   const byId = new Map(people.map((p) => [p.id, p]));
   const pickedPeople = picked.map((id) => byId.get(id)).filter((p): p is (typeof people)[number] => !!p);
@@ -81,6 +83,8 @@ function AddPartiesForm({ d, at, onDraft, busy, onCancel, onDone, onError }: {
             <div key={r.key} className={`party-row${batch.rowErrors[r.key] ? ' bad' : ''}`} data-row={i + 1}>
               <label>ФИО<input className="inp" maxLength={300} value={r.fullName} aria-invalid={!!batch.rowErrors[r.key] || undefined} onChange={(e) => setRow(r.key, { fullName: e.target.value })} /></label>
               <label>Подразделение или должность<input className="inp" maxLength={300} value={r.department} onChange={(e) => setRow(r.key, { department: e.target.value })} /></label>
+              <label>Почта<input className="inp" type="email" inputMode="email" autoComplete="off" maxLength={254} placeholder="необязательно" value={r.email ?? ''}
+                aria-invalid={!emailOk(r.email ?? '') || undefined} onChange={(e) => setRow(r.key, { email: e.target.value })} /></label>
               <button type="button" className="btn ghost sm party-row-x" aria-label={`Удалить строку ${i + 1}`} title="Удалить строку" onClick={() => setManual((rows) => rows.filter((x) => x.key !== r.key))}>×</button>
               {batch.rowErrors[r.key] && <div className="form-error party-row-err" role="alert">{batch.rowErrors[r.key]}</div>}
             </div>
@@ -110,7 +114,21 @@ function AddPartiesForm({ d, at, onDraft, busy, onCancel, onDone, onError }: {
 
 // Ответственное лицо — внешний человек: ФИО, подразделение или должность, срок. В драфте (21) срок — днями от перехода на
 // «Согласование» (решение владельца 11), на «Согласовании» (22) — датой; отметка — дата согласования и комментарий, без файла.
-const empty = { dueDate: '', dueDays: '7', approvedOn: '' };
+const empty = { dueDate: '', dueDays: '7', approvedOn: '', email: '' };
+
+/** «Копировать все ФИО / должности / почты» (1.13.6): по строке на значение в порядке списка, пустые пропущены. */
+function CopyAll({ parties }: { parties: Party[] }) {
+  const copy = useCopy();
+  if (!parties.length) return null;
+  const mails = parties.filter((p) => p.email.trim()).length;
+  return (
+    <div className="row copy-all" role="group" aria-label="Копировать для титульного листа">
+      <button type="button" className="btn ghost sm" onClick={() => void copy(parties.map((p) => p.fullName), 'ФИО')}>Копировать все ФИО</button>
+      <button type="button" className="btn ghost sm" onClick={() => void copy(parties.map((p) => p.department), 'должностей нет')}>Копировать все должности</button>
+      <button type="button" className="btn ghost sm" disabled={!mails} title={mails ? undefined : 'Почта не указана ни у кого'} onClick={() => void copy(parties.map((p) => p.email), 'почты нет')}>Копировать все почты</button>
+    </div>
+  );
+}
 
 export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
   const [mode, setMode] = useState<PartyMode>(null);
@@ -133,7 +151,11 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
     onSuccess: (r, p) => done(r, `${p.fullName}: согласование запрошено повторно`), onError,
   });
   const remove = useMutation({ mutationFn: (p: Party) => docsApi.removeParty(d.id, p.id, at), onSuccess: (r) => done(r, 'Ответственное лицо снято'), onError });
-  const busy = approve.isPending || due.isPending || recheck.isPending || remove.isPending;
+  const email = useMutation({
+    mutationFn: (p: Party) => docsApi.updateParty(d.id, p.id, { ...at, email: form.email.trim() }),
+    onSuccess: (r, p) => done(r, form.email.trim() ? `${p.fullName}: почта сохранена` : `${p.fullName}: почта убрана`), onError,
+  });
+  const busy = approve.isPending || due.isPending || recheck.isPending || remove.isPending || email.isPending;
 
   if (!d.parties.length && !d.can.parties) return null;
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
@@ -145,14 +167,17 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
       {d.parties.length === 0 && (
         <div className="hint">Пока никого. {onDraft ? 'Лиц можно добавить уже в драфте: срок — в днях, отсчёт начнётся с перехода на «Согласование».' : 'Документ идёт дальше, когда все лица (хотя бы одно) согласовали.'}</div>
       )}
+      <CopyAll parties={d.parties} />
       <div className="hist">
         {d.parties.map((p) => (
           <div key={p.id} className="hist-item" data-party={p.fullName}>
-            <div>
-              <b>{p.fullName}</b>{p.department && ` · ${p.department}`}
-              {/* Строки до 1.4.0: e-mail и пользователь портала — только текстом, в форме их больше нет. */}
-              {p.email && <span className="hint"> · {p.email}</span>}
-              {p.user && <span className="hint"> · в портале: {p.user.fullName}</span>}
+            {/* ФИО, должность и почта — каждое со своей кнопкой «Копировать» (1.13.6, титульный лист в OnlyOffice). */}
+            <div className="pf-list">
+              <span className="pf"><b className="pf-v" data-field="name">{p.fullName}</b><CopyButton what="ФИО" value={p.fullName} /></span>
+              {p.department && <span className="pf"><span className="pf-v" data-field="position">{p.department}</span><CopyButton what="должность" value={p.department} /></span>}
+              {p.email && <span className="pf"><span className="pf-v pf-mail" data-field="email">{p.email}</span><CopyButton what="почту" value={p.email} /></span>}
+              {/* Строки до 1.4.0: пользователь портала — только текстом. */}
+              {p.user && <span className="hint">в портале: {p.user.fullName}</span>}
             </div>
             <div className="row">
               {p.dueDays !== null
@@ -167,6 +192,7 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
               {!mode && !p.approvedAt && d.can.parties && (onDraft || d.can.approveParties) && (
                 <button type="button" className="btn ghost sm" disabled={busy} onClick={() => { setForm({ ...empty, dueDate: p.dueDate, dueDays: String(p.dueDays ?? 7) }); setMode({ kind: 'due', party: p }); }}>Срок</button>
               )}
+              {!mode && d.can.parties && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => { setForm({ ...empty, email: p.email }); setMode({ kind: 'email', party: p }); }}>Почта</button>}
               {!mode && !p.approvedAt && d.can.parties && <button type="button" className="btn ghost sm" disabled={busy} onClick={() => remove.mutate(p)}>Снять</button>}
             </div>
             {p.approveComment && <div className="m">{p.approveComment}</div>}
@@ -191,6 +217,18 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
       {!mode && d.can.parties && <div className="row"><button type="button" className="btn sm" onClick={() => setMode({ kind: 'add' })}>Добавить ответственных лиц</button></div>}
 
       {mode?.kind === 'add' && <AddPartiesForm d={d} at={at} onDraft={onDraft} busy={busy} onCancel={close} onDone={done} onError={onError} />}
+      {mode?.kind === 'email' && (
+        <form className="task-form" aria-label="Почта лица" onSubmit={(e) => { e.preventDefault(); email.mutate(mode.party); }}>
+          <div className="hint">{mode.party.fullName}: почта для титульного листа. Портал писем не отправляет. Изменение попадёт в журнал.</div>
+          <label>Почта<input className="inp" type="email" inputMode="email" autoComplete="off" maxLength={254} autoFocus placeholder="ivanov@example.com" value={form.email}
+            aria-invalid={!emailOk(form.email) || undefined} onChange={set('email')} /></label>
+          {!emailOk(form.email) && <div className="form-error" role="alert">Почта — в виде ivanov@example.com</div>}
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy || !emailOk(form.email) || form.email.trim().toLowerCase() === mode.party.email}>Сохранить</button>
+            <button className="btn" type="button" onClick={close}>Отмена</button>
+          </div>
+        </form>
+      )}
       {mode?.kind === 'approve' && (
         <form className="task-form" aria-label="Согласование лица" onSubmit={(e) => { e.preventDefault(); approve.mutate(mode.party); }}>
           <div className="hint">{mode.party.fullName}: отметить, что согласовал(а).</div>

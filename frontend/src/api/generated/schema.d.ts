@@ -7888,6 +7888,7 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                                 position: string;
+                                email: string;
                                 active: boolean;
                                 version: number;
                                 createdAt: string;
@@ -7984,7 +7985,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Добавить запись. Такое же ФИО не запрещено (однофамильцы): sameName — записи с тем же ФИО */
+        /** Добавить запись. Такое же ФИО и такая же почта не запрещены: sameName и sameEmail — записи с тем же ФИО и той же почтой */
         post: {
             parameters: {
                 query?: never;
@@ -7997,6 +7998,7 @@ export interface paths {
                     "application/json": {
                         fullName: string;
                         position?: string;
+                        email?: string;
                     };
                 };
             };
@@ -8012,6 +8014,7 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                                 position: string;
+                                email: string;
                                 active: boolean;
                                 version: number;
                                 createdAt: string;
@@ -8021,6 +8024,17 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                                 position: string;
+                                email: string;
+                                active: boolean;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
+                            sameEmail: {
+                                id: string;
+                                fullName: string;
+                                position: string;
+                                email: string;
                                 active: boolean;
                                 version: number;
                                 createdAt: string;
@@ -8135,7 +8149,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Изменить ФИО и должность, отключить или включить. Удаления нет. Уже добавленные в документы лица не меняются */
+        /** Изменить ФИО, должность и почту, отключить или включить; sameEmail — у кого ещё такая почта. Удаления нет. Уже добавленные в документы лица не меняются */
         patch: {
             parameters: {
                 query?: never;
@@ -8151,6 +8165,7 @@ export interface paths {
                         version: number;
                         fullName?: string;
                         position?: string;
+                        email?: string;
                         active?: boolean;
                     };
                 };
@@ -8167,11 +8182,22 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                                 position: string;
+                                email: string;
                                 active: boolean;
                                 version: number;
                                 createdAt: string;
                                 updatedAt: string;
                             };
+                            sameEmail: {
+                                id: string;
+                                fullName: string;
+                                position: string;
+                                email: string;
+                                active: boolean;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
                         };
                     };
                 };
@@ -8294,6 +8320,7 @@ export interface paths {
                                 id: string;
                                 fullName: string;
                                 position: string;
+                                email: string;
                                 active: boolean;
                                 version: number;
                                 createdAt: string;
@@ -37534,6 +37561,7 @@ export interface paths {
                         stage: number;
                         fullName: string;
                         department?: string;
+                        email?: string;
                         dueDate?: string;
                         dueDays?: number;
                     };
@@ -38015,6 +38043,7 @@ export interface paths {
                         people: {
                             fullName: string;
                             department?: string;
+                            email?: string;
                         }[];
                         dueDate?: string;
                         dueDays?: number;
@@ -38501,6 +38530,7 @@ export interface paths {
                         stage: number;
                         fullName?: string;
                         department?: string;
+                        email?: string;
                         dueDate?: string;
                         dueDays?: number;
                         comment?: string;

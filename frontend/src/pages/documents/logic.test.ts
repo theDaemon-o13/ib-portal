@@ -90,6 +90,12 @@ describe('справочник «Ответственные лица» (1.6.7)',
     expect(personKey('Королёв П.Ё.', 'Начальник отдела учёта')).toBe(personKey('королев п.е.', 'НАЧАЛЬНИК ОТДЕЛА УЧЕТА'));
     expect(matchPerson(p('1', 'Королёв П.П.', 'Главный бухгалтер'), 'королев')).toBe(true);
   });
+  it('поиск и по почте (1.13.6)', () => {
+    const a = { ...p('1', 'Иванов И.И.', 'Технический директор'), email: 'ivanov@example.com' };
+    expect(matchPerson(a, 'ivanov@')).toBe(true);
+    expect(matchPerson(a, 'example.com директор')).toBe(true);
+    expect(matchPerson(p('2', 'Петрова П.П.', 'Главный бухгалтер'), 'ivanov@')).toBe(false);
+  });
   it('поиск — по ФИО и должности, все слова запроса', () => {
     const a = p('1', 'Иванов И.И.', 'Технический директор');
     expect(matchPerson(a, 'иван')).toBe(true);

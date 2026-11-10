@@ -421,6 +421,8 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
   const PartyBody = {
     fullName: z.string().max(parties.NAME_MAX),
     department: z.string().max(parties.DEPARTMENT_MAX).optional(),
+    /** Почта (1.13.6), необязательна; в PATCH '' — снять. */
+    email: z.string().max(400).optional(),
     dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     /** Этап 21: срок ответа днями от перехода на этап 22 (1–90). */
     dueDays: z.number().int().min(1).max(90).optional(),
@@ -444,7 +446,7 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
       params: IdParams,
       body: At.extend({
         // Верхняя граница схемы с запасом: понятный текст о лимите (PARTIES_BATCH_LIMIT) даёт сервис.
-        people: z.array(z.object({ fullName: PartyBody.fullName, department: PartyBody.department })).max(500),
+        people: z.array(z.object({ fullName: PartyBody.fullName, department: PartyBody.department, email: PartyBody.email })).max(500),
         dueDate: PartyBody.dueDate,
         dueDays: PartyBody.dueDays,
       }),

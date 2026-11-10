@@ -18007,6 +18007,9 @@
                           "position": {
                             "type": "string"
                           },
+                          "email": {
+                            "type": "string"
+                          },
                           "active": {
                             "type": "boolean"
                           },
@@ -18026,6 +18029,7 @@
                           "id",
                           "fullName",
                           "position",
+                          "email",
                           "active",
                           "version",
                           "createdAt",
@@ -18241,7 +18245,7 @@
         }
       },
       "post": {
-        "summary": "Добавить запись. Такое же ФИО не запрещено (однофамильцы): sameName — записи с тем же ФИО",
+        "summary": "Добавить запись. Такое же ФИО и такая же почта не запрещены: sameName и sameEmail — записи с тем же ФИО и той же почтой",
         "tags": [
           "party-directory"
         ],
@@ -18258,6 +18262,10 @@
                   "position": {
                     "type": "string",
                     "maxLength": 300
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 400
                   }
                 },
                 "required": [
@@ -18288,6 +18296,9 @@
                         "position": {
                           "type": "string"
                         },
+                        "email": {
+                          "type": "string"
+                        },
                         "active": {
                           "type": "boolean"
                         },
@@ -18307,6 +18318,7 @@
                         "id",
                         "fullName",
                         "position",
+                        "email",
                         "active",
                         "version",
                         "createdAt",
@@ -18328,6 +18340,9 @@
                           "position": {
                             "type": "string"
                           },
+                          "email": {
+                            "type": "string"
+                          },
                           "active": {
                             "type": "boolean"
                           },
@@ -18347,6 +18362,52 @@
                           "id",
                           "fullName",
                           "position",
+                          "email",
+                          "active",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "sameEmail": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "position": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fullName",
+                          "position",
+                          "email",
                           "active",
                           "version",
                           "createdAt",
@@ -18358,7 +18419,8 @@
                   },
                   "required": [
                     "item",
-                    "sameName"
+                    "sameName",
+                    "sameEmail"
                   ],
                   "additionalProperties": false
                 }
@@ -18565,7 +18627,7 @@
     },
     "/api/v1/settings/party-directory/{itemId}": {
       "patch": {
-        "summary": "Изменить ФИО и должность, отключить или включить. Удаления нет. Уже добавленные в документы лица не меняются",
+        "summary": "Изменить ФИО, должность и почту, отключить или включить; sameEmail — у кого ещё такая почта. Удаления нет. Уже добавленные в документы лица не меняются",
         "tags": [
           "party-directory"
         ],
@@ -18587,6 +18649,10 @@
                   "position": {
                     "type": "string",
                     "maxLength": 300
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 400
                   },
                   "active": {
                     "type": "boolean"
@@ -18632,6 +18698,9 @@
                         "position": {
                           "type": "string"
                         },
+                        "email": {
+                          "type": "string"
+                        },
                         "active": {
                           "type": "boolean"
                         },
@@ -18651,16 +18720,63 @@
                         "id",
                         "fullName",
                         "position",
+                        "email",
                         "active",
                         "version",
                         "createdAt",
                         "updatedAt"
                       ],
                       "additionalProperties": false
+                    },
+                    "sameEmail": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "position": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fullName",
+                          "position",
+                          "email",
+                          "active",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "item"
+                    "item",
+                    "sameEmail"
                   ],
                   "additionalProperties": false
                 }
@@ -18905,6 +19021,9 @@
                           "position": {
                             "type": "string"
                           },
+                          "email": {
+                            "type": "string"
+                          },
                           "active": {
                             "type": "boolean"
                           },
@@ -18924,6 +19043,7 @@
                           "id",
                           "fullName",
                           "position",
+                          "email",
                           "active",
                           "version",
                           "createdAt",
@@ -111787,6 +111907,10 @@
                     "type": "string",
                     "maxLength": 300
                   },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
                   "dueDate": {
                     "type": "string",
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
@@ -113938,6 +114062,10 @@
                         "department": {
                           "type": "string",
                           "maxLength": 300
+                        },
+                        "email": {
+                          "type": "string",
+                          "maxLength": 400
                         }
                       },
                       "required": [
@@ -116090,6 +116218,10 @@
                   "department": {
                     "type": "string",
                     "maxLength": 300
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 400
                   },
                   "dueDate": {
                     "type": "string",

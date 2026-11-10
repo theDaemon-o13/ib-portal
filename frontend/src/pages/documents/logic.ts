@@ -154,13 +154,15 @@ export function personKey(fullName: string, position: string): string {
 interface PersonLike {
   fullName: string;
   position: string;
+  /** Почта (1.13.6): ищется тоже. */
+  email?: string;
 }
 
-/** Поиск по ФИО и должности: все слова запроса должны встретиться (в любом поле). */
+/** Поиск по ФИО, должности и почте (1.13.6): все слова запроса должны встретиться (в любом поле). */
 export function matchPerson(p: PersonLike, query: string): boolean {
   const words = normalizePersonText(query).split(' ').filter(Boolean);
   if (!words.length) return true;
-  const hay = `${normalizePersonText(p.fullName)} ${normalizePersonText(p.position)}`;
+  const hay = `${normalizePersonText(p.fullName)} ${normalizePersonText(p.position)} ${normalizePersonText(p.email ?? '')}`;
   return words.every((w) => hay.includes(w));
 }
 

@@ -1,0 +1,49 @@
+Портал ИБ 1.13.6 — обновление прода с 1.13.5. Меняются образы backend и frontend. Миграций, новых переменных .env,
+прав и seed нет — шаг migrate НЕ выполнять. Образ db по содержимому тот же, что у 1.13.5. Подробно — RELEASE.md в архиве.
+Если на проде ещё не 1.13.5 — сначала цепочка 1.13.3 → 1.13.4 → 1.13.5, каждый по своему архиву и devops.txt.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.6            → 99c098a7b5dc5593b89df1c77c2180c2396f32c9   (объект тега)
+     git rev-parse 'v1.13.6^{commit}' → 0ca36f4efb4acae9700f668c6aad26037615606c   (коммит)
+   Архив: ibportal-1.13.6.tar.gz + ibportal-1.13.6.tar.gz.sha256
+     sha256 ibportal-1.13.6.tar.gz = 8c6778cf65861c701f0a4fe7f9f6e2166138044fd9637f129b5d816f6c77b8b7
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.6.tar.gz.sha256          → OK
+     tar -xzf ibportal-1.13.6.tar.gz && cd ibportal-1.13.6 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.6.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.5)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома, как при прошлых выкладках
+   (tar копии + sha256sum, проверка на месте хранения). Нет копии — стоп.
+   Для сверки:
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT count(*), count(*) FILTER (WHERE email <> '"''"') FROM document_parties;"'
+     → два числа: всего лиц | с почтой (с почтой — только строки до 1.4.0, обычно 0)
+
+2. ВЫКЛАДКА — замена backend и frontend, БЕЗ migrate
+   cp /srv/ibportal/releases/ibportal-1.13.6/docker-compose.yml .     (файл не изменился с 1.13.5)
+   cp /srv/ibportal/releases/ibportal-1.13.6/scripts/*.sh scripts/    (скрипты не изменились)
+   sed -i 's/^VERSION=.*/VERSION=1.13.6/' .env
+   docker compose up -d backend frontend
+   (db перезапустится с образом ibportal-db:1.13.6 — по содержимому тот же, что 1.13.5; данные в томе не трогаются.)
+
+3. ПОСЛЕ
+   docker compose ps                → backend healthy, frontend Up
+   ./scripts/smoke.sh --after       → «Smoke-проверка пройдена», число записей не изменилось
+   SQL из шага 1                    → те же два числа (выкладка данные не меняет)
+   Вручную в Chrome и в Edge на Windows, обе темы:
+     - «Документы» → документ с ответственными лицами → значок «Копировать» у ФИО → вставить в Блокнот:
+       только ФИО, без пробелов и оформления; внизу — «Скопировано»;
+     - «Копировать все ФИО» → в Блокноте по строке на человека.
+   Ничего не сохранять. Если что-то не так — снимок экрана разработчику (выкладку не откатывать, если данные в порядке).
+
+4. ОТКАТ НА 1.13.5 (образы backend и frontend, база не меняется)
+   sed -i 's/^VERSION=.*/VERSION=1.13.5/' .env && docker compose up -d backend frontend
+   1.13.5 читает справочник как раньше. Почты справочника лежат отдельной записью app_settings
+   (documents.partyDirectoryEmails): 1.13.5 её не читает, но и не удаляет. Почта лиц в карточке документа видна текстом.
+   Проверено разработчиком: код из образа 1.13.5 на базе после 1.13.6. Образы 1.13.5 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; backend не стал healthy; любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.13.6 (с 1.13.5), кто, имя копии и место хранения, результат, проверка в Chrome и Edge.

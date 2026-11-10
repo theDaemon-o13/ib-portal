@@ -43,8 +43,8 @@ export type PresentationSignature = Res<'/api/v1/settings/presentation', 'get'>;
 export const settingsApi = {
   // Справочник «Ответственные лица» (1.6.7): settings.manage. Удаления нет — только отключение.
   partyDirectory: () => request<{ items: DirectoryPerson[] }>('GET', '/api/v1/settings/party-directory'),
-  addDirectoryPerson: (body: NewDirectoryPerson) => request<{ item: DirectoryPerson; sameName: DirectoryPerson[] }>('POST', '/api/v1/settings/party-directory', body),
-  updateDirectoryPerson: (id: string, body: DirectoryPersonPatch) => request<{ item: DirectoryPerson }>('PATCH', `/api/v1/settings/party-directory/${id}`, body),
+  addDirectoryPerson: (body: NewDirectoryPerson) => request<{ item: DirectoryPerson; sameName: DirectoryPerson[]; sameEmail: DirectoryPerson[] }>('POST', '/api/v1/settings/party-directory', body),
+  updateDirectoryPerson: (id: string, body: DirectoryPersonPatch) => request<{ item: DirectoryPerson; sameEmail: DirectoryPerson[] }>('PATCH', `/api/v1/settings/party-directory/${id}`, body),
   // Подпись «Спроектировано» в презентации самооценки (этап Д5): право settings.manage.
   presentation: () => request<PresentationSignature>('GET', '/api/v1/settings/presentation'),
   setPresentation: (body: Body<'/api/v1/settings/presentation', 'put'>) => request<PresentationSignature>('PUT', '/api/v1/settings/presentation', body),
