@@ -11,7 +11,7 @@
 // сотрудника; «Заменить проверяющего» — на третьего сотрудника прогона.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { $, launchBrowser } from './browser.mjs';
+import { $, launchBrowser, sleep } from './browser.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -249,6 +249,48 @@ describe('Кнопки «Обновить / вверх / вниз» (1.13.3)', (
       await ui.click(`${ctl}.querySelector('[aria-label="В самый верх"]')`, 'В самый верх');
       await ui.waitFor(`${backlog}.scrollTop === 0 && scrollY === 0`, 'колонка и страница наверху');
     } finally {
+      await ui.viewport(1440, 1000);
+    }
+  });
+
+  it('задачи пришли после первого замера (медленный ответ) — «Вниз» появляется без прокрутки (ошибка 1.13.3, исправлено в 1.13.5)', async () => {
+    // Задачи «Прокрутка …» прошлого теста — в Backlog; не хватит — добавить.
+    const have = (await api('GET', '/api/v1/tasks?archived=false&limit=200')).items.filter((t) => t.title.includes(`${RUN} Прокрутка`)).length;
+    for (let i = have; i < 25; i++) await makeTask(`Прокрутка ${i + 1}`, { assigneeId: null });
+    const ctl = `document.querySelector('[data-testid=scroll-controls]')`;
+    try {
+      await ui.viewport(1440, 800);
+      // Список задач доски отвечает только после того, как кнопки уже замерили пустую страницу.
+      ui.holdResponses(/\/api\/v1\/tasks(\?|$)/);
+      await ui.goto(`/tasks?run=${++navSeq}`);
+      await ui.waitFor(`!!${ctl}`, 'кнопки прокрутки на странице');
+      // Первый замер и его отложенный пересчёт (60 мс) прошли до ответа.
+      await sleep(500);
+      assert.equal(await ui.evaluate(`!!${ctl}.querySelector('[aria-label="В самый низ"]')`), false, 'до ответа прокручивать нечего');
+      ui.releaseResponses();
+      await ui.waitFor(`${col('Backlog')}?.querySelectorAll('.card[data-task]').length >= 25`, 'задачи на доске');
+      // Без прокрутки и без изменения окна: кнопка должна появиться сама.
+      await ui.waitFor(`!!${ctl}.querySelector('[aria-label="В самый низ"]')`, 'кнопка «В самый низ» после загрузки задач');
+    } finally {
+      ui.releaseResponses();
+      await ui.viewport(1440, 1000);
+    }
+  });
+
+  it('«Журнал»: записи пришли после первого замера — «Вниз» появляется (страница прокручивается окном; та же ошибка 1.13.3)', async () => {
+    const ctl = `document.querySelector('[data-testid=scroll-controls]')`;
+    try {
+      await ui.viewport(1440, 800);
+      ui.holdResponses(/\/api\/v1\/audit\?/);
+      await ui.goto(`/audit?run=${++navSeq}`);
+      await ui.waitFor(`!!${ctl}`, 'кнопки прокрутки на странице');
+      await sleep(500);
+      assert.equal(await ui.evaluate(`!!${ctl}.querySelector('[aria-label="В самый низ"]')`), false, 'до ответа прокручивать нечего');
+      ui.releaseResponses();
+      await ui.waitFor(`document.querySelectorAll('.audit-tbl tbody tr').length >= 30 && document.documentElement.scrollHeight > innerHeight + 200`, 'записи журнала, страница длиннее окна');
+      await ui.waitFor(`!!${ctl}.querySelector('[aria-label="В самый низ"]')`, 'кнопка «В самый низ» после загрузки журнала');
+    } finally {
+      ui.releaseResponses();
       await ui.viewport(1440, 1000);
     }
   });

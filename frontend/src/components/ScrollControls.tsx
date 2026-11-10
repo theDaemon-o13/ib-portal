@@ -53,17 +53,37 @@ export function ScrollControls() {
     window.addEventListener('resize', onScroll);
     // Колонки доски прокручиваются сами: scroll не всплывает — ловим на захвате.
     document.addEventListener('scroll', onScroll, { passive: true, capture: true });
-    // Высота меняется после загрузки данных — перемерить.
+    // Высота страницы меняется после загрузки данных — перемерить. У body высота 100% (base.css) и не растёт вместе
+    // со списком — растёт #root (до 1.13.5 наблюдался только body, и «Вниз» не появлялась ни на одной странице,
+    // если данные пришли после первого замера).
     const ro = new ResizeObserver(onScroll);
     ro.observe(document.body);
+    const root = document.getElementById('root');
+    if (root) ro.observe(root);
+    // Колонки доски — своя высота и своя прокрутка: карточки, пришедшие после первого замера, не меняют ни размер
+    // body, ни размер колонки (1.13.3: «Вниз» не появлялась). Поэтому — размер каждой колонки (ResizeObserver,
+    // колонки появляются и пропадают — список сверяется) и изменение содержимого (MutationObserver).
+    const inner = new Set<Element>();
+    const syncInner = () => {
+      const now = new Set(document.querySelectorAll(INNER));
+      for (const el of inner) if (!now.has(el)) { ro.unobserve(el); inner.delete(el); }
+      for (const el of now) if (!inner.has(el)) { ro.observe(el); inner.add(el); }
+    };
+    syncInner();
+    const mo = new MutationObserver(() => { syncInner(); onScroll(); });
+    mo.observe(document.body, { childList: true, subtree: true });
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       document.removeEventListener('scroll', onScroll, { capture: true });
       ro.disconnect();
+      mo.disconnect();
     };
   }, [show, update, pathname]);
+
+  // Данные перечитаны («Обновить», фоновое обновление) — перемерить после отрисовки.
+  useEffect(() => { if (show && !fetching) update(); }, [show, fetching, update]);
 
   if (!show) return null;
   const refresh = async () => {

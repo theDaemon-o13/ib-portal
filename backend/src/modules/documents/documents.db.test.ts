@@ -1442,7 +1442,7 @@ describe('документы: несколько ответственных ли
       expect((await view(tx, x.owner, id)).can.actions).toEqual(['request_recheck', 'to_translation']);
     }));
 
-  it('дубль с уже добавленным или внутри пачки, пустое ФИО, срок — отказ всей пачке, ничего не записано; правило — ФИО + должность', () =>
+  it('дубль с уже добавленным или внутри пачки, пустое ФИО, срок — отказ всей пачке, ничего не записано; правило — ФИО + должность, «ё» = «е»', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
       const id = await x.create('Политика тестовая');
@@ -1471,9 +1471,18 @@ describe('документы: несколько ответственных ли
       await fails([{ fullName: 'Петров П.П.' }], 'BAD_DATE', /срок ответа/, undefined, {});
       await fails([{ fullName: 'Петров П.П.' }], 'BAD_DATE', /срок ответа/, undefined, { dueDate: '2026-02-30' });
       await fails([], 'EMPTY', /хотя бы одного/);
+      // «ё» и «е» — одна буква (1.13.5): и пачкой, и по одному.
+      await addParty(tx, x.owner, id, { fullName: 'Королёв П.П.', department: 'Начальник отдела учёта', dueDate: '2026-12-01' });
+      const auditAfterKorolev = (await addedAudit(tx, id)).length;
+      await expectCode(addParty(tx, x.owner, id, { fullName: 'Королев П.П.', department: 'начальник отдела учета', dueDate: '2026-12-01' }), 'PARTY_DUPLICATE');
+      const err = await batch(tx, x.owner, id, [{ fullName: 'Петров П.П.' }, { fullName: 'КОРОЛЕВ П.П.', department: 'Начальник отдела учета' }], due).then(() => null, (e: unknown) => e as { code: string; details?: { row?: number } });
+      expect([err?.code, err?.details?.row]).toEqual(['PARTY_DUPLICATE', 2]);
+      const err2 = await batch(tx, x.owner, id, [{ fullName: 'Сёмин С.С.', department: 'Юрист' }, { fullName: 'Семин С.С.', department: 'юрист' }], due).then(() => null, (e: unknown) => e as { code: string; message: string });
+      expect([err2?.code, err2?.message]).toEqual(['PARTY_DUPLICATE', expect.stringMatching(/повторяется в списке: строки 1 и 2/)]);
+      expect((await addedAudit(tx, id)).length).toBe(auditAfterKorolev);
       // Однофамилец с другой должностью — другой человек (правило 1.6.7): проходит.
       await batch(tx, x.owner, id, [{ fullName: 'Иванов И.И.', department: 'Главный бухгалтер' }], due);
-      expect((await partyRows(tx, id)).length).toBe(before + 1);
+      expect((await partyRows(tx, id)).length).toBe(before + 2);
     }));
 
   it('лимит пачки — 50; этапы — как у одного лица: драфт днями, «Согласование» датой, на проверке и после — 409; ведёт только автор', () =>

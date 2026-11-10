@@ -141,9 +141,9 @@ export function groupByType<T extends Pick<DocItem, 'type'>>(items: readonly T[]
 
 /* ---------- Справочник «Ответственные лица» (1.6.7) ---------- */
 
-/** Текст для сравнения — как в backend (lib/person-key.ts): пробелы схлопнуты, регистр нижний. */
+/** Текст для сравнения — как в backend (lib/person-key.ts): пробелы схлопнуты, регистр нижний, «ё» = «е» (1.13.5). */
 export function normalizePersonText(s: string): string {
-  return s.trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru');
+  return s.trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru').replace(/ё/g, 'е');
 }
 
 /** «Тот же человек» в документе: совпали ФИО и подразделение или должность. Окончательно проверяет backend (409). */
