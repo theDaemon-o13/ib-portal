@@ -436,6 +436,25 @@ export const documentRoutes: FastifyPluginAsyncZod<{ db: Db; docUrlPrefix?: stri
     return result(request, request.params.id);
   });
 
+  app.post('/documents/:id/parties/batch', {
+    preHandler: anyUser,
+    schema: {
+      tags,
+      summary: 'Несколько ответственных лиц с одним сроком (1.13.5): одной транзакцией — все или никто; ошибка строки — «Строка N (ФИО): …», details.row; не больше 50',
+      params: IdParams,
+      body: At.extend({
+        // Верхняя граница схемы с запасом: понятный текст о лимите (PARTIES_BATCH_LIMIT) даёт сервис.
+        people: z.array(z.object({ fullName: PartyBody.fullName, department: PartyBody.department })).max(500),
+        dueDate: PartyBody.dueDate,
+        dueDays: PartyBody.dueDays,
+      }),
+      response: { 200: Result, ...errors },
+    },
+  }, async (request) => {
+    await parties.addParties(db, actorOf(request), request.params.id, request.body);
+    return result(request, request.params.id);
+  });
+
   app.patch('/documents/:id/parties/:partyId', {
     preHandler: anyUser,
     schema: {

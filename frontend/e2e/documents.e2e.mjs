@@ -254,6 +254,11 @@ async function cleanup() {
     for (const t of await allTasks()) {
       if (t.title.includes(RUN)) await api('POST', `/api/v1/tasks/${t.id}/archive`, { version: t.version }).catch(() => undefined);
     }
+    // Справочник «Ответственные лица»: записи прогона — отключить (удаления нет).
+    const dir = await api('GET', '/api/v1/settings/party-directory').catch(() => ({ items: [] }));
+    for (const p of dir.items.filter((x) => x.fullName.includes(RUN) && x.active)) {
+      await api('PATCH', `/api/v1/settings/party-directory/${p.id}`, { version: p.version, active: false }).catch(() => undefined);
+    }
     for (const u of Object.values(users)) {
       const cur = (await api('GET', '/api/v1/users').catch(() => ({ items: [] }))).items.find((x) => x.id === u.id);
       if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version }).catch(() => undefined);
@@ -294,14 +299,20 @@ describe('Документы: маршрут 1.11.0', () => {
     await ui.click(row(title));
     await ui.waitFor(`!!${$.button('Отправить на проверку начальнику ИБ', panel)}`, 'шаг автора в драфте');
     assert.equal(await noFileInputs(), true, 'в драфте полей загрузки нет');
-    await ui.click($.button('Добавить ответственное лицо', panel));
-    const pf = `${panel}.querySelector('form[aria-label="Ответственное лицо"]')`;
-    await ui.type(label('ФИО', pf), 'Петров Пётр Петрович');
-    await ui.type(label('Подразделение или должность', pf), 'Юридическое управление');
-    assert.deepEqual(await ui.evaluate(`[...${pf}.querySelectorAll('label')].map((l) => l.firstChild?.textContent?.trim())`), ['ФИО', 'Подразделение или должность', 'Срок ответа, дней']);
+    // Форма 1.13.5 «Добавить ответственных лиц»: один человек — тот же путь (строка ручного ввода, общий срок).
+    await ui.click($.button('Добавить ответственных лиц', panel));
+    const pf = `${panel}.querySelector('form[aria-label="Добавить ответственных лиц"]')`;
+    await ui.waitFor(`!!${pf}`, 'форма добавления');
+    await ui.click($.button('+ Добавить вручную', pf), '«+ Добавить вручную»');
+    const lastRow = `[...${pf}.querySelectorAll('.party-row')].at(-1)`;
+    await ui.type(label('ФИО', lastRow), 'Петров Пётр Петрович');
+    await ui.type(label('Подразделение или должность', lastRow), 'Юридическое управление');
+    // Пустые ручные строки (справочник пуст — форма открывается с одной) не считаются: на кнопке — один человек.
+    await ui.waitFor(`!!${$.button('Добавить (1)', pf)}`, '«Добавить (1)»');
+    assert.equal(await ui.evaluate(`${label('Срок ответа, дней', pf)}.value`), '7', 'срок днями по умолчанию');
     await setValue(label('Срок ответа, дней', pf), '10');
-    let req = await act('Добавить', 'POST', `/api/v1/documents/${id}/parties`);
-    assert.equal(req.json.dueDays, 10);
+    let req = await act('Добавить (1)', 'POST', `/api/v1/documents/${id}/parties/batch`);
+    assert.deepEqual([req.json.dueDays, req.json.people], [10, [{ fullName: 'Петров Пётр Петрович', department: 'Юридическое управление' }]]);
     const party = `${panel}.querySelector('[data-party="Петров Пётр Петрович"]')`;
     await ui.waitFor(`${party}?.textContent.includes('срок 10 дн. от перехода на «Согласование»')`, 'срок днями в карточке');
     assert.equal(await ui.evaluate(`!!${$.button('Отметить согласование', party)}`), false, 'в драфте согласование не отмечается');
@@ -476,6 +487,103 @@ describe('Документы: блокеры', () => {
     await ui.type(`${panel}.querySelector('form[aria-label="Снятие блокера"] textarea')`, 'Заключение получено');
     await act('Снять блокер', 'POST', '/resolve');
     await ui.waitFor(`!!${panel}.querySelector('[data-blocker=resolved]') && !!${$.button(step, panel)}`, 'блокер снят, шаг вперёд доступен');
+  });
+});
+
+describe('Документы: несколько ответственных лиц сразу (1.13.5)', () => {
+  it('справочник: трое → выбрать двоих (клавиатура) + одного вручную, один срок → три лица с одним сроком → перенос одному → согласование всех → кнопки этапа 2', async () => {
+    // Справочник «Ответственные лица» — трое вымышленных (заведение в настройках проверяет party-directory.e2e.mjs).
+    await loginAs(admin);
+    const P = [
+      { fullName: `Иванов И.И. ${RUN}`, position: 'Технический директор' },
+      { fullName: `Петрова П.П. ${RUN}`, position: 'Главный бухгалтер' },
+      { fullName: `Сидорова С.С. ${RUN}`, position: 'Начальник службы' },
+    ];
+    for (const p of P) await api('POST', '/api/v1/settings/party-directory', p);
+    const MANUAL = { fullName: `Кузнецов К.К. ${RUN}`, department: 'Юрист' };
+    const doc = await makeDoc('Политика тестовая (лица)');
+    await moveViaApi(doc.id, '22:parties');
+
+    await loginAs(users.owner);
+    await openDocs(doc.id);
+    await ui.click($.button('Добавить ответственных лиц', panel));
+    const pf = `${panel}.querySelector('form[aria-label="Добавить ответственных лиц"]')`;
+    await ui.waitFor(`!!${pf}?.querySelector('[data-testid=party-pick]')`, 'выбор из справочника');
+    assert.equal(await ui.evaluate(`!!${$.button('Добавить', pf)}`), false, 'никого не выбрано — кнопка неактивна');
+
+    // Список: поиск по метке прогона, ↓ — в список, Пробел — отметить, ↓, Пробел, Enter — готово.
+    await ui.click(`${pf}.querySelector('[data-testid=party-pick]')`, '«Выбрать из справочника»');
+    const pop = `document.querySelector('[data-ms-pop]')`;
+    await ui.waitFor(`${pop}?.querySelector('[role=listbox]')?.getAttribute('aria-multiselectable') === 'true'`, 'список с множественным выбором');
+    await ui.type(`${pop}.querySelector('input[type=search]')`, RUN);
+    await ui.waitFor(`${pop}.querySelectorAll('[role=option]').length === 3`, 'трое найденных');
+    await ui.press('ArrowDown');
+    await ui.press('Space');
+    await ui.press('ArrowDown');
+    await ui.press('Space');
+    const opt = (name) => `(${pop} ? [...${pop}.querySelectorAll('[role=option]')].find((o) => o.textContent.includes(${JSON.stringify(name)})) : null)`;
+    await ui.waitFor(`${opt(P[1].fullName)}?.getAttribute('aria-selected') === 'true' && ${opt(P[0].fullName)}?.getAttribute('aria-selected') === 'true'`, 'двое отмечены');
+    // Третьего — щелчком, затем снять его чип.
+    await ui.click(opt(P[2].fullName), 'третий щелчком');
+    await ui.waitFor(`${opt(P[2].fullName)}?.getAttribute('aria-selected') === 'true'`, 'третий отмечен');
+    await ui.press('Enter');
+    await ui.waitFor(`!${pop}`, 'Enter — список закрыт');
+    const chips = `[...${pf}.querySelectorAll('.ms-chip')].map((c) => c.dataset.chip)`;
+    assert.deepEqual(await ui.evaluate(chips), P.map((p) => p.fullName));
+    await ui.click(`${pf}.querySelector(${JSON.stringify(`button[aria-label="Снять: ${P[2].fullName}"]`)})`, 'снять чип');
+    await ui.waitFor(`${chips}.length === 2`, 'чип снят');
+
+    // Один вручную; срок — один на всех.
+    await ui.click($.button('+ Добавить вручную', pf), '«+ Добавить вручную»');
+    const lastRow = `[...${pf}.querySelectorAll('.party-row')].at(-1)`;
+    await ui.type(label('ФИО', lastRow), MANUAL.fullName);
+    await ui.type(label('Подразделение или должность', lastRow), MANUAL.department);
+    assert.equal(await ui.evaluate(`!!${$.button('Добавить (3)', pf)}`), false, 'без срока кнопка неактивна');
+    const plusDays = (n) => new Date(Date.parse(`${portalToday()}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+    const due = plusDays(7);
+    await setValue(label('Срок ответа', pf), due);
+    const req = await act('Добавить (3)', 'POST', `/api/v1/documents/${doc.id}/parties/batch`);
+    assert.deepEqual([req.json.dueDate, req.json.people], [due, [
+      { fullName: P[0].fullName, department: P[0].position }, { fullName: P[1].fullName, department: P[1].position }, MANUAL,
+    ]]);
+
+    // В карточке — трое, у всех один срок.
+    const party = (name) => `${panel}.querySelector(${JSON.stringify(`[data-party="${name}"]`)})`;
+    const dueText = (name) => `${party(name)}?.querySelector('.mono')?.textContent`;
+    const ru = (iso) => iso.split('-').reverse().join('.');
+    const names = [P[0].fullName, P[1].fullName, MANUAL.fullName];
+    await ui.waitFor(names.map((n) => `${dueText(n)} === ${JSON.stringify(`срок ${ru(due)}`)}`).join(' && '), 'три лица с одним сроком');
+
+    // Уже добавленный — в списке с пометкой «уже добавлен», не отмечается.
+    await ui.click($.button('Добавить ответственных лиц', panel));
+    await ui.click(`${pf}.querySelector('[data-testid=party-pick]')`, '«Выбрать из справочника»');
+    await ui.type(`${pop}.querySelector('input[type=search]')`, RUN);
+    await ui.waitFor(`${opt(P[0].fullName)}?.getAttribute('aria-disabled') === 'true'`, 'уже добавленный недоступен');
+    assert.match(await ui.text(opt(P[0].fullName)), /уже добавлен/);
+    await ui.click(opt(P[0].fullName), 'щелчок по недоступному');
+    assert.equal(await ui.evaluate(`${opt(P[0].fullName)}.getAttribute('aria-selected')`), 'false', 'не отметился');
+    await ui.press('Escape');
+    await ui.waitFor(`!${pop} && !!${pf}`, 'Esc закрыл только список, форма открыта');
+    await ui.click($.button('Отмена', pf));
+
+    // Перенос срока одному — у остальных прежний.
+    const later = plusDays(10);
+    await ui.click($.button('Срок', party(P[1].fullName)));
+    const df = `${panel}.querySelector('form[aria-label="Срок ответа"]')`;
+    await setValue(label('Новый срок', df), later);
+    await ui.type(label('Почему меняется срок', df), 'Попросили отсрочку');
+    await act('Изменить срок', 'PATCH', `/parties/`);
+    await ui.waitFor(`${dueText(P[1].fullName)} === ${JSON.stringify(`срок ${ru(later)}`)}`, 'срок перенесён одному');
+    assert.deepEqual(await ui.evaluate(`[${[P[0].fullName, MANUAL.fullName].map(dueText).join(', ')}]`), [`срок ${ru(due)}`, `срок ${ru(due)}`], 'у остальных срок прежний');
+
+    // Согласование всех — кнопки этапа 2 появляются только после последнего.
+    for (const [i, n] of names.entries()) {
+      assert.equal(await ui.evaluate(`!!${$.button('Отправить на перевод', panel)} || !!${$.button('Повторная проверка', panel)}`), false, `пока не все согласовали (${i})`);
+      await ui.click($.button('Отметить согласование', party(n)));
+      await act('Согласовал(а)', 'POST', '/approve');
+      await ui.waitFor(`${party(n)}?.textContent.includes('согласовал(а)')`, `отметка ${n}`);
+    }
+    await ui.waitFor(`!!${$.button('Отправить на перевод', panel)} && !!${$.button('Повторная проверка', panel)}`, 'кнопки этапа «Согласование» активны');
   });
 });
 

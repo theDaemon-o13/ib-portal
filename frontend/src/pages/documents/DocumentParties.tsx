@@ -1,12 +1,14 @@
 // Ответственные лица (драфт и «Согласование»), переводы («Перевод») и блокеры документа — маршрут 1.11.0, ADR-0042.
 // Решает всегда backend: кнопки видны по d.can, ошибки — через onError карточки.
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { dkeys, docsApi, type At, type DocDetail, type DocResult } from '../../api/documents';
 import { formatDate } from '../registers/logic';
 import { formatDateTime } from '../settings/logic';
 import { todayLocal as todayIso } from '../tasks/logic';
+import { MultiSelect, type MsOption } from '../../components/MultiSelect';
 import { matchPerson, personKey } from './logic';
+import { addLabel, BATCH_MAX, buildBatch, type ManualRow } from './party-batch';
 
 type Party = DocDetail['parties'][number];
 type Done = (r: DocResult, text: string) => Promise<void>;
@@ -21,76 +23,94 @@ interface Props {
 }
 
 type PartyMode = { kind: 'add' } | { kind: 'approve' | 'due' | 'recheck'; party: Party } | null;
-type Person = { id: string; fullName: string; position: string };
 
-/** Сколько подсказок показывать: дальше — уточнить ввод. */
-const PICK_MAX = 50;
+let rowSeq = 0;
+const newRow = (): ManualRow => ({ key: `r${++rowSeq}`, fullName: '', department: '' });
 
 /**
- * «ФИО» с выбором из справочника «Ответственные лица» (1.6.7): ввод фильтрует список по ФИО и должности, выбор
- * заполняет ФИО и должность. «Ввести вручную» закрывает список — оба поля вводятся как раньше (разовые люди).
- * Уже добавленные в документ — в списке с пометкой, не выбираются (окончательно — 409 PARTY_DUPLICATE на сервере).
+ * «Добавить ответственных лиц» (1.13.5): несколько человек за раз с одним сроком — из справочника «Ответственные лица»
+ * (MultiSelect: поиск по ФИО и должности, чипы) и строками ручного ввода. Один человек — тот же путь. Уже добавленные
+ * в документ — в списке с пометкой «уже добавлен», не выбираются; повторы подсвечиваются у строки (окончательно —
+ * сервер, 409 PARTY_DUPLICATE). После добавления каждый — отдельное лицо со своим сроком.
  */
-function PersonCombobox({ value, onChange, onPick, people, taken }: {
-  value: string; onChange: (v: string) => void; onPick: (p: Person) => void; people: Person[]; taken: ReadonlySet<string>;
+function AddPartiesForm({ d, at, onDraft, busy, onCancel, onDone, onError }: {
+  d: DocDetail; at: At; onDraft: boolean; busy: boolean; onCancel: () => void; onDone: Done; onError: (e: unknown) => void;
 }) {
-  const listId = useId();
-  const [open, setOpen] = useState(false);
-  const [manual, setManual] = useState(false);
-  const [active, setActive] = useState(-1);
-  const found = people.filter((p) => matchPerson(p, value));
-  const shown = found.slice(0, PICK_MAX);
-  // Последний пункт — «Ввести вручную»; индекс shown.length.
-  const total = shown.length + 1;
-  const visible = open && !manual && people.length > 0;
-  const isTaken = (p: Person) => taken.has(personKey(p.fullName, p.position));
-  const choose = (i: number) => {
-    if (i === shown.length) { setManual(true); setOpen(false); return; }
-    const p = shown[i];
-    if (!p || isTaken(p)) return;
-    onPick(p);
-    setOpen(false);
-  };
-  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setManual(false); setActive((a) => (a + 1) % total); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setOpen(true); setManual(false); setActive((a) => (a <= 0 ? total - 1 : a - 1)); }
-    else if (e.key === 'Enter' && visible && active >= 0) { e.preventDefault(); choose(active); }
-    else if (e.key === 'Escape' && visible) { e.preventDefault(); e.stopPropagation(); setOpen(false); }
-  };
+  const [picked, setPicked] = useState<string[]>([]);
+  const [manual, setManual] = useState<ManualRow[]>([]);
+  const [dueDate, setDueDate] = useState('');
+  const [dueDays, setDueDays] = useState('7');
+  // Справочник — только активные (1.6.7).
+  const directory = useQuery({ queryKey: dkeys.partyDirectory(d.id), queryFn: () => docsApi.partyDirectory(d.id), staleTime: 30_000 });
+  const people = directory.data?.items ?? [];
+  const emptyDirectory = directory.isSuccess && people.length === 0;
+  // Справочник пуст — сразу строка ручного ввода.
+  useEffect(() => { if (emptyDirectory) setManual((m) => (m.length ? m : [newRow()])); }, [emptyDirectory]);
+
+  const taken = new Set(d.parties.map((p) => personKey(p.fullName, p.department)));
+  const options: MsOption[] = people.map((p) => ({
+    value: p.id, label: p.fullName, hint: p.position, disabled: taken.has(personKey(p.fullName, p.position)), note: 'уже добавлен',
+  }));
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const pickedPeople = picked.map((id) => byId.get(id)).filter((p): p is (typeof people)[number] => !!p);
+  const batch = buildBatch(pickedPeople, manual, taken);
+  const dueOk = onDraft ? /^\d+$/.test(dueDays) && Number(dueDays) >= 1 && Number(dueDays) <= 90 : !!dueDate;
+  const n = batch.people.length;
+
+  const add = useMutation({
+    mutationFn: () => docsApi.addParties(d.id, { ...at, people: batch.people, ...(onDraft ? { dueDays: Number(dueDays) } : { dueDate }) }),
+    onSuccess: (r) => onDone(r, n === 1 ? 'Ответственное лицо добавлено' : `Добавлено ответственных лиц: ${n}`), onError,
+  });
+  const setRow = (key: string, patch: Partial<ManualRow>) => setManual((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
   return (
-    <span className="combo">
-      <input className="inp" required maxLength={300} value={value} role="combobox" aria-autocomplete="list" aria-expanded={visible} aria-controls={listId}
-        aria-activedescendant={visible && active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off"
-        onChange={(e) => { onChange(e.target.value); setActive(-1); if (!manual) setOpen(true); }}
-        onFocus={() => { if (!manual) setOpen(true); }} onBlur={() => setOpen(false)} onKeyDown={onKey} />
-      {visible && (
-        <ul className="combo-list" id={listId} role="listbox" aria-label="Ответственные лица из справочника">
-          {shown.length === 0 && <li className="combo-empty" role="presentation">В справочнике такого нет</li>}
-          {shown.map((p, i) => {
-            const off = isTaken(p);
-            return (
-              <li key={p.id} id={`${listId}-${i}`} role="option" aria-selected={active === i} aria-disabled={off || undefined} className="combo-opt"
-                onMouseDown={(e) => e.preventDefault()} onClick={() => choose(i)} onMouseEnter={() => setActive(i)} data-person={p.fullName}>
-                <span className="combo-name">{p.fullName}</span>
-                {p.position && <span className="combo-pos">{p.position}</span>}
-                {off && <span className="combo-pos">уже добавлен(а)</span>}
-              </li>
-            );
-          })}
-          {found.length > shown.length && <li className="combo-empty" role="presentation">Ещё {found.length - shown.length} — уточните ввод</li>}
-          <li id={`${listId}-${shown.length}`} role="option" aria-selected={active === shown.length} className="combo-opt combo-manual"
-            onMouseDown={(e) => e.preventDefault()} onClick={() => choose(shown.length)} onMouseEnter={() => setActive(shown.length)}>
-            Ввести вручную
-          </li>
-        </ul>
+    <form className="task-form party-add" aria-label="Добавить ответственных лиц" onSubmit={(e) => { e.preventDefault(); if (batch.ok && dueOk) add.mutate(); }}>
+      {people.length > 0 && (
+        <div className="party-pick">
+          <span className="party-lbl" id={`pick-${d.id}`}>Из справочника</span>
+          <MultiSelect
+            options={options} selected={picked} onChange={setPicked} max={BATCH_MAX - batch.people.length + pickedPeople.length}
+            label="Выбрать из справочника" listLabel="Ответственные лица из справочника" chipsLabel="Выбраны из справочника" testId="party-pick"
+            match={(o, q) => matchPerson({ fullName: o.label, position: o.hint ?? '' }, q)}
+          />
+        </div>
       )}
-    </span>
+      {manual.length > 0 && (
+        <div className="party-rows" aria-label="Введены вручную">
+          {manual.map((r, i) => (
+            <div key={r.key} className={`party-row${batch.rowErrors[r.key] ? ' bad' : ''}`} data-row={i + 1}>
+              <label>ФИО<input className="inp" maxLength={300} value={r.fullName} aria-invalid={!!batch.rowErrors[r.key] || undefined} onChange={(e) => setRow(r.key, { fullName: e.target.value })} /></label>
+              <label>Подразделение или должность<input className="inp" maxLength={300} value={r.department} onChange={(e) => setRow(r.key, { department: e.target.value })} /></label>
+              <button type="button" className="btn ghost sm party-row-x" aria-label={`Удалить строку ${i + 1}`} title="Удалить строку" onClick={() => setManual((rows) => rows.filter((x) => x.key !== r.key))}>×</button>
+              {batch.rowErrors[r.key] && <div className="form-error party-row-err" role="alert">{batch.rowErrors[r.key]}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="row"><button type="button" className="btn ghost sm" onClick={() => setManual((rows) => [...rows, newRow()])}>+ Добавить вручную</button></div>
+      <div className="fgrid">
+        {onDraft
+          ? <label>Срок ответа, дней<input className="inp" type="number" min={1} max={90} required value={dueDays} onChange={(e) => setDueDays(e.target.value)} /></label>
+          : <label>Срок ответа<input className="inp" type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>}
+      </div>
+      <div className="hint">
+        {emptyDirectory ? 'Справочник «Ответственные лица» пуст — введите ФИО и должность вручную. Список ведут в «Настройки → Справочники». ' : ''}
+        Срок — один для всех в этой форме; потом у каждого он свой: перенести можно отдельно.
+        {onDraft ? ' Срок в днях начнёт идти, когда начальник ИБ одобрит документ.' : ''}
+        {' '}Портал писем не отправляет: документ ответственным лицам отправьте по почте, ответы отметьте здесь.
+        {n > BATCH_MAX ? ` За один раз — не больше ${BATCH_MAX} человек.` : ''}
+      </div>
+      <div className="row">
+        <button className="btn primary" type="submit" disabled={busy || add.isPending || !batch.ok || !dueOk}>{addLabel(n)}</button>
+        <button className="btn" type="button" onClick={onCancel}>Отмена</button>
+      </div>
+    </form>
   );
 }
 
 // Ответственное лицо — внешний человек: ФИО, подразделение или должность, срок. В драфте (21) срок — днями от перехода на
 // «Согласование» (решение владельца 11), на «Согласовании» (22) — датой; отметка — дата согласования и комментарий, без файла.
-const empty = { fullName: '', department: '', dueDate: '', dueDays: '7', approvedOn: '' };
+const empty = { dueDate: '', dueDays: '7', approvedOn: '' };
 
 export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
   const [mode, setMode] = useState<PartyMode>(null);
@@ -100,13 +120,6 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
 
   const close = () => { setMode(null); setForm(empty); setComment(''); };
   const done = async (r: DocResult, text: string) => { close(); await onDone(r, text); };
-  const add = useMutation({
-    mutationFn: () => docsApi.addParty(d.id, {
-      ...at, fullName: form.fullName, department: form.department,
-      ...(onDraft ? { dueDays: Number(form.dueDays) } : { dueDate: form.dueDate }),
-    }),
-    onSuccess: (r) => done(r, 'Ответственное лицо добавлено'), onError,
-  });
   const approve = useMutation({
     mutationFn: (p: Party) => docsApi.approveParty(d.id, p.id, { ...at, comment: comment.trim() || undefined, approvedOn: form.approvedOn || undefined }),
     onSuccess: (r, p) => done(r, `${p.fullName}: согласование отмечено`), onError,
@@ -120,11 +133,7 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
     onSuccess: (r, p) => done(r, `${p.fullName}: согласование запрошено повторно`), onError,
   });
   const remove = useMutation({ mutationFn: (p: Party) => docsApi.removeParty(d.id, p.id, at), onSuccess: (r) => done(r, 'Ответственное лицо снято'), onError });
-  const busy = add.isPending || approve.isPending || due.isPending || recheck.isPending || remove.isPending;
-  // Справочник «Ответственные лица» — только активные; запрашивается, когда открыта форма добавления (1.6.7).
-  const directory = useQuery({ queryKey: dkeys.partyDirectory(d.id), queryFn: () => docsApi.partyDirectory(d.id), enabled: mode?.kind === 'add', staleTime: 30_000 });
-  const people = directory.data?.items ?? [];
-  const taken = new Set(d.parties.map((p) => personKey(p.fullName, p.department)));
+  const busy = approve.isPending || due.isPending || recheck.isPending || remove.isPending;
 
   if (!d.parties.length && !d.can.parties) return null;
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
@@ -179,29 +188,9 @@ export function DocumentParties({ d, at, onDone, onError, onPreview }: Props) {
           </div>
         ))}
       </div>
-      {!mode && d.can.parties && <div className="row"><button type="button" className="btn sm" onClick={() => setMode({ kind: 'add' })}>Добавить ответственное лицо</button></div>}
+      {!mode && d.can.parties && <div className="row"><button type="button" className="btn sm" onClick={() => setMode({ kind: 'add' })}>Добавить ответственных лиц</button></div>}
 
-      {mode?.kind === 'add' && (
-        <form className="task-form" aria-label="Ответственное лицо" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
-          <div className="fgrid">
-            <label>ФИО<PersonCombobox value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} people={people} taken={taken}
-              onPick={(p) => setForm({ ...form, fullName: p.fullName, department: p.position })} /></label>
-            <label>Подразделение или должность<input className="inp" maxLength={300} value={form.department} onChange={set('department')} /></label>
-            {onDraft
-              ? <label>Срок ответа, дней<input className="inp" type="number" min={1} max={90} required value={form.dueDays} onChange={set('dueDays')} /></label>
-              : <label>Срок ответа<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>}
-          </div>
-          <div className="hint">
-            {people.length ? 'Начните вводить ФИО или должность и выберите из списка. Нет в списке — «Ввести вручную». ' : directory.isSuccess ? 'Справочник «Ответственные лица» пуст — введите ФИО и должность вручную. Список ведут в «Настройки → Справочники». ' : ''}
-            {onDraft ? 'Срок в днях начнёт идти, когда начальник ИБ одобрит документ. ' : ''}
-            Портал писем не отправляет: документ ответственному лицу отправьте по почте, ответ отметьте здесь.
-          </div>
-          <div className="row">
-            <button className="btn primary" type="submit" disabled={busy || !form.fullName.trim() || (onDraft ? !daysOk(form.dueDays) : !form.dueDate)}>Добавить</button>
-            <button className="btn" type="button" onClick={close}>Отмена</button>
-          </div>
-        </form>
-      )}
+      {mode?.kind === 'add' && <AddPartiesForm d={d} at={at} onDraft={onDraft} busy={busy} onCancel={close} onDone={done} onError={onError} />}
       {mode?.kind === 'approve' && (
         <form className="task-form" aria-label="Согласование лица" onSubmit={(e) => { e.preventDefault(); approve.mutate(mode.party); }}>
           <div className="hint">{mode.party.fullName}: отметить, что согласовал(а).</div>
