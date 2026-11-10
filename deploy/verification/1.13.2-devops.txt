@@ -1,0 +1,38 @@
+Портал ИБ 1.13.2 — обновление прода с 1.13.1 (выложена 09.11.2026). Только интерфейс (frontend): миграций, новых переменных .env
+и изменений базы нет; образы db и backend по содержимому те же, что у 1.13.1. Подробно — RELEASE.md в архиве.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.2            → 913e1eb0aa959dbc924a3955dbabda05bf58e473   (объект тега)
+     git rev-parse 'v1.13.2^{commit}' → 424d6e2e7f6ee1c39c2ae84674ce0c950853af2b   (коммит)
+   Архив: ibportal-1.13.2.tar.gz + ibportal-1.13.2.tar.gz.sha256
+     sha256 ibportal-1.13.2.tar.gz = 77d5ab7eaf7dd769fa0333f920ab84ef274d08e2ecd1441bf77666d2dda6590d
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.2.tar.gz.sha256          → OK
+     tar -xzf ibportal-1.13.2.tar.gz && cd ibportal-1.13.2 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.2.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.1)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома, как при выкладке 1.13.1
+   (tar копии + sha256sum, проверка на месте хранения). Нет копии — стоп.
+
+2. ВЫКЛАДКА
+   cp /srv/ibportal/releases/ibportal-1.13.2/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.2/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.2/' .env
+   docker compose --profile tools run --rm migrate   → «No pending migrations to apply», «Seed выполнен: …»
+   docker compose up -d backend frontend
+
+3. ПОСЛЕ
+   ./scripts/smoke.sh --after   → «Smoke-проверка пройдена», число записей не изменилось
+   Вручную: вход; «Задачи» в теме «Чёрный океан» — заголовок карточки не наезжает на категорию и срок, число комментариев видно;
+   «Осведомлённость → Письма → Новое письмо» — есть «Шаблон (необязательно)».
+
+4. ОТКАТ НА 1.13.1 (только образ frontend, база не меняется)
+   sed -i 's/^VERSION=.*/VERSION=1.13.1/' .env && docker compose up -d backend frontend
+   Образы 1.13.1 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; migrate применил миграции или упал; любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.13.2 (с 1.13.1), кто, имя копии и место хранения, результат.
