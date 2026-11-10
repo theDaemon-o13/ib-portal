@@ -103,6 +103,8 @@ export const docsApi = {
   /** Активные записи справочника «Ответственные лица» — тем, кто ведёт лиц документа (1.6.7). */
   partyDirectory: (id: string) => request<{ items: Res<'/api/v1/documents/{id}/party-directory', 'get'>['items'] }>('GET', `/api/v1/documents/${id}/party-directory`),
   addParty: (id: string, body: At & PartyFields) => request<DocResult>('POST', `/api/v1/documents/${id}/parties`, body),
+  /** Несколько лиц с одним сроком (1.13.5): все или никто; ошибка строки — «Строка N (ФИО): …». */
+  addParties: (id: string, body: At & { people: { fullName: string; department?: string }[]; dueDate?: string; dueDays?: number }) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/batch`, body),
   updateParty: (id: string, partyId: string, body: At & Partial<PartyFields> & { comment?: string }) => request<DocResult>('PATCH', `/api/v1/documents/${id}/parties/${partyId}`, body),
   removeParty: (id: string, partyId: string, body: At) => request<DocResult>('POST', `/api/v1/documents/${id}/parties/${partyId}/remove`, body),
   /** Отметка согласования (этап 22): дата согласования и комментарий, без файла. */

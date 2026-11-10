@@ -6,7 +6,7 @@
 // на этапе не участвует. Блокеры открывают и снимают автор, старшие над автором и начальник ИБ; снятие — с комментарием.
 import type { Db } from '../../lib/db.js';
 import { withTx } from '../../lib/db.js';
-import { badRequest, conflict, notFound } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import { personKey } from '../../lib/person-key.js';
 import { formatDateRu } from '../../lib/register-values.js';
 import { auditSettings, trimmed, type Actor } from '../settings/common.js';
@@ -102,22 +102,98 @@ async function assertNotDuplicate(tx: Db, versionId: string, fullName: string, d
   }
 }
 
+/** Сколько человек за один раз (1.13.5): больше — 400 PARTIES_BATCH_LIMIT. */
+export const PARTIES_BATCH_MAX = 50;
+
+export interface PartiesBatchInput {
+  people: { fullName: string; department?: string }[];
+  /** Общий срок для всех, YYYY-MM-DD — на этапе 22. */
+  dueDate?: string;
+  /** Общий срок для всех, дней от перехода на этап 22 — на этапе 21. */
+  dueDays?: number;
+}
+
+/** Ошибка строки пачки: тот же код, текст «Строка N (ФИО): …», номер строки — в details.row. */
+function rowError(err: unknown, row: number, fullName: string): never {
+  if (err instanceof AppError) {
+    const who = fullName ? ` (${fullName})` : '';
+    throw new AppError(err.statusCode, err.code, `Строка ${row}${who}: ${err.message}`, { row });
+  }
+  throw err;
+}
+
+/**
+ * Добавить лиц и записать в журнал — общее у одного лица и пачки: проверки строк (ФИО, длины, дубли с неснятыми
+ * лицами версии и внутри пачки — personKey), строки document_parties, запись document.party_added на каждого и один
+ * syncStageTasks после всех. Срок один на всех, уже проверенный (dueOf).
+ */
+async function insertParties(
+  tx: Db, actor: Actor, ctx: { id: string; number: number; title: string; versionId: string },
+  people: { fullName: string; department?: string }[], due: { dueDate: Date; dueDays: number | null }, batch: boolean,
+) {
+  const rows = people.map((p, i) => {
+    const row = i + 1;
+    try {
+      return { fullName: cleanText(p.fullName, NAME_MAX, 'ФИО', true), department: cleanText(p.department, DEPARTMENT_MAX, 'подразделение или должность') };
+    } catch (err) {
+      if (batch) rowError(err, row, trimmed(p.fullName ?? '').slice(0, 80));
+      throw err;
+    }
+  });
+  const existing = await tx.documentParty.findMany({ where: { versionId: ctx.versionId, removedAt: null }, select: { fullName: true, department: true } });
+  const taken = new Set(existing.map((r) => personKey(r.fullName, r.department)));
+  const seen = new Map<string, number>();
+  rows.forEach((r, i) => {
+    const key = personKey(r.fullName, r.department);
+    const who = `${r.fullName}${r.department ? ` (${r.department})` : ''}`;
+    if (taken.has(key)) {
+      const err = conflict('PARTY_DUPLICATE', `${who} уже есть среди ответственных лиц этого документа`);
+      if (batch) rowError(err, i + 1, r.fullName);
+      throw err;
+    }
+    const first = seen.get(key);
+    if (first !== undefined) rowError(conflict('PARTY_DUPLICATE', `${who} повторяется в списке: строки ${first} и ${i + 1}`), i + 1, r.fullName);
+    seen.set(key, i + 1);
+  });
+  for (const [i, r] of rows.entries()) {
+    const p = await tx.documentParty.create({
+      data: { documentId: ctx.id, versionId: ctx.versionId, fullName: r.fullName, department: r.department, dueDate: due.dueDate, dueDays: due.dueDays, addedBy: actor.id },
+    });
+    await auditSettings(tx, actor, {
+      action: 'document.party_added', entity: 'document', entityId: ctx.id,
+      summary: `Документ #${ctx.number} «${ctx.title}»: ответственное лицо ${r.fullName}${r.department ? ` (${r.department})` : ''}, срок ${due.dueDays ? `${due.dueDays} дн. от этапа «Согласование»` : formatDateRu(iso(due.dueDate))}`,
+      after: {
+        partyId: p.id, fullName: r.fullName, department: r.department, dueDate: due.dueDays ? null : iso(due.dueDate), dueDays: due.dueDays,
+        ...(batch ? { batch: { size: rows.length, row: i + 1 } } : {}),
+      },
+    });
+  }
+  await syncStageTasks(tx, ctx.id);
+}
+
 export async function addParty(db: Db, actor: Actor, id: string, input: Stage & PartyInput) {
   return withTx(db, async (tx) => {
     const { d, w, onDraft } = await partyContext(tx, actor, id, input);
-    const fullName = cleanText(input.fullName, NAME_MAX, 'ФИО', true);
-    const department = cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
-    const { dueDate: due, dueDays } = dueOf(input, onDraft);
-    await assertNotDuplicate(tx, w.id, fullName, department);
-    const p = await tx.documentParty.create({
-      data: { documentId: id, versionId: w.id, fullName, department, dueDate: due, dueDays, addedBy: actor.id },
-    });
-    await auditSettings(tx, actor, {
-      action: 'document.party_added', entity: 'document', entityId: id,
-      summary: `Документ #${d.number} «${w.title}»: ответственное лицо ${fullName}${department ? ` (${department})` : ''}, срок ${dueDays ? `${dueDays} дн. от этапа «Согласование»` : formatDateRu(iso(due))}`,
-      after: { partyId: p.id, fullName, department, dueDate: dueDays ? null : iso(due), dueDays },
-    });
-    await syncStageTasks(tx, id);
+    // Порядок проверок как до 1.13.5: ФИО, срок, дубль.
+    cleanText(input.fullName, NAME_MAX, 'ФИО', true);
+    cleanText(input.department, DEPARTMENT_MAX, 'подразделение или должность');
+    const due = dueOf(input, onDraft);
+    await insertParties(tx, actor, { id, number: d.number, title: w.title, versionId: w.id }, [input], due, false);
+  });
+}
+
+/**
+ * Несколько лиц с одним сроком (1.13.5): одной транзакцией — все или никто. Где и кто — как у одного лица
+ * (partyContext: автор; драфт 21 со сроком днями или «Согласование» 22 со сроком датой). Дальше каждое лицо —
+ * отдельная строка со своим сроком: перенос, отметка и напоминания — по каждому, группы нет.
+ */
+export async function addParties(db: Db, actor: Actor, id: string, input: Stage & PartiesBatchInput) {
+  return withTx(db, async (tx) => {
+    const { d, w, onDraft } = await partyContext(tx, actor, id, input);
+    if (!input.people.length) throw badRequest('EMPTY', 'Выберите или введите хотя бы одного человека');
+    if (input.people.length > PARTIES_BATCH_MAX) throw badRequest('PARTIES_BATCH_LIMIT', `За один раз — не больше ${PARTIES_BATCH_MAX} человек`);
+    const due = dueOf(input, onDraft);
+    await insertParties(tx, actor, { id, number: d.number, title: w.title, versionId: w.id }, input.people, due, true);
   });
 }
 

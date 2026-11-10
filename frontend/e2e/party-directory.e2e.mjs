@@ -1,5 +1,5 @@
 // Сквозной тест справочника «Ответственные лица» (релиз 1.6.7): завести человека в настройках → выбрать его в карточке
-// документа → ФИО и должность в карточке; повтор того же человека не выбирается; «Ввести вручную»; пункта настроек
+// документа (1.13.5 — список с отметками) → ФИО и должность в карточке; повтор того же человека не выбирается; ввод вручную; пункта настроек
 // нет у пользователя без settings.manage. Имена вымышленные, с меткой прогона.
 //
 //   npm run test:e2e
@@ -91,7 +91,7 @@ after(async () => {
 });
 
 describe('Справочник «Ответственные лица» (1.6.7)', () => {
-  it('завести в настройках → выбрать в документе → ФИО и должность в карточке; повтор не выбирается; «Ввести вручную»', async () => {
+  it('завести в настройках → выбрать в документе → ФИО и должность в карточке; повтор не выбирается; ввод вручную (1.13.5)', async () => {
     // Настройки → Справочники → «Ответственные лица»: добавить.
     await ui.goto(`/settings/catalogs?n=${++navSeq}`);
     await ui.click(regItem('Ответственные лица'), 'пункт «Ответственные лица»');
@@ -109,44 +109,55 @@ describe('Справочник «Ответственные лица» (1.6.7)',
     await ui.waitFor(`!!${addForm}.querySelector('[data-testid=same-name]')`, 'предупреждение «Уже есть»');
     await ui.evaluate(`(() => { const el = ${label('ФИО', addForm)}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ''); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
 
-    // Карточка документа (этап «Драфт»): начать вводить ФИО → выбрать из списка.
+    // Карточка документа (этап «Драфт»), форма 1.13.5 «Добавить ответственных лиц»: поиск в списке → отметить.
     await ui.goto(`/documents?n=${++navSeq}&doc=${docId}`);
-    await ui.click($.button('Добавить ответственное лицо', panel));
-    const pf = `${panel}.querySelector('form[aria-label="Ответственное лицо"]')`;
-    await ui.type(label('ФИО', pf), RUN);
-    const option = (name) => `document.querySelector(${JSON.stringify(`[role=listbox] [role=option][data-person="${name}"]`)})`;
+    await ui.click($.button('Добавить ответственных лиц', panel));
+    const pf = `${panel}.querySelector('form[aria-label="Добавить ответственных лиц"]')`;
+    const pick = `${pf}?.querySelector('[data-testid=party-pick]')`;
+    const pop = `document.querySelector('[data-ms-pop]')`;
+    const option = (name) => `(${pop} ? [...${pop}.querySelectorAll('[role=option]')].find((o) => o.querySelector('.sel-ol')?.textContent === ${JSON.stringify(name)}) : null)`;
+    await ui.waitFor(`!!${pick}`, 'выбор из справочника');
+    await ui.click(pick, '«Выбрать из справочника»');
+    await ui.type(`${pop}.querySelector('input[type=search]')`, RUN);
     await ui.waitFor(`!!${option(PERSON.fullName)}`, 'человек из справочника в списке');
-    await ui.click(option(PERSON.fullName), 'выбор из списка');
-    assert.equal(await ui.evaluate(`${label('ФИО', pf)}.value`), PERSON.fullName);
-    assert.equal(await ui.evaluate(`${label('Подразделение или должность', pf)}.value`), PERSON.position, 'должность заполнилась из справочника');
+    assert.match(await ui.text(option(PERSON.fullName)), new RegExp(PERSON.position), 'должность — второй строкой');
+    await ui.click(option(PERSON.fullName), 'отметить в списке');
+    await ui.click(`${pop}.querySelector('.ms-foot button')`, '«Готово»');
+    await ui.waitFor(`!${pop}`, 'список закрыт');
+    assert.equal(await ui.evaluate(`${pf}.querySelector('.ms-chip')?.dataset.chip`), PERSON.fullName, 'чип выбранного');
     // В драфте (1.11.0) срок — днями от перехода на «Согласование», по умолчанию 7.
     assert.equal(await ui.evaluate(`${label('Срок ответа, дней', pf)}.value`), '7');
     m = ui.mark();
-    await ui.click($.button('Добавить', pf));
-    const added = await ui.request(m, 'POST', `/api/v1/documents/${docId}/parties`);
-    assert.equal(added.json.fullName, PERSON.fullName);
-    assert.equal(added.json.dueDays, 7);
-    assert.equal(added.json.department, PERSON.position);
+    await ui.click($.button('Добавить (1)', pf));
+    const added = await ui.request(m, 'POST', `/api/v1/documents/${docId}/parties/batch`);
+    assert.deepEqual([added.json.dueDays, added.json.people], [7, [{ fullName: PERSON.fullName, department: PERSON.position }]], 'ФИО и должность — текстом из справочника');
     const party = `${panel}.querySelector(${JSON.stringify(`[data-party="${PERSON.fullName}"]`)})`;
     await ui.waitFor(`${party}?.textContent.includes(${JSON.stringify(PERSON.position)})`, 'ФИО и должность в карточке документа');
 
-    // Тот же человек второй раз: в списке «уже добавлен(а)», не выбирается.
-    await ui.click($.button('Добавить ответственное лицо', panel));
-    await ui.type(label('ФИО', pf), RUN);
+    // Тот же человек второй раз: в списке «уже добавлен», не отмечается.
+    await ui.click($.button('Добавить ответственных лиц', panel));
+    await ui.click(pick, '«Выбрать из справочника»');
+    await ui.type(`${pop}.querySelector('input[type=search]')`, RUN);
     await ui.waitFor(`${option(PERSON.fullName)}?.getAttribute('aria-disabled') === 'true'`, 'уже добавленный — недоступен для выбора');
-    assert.match(await ui.text(option(PERSON.fullName)), /уже добавлен\(а\)/);
+    assert.match(await ui.text(option(PERSON.fullName)), /уже добавлен/);
+    await ui.press('Escape');
+    await ui.waitFor(`!${pop}`, 'Esc — список закрыт');
 
-    // «Ввести вручную»: список закрывается, оба поля — как раньше.
-    await ui.click(`[...document.querySelectorAll('[role=listbox] [role=option]')].find((o) => o.textContent === 'Ввести вручную')`, '«Ввести вручную»');
-    await ui.waitFor(`!document.querySelector('[role=listbox]')`, 'список закрыт');
-    await ui.evaluate(`(() => { const el = ${label('ФИО', pf)}; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ''); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    await ui.type(label('ФИО', pf), OTHER.fullName);
-    assert.equal(await ui.evaluate(`!!document.querySelector('[role=listbox]')`), false, 'в ручном режиме список не открывается');
-    await ui.type(label('Подразделение или должность', pf), OTHER.position);
+    // Вручную: строка ФИО + должность; тот же человек вручную — ошибка строки, кнопка неактивна.
+    await ui.click($.button('+ Добавить вручную', pf), '«+ Добавить вручную»');
+    const lastRow = `[...${pf}.querySelectorAll('.party-row')].at(-1)`;
+    await ui.type(label('ФИО', lastRow), PERSON.fullName);
+    await ui.type(label('Подразделение или должность', lastRow), PERSON.position);
+    await ui.waitFor(`${lastRow}?.querySelector('[role=alert]')?.textContent === 'Уже добавлен(а) в документ'`, 'повтор вручную подсвечен');
+    assert.equal(await ui.evaluate(`[...${pf}.querySelectorAll('button[type=submit]')].some((b) => !b.disabled)`), false, 'с ошибкой строки кнопка неактивна');
+    await ui.click(`${lastRow}.querySelector('button[aria-label^="Удалить строку"]')`, 'удалить строку');
+    await ui.click($.button('+ Добавить вручную', pf), '«+ Добавить вручную»');
+    await ui.type(label('ФИО', lastRow), OTHER.fullName);
+    await ui.type(label('Подразделение или должность', lastRow), OTHER.position);
     m = ui.mark();
-    await ui.click($.button('Добавить', pf));
-    const manual = await ui.request(m, 'POST', `/api/v1/documents/${docId}/parties`);
-    assert.equal(manual.json.fullName, OTHER.fullName);
+    await ui.click($.button('Добавить (1)', pf));
+    const manual = await ui.request(m, 'POST', `/api/v1/documents/${docId}/parties/batch`);
+    assert.deepEqual(manual.json.people, [{ fullName: OTHER.fullName, department: OTHER.position }]);
     await ui.waitFor(`!!${panel}.querySelector(${JSON.stringify(`[data-party="${OTHER.fullName}"]`)})`, 'вручную введённое лицо в карточке');
   });
 

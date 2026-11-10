@@ -1383,6 +1383,124 @@ describe('документы: ответственные лица (этапы 21
     }));
 });
 
+describe('документы: несколько ответственных лиц с одним сроком (1.13.5)', () => {
+  const batch = async (tx: Tx, u: User, id: string, people: parties.PartiesBatchInput['people'], due: { dueDate?: string; dueDays?: number }) =>
+    parties.addParties(tx, await actorFor(tx, u.id), id, { ...(await cur(tx, id)), people, ...due });
+  const partyRows = (tx: Tx, id: string) => tx.documentParty.findMany({ where: { documentId: id, removedAt: null }, orderBy: { addedAt: 'asc' } });
+  const addedAudit = (tx: Tx, id: string) => tx.auditLog.findMany({ where: { entity: 'document', entityId: id, action: 'document.party_added' }, orderBy: { id: 'asc' } });
+
+  it('справочник + вручную: N строк с одним сроком, запись журнала на каждого, одна задача этапа, без уведомлений; отключённые не в выборе', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      // Справочник: трое, один отключён — в выборе для документа его нет.
+      const { createPerson, updatePerson, directoryForDocument } = await import('../party-directory/service.js');
+      const admin = await x.as(x.admin);
+      const ivanov = (await createPerson(tx, admin, { fullName: 'Иванов И.И.', position: 'Технический директор' })).item;
+      const petrova = (await createPerson(tx, admin, { fullName: 'Петрова П.П.', position: 'Главный бухгалтер' })).item;
+      const off = (await createPerson(tx, admin, { fullName: 'Отключённый О.О.', position: 'Юрист' })).item;
+      await updatePerson(tx, admin, off.id, { version: off.version, active: false });
+
+      const id = await x.create('Политика тестовая');
+      await moveTo(tx, x, id, '21:head_review');
+      await move(tx, x.head, id, 'head_approve');
+      const pick = (await directoryForDocument(tx, x.owner.id, id)).filter((p) => [ivanov.id, petrova.id, off.id].includes(p.id));
+      expect(pick.map((p) => p.fullName)).toEqual(['Иванов И.И.', 'Петрова П.П.']);
+      const tasksBefore = await tx.task.count({ where: { documentId: id } });
+      const notesBefore = await tx.notification.count({ where: { documentId: id } });
+
+      const due = addDaysIso(todayIso(), 10);
+      await batch(tx, x.owner, id, [
+        ...pick.map((p) => ({ fullName: p.fullName, department: p.position })),
+        { fullName: '  Сидоров   С.С. ', department: 'Начальник службы' },
+      ], { dueDate: due });
+      const rows = await partyRows(tx, id);
+      expect(rows.map((r) => [r.fullName, r.department, isoOf(r.dueDate), r.dueDays])).toEqual([
+        ['Иванов И.И.', 'Технический директор', due, null],
+        ['Петрова П.П.', 'Главный бухгалтер', due, null],
+        ['Сидоров С.С.', 'Начальник службы', due, null],
+      ]);
+      // Журнал: на каждого — как у одного лица (кто, кого, срок), плюс место в пачке.
+      const log = await addedAudit(tx, id);
+      expect(log.map((a) => [a.userId, (a.diff as { after: { fullName: string; dueDate: string; batch: unknown } }).after])).toEqual(rows.map((r, i) => [
+        x.owner.id, expect.objectContaining({ partyId: r.id, fullName: r.fullName, dueDate: due, batch: { size: 3, row: i + 1 } }),
+      ]));
+      // Одна задача этапа «Согласование» у автора — та же, что была; уведомлений о добавлении нет.
+      expect(await tx.task.count({ where: { documentId: id } })).toBe(tasksBefore);
+      expect(await tx.task.count({ where: { documentId: id, documentReason: 'stage', completedAt: null, archivedAt: null } })).toBe(1);
+      expect(await tx.notification.count({ where: { documentId: id } })).toBe(notesBefore);
+
+      // Дальше каждый — сам по себе: перенос срока одного не трогает остальных, напоминания — по каждому, без дублей.
+      const [p1, p2, p3] = rows;
+      const later = addDaysIso(due, 5);
+      await parties.updateParty(tx, await x.as(x.owner), id, must(p2).id, { ...(await cur(tx, id)), dueDate: later, comment: 'Попросили отсрочку' });
+      expect((await partyRows(tx, id)).map((r) => isoOf(r.dueDate))).toEqual([due, later, due]);
+      await notifyPartyDeadlines(tx, new Date(`${addDaysIso(due, -1)}T06:00:00Z`));
+      await notifyPartyDeadlines(tx, new Date(`${addDaysIso(due, -1)}T07:00:00Z`));
+      const tomorrow = await tx.notification.findMany({ where: { documentId: id, kind: 'doc_party_due_tomorrow' } });
+      expect(tomorrow.map((n) => n.title).sort()).toEqual([expect.stringContaining('Иванов И.И.'), expect.stringContaining('Сидоров С.С.')]);
+      for (const p of [p1, p2, p3]) await parties.approveParty(tx, await x.as(x.owner), id, must(p).id, await cur(tx, id));
+      expect((await view(tx, x.owner, id)).can.actions).toEqual(['request_recheck', 'to_translation']);
+    }));
+
+  it('дубль с уже добавленным или внутри пачки, пустое ФИО, срок — отказ всей пачке, ничего не записано; правило — ФИО + должность', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Политика тестовая');
+      await moveTo(tx, x, id, '21:head_review');
+      await move(tx, x.head, id, 'head_approve');
+      await addParty(tx, x.owner, id, { fullName: 'Иванов И.И.', department: 'Технический директор', dueDate: '2026-12-01' });
+      const before = (await partyRows(tx, id)).length;
+      const auditBefore = (await addedAudit(tx, id)).length;
+      const due = { dueDate: '2026-12-10' };
+      const fails = async (people: parties.PartiesBatchInput['people'], code: string, msg: RegExp, row?: number, d: { dueDate?: string; dueDays?: number } = due) => {
+        const err = await batch(tx, x.owner, id, people, d).then(() => null, (e: unknown) => e as { code: string; message: string; details?: { row?: number } });
+        expect(err, JSON.stringify(people)).not.toBeNull();
+        expect([err?.code, err?.details?.row]).toEqual([code, row]);
+        expect(err?.message).toMatch(msg);
+        expect((await partyRows(tx, id)).length).toBe(before);
+        expect((await addedAudit(tx, id)).length).toBe(auditBefore);
+      };
+      // С уже добавленным — без учёта регистра и лишних пробелов.
+      await fails([{ fullName: 'Петров П.П.', department: 'Юрист' }, { fullName: ' иванов  и.и.', department: 'ТЕХНИЧЕСКИЙ ДИРЕКТОР' }],
+        'PARTY_DUPLICATE', /^Строка 2 \(иванов и\.и\.\): .*уже есть среди ответственных лиц/, 2);
+      // Внутри пачки: выбран из справочника и тот же введён вручную.
+      await fails([{ fullName: 'Петров П.П.', department: 'Юрист' }, { fullName: 'Сидоров С.С.' }, { fullName: 'петров п.п.', department: ' юрист ' }],
+        'PARTY_DUPLICATE', /^Строка 3 .*повторяется в списке: строки 1 и 3/, 3);
+      await fails([{ fullName: 'Петров П.П.' }, { fullName: '   ', department: 'Юрист' }], 'EMPTY', /^Строка 2: Укажите ФИО/, 2);
+      await fails([{ fullName: 'Петров П.П.' }, { fullName: 'Я'.repeat(parties.NAME_MAX + 1) }], 'TOO_LONG', /^Строка 2 /, 2);
+      await fails([{ fullName: 'Петров П.П.' }], 'BAD_DATE', /срок ответа/, undefined, {});
+      await fails([{ fullName: 'Петров П.П.' }], 'BAD_DATE', /срок ответа/, undefined, { dueDate: '2026-02-30' });
+      await fails([], 'EMPTY', /хотя бы одного/);
+      // Однофамилец с другой должностью — другой человек (правило 1.6.7): проходит.
+      await batch(tx, x.owner, id, [{ fullName: 'Иванов И.И.', department: 'Главный бухгалтер' }], due);
+      expect((await partyRows(tx, id)).length).toBe(before + 1);
+    }));
+
+  it('лимит пачки — 50; этапы — как у одного лица: драфт днями, «Согласование» датой, на проверке и после — 409; ведёт только автор', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create('Политика тестовая');
+      const many = (n: number, tag: string) => Array.from({ length: n }, (_, i) => ({ fullName: `Тестов ${tag}${i + 1}`, department: 'Отдел тестовый' }));
+      await expectCode(batch(tx, x.owner, id, many(parties.PARTIES_BATCH_MAX + 1, 'а'), { dueDays: 7 }), 'PARTIES_BATCH_LIMIT');
+      expect(await partyRows(tx, id)).toEqual([]);
+      await expectCode(batch(tx, x.staff, id, many(2, 'б'), { dueDays: 7 }), 'FORBIDDEN');
+      await expectCode(batch(tx, x.owner, id, many(2, 'б'), { dueDays: 0 }), 'BAD_DUE_DAYS');
+      // Драфт: срок днями — у всех одинаковый.
+      await batch(tx, x.owner, id, many(parties.PARTIES_BATCH_MAX, 'в'), { dueDays: 12 });
+      const rows = await partyRows(tx, id);
+      expect(rows).toHaveLength(parties.PARTIES_BATCH_MAX);
+      expect(new Set(rows.map((r) => `${r.dueDays}|${isoOf(r.dueDate)}`))).toEqual(new Set([`12|${addDaysIso(todayIso(), 12)}`]));
+      // На проверке у начальника ИБ — нельзя; после одобрения сроки становятся датами у каждого.
+      await move(tx, x.owner, id, 'submit_head');
+      await expectCode(batch(tx, x.owner, id, many(1, 'г'), { dueDays: 7 }), 'WRONG_STAGE');
+      await move(tx, x.head, id, 'head_approve');
+      expect(new Set((await partyRows(tx, id)).map((r) => `${r.dueDays}|${isoOf(r.dueDate)}`))).toEqual(new Set([`null|${addDaysIso(todayIso(), 12)}`]));
+      // «Перевод» и дальше — 409.
+      await moveTo(tx, x, id, '23');
+      await expectCode(batch(tx, x.owner, id, many(1, 'д'), { dueDate: '2026-12-10' }), 'WRONG_STAGE');
+    }));
+});
+
 describe('документы: блокеры', () => {
   it('открывают и снимают автор, старший и начальник ИБ; открытый блокер останавливает шаги вперёд и «Утвердить», возврат — нет', () =>
     inTx(async (tx) => {

@@ -211,6 +211,41 @@ body:has(.dp, .backdrop, .app.menu-open) .scroll-ctl{display:none}
 .sel-tick{width:16px;height:16px;flex:none;margin-left:auto;color:var(--accent-ink)}
 .sel-empty{padding:10px;color:var(--muted);font-size:13px}
 @media (max-width:860px){.sel-o{min-height:42px}}
+/* MultiSelect (1.13.5): чипы выбранных над кнопкой, пункты с отметкой; панель — та же .sel-pop. */
+.ms{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ms-chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.ms-chip{max-width:100%;padding:2px 4px 2px 10px;font-size:12.5px}
+.ms-chip-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ms-chip .chip-x{font-size:15px;line-height:1;padding:0 5px;border-radius:999px;min-width:22px;min-height:22px}
+.ms-chip .chip-x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ms-btn{width:100%}
+.ms.open .sel-chev{transform:rotate(180deg)}
+.ms-all{margin:4px 8px 0;padding:6px 10px;border:0;border-radius:9px;background:var(--fill);color:var(--accent-ink);font:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer}
+.ms-all:hover{background:var(--accent-soft)}
+.ms-all:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sel-list[aria-multiselectable]:focus{outline:none}
+.sel-list[aria-multiselectable]:focus-visible .sel-o.active{box-shadow:inset 0 0 0 2px var(--accent)}
+.ms-o{align-items:flex-start}
+.ms-o.cur{font-weight:500}
+.ms-box{flex:none;width:16px;height:16px;margin-top:1px;border-radius:5px;border:1.5px solid var(--line-2);background:var(--inp-bg);display:grid;place-content:center;transition:background .15s,border-color .15s}
+.ms-box.on{background:var(--accent-btn);border-color:var(--accent-btn)}
+.ms-box.on::before{content:"";width:11px;height:11px;background:#FFFFFF;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/contain no-repeat}
+.ms-txt{display:flex;flex-direction:column;min-width:0;gap:1px}
+.ms-hint{font-size:12px;color:var(--muted);font-weight:400;overflow-wrap:anywhere}
+.sel-o.active .ms-hint{color:inherit;opacity:.8}
+.ms-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 8px;border-top:1px solid var(--line)}
+.ms-foot .hint{margin:0;min-width:0;font-size:12px}
+/* Форма «Добавить ответственных лиц»: строки ручного ввода — ФИО, должность, «×». */
+.party-pick{display:flex;flex-direction:column;gap:4px;min-width:0}
+.party-lbl{font-size:12.5px;color:var(--muted)}
+.party-rows{display:flex;flex-direction:column;gap:8px;min-width:0}
+.party-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end;min-width:0}
+.party-row-x{min-width:36px;height:36px;font-size:18px;line-height:1}
+.party-row-err{grid-column:1/-1;margin-top:-2px}
+.party-row.bad .inp[aria-invalid]{border-color:var(--crit)}
+@media (max-width:600px){.party-row{grid-template-columns:minmax(0,1fr) auto}.party-row>label:nth-child(2){grid-column:1}.party-row-x{grid-row:1;grid-column:2;align-self:end}}
 /* Нативные списки, если где-то остались: варианты — в цветах темы. */
 select option{background:var(--paper);color:var(--paper-fg)}
 
