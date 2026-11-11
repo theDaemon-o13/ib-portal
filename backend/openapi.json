@@ -55584,6 +55584,12 @@
                             "type": "string"
                           }
                         },
+                        "info": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "previousScan": {
                           "anyOf": [
                             {
@@ -56672,6 +56678,7 @@
                         "errors",
                         "notes",
                         "warnings",
+                        "info",
                         "previousScan",
                         "coverage",
                         "counts",
@@ -57685,6 +57692,12 @@
                             "type": "string"
                           }
                         },
+                        "info": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "previousScan": {
                           "anyOf": [
                             {
@@ -58773,6 +58786,7 @@
                         "errors",
                         "notes",
                         "warnings",
+                        "info",
                         "previousScan",
                         "coverage",
                         "counts",
@@ -59196,6 +59210,12 @@
                             "type": "string"
                           }
                         },
+                        "info": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "previousScan": {
                           "anyOf": [
                             {
@@ -60284,6 +60304,7 @@
                         "errors",
                         "notes",
                         "warnings",
+                        "info",
                         "previousScan",
                         "coverage",
                         "counts",

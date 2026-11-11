@@ -18,6 +18,7 @@ import * as scanImport from './scan-import.service.js';
 import * as scans from './scans.service.js';
 import * as section from './section.service.js';
 import { SCAN_MAX_ROWS } from './scan-parser.js';
+import { importFailure } from '../../lib/import-failure.js';
 import * as transfer from './transfer.service.js';
 import * as trash from '../trash/service.js';
 
@@ -76,6 +77,8 @@ const ScanSummary = z.object({
   errors: z.array(ScanIssue),
   notes: z.array(ScanIssue),
   warnings: z.array(z.string()),
+  /** Справка без предупреждения: «Колонка „Задача №“ не используется» (1.13.9). */
+  info: z.array(z.string()),
   previousScan: z.object({ id: z.string(), scanDate: z.string(), fileName: z.string(), handedOver: z.boolean() }).nullable(),
   coverage: z.object({ newHosts: z.array(z.string()), goneHosts: z.array(z.string()) }),
   counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), deleted: z.number().int().optional(), gone: z.number().int() }),
@@ -340,7 +343,16 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
       },
     },
   }, async (request) => {
-    const result = await scanImport.applyNodeScan(db, actorOf(request), request.params.id, { ...request.body, canAddNode: request.user?.permissions.has('registers.manage') ?? false });
+    // Ошибка применения — 500 IMPORT_FAILED с номером запроса и строкой error в лог: узел, строк, шаг, длительность (1.13.9).
+    const progress: scanImport.ApplyProgress = { step: '' };
+    const startedAt = performance.now();
+    let result: Awaited<ReturnType<typeof scanImport.applyNodeScan>>;
+    try {
+      result = await scanImport.applyNodeScan(db, actorOf(request), request.params.id, { ...request.body, canAddNode: request.user?.permissions.has('registers.manage') ?? false }, progress);
+    } catch (err) {
+      const info = await scanImport.importBrief(db, request.params.id).catch(() => null);
+      throw importFailure(request, err, { kind: 'скан', target: info?.node ?? null, rows: info?.rows ?? null, step: progress.step, startedAt });
+    }
     // Изменившаяся Критичность может сразу дать просрочку — не ждать часового прогона.
     const imp = await scanImport.getNodeScanImport(db, request.params.id);
     try {

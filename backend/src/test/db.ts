@@ -1,6 +1,7 @@
 // Помощники для тестов с настоящей БД. Подключение — под ролью приложения (ibportal_app),
 // как у работающего backend: тесты заодно проверяют, что прав хватает и лишних нет.
-import type { Prisma } from '../generated/prisma/client.js';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient, type Prisma } from '../generated/prisma/client.js';
 import { afterAll } from 'vitest';
 import { testDbConfig } from '../../scripts/test-db.js';
 import { createPrisma } from '../lib/db.js';
@@ -16,13 +17,18 @@ class Rollback extends Error {}
 
 /** Тест в транзакции, которая всегда откатывается: база остаётся чистой для следующего теста. */
 export async function inTx(fn: (tx: Tx) => Promise<void>): Promise<void> {
+  return inTxLong(fn, 60_000);
+}
+
+/** То же с другим пределом транзакции: массовые операции на тысячах записей (1.13.9). */
+export async function inTxLong(fn: (tx: Tx) => Promise<void>, timeout = 300_000): Promise<void> {
   try {
     await prisma.$transaction(
       async (tx) => {
         await fn(tx);
         throw new Rollback();
       },
-      { timeout: 60_000, maxWait: 10_000 },
+      { timeout, maxWait: 10_000 },
     );
   } catch (err) {
     if (!(err instanceof Rollback)) throw err;
@@ -102,4 +108,37 @@ export async function makeFileRow(tx: Tx, uploadedBy: string, opts: { name?: str
       ...(opts.uploadedAt ? { uploadedAt: opts.uploadedAt } : {}),
     },
   });
+}
+
+/**
+ * Клиент со счётчиком SQL-запросов (события query Prisma, 1.13.9): тесты массовых операций проверяют, что число
+ * запросов растёт с числом пачек, а не записей. Транзакция — как inTx, всегда откатывается; таймаут — свой.
+ */
+export function countingPrisma() {
+  const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: testDbConfig().appUrl }), log: [{ emit: 'event', level: 'query' }] });
+  let queries = 0;
+  client.$on('query', () => {
+    queries++;
+  });
+  afterAll(() => client.$disconnect());
+  return {
+    client,
+    /** Число запросов и время fn. */
+    async measure<T>(fn: () => Promise<T>): Promise<{ result: T; queries: number; ms: number }> {
+      const q0 = queries;
+      const t0 = performance.now();
+      const result = await fn();
+      return { result, queries: queries - q0, ms: Math.round(performance.now() - t0) };
+    },
+    async inTx(fn: (tx: Tx) => Promise<void>, timeout = 600_000): Promise<void> {
+      try {
+        await client.$transaction(async (tx) => {
+          await fn(tx);
+          throw new Rollback();
+        }, { timeout, maxWait: 10_000 });
+      } catch (err) {
+        if (!(err instanceof Rollback)) throw err;
+      }
+    },
+  };
 }

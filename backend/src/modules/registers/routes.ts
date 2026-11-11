@@ -24,6 +24,7 @@ import { exportZip } from './export-zip.js';
 import * as records from './records.service.js';
 import * as structure from './structure.service.js';
 import { loadRegister } from './definition.js';
+import { importFailure } from '../../lib/import-failure.js';
 import { parseRecordFilter, RecordFilterQuery, type RecordFilterParams } from './filter.js';
 
 const errors = { 400: ErrorResponse, 401: ErrorResponse, 403: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 422: ErrorResponse };
@@ -897,7 +898,15 @@ export const registerRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore }>
       }).nullish(),
       response: { 200: z.object({ added: z.number().int(), updated: z.number().int(), skipped: z.number().int() }), ...errors },
     },
-  }, async (request) => excel.applyImport(db, actorOf(request), request.params.id, { skip: request.body?.skip, choices: request.body?.choices }));
+  }, async (request) => {
+    // Ошибка применения — 500 IMPORT_FAILED с номером запроса и строкой error в лог (1.13.9).
+    const startedAt = performance.now();
+    try {
+      return await excel.applyImport(db, actorOf(request), request.params.id, { skip: request.body?.skip, choices: request.body?.choices });
+    } catch (err) {
+      throw importFailure(request, err, { kind: 'Excel', target: request.params.id, rows: null, step: 'применение', startedAt });
+    }
+  });
 
   app.post('/register-imports/:id/cancel', {
     preHandler: edit,

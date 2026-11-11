@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import Fastify, { type FastifyServerOptions } from 'fastify';
@@ -77,6 +78,9 @@ export interface AppDeps {
 export async function buildApp(deps: AppDeps) {
   const base = Fastify({
     logger: deps.logger ?? false,
+    // Номер запроса — в каждой строке лога и в сообщении об ошибке импорта (1.13.9): случайный, а не «req-1, req-2…»,
+    // которые повторяются после каждого перезапуска.
+    genReqId: () => randomBytes(4).toString('hex'),
     trustProxy: deps.trustProxy ?? false,
     bodyLimit: 1024 * 1024,
   });

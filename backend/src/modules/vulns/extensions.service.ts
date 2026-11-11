@@ -2,14 +2,15 @@
 // Процедуру не меняют: дни — по Уровню сканера, только продление. Участвуют открытые записи с идущим сроком; с решением
 // п. 7.3 и не переданные ИКТ не участвуют (показывается сколько). «Продлено, дн.» = сумма действующих продлений цикла.
 import type { Prisma } from '../../generated/prisma/client.js';
-import { withTx, type Db } from '../../lib/db.js';
+import { updateRecordValues, type RecordValuesUpdate } from '../../lib/bulk.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import { calcValue, formatDateRu, isIsoDate, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { parseIsoDate } from '../../lib/working-days.js';
 import { claimFiles } from '../files/links.js';
 import { calendarFor, dateOf, isClosed, loadRegister, loadUsers, searchTextOf, type RegisterDef } from '../registers/definition.js';
-import { auditSettings, trimmed, type Actor } from '../settings/common.js';
+import { auditSettings, auditSettingsMany, trimmed, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { LEGACY_NODE_LABEL, nodeLabel } from './groups.service.js';
 
@@ -198,14 +199,14 @@ export async function applyExtension(db: Db, actor: Actor, input: ExtensionApply
         dueBefore: parseIsoDate(i.dueBefore), dueAfter: parseIsoDate(i.dueAfter),
       })),
     });
+    // Пачками (1.13.9): значения и журнал — число запросов от числа пачек, не записей.
+    const updates: RecordValuesUpdate[] = [];
+    const audits: SettingsAuditEntry[] = [];
     for (const i of p.items) {
       const r = byId.get(i.recordId) as Candidate;
       const values = addDaysValue(vf, r.values, i.days);
-      await tx.registerRecord.update({
-        where: { id: r.id },
-        data: { values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, r.number, values, users), version: { increment: 1 } },
-      });
-      await auditSettings(tx, actor, {
+      updates.push({ id: r.id, values, searchText: searchTextOf(reg, r.number, values, users) });
+      audits.push({
         action: 'register_record.updated', entity: 'register_record', entityId: r.id,
         summary: `«${reg.name}», запись #${r.number}: срок продлён на ${i.days} дн. (${formatDateRu(i.dueBefore)} → ${formatDateRu(i.dueAfter)}) ${basis}`,
         after: {
@@ -214,13 +215,15 @@ export async function applyExtension(db: Db, actor: Actor, input: ExtensionApply
         },
       });
     }
+    await updateRecordValues(tx, updates);
+    await auditSettingsMany(tx, actor, audits);
     await auditSettings(tx, actor, {
       action: 'vuln.extension.applied', entity: 'vuln_extension', entityId: ext.id,
       summary: `Уязвимости, «${scope.label}»: сроки продлены ${basis} — записей ${p.items.length}`,
       after: { daysByLevel: input.daysByLevel, onlyOverdue: !!input.onlyOverdue, dueUntil: input.dueUntil ?? null, basisNumber, basisDate: input.basisDate, fileId: input.basisFileId, records: p.items.length },
     });
     return { id: ext.id, records: p.items.length, registerId: reg.id };
-  });
+  }, BULK_TX);
 }
 
 /** Отмена — целиком. Сроки возвращаются только у записей в том же цикле: повторно обнаруженной запись продление уже не касается. */
@@ -239,7 +242,8 @@ export async function cancelExtension(db: Db, actor: Actor, id: string) {
     const users = await loadUsers(tx);
     const calendar = await calendarFor(tx, reg);
     const basis = `по обоснованию ОИКТ № ${ext.basisNumber} от ${formatDateRu(iso(ext.basisDate))}`;
-    let returned = 0;
+    const updates: RecordValuesUpdate[] = [];
+    const audits: SettingsAuditEntry[] = [];
     for (const r of rows) {
       if (r.deleted || r.cycle !== r.item_cycle) continue;
       const before = dateOf(reg, vf.due, r.values, calendar);
@@ -248,11 +252,8 @@ export async function cancelExtension(db: Db, actor: Actor, id: string) {
       const values: Values = Object.fromEntries(Object.entries(r.values).filter(([fid]) => fid !== vf.extDays.id));
       if (left) values[vf.extDays.id] = left;
       const after = dateOf(reg, vf.due, values, calendar);
-      await tx.registerRecord.update({
-        where: { id: r.id },
-        data: { values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, r.number, values, users), version: { increment: 1 } },
-      });
-      await auditSettings(tx, actor, {
+      updates.push({ id: r.id, values, searchText: searchTextOf(reg, r.number, values, users) });
+      audits.push({
         action: 'register_record.updated', entity: 'register_record', entityId: r.id,
         summary: `«${reg.name}», запись #${r.number}: продление ${basis} отменено, срок −${r.days} дн.`,
         after: {
@@ -260,15 +261,17 @@ export async function cancelExtension(db: Db, actor: Actor, id: string) {
           via: 'extension_cancel', extensionId: id, days: r.days,
         },
       });
-      returned++;
     }
+    await updateRecordValues(tx, updates);
+    await auditSettingsMany(tx, actor, audits);
+    const returned = updates.length;
     await auditSettings(tx, actor, {
       action: 'vuln.extension.cancelled', entity: 'vuln_extension', entityId: id,
       summary: `Уязвимости: продление ${basis} отменено, сроки возвращены у записей: ${returned} из ${rows.length}`,
       after: { returned, total: rows.length },
     });
     return { returned, total: rows.length, registerId: reg.id };
-  });
+  }, BULK_TX);
 }
 
 type ExtRow = Prisma.VulnExtensionGetPayload<{

@@ -148,6 +148,9 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
   const [tab, setTab] = useState<ImportGroup | 'unchanged'>(first);
   const systems = useQuery({ queryKey: ['settings', 'items', 'systems', 'active'], queryFn: () => settingsApi.items('systems', false) });
   const badDate = !scanDate || scanDate > today;
+  // Второе нажатие, пока идёт запрос, второй запрос не отправляет (1.13.9): isPending меняется только после
+  // перерисовки, а двойной щелчок успевает раньше.
+  const sending = useRef(false);
   const apply = useMutation({
     mutationFn: () => vulnsApi.applyScan(preview.id, { scanDate, systemId: systemId || null, selected: selectionBody(sel), profileConfirmed: mismatch ? confirmed : undefined }),
     onSuccess: async (r) => {
@@ -155,7 +158,15 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
       toast(`Скан загружен: новых ${r.created}, повторно ${r.reopened}, изменились ${r.changed}, отмечено устранёнными ${r.gone}`);
       onDone(r.scanId);
     },
+    onSettled: () => {
+      sending.current = false;
+    },
   });
+  const submit = () => {
+    if (sending.current) return;
+    sending.current = true;
+    apply.mutate();
+  };
   const cancel = () => {
     void registersApi.cancelImport(preview.id).catch(() => undefined); // не критично: предпросмотр сам устареет через 30 минут
     onClose();
@@ -167,7 +178,7 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
     <Modal title={`Предпросмотр · ${nodeLabel}`} sub={`Файл «${s.fileName}»: строк ${s.rows}, листов находок ${s.sheets.length}. Пока ничего не изменено.`} wide onClose={cancel}
       footer={<>
         <button className="btn" type="button" onClick={cancel} disabled={apply.isPending}>Отмена</button>
-        <button className="btn primary" type="button" disabled={badDate || apply.isPending || (!!mismatch && !confirmed)} onClick={() => apply.mutate()}>{applyLabel(sel)}</button>
+        <button className="btn primary" type="button" disabled={badDate || apply.isPending || (!!mismatch && !confirmed)} aria-busy={apply.isPending} onClick={submit}>{apply.isPending ? 'Загружается…' : applyLabel(sel)}</button>
       </>}>
       {mismatch && (
         <div className="note v-warn" role="alert" data-testid="profile-mismatch">
@@ -201,6 +212,7 @@ function PreviewStep({ preview, nodeLabel, onClose, onDone }: { preview: ScanPre
         <div className="cover">{s.critCounts.map((c) => <span key={c.key} className={`chip ${c.key === 'critical' ? 'crit' : c.key === 'medium' ? 'med' : c.key}`}>{c.label}: {c.count}</span>)}</div>
       )}
       {s.warnings.length > 0 && <ul className="warn-list">{s.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
+      {(s.info ?? []).map((t) => <p key={t} className="hint" data-testid="scan-info">{t}</p>)}
       {s.newOptions.length > 0 && <div className="hint">Добавятся значения списков: {s.newOptions.map((o) => `${o.field} — ${o.values.length}`).join('; ')}</div>}
       <div className="v-dcards">
         {GROUPS.filter((g) => g.key !== 'deleted' || groupCount(s, 'deleted') > 0).map((g) => (

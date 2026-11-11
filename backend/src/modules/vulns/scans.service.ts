@@ -1,14 +1,15 @@
 // Сканы узла и передача ИКТ (релиз 1.5.0, ADR-0029, ADR-0030). Скан не удаляется и не редактируется (триггер);
 // передача — один раз. От неё начинается срок записей, которые встречались в скане после последнего открытия.
 import type { Prisma } from '../../generated/prisma/client.js';
-import { withTx, type Db } from '../../lib/db.js';
+import { idChunks, updateRecordValues, type RecordValuesUpdate } from '../../lib/bulk.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { calcValue, formatDateRu, isIsoDate, type Values } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
 import { parseIsoDate } from '../../lib/working-days.js';
 import { claimFiles } from '../files/links.js';
 import { calendarFor, isClosed, loadRegister, loadUsers, searchTextOf, type RegisterDef } from '../registers/definition.js';
-import { auditSettings, trimmed, type Actor } from '../settings/common.js';
+import { auditSettings, auditSettingsMany, trimmed, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { loadNode, nodeLabel } from './groups.service.js';
 
@@ -140,8 +141,10 @@ export async function handOverScan(db: Db, actor: Actor, id: string, input: Hand
     const calendar = await calendarFor(tx, reg);
     const users = await loadUsers(tx);
     const rule = vf.due.calcRule;
-    let started = 0;
     let keptLegacy = 0;
+    // Пачками (1.13.9): значения, связь со сканом срока и журнал — число запросов от числа пачек, не записей.
+    const updates: RecordValuesUpdate[] = [];
+    const audits: SettingsAuditEntry[] = [];
     for (const r of candidates) {
       if (isClosed(reg, r.values)) continue;
       if (r.values[vf.legacyDue.id] !== undefined) {
@@ -150,23 +153,24 @@ export async function handOverScan(db: Db, actor: Actor, id: string, input: Hand
       }
       const values: Values = { ...r.values, [vf.notified.id]: input.date };
       const due = rule ? calcValue(rule, values, { fields: reg.fields, calendar }) : null;
-      await tx.registerRecord.update({
-        where: { id: r.id },
-        data: { values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, r.number, values, users), version: { increment: 1 } },
-      });
-      await tx.vulnRecord.update({ where: { recordId: r.id }, data: { deadlineScanId: id, version: { increment: 1 } } });
-      await auditSettings(tx, actor, {
+      updates.push({ id: r.id, values, searchText: searchTextOf(reg, r.number, values, users) });
+      audits.push({
         action: 'register_record.updated', entity: 'register_record', entityId: r.id,
         summary: `«${reg.name}», запись #${r.number}: отчёт передан ИКТ ${formatDateRu(input.date)}, срок по процедуре: ${typeof due === 'string' ? formatDateRu(due) : 'не определён'}`,
         after: { changes: [{ fieldId: vf.notified.id, label: vf.notified.label, from: '', to: formatDateRu(input.date) }], via: 'handover', scanId: id },
       });
-      started++;
     }
+    await updateRecordValues(tx, updates);
+    for (const ids of idChunks(updates.map((u) => u.id))) {
+      await tx.$executeRaw`UPDATE vuln_records SET deadline_scan_id = ${id}::uuid, version = version + 1, updated_at = now() WHERE record_id = ANY(${ids}::uuid[])`;
+    }
+    await auditSettingsMany(tx, actor, audits);
+    const started = updates.length;
     await auditSettings(tx, actor, {
       action: 'vuln.scan.handed_over', entity: 'vuln_scan', entityId: id,
       summary: `Уязвимости, «${nodeLabel(scan.node)}»: скан от ${formatDateRu(scanDate)} передан ИКТ ${formatDateRu(input.date)} (${to}) — срок начался у записей: ${started}`,
       after: { date: input.date, to, fileId: input.fileId ?? null, started, keptLegacy },
     });
     return { started, keptLegacy, registerId: reg.id };
-  });
+  }, BULK_TX);
 }

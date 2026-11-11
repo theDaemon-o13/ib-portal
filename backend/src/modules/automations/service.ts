@@ -1,7 +1,7 @@
 // Правила автоматизации реестров и их события (право registers.manage на правила, records.edit — отметить событие).
 import type { Prisma } from '../../generated/prisma/client.js';
 import { workUsersWhere } from '../../lib/work-users.js';
-import { withTx, type Db } from '../../lib/db.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { basisOf, isBasisRule } from '../../lib/link-basis.js';
 import { isDueRule, type Values } from '../../lib/register-values.js';
@@ -766,5 +766,5 @@ async function runAutomationsNow(db: Db, opts: { now?: Date; registerId?: string
       tasksCreated: tasks.created + docs.tasksCreated + evidence.tasksCreated,
       tasksCommented: tasks.commented + docs.tasksCommented + evidence.tasksCommented,
     };
-  });
+  }, BULK_TX);
 }
