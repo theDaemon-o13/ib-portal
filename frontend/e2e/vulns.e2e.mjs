@@ -14,8 +14,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
-import { launchBrowser, portalToday } from './browser.mjs';
-import { cleanE2eGroups } from './vulns-cleanup.mjs';
+import { launchBrowser, portalToday, sleep } from './browser.mjs';
+import { breakScanImport, cleanE2eGroups } from './vulns-cleanup.mjs';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:5173';
 const LOGIN = process.env.E2E_LOGIN;
@@ -383,6 +383,51 @@ describe('Раздел «Уязвимости»', () => {
     await ui.click(button('Восстановить', row));
     await ui.waitFor(`![...document.querySelectorAll('[data-testid=trash-row]')].some((r) => r.textContent.includes(${JSON.stringify(name)}))`, 'событие восстановлено');
     await open('/vulns', `!!${treeBtn(name)}`, 'группа снова в дереве');
+  });
+
+  it('импорт (1.13.9): сбой применения — номер запроса, ничего не записано; «Загружается…», второе нажатие запрос не шлёт', async () => {
+    const types = (await api('/api/v1/catalogs/system_types/items')).items ?? [];
+    const windows = types.find((t) => t.value === 'Windows');
+    assert.ok(windows, `нет типа Windows: ${JSON.stringify(types)}`);
+    const group = await send('POST', '/api/v1/vulns/groups', { name: `${GROUP}-импорт`, kind: 'department', systemTypeIds: [windows.id] });
+    const node = group.nodes?.[0];
+    assert.ok(node?.id, `узел не создан: ${JSON.stringify(group)}`);
+    const file = join(tmp, 'vuln-import-2026-10-23.xlsx');
+    copyFileSync(SAMPLE, file);
+    const preview = async () => {
+      await open(`/vulns/node/${node.id}`, `!!${button('Импорт скана')}`, 'экран узла');
+      await ui.click(button('Импорт скана'));
+      await ui.waitFor(`!!${dialog('Импорт скана')}`, 'окно импорта');
+      const mark = ui.mark();
+      await ui.setFiles('[role=dialog] input[type=file]', [file]);
+      await ui.waitFor(`!!document.querySelector('[role=dialog] .v-dcards')`, 'предпросмотр', 20_000);
+      return (await ui.response(await ui.request(mark, 'POST', '/scan-imports'))).id;
+    };
+    const primary = `document.querySelector('[role=dialog] .btn.primary')`;
+
+    // Сбой внутри применения: не «Попробуйте ещё раз», а номер запроса; в узле ничего нет.
+    await breakScanImport(await preview());
+    await ui.click(primary, 'Загрузить');
+    await ui.waitFor(`document.querySelector('[role=dialog] .form-error')?.textContent.startsWith('Импорт не завершён, ничего не записано')`, 'сообщение о сбое', 20_000);
+    assert.match(await ui.evaluate(`document.querySelector('[role=dialog] .form-error').textContent`), /^Импорт не завершён, ничего не записано\. Сообщите администратору номер запроса [0-9a-f]{8}$/);
+    assert.equal((await api(`/api/v1/vulns/nodes/${node.id}/records?state=all`)).total, 0, 'ничего не записано');
+    await ui.click(button('Отмена', "document.querySelector('[role=dialog]')"));
+
+    // Медленный ответ: кнопка «Загружается…» и неактивна; второе нажатие второй запрос не отправляет.
+    await preview();
+    ui.holdResponses('/apply');
+    const mark = ui.mark();
+    try {
+      await ui.click(primary, 'Загрузить');
+      await ui.waitFor(`${primary}?.textContent === 'Загружается…' && ${primary}.disabled`, '«Загружается…»');
+      await ui.click(primary, 'Загружается…');
+      await sleep(400);
+      assert.equal(ui.requestsSince(mark).filter((r) => r.method === 'POST' && r.url.includes('/apply')).length, 1, 'один запрос применения');
+    } finally {
+      ui.releaseResponses();
+    }
+    await ui.waitFor(`location.pathname.startsWith('/vulns/scan/')`, 'экран скана', 30_000);
+    assert.equal((await api(`/api/v1/vulns/nodes/${node.id}/records?state=all`)).total, 90);
   });
 
   it('страница «Реестры» у реестра уязвимостей: нет «Новая запись» и нет загрузки отчёта', async () => {
