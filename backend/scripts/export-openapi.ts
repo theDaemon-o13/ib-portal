@@ -3,6 +3,7 @@
 import { writeFile } from 'node:fs/promises';
 import { buildApp } from '../src/app.js';
 import { frontendLanguagesModule } from '../src/lib/languages.js';
+import { frontendLetterFormatModule } from '../src/lib/letter-format.js';
 import { createPrisma } from '../src/lib/db.js';
 import { argon2Hasher } from '../src/lib/passwords.js';
 import { MemoryAuditWriter } from '../src/modules/audit/audit.js';
@@ -27,3 +28,7 @@ console.log(`OpenAPI записан в ${out.pathname}`);
 const langs = new URL('../../frontend/src/api/generated/languages.ts', import.meta.url);
 await writeFile(langs, frontendLanguagesModule());
 console.log(`Список языков записан в ${langs.pathname}`);
+// Правила оформления писем для frontend (1.13.11): константы — из backend, один источник.
+const fmt = new URL('../../frontend/src/api/generated/letter-format.ts', import.meta.url);
+await writeFile(fmt, frontendLetterFormatModule());
+console.log(`Правила оформления писем записаны в ${fmt.pathname}`);

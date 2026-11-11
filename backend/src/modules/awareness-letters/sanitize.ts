@@ -4,6 +4,7 @@
 import { createHash } from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
 import { AppError } from '../../lib/errors.js';
+import { columnWidth, filterStyle, imageAlign, imageWidth, STYLED_TAGS } from '../../lib/letter-format.js';
 
 export const ALLOWED_TAGS = [
   'h2', 'h3', 'h4', 'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'a',
@@ -72,6 +73,22 @@ function hostOf(url: string): string | null {
 }
 
 /**
+ * Атрибуты тега с оформлением (1.13.11): style — отфильтрованный по правилам тега; у ячеек — colspan, rowspan и ширина
+ * столбца «NN%». Остальные атрибуты этих тегов — как раньше (у span, u, p, h2–h4, li их нет).
+ */
+function styledAttribs(tag: string, attribs: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (tag === 'td' || tag === 'th') {
+    for (const k of ['colspan', 'rowspan'] as const) if (attribs[k] !== undefined) out[k] = attribs[k] as string;
+    const w = columnWidth(attribs.width);
+    if (w !== null) out.width = `${w}%`;
+  }
+  const style = filterStyle(tag, attribs.style);
+  if (style) out.style = style;
+  return out;
+}
+
+/**
  * Санитизировать HTML письма. portalUrl — адрес портала (PORTAL_URL): ссылки на него — 400 PORTAL_LINK,
  * сотрудники банка портал не видят. Неподходящие изображения и ссылки вырезаются, о внешних — запись в removed.
  */
@@ -84,12 +101,14 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
 
   const html = sanitizeHtml(dirty, {
     allowedTags: ALLOWED_TAGS,
+    // Оформление (1.13.11, lib/letter-format.ts): style — только у этих тегов и только отфильтрованный (transformTags).
     allowedAttributes: {
       a: ['href'],
-      img: ['src', 'alt', 'width', 'height'],
-      td: ['colspan', 'rowspan'],
-      th: ['colspan', 'rowspan'],
+      img: ['src', 'alt', 'width', 'height', 'data-align'],
+      td: ['colspan', 'rowspan', 'width', 'style'],
+      th: ['colspan', 'rowspan', 'width', 'style'],
       div: ['data-ib-fragment', 'data-callout'],
+      ...Object.fromEntries(STYLED_TAGS.filter((t) => t !== 'td' && t !== 'th').map((t) => [t, ['style']])),
     },
     allowedSchemes: ['http', 'https', 'mailto'],
     allowedSchemesByTag: { img: ['data'] },
@@ -117,9 +136,15 @@ export function sanitizeLetterHtml(dirty: string, opts: { portalUrl?: string } =
         images.push({ mime: img.mime, bytes: img.data.length, sha256: createHash('sha256').update(img.data).digest('hex') });
         const out: Record<string, string> = { src: `data:${img.mime};base64,${img.data.toString('base64')}` };
         if (attribs.alt) out.alt = attribs.alt;
-        for (const k of ['width', 'height'] as const) if (/^\d{1,4}$/.test(attribs[k] ?? '')) out[k] = attribs[k] as string;
+        // Ширина — 40–544 px (1.13.11), высота — как раньше; положение — только из списка.
+        const width = imageWidth(attribs.width);
+        if (width !== null) out.width = String(width);
+        if (/^\d{1,4}$/.test(attribs.height ?? '')) out.height = attribs.height as string;
+        const align = imageAlign(attribs['data-align']);
+        if (align) out['data-align'] = align;
         return { tagName, attribs: out };
       },
+      ...Object.fromEntries(STYLED_TAGS.map((t) => [t, (tagName: string, attribs: Record<string, string>) => ({ tagName, attribs: styledAttribs(tagName, attribs) })])),
       // Блок «Подпись ИБ» и выделенный блок (1.12.0): только эти значения, остальные атрибуты div вырезаются.
       div: (tagName, attribs) => ({
         tagName,

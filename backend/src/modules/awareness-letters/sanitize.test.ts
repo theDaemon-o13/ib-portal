@@ -105,3 +105,41 @@ describe('сигнатуры и лимиты', () => {
     expect(e.message).toMatch(/^Письмо 2100 КБ/);
   });
 });
+
+describe('санитайзер писем: оформление (1.13.11)', () => {
+  const TNR = "font-family:'Times New Roman', Times, serif";
+
+  it('разрешённое проходит: шрифт, цвет и фон у span, цвет подчёркивания, выравнивание, картинка, ширина и заливка ячеек', () => {
+    const html = `<p style="text-align:center"><span style="${TNR};color:#DC2626;background-color:#FEF08A">текст</span> <u style="text-decoration-color:#2563EB">подч</u></p>`
+      + '<h3 style="text-align:right">З</h3><ul><li style="text-align:justify"><p>п</p></li></ul>'
+      + `<img src="data:image/png;base64,${PNG}" width="280" data-align="wrap-right" />`
+      + '<table><tbody><tr><th width="40%" style="background-color:#1E3A8A"><p>А</p></th><td width="60%"><p>Б</p></td></tr></tbody></table>';
+    expect(s(html).html).toBe(html);
+  });
+
+  it('style с несколькими объявлениями — по каждому: недопустимые удаляются, разрешённые остаются', () => {
+    expect(s('<p><span style="color:red;font-family:Calibri;background-color:#bbf7d0;font-size:30px">т</span></p>').html)
+      .toBe('<p><span style="background-color:#BBF7D0">т</span></p>');
+    expect(s('<p><span style="color:rgb(1,2,3);background:url(https://x.example/a.png)">т</span></p>').html).toBe('<p><span>т</span></p>');
+    expect(s('<p><span style="color:#fff;background-color:#12345G">т</span></p>').html).toBe('<p><span>т</span></p>');
+    expect(s('<p><span style="color:expression(alert(1))">т</span></p>').html).toBe('<p><span>т</span></p>');
+    expect(s('<p style="text-align:start;background-color:#FEF08A">т</p>').html).toBe('<p>т</p>');
+    expect(s('<p><u style="text-decoration-color:blue;color:#DC2626">т</u></p>').html).toBe('<p><u>т</u></p>');
+  });
+
+  it('style у неразрешённого тега, data-align вне списка, ширина картинки вне 40–544, ширина столбца вне 10–100% — удаляются', () => {
+    expect(s('<p><strong style="color:#DC2626">ж</strong> <a href="https://example.org" style="color:#DC2626">с</a></p>').html)
+      .toBe('<p><strong>ж</strong> <a href="https://example.org">с</a></p>');
+    expect(s('<blockquote style="text-align:center"><p>ц</p></blockquote>').html).toBe('<blockquote><p>ц</p></blockquote>');
+    expect(s(`<img src="data:image/png;base64,${PNG}" data-align="float" width="600" />`).html).toBe(`<img src="data:image/png;base64,${PNG}" />`);
+    expect(s(`<img src="data:image/png;base64,${PNG}" width="39" />`).html).toBe(`<img src="data:image/png;base64,${PNG}" />`);
+    expect(s('<table><tbody><tr><td width="5%" style="background-color:#EFF6FF;width:200px"><p>1</p></td><td width="200"><p>2</p></td></tr></tbody></table>').html)
+      .toBe('<table><tbody><tr><td style="background-color:#EFF6FF"><p>1</p></td><td><p>2</p></td></tr></tbody></table>');
+  });
+
+  it('повторное сохранение ничего не меняет', () => {
+    const once = s(`<p style="TEXT-ALIGN: Center"><span style="color:#dc2626; font-family: 'times new roman' , times , serif">т</span></p>`).html;
+    expect(once).toBe(`<p style="text-align:center"><span style="${TNR};color:#DC2626">т</span></p>`);
+    expect(s(once).html).toBe(once);
+  });
+});
