@@ -300,3 +300,6 @@ input[type="number"]:hover::-webkit-inner-spin-button{opacity:1}
 textarea.inp{resize:vertical;line-height:1.45}
 /* Полосы прокрутки — из токенов темы (в «Чёрном океане» тёмные). */
 :root{scrollbar-color:var(--line-2) transparent}
+
+/* Настенный монитор (1.13.7): предупреждение на строке учётки в «Пользователи и роли». */
+.kiosk-warn{margin-top:6px;display:flex;flex-direction:column;align-items:flex-start;gap:2px}

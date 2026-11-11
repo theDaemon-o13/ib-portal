@@ -18,6 +18,8 @@ let ui;
 let navSeq = 0;
 let staff;
 let task;
+/** Учётка настенного монитора (1.13.7). Прогон e2e идёт без MONITOR_ALLOWED_IPS: вход монитора запрещён с любого адреса. */
+let wall;
 
 async function api(method, path, body) {
   const res = await ui.evaluate(`fetch(${JSON.stringify(path)}, ${JSON.stringify(body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })})
@@ -66,6 +68,10 @@ before(async () => {
     login: `${RUN.toLowerCase()}.staff`, fullName: `Сотрудник Журнала ${RUN}`, roleIds: [roles.find((r) => r.code === 'ib_staff').id],
   });
   staff = { id: created.user.id, login: created.user.login, password: created.temporaryPassword };
+  const kiosk = await ok('POST', '/api/v1/users', {
+    login: `${RUN.toLowerCase()}.wall`, fullName: `Монитор Стены ${RUN}`, roleIds: [roles.find((r) => r.code === 'kiosk').id],
+  });
+  wall = { id: kiosk.user.id, login: kiosk.user.login, password: kiosk.temporaryPassword };
   const category = (await ok('GET', '/api/v1/catalogs/task_categories/items')).items[0];
   task = await ok('POST', '/api/v1/tasks', { title: `${RUN} задача для журнала`, categoryId: category.id });
 });
@@ -77,9 +83,9 @@ after(async () => {
     const t = (await api('GET', `/api/v1/tasks/${task.id}`)).json;
     if (t && !t.archived) await api('POST', `/api/v1/tasks/${task.id}/archive`, { version: t.version });
   }
-  if (staff) {
-    const cur = (await ok('GET', `/api/v1/users?q=${encodeURIComponent(staff.login)}`)).items.find((u) => u.id === staff.id);
-    if (cur?.isActive) await api('POST', `/api/v1/users/${staff.id}/disable`, { version: cur.version });
+  for (const u of [staff, wall].filter(Boolean)) {
+    const cur = (await ok('GET', `/api/v1/users?q=${encodeURIComponent(u.login)}`)).items.find((x) => x.id === u.id);
+    if (cur?.isActive) await api('POST', `/api/v1/users/${u.id}/disable`, { version: cur.version });
   }
   await ui.close();
 });
@@ -130,5 +136,41 @@ describe('Журнал', () => {
     assert.ok(!(await ui.evaluate(`[...document.querySelectorAll('aside.drawer .eyebrow')].some((e) => e.textContent === 'История изменений')`)), 'истории в карточке нет');
     assert.equal((await api('GET', `/api/v1/tasks/${task.id}/history`)).status, 403);
     assert.equal((await api('GET', '/api/v1/audit/export')).status, 403);
+  });
+});
+
+describe('Вход настенного монитора: причина отказа (1.13.7)', () => {
+  it('отказ по адресу и неверный пароль — один ответ; в «Журнале» — причина; в «Пользователи и роли» — предупреждение', async () => {
+    await api('POST', '/api/v1/auth/logout');
+    const uniform = { error: { code: 'INVALID_CREDENTIALS', message: 'Неверный логин или пароль' } };
+    const denied = await api('POST', '/api/v1/auth/login', { login: wall.login, password: wall.password });
+    const wrong = await api('POST', '/api/v1/auth/login', { login: wall.login, password: `${wall.password}-нет` });
+    assert.deepEqual([denied.status, denied.json], [401, uniform], 'верный пароль с неразрешённого адреса');
+    assert.deepEqual([wrong.status, wrong.json], [401, uniform], 'неверный пароль — тот же ответ');
+
+    // Форма входа: пользователь видит только «Неверный логин или пароль».
+    await ui.goto(`/login?n=${++navSeq}`);
+    await ui.type(`document.querySelector('input[name=username]')`, wall.login);
+    await ui.type(`document.querySelector('input[name=password]')`, wall.password);
+    await ui.click(`document.querySelector('form button[type=submit]')`);
+    await ui.waitFor(`!!document.querySelector('.form-error')`, 'сообщение формы входа');
+    assert.equal(await ui.text(`document.querySelector('.form-error')`), 'Неверный логин или пароль', 'причины на форме нет');
+
+    await loginAs(LOGIN, PASSWORD);
+    await ui.goto(`/audit?n=${++navSeq}`);
+    await ui.waitFor(`!!document.querySelector('.audit-tbl')`, 'раздел «Журнал»');
+    await ui.type(`[...document.querySelectorAll('.audit-filters label')].find((l) => l.textContent.startsWith('Поиск'))?.querySelector('input')`, wall.login);
+    await ui.click($.button('Найти'));
+    await ui.waitFor(`!!${auditRow(`Неудачный вход «${wall.login}»: адрес не разрешён для настенного монитора (MONITOR_ALLOWED_IPS)`)}`, 'причина «адрес не разрешён»');
+    await ui.waitFor(`!!${auditRow(`Неудачный вход «${wall.login}»: неверный пароль (попытка 1)`)}`, 'причина «неверный пароль»');
+
+    await ui.goto(`/settings/users?n=${++navSeq}`);
+    const wallRow = `[...document.querySelectorAll('.users-tbl tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(wall.login)}))`;
+    await ui.waitFor(`!!${wallRow}?.querySelector('[data-testid=kiosk-warning]')`, 'предупреждение на строке монитора');
+    const warn = await ui.text(`${wallRow}.querySelector('[data-testid=kiosk-warning]')`);
+    assert.match(warn, /Монитор: адреса не заданы/);
+    assert.match(warn, /Последний отказ: .*адрес /);
+    const staffRow = `[...document.querySelectorAll('.users-tbl tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(staff.login)}))`;
+    assert.equal(await ui.evaluate(`!!${staffRow}?.querySelector('[data-testid=kiosk-warning]')`), false, 'у остальных предупреждения нет');
   });
 });

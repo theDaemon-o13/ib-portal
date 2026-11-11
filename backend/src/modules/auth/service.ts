@@ -24,6 +24,7 @@ import {
 } from '../../lib/session-token.js';
 import type { AuthUser } from '../../types.js';
 import type { AuditWriter } from '../audit/audit.js';
+import { loginForLog, type LoginFailureReason } from './reasons.js';
 import type { AuthRepository, SessionInfo, SessionRecord, UserRecord } from './repository.js';
 
 /**
@@ -63,6 +64,12 @@ export interface AuthServiceDeps {
   kioskAllowedIps?: IpList;
   /** Адреса рабочих мест администраторов (ADMIN_ALLOWED_IPS). Не задано или пусто — без ограничения (ADR-0015). */
   adminAllowedIps?: IpList;
+  /** Лог backend: строка warn при отказе во входе (1.13.7). Пароль и его производные сюда не передаются. */
+  log?: AuthLog;
+}
+
+export interface AuthLog {
+  warn(obj: Record<string, unknown>, msg: string): void;
 }
 
 export interface ClientInfo {
@@ -85,7 +92,7 @@ export function normalizeLogin(login: string): string {
   return login.trim().toLowerCase();
 }
 
-export function createAuthService({ repo, audit, hasher, now = () => new Date(), kioskAllowedIps, adminAllowedIps }: AuthServiceDeps) {
+export function createAuthService({ repo, audit, hasher, now = () => new Date(), kioskAllowedIps, adminAllowedIps, log }: AuthServiceDeps) {
   const kioskIpAllowed = (ip: string | null) => kioskAllowedIps?.has(ip) ?? false;
   const isAdmin = (u: AuthUser) => ADMIN_PERMISSIONS.some((p) => u.permissions.has(p));
   const adminIpAllowed = (ip: string | null) => !adminAllowedIps || adminAllowedIps.empty || adminAllowedIps.has(ip);
@@ -118,18 +125,31 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     const at = now();
     const user = await repo.findUserByLogin(login);
 
+    /**
+     * Отказ во входе: запись журнала (причина — в diff.reason) и строка warn в логе backend (1.13.7).
+     * В лог — только причина, логин (unknown_user — в маске: в поле логина иногда вводят пароль), id и IP.
+     */
+    const reject = async (reason: LoginFailureReason, extra: Record<string, unknown> = {}) => {
+      await audit.write({
+        userId: user?.id ?? null,
+        action: 'auth.login_failed',
+        ...(user ? { entity: 'user', entityId: user.id } : {}),
+        diff: { login, reason, ...extra },
+        ip: client.ip,
+      });
+      log?.warn({ event: 'auth.login_rejected', reason, login: loginForLog(reason, login), userId: user?.id ?? null, ip: client.ip, ...extra },
+        'вход отклонён');
+    };
+
     if (!user) {
       await hasher.verify(await getDummyHash(), input.password);
-      await audit.write({ userId: null, action: 'auth.login_failed', diff: { login, reason: 'unknown_user' }, ip: client.ip });
+      await reject('unknown_user');
       throw invalidCredentials();
     }
 
     // Во время блокировки пароль не проверяется.
     if (isLocked(user, at) && user.lockedUntil) {
-      await audit.write({
-        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
-        diff: { login, reason: 'locked' }, ip: client.ip,
-      });
+      await reject('locked');
       throw accountLocked(user.lockedUntil);
     }
 
@@ -138,10 +158,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     if (!passwordOk) {
       const next = registerFailure(user, at);
       await repo.saveLockout(user.id, { failedLoginCount: next.failedLoginCount, lockedUntil: next.lockedUntil });
-      await audit.write({
-        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
-        diff: { login, reason: 'wrong_password', attempt: next.failedLoginCount }, ip: client.ip,
-      });
+      await reject('wrong_password', { attempt: next.failedLoginCount });
       if (next.lockedNow && next.lockedUntil) {
         await audit.write({
           userId: user.id, action: 'auth.locked', entity: 'user', entityId: user.id,
@@ -153,10 +170,7 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     }
 
     if (!user.isActive) {
-      await audit.write({
-        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
-        diff: { login, reason: 'inactive' }, ip: client.ip,
-      });
+      await reject('inactive');
       throw invalidCredentials();
     }
 
@@ -164,19 +178,13 @@ export function createAuthService({ repo, audit, hasher, now = () => new Date(),
     // счётчик неудачных попыток не растёт: пароль верный, и учётную запись это не блокирует.
     const authUser = await toAuthUser(user);
     if (authUser.kiosk && !kioskIpAllowed(client.ip)) {
-      await audit.write({
-        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
-        diff: { login, reason: 'kiosk_ip_denied' }, ip: client.ip,
-      });
+      await reject('kiosk_ip_denied');
       throw invalidCredentials();
     }
     // Администратор (settings.manage, users.manage) — только с рабочих мест из ADMIN_ALLOWED_IPS. Ответ тот же,
     // что на неверный пароль: иначе с любого ПК можно проверять, верен ли пароль администратора (ADR-0015).
     if (isAdmin(authUser) && !adminIpAllowed(client.ip)) {
-      await audit.write({
-        userId: user.id, action: 'auth.login_failed', entity: 'user', entityId: user.id,
-        diff: { login, reason: 'admin_ip_denied' }, ip: client.ip,
-      });
+      await reject('admin_ip_denied');
       throw invalidCredentials();
     }
 

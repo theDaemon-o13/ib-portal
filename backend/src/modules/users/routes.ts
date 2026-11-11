@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import type { Db } from '../../lib/db.js';
+import type { IpList } from '../../lib/ip-list.js';
 import { PageQuery, pageSchema } from '../../lib/pagination.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { ErrorResponse } from '../../plugins/errors.js';
@@ -39,7 +40,23 @@ const IdParams = z.object({ id: z.string().uuid() });
 const Version = z.object({ version: z.number().int().positive() });
 const manage = requirePerm('users.manage');
 
-export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher }> = async (app, { db, hasher }) => {
+export const userRoutes: FastifyPluginAsyncZod<{ db: Db; hasher: PasswordHasher; kioskAllowedIps?: IpList }> = async (app, { db, hasher, kioskAllowedIps }) => {
+  app.get('/users/kiosk-status', {
+    preHandler: manage,
+    schema: {
+      tags,
+      summary: 'Настенный монитор (1.13.7): задан ли список адресов MONITOR_ALLOWED_IPS и последний отказ во входе по адресу после последнего успешного входа',
+      response: {
+        200: z.object({
+          /** MONITOR_ALLOWED_IPS пуста: вход монитора запрещён с любого адреса. Сами адреса не отдаются. */
+          allowedIpsEmpty: z.boolean(),
+          items: z.array(z.object({ userId: z.string(), lastDenied: z.object({ at: z.string(), ip: z.string().nullable() }).nullable() })),
+        }),
+        ...errors,
+      },
+    },
+  }, async () => svc.kioskStatus(db, kioskAllowedIps));
+
   app.get('/users', {
     preHandler: requireAnyPerm(['ib.work', 'users.manage']),  // служебный администратор (ADR-0036)
     schema: {

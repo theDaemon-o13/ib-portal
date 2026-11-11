@@ -10566,6 +10566,273 @@
         }
       }
     },
+    "/api/v1/users/kiosk-status": {
+      "get": {
+        "summary": "Настенный монитор (1.13.7): задан ли список адресов MONITOR_ALLOWED_IPS и последний отказ во входе по адресу после последнего успешного входа",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allowedIpsEmpty": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "lastDenied": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "at": {
+                                    "type": "string"
+                                  },
+                                  "ip": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "at",
+                                  "ip"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "lastDenied"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "allowedIpsEmpty",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
         "summary": "Пользователи портала",
@@ -91613,6 +91880,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -91778,6 +92060,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -94032,6 +94315,21 @@
                           "overdue": {
                             "type": "boolean"
                           },
+                          "code": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ru",
+                                  "tg",
+                                  "en"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "onlyofficeUrl": {
                             "type": "string"
                           },
@@ -94197,6 +94495,7 @@
                           "dueDate",
                           "done",
                           "overdue",
+                          "code",
                           "onlyofficeUrl",
                           "docx",
                           "pdf",
@@ -96172,6 +96471,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -96337,6 +96651,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -98330,6 +98645,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -98495,6 +98825,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -100478,6 +100809,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -100643,6 +100989,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -102634,6 +102981,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -102799,6 +103161,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -104761,6 +105124,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -104926,6 +105304,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -106900,6 +107279,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -107065,6 +107459,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -109038,6 +109433,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -109203,6 +109613,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -111159,6 +111570,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -111324,6 +111750,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -113309,6 +113736,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -113474,6 +113916,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -115471,6 +115914,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -115636,6 +116094,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -117634,6 +118093,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -117799,6 +118273,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -119772,6 +120247,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -119937,6 +120427,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -121927,6 +122418,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -122092,6 +122598,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -124074,6 +124581,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -124239,6 +124761,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -126223,6 +126746,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -126388,6 +126926,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -128361,6 +128900,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -128526,6 +129080,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -129081,7 +129636,7 @@
     },
     "/api/v1/documents/{id}/translations": {
       "post": {
-        "summary": "Этап 23: строка перевода — язык, имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23",
+        "summary": "Этап 23: строка перевода — язык из списка (code), имя переводчика текстом (необязательно), срок, ссылка OnlyOffice; ведёт автор, только на этапе 23",
         "tags": [
           "documents"
         ],
@@ -129101,9 +129656,13 @@
                     "minimum": 0,
                     "maximum": 24
                   },
-                  "language": {
+                  "code": {
                     "type": "string",
-                    "maxLength": 100
+                    "enum": [
+                      "ru",
+                      "tg",
+                      "en"
+                    ]
                   },
                   "translatorName": {
                     "type": "string",
@@ -129121,7 +129680,7 @@
                 "required": [
                   "version",
                   "stage",
-                  "language",
+                  "code",
                   "dueDate"
                 ]
               }
@@ -130507,6 +131066,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -130672,6 +131246,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -131227,7 +131802,7 @@
     },
     "/api/v1/documents/{id}/translations/{translationId}": {
       "patch": {
-        "summary": "Правка перевода; смена срока — только с комментарием (история сроков)",
+        "summary": "Правка перевода: язык — только из списка (code; не передан — не меняется); смена срока — только с комментарием (история сроков)",
         "tags": [
           "documents"
         ],
@@ -131247,9 +131822,13 @@
                     "minimum": 0,
                     "maximum": 24
                   },
-                  "language": {
+                  "code": {
                     "type": "string",
-                    "maxLength": 100
+                    "enum": [
+                      "ru",
+                      "tg",
+                      "en"
+                    ]
                   },
                   "translatorName": {
                     "type": "string",
@@ -132665,6 +133244,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -132830,6 +133424,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -134803,6 +135398,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -134968,6 +135578,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -136952,6 +137563,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -137117,6 +137743,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -139100,6 +139727,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -139265,6 +139907,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -144629,6 +145272,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -144794,6 +145452,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -146772,6 +147431,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -146937,6 +147611,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -148898,6 +149573,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -149063,6 +149753,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -151036,6 +151727,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -151201,6 +151907,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -153158,6 +153865,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -153323,6 +154045,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",
@@ -155280,6 +156003,21 @@
                                   "overdue": {
                                     "type": "boolean"
                                   },
+                                  "code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "ru",
+                                          "tg",
+                                          "en"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "onlyofficeUrl": {
                                     "type": "string"
                                   },
@@ -155445,6 +156183,7 @@
                                   "dueDate",
                                   "done",
                                   "overdue",
+                                  "code",
                                   "onlyofficeUrl",
                                   "docx",
                                   "pdf",

@@ -26,6 +26,7 @@ import { updatePortalParam } from '../settings/portal-params.js';
 import { loadFullWorkCalendar } from '../calendar/service.js';
 import { addWorkingDays, isoDate, parseIsoDate } from '../../lib/working-days.js';
 import { addMonthsIso, type DocAction } from './status.js';
+import type { LanguageCode } from '../../lib/languages.js';
 
 const URL1 = 'https://office.example.local/products/files/doceditor.aspx?fileid=101';
 const URL_TJ = 'https://office.example.local/products/files/doceditor.aspx?fileid=202';
@@ -128,8 +129,8 @@ async function addParty(tx: Tx, u: User, id: string, extra: Partial<parties.Part
   return tx.documentParty.findFirstOrThrow({ where: { documentId: id }, orderBy: { addedAt: 'desc' } });
 }
 
-async function addTranslation(tx: Tx, u: User, id: string, language: string, extra: { translatorName?: string; dueDate?: string; onlyofficeUrl?: string } = {}) {
-  await tr.addTranslation(tx, await actorFor(tx, u.id), id, { ...(await cur(tx, id)), language, dueDate: extra.dueDate ?? '2026-11-20', ...extra });
+async function addTranslation(tx: Tx, u: User, id: string, code: LanguageCode, extra: { translatorName?: string; dueDate?: string; onlyofficeUrl?: string } = {}) {
+  await tr.addTranslation(tx, await actorFor(tx, u.id), id, { ...(await cur(tx, id)), code, dueDate: extra.dueDate ?? '2026-11-20', ...extra });
   return tx.documentTranslation.findFirstOrThrow({ where: { documentId: id, removedAt: null }, orderBy: { addedAt: 'desc' } });
 }
 
@@ -947,7 +948,7 @@ describe('документы: задачи этапов маршрута (ADR-00
       expect(await tx.task.count({ where: { documentId: id, documentReason: 'returned', completedAt: null } })).toBe(1);
 
       await moveTo(tx, x, id, '23');
-      const t = await addTranslation(tx, x.owner, id, 'Английский', { dueDate: '2026-12-05' });
+      const t = await addTranslation(tx, x.owner, id, 'en', { dueDate: '2026-12-05' });
       // Задача этапа та же; срок — срок языка без ссылки, со ссылкой — снова N рабочих дней этапа.
       const [tt] = await stageTasks(tx, id);
       expect(tt).toMatchObject({ assigneeId: x.owner.id, title: expect.stringMatching(/^Перевести и отправить на утверждение/) });
@@ -1141,7 +1142,7 @@ describe('документы: неизменность истории и утв�
   const approvedWithChildren = async (tx: Tx, x: Fx) => {
     const id = await x.create();
     await moveTo(tx, x, id, '23');
-    const t = await addTranslation(tx, x.owner, id, 'Таджикский', { onlyofficeUrl: URL_TJ });
+    const t = await addTranslation(tx, x.owner, id, 'tg', { onlyofficeUrl: URL_TJ });
     await moveTo(tx, x, id, '24');
     await attachApproval(tx, x.owner, id);
     await setFile(tx, x.owner, id, 'translation_pdf', (await pdfFile(tx, x.owner, 'tj.pdf')).id, t.id);
@@ -1558,18 +1559,18 @@ describe('документы: этап 23 — перевод ссылками', 
       const x = await fixture(tx);
       const id = await x.create();
       // На 21 и 22 раздела «Перевод» нет.
-      await expectCode(addTranslation(tx, x.owner, id, 'Таджикский'), 'WRONG_STAGE');
+      await expectCode(addTranslation(tx, x.owner, id, 'tg'), 'WRONG_STAGE');
       expect((await view(tx, x.owner, id)).can.translations).toBe(false);
       await moveTo(tx, x, id, '22:parties');
-      await expectCode(addTranslation(tx, x.owner, id, 'Таджикский'), 'WRONG_STAGE');
+      await expectCode(addTranslation(tx, x.owner, id, 'tg'), 'WRONG_STAGE');
       await moveTo(tx, x, id, '23');
       expect((await view(tx, x.owner, id)).can.translations).toBe(true);
-      for (const u of [x.staff, x.chief, x.head]) await expectCode(addTranslation(tx, u, id, 'Таджикский'), 'FORBIDDEN');
-      await expectCode(addTranslation(tx, x.owner, id, 'Таджикский', { onlyofficeUrl: 'javascript:alert(1)' }), 'BAD_URL');
-      const tj = await addTranslation(tx, x.owner, id, 'Таджикский', { translatorName: '  Калинов К. К.  ' });
-      await expectCode(addTranslation(tx, x.owner, id, ' таджикский '), 'DUPLICATE');
-      const en = await addTranslation(tx, x.admin, id, 'Английский', { onlyofficeUrl: URL_TJ }); // docs.manage — за автора
-      await expectCode(addTranslation(tx, x.owner, id, 'Узбекский', { translatorName: 'И'.repeat(201) }), 'TOO_LONG');
+      for (const u of [x.staff, x.chief, x.head]) await expectCode(addTranslation(tx, u, id, 'tg'), 'FORBIDDEN');
+      await expectCode(addTranslation(tx, x.owner, id, 'tg', { onlyofficeUrl: 'javascript:alert(1)' }), 'BAD_URL');
+      const tj = await addTranslation(tx, x.owner, id, 'tg', { translatorName: '  Калинов К. К.  ' });
+      await expectCode(addTranslation(tx, x.owner, id, 'tg'), 'DUPLICATE');
+      const en = await addTranslation(tx, x.admin, id, 'en', { onlyofficeUrl: URL_TJ }); // docs.manage — за автора
+      await expectCode(addTranslation(tx, x.owner, id, 'ru', { translatorName: 'И'.repeat(201) }), 'TOO_LONG');
       expect([tj.translatorName, tj.translatorId, en.translatorId]).toEqual(['Калинов К. К.', x.owner.id, x.admin.id]);
 
       await expectCode(move(tx, x.owner, id, 'to_approval'), 'TRANSLATION_LINK_MISSING');
@@ -1600,7 +1601,7 @@ describe('документы: этап 23 — перевод ссылками', 
       const x = await fixture(tx);
       const id = await x.create();
       await moveTo(tx, x, id, '23');
-      const t = await addTranslation(tx, x.owner, id, 'Таджикский', { translatorName: 'Калинов К.', dueDate: '2020-01-10' });
+      const t = await addTranslation(tx, x.owner, id, 'tg', { translatorName: 'Калинов К.', dueDate: '2020-01-10' });
       expect(must((await view(tx, x.owner, id)).translations[0]).overdue).toBe(true);
       const patch = async (body: { dueDate?: string; comment?: string; translatorName?: string }) =>
         tr.updateTranslation(tx, await x.as(x.owner), id, t.id, { ...(await cur(tx, id)), ...body });
@@ -1614,6 +1615,85 @@ describe('документы: этап 23 — перевод ссылками', 
       expect((await view(tx, x.owner, id)).translations).toEqual([]);
       await move(tx, x.owner, id, 'to_approval');
       expect(await sqlError(tx, `DELETE FROM document_translations WHERE id = '${t.id}'`)).toMatch(/permission denied/);
+    }));
+});
+
+describe('документы: язык перевода из списка (1.13.7)', () => {
+  /** Строка до 1.13.7: язык введён текстом — как в старых данных, прямо в базу. */
+  async function legacyRow(tx: Tx, u: User, id: string, language: string) {
+    const d = await tx.document.findUniqueOrThrow({ where: { id }, select: { workingVersionId: true } });
+    return tx.documentTranslation.create({ data: { documentId: id, versionId: must(d.workingVersionId), language, translatorId: u.id, addedBy: u.id, dueDate: new Date('2026-11-20T00:00:00Z') } });
+  }
+
+  it('выбор по коду: в базу — название, в карточке — code; повтор того же языка — 409', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, '23');
+      const tg = await addTranslation(tx, x.owner, id, 'tg');
+      await addTranslation(tx, x.owner, id, 'en');
+      expect(tg.language).toBe('Таджикский');
+      expect((await view(tx, x.owner, id)).translations.map((t) => [t.language, t.code])).toEqual([['Таджикский', 'tg'], ['Английский', 'en']]);
+      await expectCode(addTranslation(tx, x.owner, id, 'tg'), 'DUPLICATE');
+      // Снятый язык можно добавить снова.
+      await tr.removeTranslation(tx, await x.as(x.owner), id, tg.id, await cur(tx, id));
+      expect((await addTranslation(tx, x.owner, id, 'tg')).language).toBe('Таджикский');
+    }));
+
+  it('старые строки с языком текстом показываются как есть, сопоставляются только при показе и проверке дубля', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, '23');
+      const tj = await legacyRow(tx, x.owner, id, 'TJ');
+      await legacyRow(tx, x.owner, id, ' english ');
+      const uz = await legacyRow(tx, x.owner, id, 'Узбекский');
+      expect((await view(tx, x.owner, id)).translations.map((t) => [t.language, t.code])).toEqual([['TJ', 'tg'], [' english ', 'en'], ['Узбекский', null]]);
+      const err = await tr.addTranslation(tx, await x.as(x.owner), id, { ...(await cur(tx, id)), code: 'tg', dueDate: '2026-11-20' }).catch((e: Error) => e);
+      expect(err).toMatchObject({ code: 'DUPLICATE', message: 'Язык «Таджикский» уже есть (строка «TJ»)' });
+      await expectCode(addTranslation(tx, x.owner, id, 'en'), 'DUPLICATE');
+      await addTranslation(tx, x.owner, id, 'ru');
+      // Ничего не переписано.
+      const rows = await tx.documentTranslation.findMany({ where: { documentId: id }, orderBy: { addedAt: 'asc' }, select: { id: true, language: true } });
+      expect(rows.map((r) => r.language)).toEqual(['TJ', ' english ', 'Узбекский', 'Русский']);
+      expect(rows.map((r) => r.id).slice(0, 3)).toEqual([tj.id, expect.any(String), uz.id]);
+    }));
+
+  it('правка: без code язык не меняется (старый текст остаётся); явный выбор — название из списка; занятый — 409', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, '23');
+      const legacy = await legacyRow(tx, x.owner, id, 'таджикский');
+      const en = await addTranslation(tx, x.owner, id, 'en');
+      const patch = async (tid: string, body: { code?: LanguageCode; translatorName?: string; onlyofficeUrl?: string }) =>
+        tr.updateTranslation(tx, await x.as(x.owner), id, tid, { ...(await cur(tx, id)), ...body });
+
+      await patch(legacy.id, { translatorName: 'Калинов К.', onlyofficeUrl: URL_TJ });
+      expect(await tx.documentTranslation.findUniqueOrThrow({ where: { id: legacy.id } })).toMatchObject({ language: 'таджикский', translatorName: 'Калинов К.' });
+      // Тот же язык, выбранный явно, — название из списка; в журнал — было → стало.
+      await patch(legacy.id, { code: 'tg' });
+      expect((await tx.documentTranslation.findUniqueOrThrow({ where: { id: legacy.id } })).language).toBe('Таджикский');
+      const a = await tx.auditLog.findFirstOrThrow({ where: { action: 'document.translation_updated', entityId: id }, orderBy: { id: 'desc' } });
+      expect(a.diff).toMatchObject({ after: { changes: [{ label: 'Язык', from: 'таджикский', to: 'Таджикский' }] } });
+      // Сменить на язык, который уже есть, — 409; на свободный — можно.
+      await expectCode(patch(en.id, { code: 'tg' }), 'DUPLICATE');
+      await patch(en.id, { code: 'ru' });
+      expect((await view(tx, x.owner, id)).translations.map((t) => [t.language, t.code])).toEqual([['Таджикский', 'tg'], ['Русский', 'ru']]);
+    }));
+
+  it('правила переходов прежние: 23 → 24 — ссылка у каждого языка, в том числе у старой строки', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const id = await x.create();
+      await moveTo(tx, x, id, '23');
+      const legacy = await legacyRow(tx, x.owner, id, 'TJ');
+      await addTranslation(tx, x.owner, id, 'en', { onlyofficeUrl: URL_TJ });
+      await expectCode(move(tx, x.owner, id, 'to_approval'), 'TRANSLATION_LINK_MISSING');
+      expect((await view(tx, x.owner, id)).blockedReason).toMatch(/Не у всех языков есть ссылка на перевод: TJ/);
+      await tr.updateTranslation(tx, await x.as(x.owner), id, legacy.id, { ...(await cur(tx, id)), onlyofficeUrl: URL_TJ });
+      await move(tx, x.owner, id, 'to_approval');
+      expect((await view(tx, x.owner, id)).working?.stage).toBe(24);
     }));
 });
 
@@ -1715,8 +1795,8 @@ describe('документы: сроки переводов (1.11.0)', () => {
       const x = await fixture(tx);
       const id = await x.create('Регламент');
       await moveTo(tx, x, id, '23');
-      await addTranslation(tx, x.owner, id, 'Таджикский', { dueDate: '2026-11-15' });
-      await addTranslation(tx, x.owner, id, 'Английский', { dueDate: '2026-11-15', onlyofficeUrl: URL_TJ });
+      await addTranslation(tx, x.owner, id, 'tg', { dueDate: '2026-11-15' });
+      await addTranslation(tx, x.owner, id, 'en', { dueDate: '2026-11-15', onlyofficeUrl: URL_TJ });
       const at = (iso: string) => new Date(`${iso}T06:00:00Z`);
       const inbox = async () => (await tx.notification.findMany({ where: { userId: x.owner.id, documentId: id, kind: { startsWith: 'doc_translation' } }, orderBy: { createdAt: 'asc' } }))
         .map((n) => `${n.kind}: ${n.title}`);

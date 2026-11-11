@@ -6,6 +6,7 @@ import type { Db } from '../../lib/db.js';
 import { conflict } from '../../lib/errors.js';
 import { appTimeZone, todayIso } from '../../lib/today.js';
 import type { Actor } from '../settings/common.js';
+import { loginFailureSummary, maskLogin } from '../auth/reasons.js';
 import { actionLabel, entityLabel, SETTINGS_ENTITIES } from './labels.js';
 
 export interface AuditFilter {
@@ -169,6 +170,23 @@ const SECTION_HREF: Record<string, string> = {
   dashboard_layout: '/dashboard',
 };
 
+/**
+ * «Что сделано»: diff.summary; у неудачного входа его нет — подпись строится из причины (1.13.7, и для старых записей).
+ * Запись журнала не меняется.
+ */
+function summaryOf(action: string, diff: Record<string, unknown>): string {
+  if (typeof diff.summary === 'string') return diff.summary;
+  if (action === 'auth.login_failed') return loginFailureSummary(diff) ?? '';
+  return '';
+}
+
+/** Неизвестный логин в показе — в маске (в поле логина иногда вводят пароль); в базе запись не меняется. */
+function maskUnknownLogin(action: string, diff: unknown): unknown {
+  if (action !== 'auth.login_failed' || !diff || typeof diff !== 'object') return diff;
+  const d = diff as Record<string, unknown>;
+  return d.reason === 'unknown_user' && typeof d.login === 'string' ? { ...d, login: maskLogin(d.login) } : diff;
+}
+
 function toEntry(r: Row, links: Map<string, Link>) {
   const diff = (r.diff ?? {}) as Record<string, unknown>;
   const link = r.entity && r.entity_id ? links.get(`${r.entity}:${r.entity_id}`) : undefined;
@@ -182,11 +200,11 @@ function toEntry(r: Row, links: Map<string, Link>) {
     entity: r.entity,
     entityLabel: entityLabel(r.entity),
     entityId: r.entity_id,
-    summary: typeof diff.summary === 'string' ? diff.summary : '',
+    summary: summaryOf(r.action, diff),
     ip: r.ip,
     href: link ? link.href : (r.entity ? SECTION_HREF[r.entity] ?? null : null),
     objectDeleted: link?.deleted ?? false,
-    diff: sanitizeDiff(r.diff ?? null),
+    diff: sanitizeDiff(maskUnknownLogin(r.action, r.diff ?? null)),
   };
 }
 
@@ -280,7 +298,7 @@ export async function exportAudit(
       roles: Array.isArray(diff.actorRoles) ? diff.actorRoles.map(String).join(', ') : '',
       action: actionLabel(r.action),
       entity: entityLabel(r.entity),
-      summary: typeof diff.summary === 'string' ? diff.summary : '',
+      summary: summaryOf(r.action, diff),
       ip: r.ip ?? '',
       code: r.action,
       entityId: r.entity_id ?? '',

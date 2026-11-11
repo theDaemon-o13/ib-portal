@@ -195,6 +195,52 @@ describe('почта ответственных лиц (1.13.6)', () => {
       expect(moved.item.email).toBe('ivanov@example.com');
     }));
 
+  it('исправили ФИО и должность — почта осталась при записи (связь по id, не по ФИО)', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const { item } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Иванов И.И.', position: 'Технический директор', email: 'ivanov@example.com' });
+      const { item: other } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Петрова П.П.', position: 'Главный бухгалтер', email: 'petrova@example.com' });
+      const mailsBefore = (await tx.appSetting.findUniqueOrThrow({ where: { key: svc.PARTY_DIRECTORY_EMAILS_KEY } })).value;
+
+      // Только ФИО, потом только должность, потом оба сразу — запрос без поля email.
+      const r1 = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: item.version, fullName: 'Иванов Иван Иванович' });
+      const r2 = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: r1.item.version, position: 'Директор по технологиям' });
+      const r3 = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: r2.item.version, fullName: 'Иванов-Сидоров И.И.', position: 'Советник' });
+      for (const r of [r1, r2, r3]) expect(r.item.email).toBe('ivanov@example.com');
+
+      // Ключ почт не переписан: те же id и адреса; у соседней записи всё на месте.
+      expect((await tx.appSetting.findUniqueOrThrow({ where: { key: svc.PARTY_DIRECTORY_EMAILS_KEY } })).value).toEqual(mailsBefore);
+      const list = await svc.listDirectory(tx);
+      expect(list.find((i) => i.id === item.id)).toMatchObject({ fullName: 'Иванов-Сидоров И.И.', position: 'Советник', email: 'ivanov@example.com' });
+      expect(list.find((i) => i.id === other.id)?.email).toBe('petrova@example.com');
+      // Прежнее ФИО почту не «держит»: новая запись с ним — без почты.
+      const { item: sameOldName } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Иванов И.И.', position: 'Технический директор' });
+      expect(sameOldName.email).toBe('');
+      expect((await svc.listDirectory(tx)).find((i) => i.id === item.id)?.email).toBe('ivanov@example.com');
+    }));
+
+  it('отключили и включили — почта осталась; отключённой записи нет в выборе для документа', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      const docId = await x.createDoc();
+      const { item } = await svc.createPerson(tx, await as(tx, x.admin), { fullName: 'Иванов И.И.', position: 'Технический директор', email: 'ivanov@example.com' });
+
+      const off = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: item.version, active: false });
+      expect([off.item.active, off.item.email]).toEqual([false, 'ivanov@example.com']);
+      expect((await tx.appSetting.findUniqueOrThrow({ where: { key: svc.PARTY_DIRECTORY_EMAILS_KEY } })).value).toEqual({ emails: { [item.id]: 'ivanov@example.com' } });
+      expect((await svc.listDirectory(tx)).find((i) => i.id === item.id)?.email).toBe('ivanov@example.com');
+      expect((await svc.directoryForDocument(tx, x.owner.id, docId)).map((i) => i.id)).not.toContain(item.id);
+
+      // Правка отключённой записи (ФИО) почту тоже не теряет.
+      const renamed = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: off.item.version, fullName: 'Иванов Иван Иванович' });
+      expect(renamed.item.email).toBe('ivanov@example.com');
+
+      const on = await svc.updatePerson(tx, await as(tx, x.admin), item.id, { version: renamed.item.version, active: true });
+      expect([on.item.active, on.item.email]).toEqual([true, 'ivanov@example.com']);
+      const pick = await svc.directoryForDocument(tx, x.owner.id, docId);
+      expect(pick.find((i) => i.id === item.id)).toMatchObject({ fullName: 'Иванов Иван Иванович', email: 'ivanov@example.com' });
+    }));
+
   it('такая же почта у другого — предупреждение sameEmail, не запрет', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);

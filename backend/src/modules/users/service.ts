@@ -9,7 +9,8 @@ import { AppError, badRequest, conflict, notFound, versionConflict } from '../..
 import { seniorIdsOf } from '../../lib/hierarchy.js';
 import { toPage } from '../../lib/pagination.js';
 import { passwordExpiresAt } from '../../lib/password-policy.js';
-import { isRetiredRole } from '../../lib/permissions.js';
+import type { IpList } from '../../lib/ip-list.js';
+import { isRetiredRole, KIOSK_PERMISSION } from '../../lib/permissions.js';
 import type { PasswordHasher } from '../../lib/passwords.js';
 import { generateTemporaryPassword } from '../../lib/temp-password.js';
 import { recomputeSearchForUser } from '../registers/definition.js';
@@ -72,6 +73,30 @@ export async function listUsers(db: Db, q: { limit: number; cursor?: string; sea
   });
   const page = toPage(rows, q.limit, (r) => r.login);
   return { items: page.items.map((u) => toDto(u)), nextCursor: page.nextCursor };
+}
+
+/**
+ * Настенный монитор (1.13.7): пуст ли MONITOR_ALLOWED_IPS и у каждой учётки с monitor.kiosk — последний отказ во входе
+ * по адресу (auth.login_failed, kiosk_ip_denied) после её последнего успешного входа. Для предупреждения в
+ * «Пользователи и роли»: «неверный логин или пароль» у монитора часто означает неразрешённый адрес.
+ */
+export async function kioskStatus(db: Db, kioskAllowedIps: IpList | undefined) {
+  const rows = await db.$queryRaw<{ user_id: string; at: Date | null; ip: string | null }[]>`
+    SELECT u.id::text AS user_id, d.at, d.ip
+      FROM users u
+      LEFT JOIN LATERAL (
+        SELECT a.at, a.ip FROM audit_log a
+         WHERE a.user_id = u.id AND a.action = 'auth.login_failed' AND a.diff->>'reason' = 'kiosk_ip_denied'
+           AND (u.last_login_at IS NULL OR a.at > u.last_login_at)
+         ORDER BY a.id DESC LIMIT 1
+      ) d ON true
+     WHERE EXISTS (SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
+                    WHERE ur.user_id = u.id AND rp.permission_code = ${KIOSK_PERMISSION})
+     ORDER BY u.login`;
+  return {
+    allowedIpsEmpty: !kioskAllowedIps || kioskAllowedIps.empty,
+    items: rows.map((r) => ({ userId: r.user_id, lastDenied: r.at ? { at: r.at.toISOString(), ip: r.ip } : null })),
+  };
 }
 
 /** Для списков выбора ответственного: активные сотрудники ИБ. */

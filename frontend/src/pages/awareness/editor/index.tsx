@@ -1,5 +1,6 @@
 // Обёртка редактора писем (1.9.0): ленивая загрузка TipTap, вкладки RU и TJ с темой и текстом, размер письма.
 // Сам редактор (LetterEditor.tsx) — отдельный чанк: его грузят только экраны писем, шаблонов и «Подписи ИБ».
+import { LANGUAGES, LETTER_LANG_TO_CODE } from '../../../api/generated/languages';
 import { lazy, Suspense, useState } from 'react';
 import { kb, letterBytes, sizeWarning } from './paste';
 
@@ -29,10 +30,12 @@ export function EditorFallback() {
   return <div className="aw-editor loading" role="status">Загружаем редактор…</div>;
 }
 
-const LANGS = [
-  { key: 'ru', label: 'Русский', short: 'RU' },
-  { key: 'tj', label: 'Таджикский', short: 'TJ' },
-] as const;
+/** Языки письма: ключи ru / tj (база и API писем, 1.9.0), названия и метки — из общего списка языков (1.13.7). */
+const LANGS = (['ru', 'tj'] as const).map((key) => {
+  const l = LANGUAGES.find((x) => x.code === LETTER_LANG_TO_CODE[key]);
+  if (!l) throw new Error(`Нет языка ${key} в общем списке`);
+  return { key, label: l.name, short: l.short };
+});
 
 /** Пометка заполненности языка на вкладке: тема и текст — «●», половина — «◐», ничего — пусто. */
 function fill(subject: string, html: string): '' | '◐' | '●' {

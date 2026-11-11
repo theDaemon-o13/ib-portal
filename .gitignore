@@ -25,3 +25,6 @@ docs/audit/**/*.png
 deploy/scripts/.smoke/
 # учётная запись e2e (только dev), см. frontend/e2e
 frontend/.env.e2e
+
+# Рабочие материалы эксплуатации (ответы DevOps с внутренними адресами) — в git не попадают, репозиторий публичный
+ops/
