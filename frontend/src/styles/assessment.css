@@ -183,7 +183,7 @@ body.sa-ps-open{overflow:hidden}
   .sa-zl b{font-size:10.5px}
 }
 @media (max-width:560px){.sa-opts,.sa-doms{grid-template-columns:1fr}.sa-dbar{grid-template-columns:minmax(0,1fr) 70px 32px 40px}}
-/* 1.13.8: домен вне итога («Контроль ИИ», ADR-0050) — чип «вне итога», карточка рядом с уровнем, пометка на радаре. */
+/* 1.13.10: домен вне итога («Контроль ИИ», ADR-0050) — чип «вне итога», карточка рядом с уровнем, пометка на радаре. */
 .chip.sa-out{background:var(--fill);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-2);font-weight:500;margin-left:6px;vertical-align:middle}
 .sa-doms b .chip.sa-out{font-size:10px;padding:1px 6px}
 .sa-extra .panel-b{display:grid;gap:10px;align-content:start}

@@ -112,7 +112,7 @@ describe('самооценка: списки и подписи', () => {
       .toEqual({ gaps: 3, points: 4, withoutTask: 2, done: 1, total: 2 });
   });
 
-  it('домен вне итога (1.13.8): признак, разделы, отдельная карточка и подпись, короткое имя на радаре', () => {
+  it('домен вне итога (1.13.10): признак, разделы, отдельная карточка и подпись, короткое имя на радаре', () => {
     const m2: Methodology = { ...m, domains: [...m.domains, { no: 11, name: 'Контроль ИИ', inTotal: false, sections: [{ code: '11.1', name: 'Процесс', target: '', criteria: {}, key: false }] }] };
     expect(isInTotal({})).toBe(true);
     expect(isInTotal({ inTotal: false })).toBe(false);

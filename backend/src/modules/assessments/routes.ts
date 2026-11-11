@@ -28,7 +28,7 @@ const Methodology = z.object({
   rules: z.object({ effectiveRequiresMaxIn: z.array(z.string()), fallbackLevel: z.string(), criterionThresholdPct: z.number() }),
   domains: z.array(z.object({
     no: z.number().int(), name: z.string(),
-    /** Входит ли домен в итог и уровень КБ (1.13.8, ADR-0050); нет поля — входит. */
+    /** Входит ли домен в итог и уровень КБ (1.13.10, ADR-0050); нет поля — входит. */
     inTotal: z.boolean().optional(),
     sections: z.array(z.object({ code: z.string(), name: z.string(), target: z.string(), criteria: z.record(z.string(), z.string()), key: z.boolean().optional() })),
   })),
@@ -71,7 +71,7 @@ const LinkedTask = z.object({
 });
 const Detail = Summary.extend({
   profile: Profile, reopenComment: z.string(), methodology: Methodology,
-  /** Черновик на прежней методике: куда можно обновить (1.13.8); иначе null. */
+  /** Черновик на прежней методике: куда можно обновить (1.13.10); иначе null. */
   methodologyUpgrade: z.object({ code: z.string(), version: z.number().int(), name: z.string() }).nullable(),
   answers: z.array(Answer), score: Score,
   /** Задачи по разделам (связи раздела); в самой задаче следа самооценки нет. */

@@ -205,7 +205,7 @@ export function parseAssessmentBook(wb: ExcelJS.Workbook, m: Methodology, opts: 
   }
   const found = new Set(out.answers.map((a) => a.code));
   const absent = (code: string) => !found.has(code) && !out.errors.some((e) => e.code === code);
-  // Домен, которого нет в файле целиком (например, «Контроль ИИ» в исходном шаблоне, 1.13.8), — одной строкой.
+  // Домен, которого нет в файле целиком (например, «Контроль ИИ» в исходном шаблоне, 1.13.10), — одной строкой.
   const absentDomains = m.domains.filter((d) => d.sections.length > 0 && d.sections.every((sec) => absent(sec.code)));
   for (const d of absentDomains) out.notes.push(`Домен ${d.no} «${d.name}» в файле отсутствует — его разделы остаются пустыми`);
   const skip = new Set(absentDomains.flatMap((d) => d.sections.map((sec) => sec.code)));

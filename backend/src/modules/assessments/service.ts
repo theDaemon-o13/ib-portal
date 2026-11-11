@@ -40,7 +40,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 const snapshotOf = (r: { methodologySnapshot: unknown }) => r.methodologySnapshot as Methodology;
 const answersOf = (r: Pick<Row, 'answers'>) => new Map<string, AnswerInput>(r.answers.map((a) => [a.sectionCode, { level: a.level, target: a.targetLevel }]));
 
-/** Итог: у зафиксированной — замороженный при фиксации (до 1.13.8 — без признака inTotal); у черновика — на лету. */
+/** Итог: у зафиксированной — замороженный при фиксации (до 1.13.10 — без признака inTotal); у черновика — на лету. */
 function scoreOf(r: Row): Score {
   if (r.result) return normalizeScore(r.result);
   return score(snapshotOf(r), answersOf(r));
@@ -162,7 +162,7 @@ async function linkedTasks(db: Db, assessmentId: string) {
   });
 }
 
-/** Куда можно обновить методику черновика (1.13.8): активная отличается от снимка по коду или версии; иначе null. */
+/** Куда можно обновить методику черновика (1.13.10): активная отличается от снимка по коду или версии; иначе null. */
 async function methodologyUpgradeOf(db: Db, r: Row): Promise<{ code: string; version: number; name: string } | null> {
   if (r.status !== 'draft') return null;
   const active = await db.assessmentMethodology.findFirst({ where: { isActive: true, archivedAt: null }, orderBy: { version: 'desc' } });
@@ -288,7 +288,7 @@ export async function saveAnswer(db: Db, actor: Actor, id: string, code: string,
 }
 
 /**
- * Обновить методику черновика до активной (1.13.8, ADR-0050): новый снимок, пустые строки ответов для новых разделов;
+ * Обновить методику черновика до активной (1.13.10, ADR-0050): новый снимок, пустые строки ответов для новых разделов;
  * ответы, цели и комментарии существующих разделов не трогаются, итог не меняется (новые домены вне итога).
  * Только черновик; активная совпадает со снимком — 409 SAME_METHODOLOGY.
  */
@@ -405,7 +405,7 @@ export async function compareAssessments(db: Db, aId: string, bId: string) {
       const x = sa.domains.find((y) => y.no === d.no);
       return { no: d.no, name: d.name, a: x?.sum ?? null, b: d.sum, aAvg: x?.avg ?? null, bAvg: d.avg };
     }),
-    // inA — раздел есть в снимке первой оценки (1.13.8): иначе «нет в прошлой оценке», а не «не отвечено».
+    // inA — раздел есть в снимке первой оценки (1.13.10): иначе «нет в прошлой оценке», а не «не отвечено».
     sections: sectionsOf(snapshotOf(b)).map((s) => ({
       code: s.code, name: s.name, inA: inA.has(s.code),
       a: a.answers.find((x) => x.sectionCode === s.code)?.level ?? null,

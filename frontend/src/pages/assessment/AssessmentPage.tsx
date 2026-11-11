@@ -99,7 +99,7 @@ export function AssessmentPage() {
                 <span className="grow" />
                 {a?.status === 'draft' && (
                   <>
-                    {/* Черновик на прежней методике (1.13.8): обновить до активной с подтверждением. */}
+                    {/* Черновик на прежней методике (1.13.10): обновить до активной с подтверждением. */}
                     {a.methodologyUpgrade && (
                       <button className="btn" type="button" data-testid="sa-upgrade" onClick={() => setDialog('upgrade')}>
                         Обновить методику до v{a.methodologyUpgrade.version}

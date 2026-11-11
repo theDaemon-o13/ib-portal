@@ -35,7 +35,7 @@ function Slides({ a, i }: { a: Assessment; i: number }): ReactNode {
           <h1>{a.title}</h1>
           <div className="sa-ps-big"><b>{s.total}</b><span>из {s.max}</span></div>
           <div className="sa-ps-lvl">{s.level.name}</div>
-          {/* Домены вне итога (1.13.8): отдельной строкой, в итог не входят. */}
+          {/* Домены вне итога (1.13.10): отдельной строкой, в итог не входят. */}
           {extraDomains(s).map((d) => <div key={d.no} className="sa-ps-extra" data-testid="sa-ps-extra">{extraLabel(d)} (вне итога)</div>)}
           {description && <p>{description}</p>}
           {prev && delta !== null && <div className={`sa-delta ${deltaTone(delta)} sa-ps-delta`}>{signed(delta)} баллов к «{shortTitle(prev.title)}»</div>}

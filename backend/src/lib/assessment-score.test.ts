@@ -83,7 +83,7 @@ describe('самооценка: расчёт (спецификация, разд
   });
 });
 
-describe('самооценка: методика v2 — домен «Контроль ИИ» вне итога (1.13.8, ADR-0050)', () => {
+describe('самооценка: методика v2 — домен «Контроль ИИ» вне итога (1.13.10, ADR-0050)', () => {
   /** Ответы v2: эталон по 1–10 и заданные баллы 11.x. */
   const answers2 = (ai: (number | null)[], base = ETALON, targets: Record<string, number> = {}) =>
     new Map<string, AnswerInput>(codes2.map((c, i) => [c, { level: i < 24 ? base[i] ?? null : ai[i - 24] ?? null, target: targets[c] ?? null }]));
@@ -144,7 +144,7 @@ describe('самооценка: методика v2 — домен «Контр�
     expect(d.sections.find((x) => x.code === '11.1')).toEqual({ code: '11.1', from: null, to: 1, delta: null });
   });
 
-  it('замороженный итог до 1.13.8 без признака inTotal читается как «все в итоге», сам итог не пересчитывается', () => {
+  it('замороженный итог до 1.13.10 без признака inTotal читается как «все в итоге», сам итог не пересчитывается', () => {
     const frozen = JSON.parse(JSON.stringify(score(m, answers(ETALON, codes.map((_, i) => (i === 0 ? 4 : null)))))) as Record<string, unknown>;
     for (const d of frozen.domains as Record<string, unknown>[]) delete d.inTotal;
     for (const g of frozen.gaps as Record<string, unknown>[]) delete g.inTotal;

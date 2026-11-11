@@ -21,7 +21,7 @@ export function Overview({ a }: { a: Assessment }) {
   const domainOf = (code: string) => m.domains.find((d) => d.sections.some((x) => x.code === code))?.no ?? 1;
   const nameOf = (code: string) => m.domains.flatMap((d) => d.sections).find((x) => x.code === code)?.name ?? code;
   const top = m.maturity.reduce((x, y) => (y.min > x.min ? y : x), m.maturity[0] ?? { name: '', min: 0 });
-  // Домены вне итога (1.13.8, «Контроль ИИ»): своя карточка рядом с уровнем; карточка уровня не меняется.
+  // Домены вне итога (1.13.10, «Контроль ИИ»): своя карточка рядом с уровнем; карточка уровня не меняется.
   const extra = extraDomains(s);
 
   return (

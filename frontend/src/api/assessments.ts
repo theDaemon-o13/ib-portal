@@ -56,7 +56,7 @@ export const assessmentsApi = {
   reopen: (id: string, version: number, comment: string) =>
     request<Assessment>('POST', `${base}/${id}/reopen`, { version, ...(comment ? { comment } : {}) }),
   archive: (id: string, version: number) => request<Assessment>('POST', `${base}/${id}/archive`, { version }),
-  /** Обновить методику черновика до активной (1.13.8): ответы сохраняются, новые разделы пустые. */
+  /** Обновить методику черновика до активной (1.13.10): ответы сохраняются, новые разделы пустые. */
   upgradeMethodology: (id: string, version: number) => request<Assessment>('POST', `${base}/${id}/upgrade-methodology`, { version }),
   log: (id: string) => request<{ items: LogEntry[] }>('GET', `${base}/${id}/log`),
   history: (id: string, code: string) => request<{ items: LogEntry[] }>('GET', `${base}/${id}/answers/${code}/history`),

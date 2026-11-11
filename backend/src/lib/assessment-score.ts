@@ -13,7 +13,7 @@ export interface MethodologyDomain {
   no: number;
   name: string;
   sections: MethodologySection[];
-  /** Входит ли домен в итог и уровень КБ (1.13.8): нет поля — входит. Домен вне итога считается отдельно. */
+  /** Входит ли домен в итог и уровень КБ (1.13.10): нет поля — входит. Домен вне итога считается отдельно. */
   inTotal?: boolean;
 }
 export interface MaturityLevel { code: string; name: string; min: number; max: number; description: string }
@@ -35,7 +35,7 @@ export const MAX_LEVEL = 4;
 export interface DomainScore {
   no: number;
   name: string;
-  /** Входит в итог и уровень КБ (правило 2, 1.13.8). */
+  /** Входит в итог и уровень КБ (правило 2, 1.13.10). */
   inTotal: boolean;
   sections: number;
   answered: number;
@@ -69,7 +69,7 @@ export interface Score {
   gapPoints: number;
 }
 
-/** Домен входит в итог, если признак не выставлен в false (1.13.8, ADR-0050). */
+/** Домен входит в итог, если признак не выставлен в false (1.13.10, ADR-0050). */
 export const isInTotal = (d: Pick<MethodologyDomain, 'inTotal'>) => d.inTotal !== false;
 
 export const sectionsOf = (m: Methodology) => m.domains.flatMap((d) => d.sections.map((s) => ({ ...s, domainNo: d.no, inTotal: isInTotal(d) })));
@@ -98,7 +98,7 @@ export function score(m: Methodology, answers: Answers): Score {
   let answered = 0;
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0 } as Record<'1' | '2' | '3' | '4', number>;
   const gaps: Gap[] = [];
-  // Итог и максимум — только по доменам в итоге; заполненность и распределение — по всем разделам (1.13.8).
+  // Итог и максимум — только по доменам в итоге; заполненность и распределение — по всем разделам (1.13.10).
   let max = 0;
   for (const s of all) {
     if (s.inTotal) max += MAX_LEVEL;
@@ -141,7 +141,7 @@ export function score(m: Methodology, answers: Answers): Score {
 }
 
 /**
- * Замороженный итог оценки, зафиксированной до 1.13.8: у доменов и разрывов нет признака inTotal — тогда все в итоге.
+ * Замороженный итог оценки, зафиксированной до 1.13.10: у доменов и разрывов нет признака inTotal — тогда все в итоге.
  * Сам итог не пересчитывается (ADR-0025).
  */
 export function normalizeScore(raw: unknown): Score {

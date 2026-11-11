@@ -5,7 +5,7 @@ import type { Answer, AssessmentSummary, LinkedTask, Methodology, Score } from '
 export const MAX_LEVEL = 4;
 export const LEVELS = [1, 2, 3, 4] as const;
 
-/** Домен входит в итог, если признак не выставлен в false (1.13.8, ADR-0050). */
+/** Домен входит в итог, если признак не выставлен в false (1.13.10, ADR-0050). */
 export const isInTotal = (d: { inTotal?: boolean | null }) => d.inTotal !== false;
 
 /** Разделы методики по порядку, с номером домена и признаком «в итоге». */
@@ -55,7 +55,7 @@ export function shortTitle(title: string): string {
  * максимум — по 4). «0–43» на деле начинается с 24 (спецификация, раздел 2).
  */
 export function scaleZones(m: Methodology) {
-  // Диапазон — только по разделам доменов в итоге (1.13.8): домен вне итога шкалу не растягивает.
+  // Диапазон — только по разделам доменов в итоге (1.13.10): домен вне итога шкалу не растягивает.
   const n = sectionsOf(m).filter((s) => s.inTotal).length;
   const lo = n;
   const hi = n * MAX_LEVEL;

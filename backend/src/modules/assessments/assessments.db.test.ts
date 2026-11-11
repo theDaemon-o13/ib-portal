@@ -110,7 +110,7 @@ describe('самооценка: жизненный цикл и расчёт', ()
       const x = await fixture(tx);
       const id = await x.create();
       await expectCode(x.create('Вторая'), 'DRAFT_EXISTS');
-      // Активна v2 (1.13.8): 28 разделов, итог по-прежнему из 96, домен 11 вне итога.
+      // Активна v2 (1.13.10): 28 разделов, итог по-прежнему из 96, домен 11 вне итога.
       const codes = await x.codes(id);
       expect(codes).toHaveLength(28);
       for (const [i, code] of codes.slice(0, 23).entries()) await x.answer(id, code, { level: ETALON[i] ?? null });
@@ -242,7 +242,7 @@ describe('самооценка: журнал (ADR-0026)', () => {
     }));
 });
 
-describe('самооценка: методика v2 — домен «Контроль ИИ» (1.13.8, ADR-0050)', () => {
+describe('самооценка: методика v2 — домен «Контроль ИИ» (1.13.10, ADR-0050)', () => {
   it('seed: активна cyber-express-v2; v1 выключена и остаётся; повторный прогон ничего не меняет; ручной возврат v1 отменяется seed', () =>
     inTx(async (tx) => {
       const rows = await tx.assessmentMethodology.findMany({ orderBy: { version: 'asc' } });

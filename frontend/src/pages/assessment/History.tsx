@@ -37,7 +37,7 @@ function Compare({ items, current }: { items: readonly AssessmentSummary[]; curr
                   return (
                     <tr key={s.code} data-code={s.code}>
                       <td><span className="sa-code">{s.code}</span> {s.name}</td>
-                      {/* Раздела нет в первой оценке (другая методика, 1.13.8) — так и пишем, а не «—». */}
+                      {/* Раздела нет в первой оценке (другая методика, 1.13.10) — так и пишем, а не «—». */}
                       <td>{s.inA ? <LevelPill level={s.a} /> : <span className="hint">нет</span>}</td>
                       <td><LevelPill level={s.b} /></td>
                       <td className={`sa-delta ${deltaTone(d)}`}>{!s.inA ? 'нет в прошлой оценке' : d === null ? '—' : d === 0 ? 'без изменений' : signed(d)}</td>

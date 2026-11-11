@@ -69,7 +69,7 @@ export function Radar({ score, prev }: { score: Score; prev?: readonly (number |
       {score.domains.map((d, i) => {
         const [x, y] = radarPoint(i, 4.62, n, cx, cy, R);
         const anchor = radarAnchor(x, cx);
-        // Домен вне итога (1.13.8): подпись оси с пометкой второй строкой.
+        // Домен вне итога (1.13.10): подпись оси с пометкой второй строкой.
         return (
           <text key={d.no} x={x.toFixed(1)} y={(y + (d.inTotal ? 4 : -2)).toFixed(1)} fontSize="11" textAnchor={anchor}>
             {d.no}. {domainShort(d.no, d.name)}

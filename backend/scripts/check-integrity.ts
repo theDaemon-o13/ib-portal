@@ -381,7 +381,7 @@ async function main() {
   check(assessmentRoles.length === 1 && assessmentRoles[0]?.role.code === 'assessment', 'право «Самооценка» есть только у системной роли «Самооценка»', 'выполните seed');
   const activeMethodologies = await prisma.assessmentMethodology.findMany({ where: { isActive: true }, select: { code: true, version: true } });
   check(activeMethodologies.length >= 1, 'методика самооценки загружена', 'выполните seed');
-  // 1.13.8 (ADR-0050): активная — последняя версия из seed (cyber-express-v2, домен «Контроль ИИ» вне итога).
+  // 1.13.10 (ADR-0050): активная — последняя версия из seed (cyber-express-v2, домен «Контроль ИИ» вне итога).
   check(activeMethodologies.length === 1 && activeMethodologies[0]?.code === ACTIVE_METHODOLOGY.code && activeMethodologies[0]?.version === ACTIVE_METHODOLOGY.version,
     `активная методика самооценки — ${ACTIVE_METHODOLOGY.code} v${ACTIVE_METHODOLOGY.version}`, 'выполните seed (migrate)');
   const assessmentPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`

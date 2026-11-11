@@ -3,7 +3,7 @@
 //   npm run test:e2e   (логин и пароль администратора — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
 // Пользователь только с ролью «Самооценка» (без ib.work): пункт меню, новая оценка, ответы с итогом «предварительно»,
-// «Зафиксировать» недоступно до 28 из 28 (методика v2, 1.13.8: домен 11 «Контроль ИИ» вне итога, итог из 96),
+// «Зафиксировать» недоступно до 28 из 28 (методика v2, 1.13.10: домен 11 «Контроль ИИ» вне итога, итог из 96),
 // фиксация, только просмотр, возврат в черновик, журнал, архив.
 // Задача по разрыву из «Плана улучшений» — на общей доске; в карточке у исполнителя нет следа самооценки.
 // Импорт эталона Excel через окно (предпросмотр → применить): 34 балла; выгрузка .xlsx.
@@ -162,7 +162,7 @@ describe('Самооценка', () => {
     assert.equal(await status(), 'draft');
     assert.match(await ui.evaluate(`document.querySelector('.sa-lvl .hint').textContent`), /предварительно/);
     assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 0 из 28');
-    // Методика v2 (1.13.8): 28 разделов, итог из 96, карточка «Контроль ИИ: 0 из 16» рядом с уровнем.
+    // Методика v2 (1.13.10): 28 разделов, итог из 96, карточка «Контроль ИИ: 0 из 16» рядом с уровнем.
     assert.equal(await ui.evaluate(`document.querySelector('[data-testid=sa-answered]')?.textContent`), '0 из 28');
     assert.match(await ui.evaluate(`document.querySelector('.sa-lvl-score')?.textContent`), /из 96/);
     assert.match(await ui.evaluate(`document.querySelector('[data-testid=sa-extra]')?.textContent ?? ''`), /Контроль ИИ.*вне итога.*0 из 16/s, 'карточка домена вне итога');
@@ -196,7 +196,7 @@ describe('Самооценка', () => {
     await ui.click(option('10.1', 1), 'раздел 10.1, уровень 1');
     // 3 + 22 × 2 + 1 = 48 — «Классическая ИБ»; домен 11 в итог не входит.
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Сохранено. Итог 48 из 96'`, 'итог 48');
-    // Домены 1–10 заполнены, но 11.4 пуст — фиксация по-прежнему недоступна (28 из 28, 1.13.8).
+    // Домены 1–10 заполнены, но 11.4 пуст — фиксация по-прежнему недоступна (28 из 28, 1.13.10).
     assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 27 из 28');
     await ui.click(dom11, 'домен 11 в списке');
     await ui.waitFor(`!!${option('11.4', 2)}`, 'домен 11 в чек-листе');
@@ -320,7 +320,7 @@ describe('Самооценка', () => {
     assert.equal(dry.status, 200);
     await ui.waitFor(`document.querySelector('[data-testid=sa-import-preview]')?.textContent.includes('Найдено разделов: 24 из 28')`, 'предпросмотр импорта');
     const text = await ui.evaluate(`document.querySelector('[data-testid=sa-import-preview]').textContent`);
-    // Методика v2 (1.13.8): шаблон без домена 11 — итог 34 из 96 «предварительно», домен 11 остаётся пустым.
+    // Методика v2 (1.13.10): шаблон без домена 11 — итог 34 из 96 «предварительно», домен 11 остаётся пустым.
     assert.match(text, /итог — 34 из 96, «Цифровая гигиена» \(предварительно\)/);
     assert.match(text, /Домен 11 «Контроль ИИ» в файле отсутствует/);
     assert.match(text, /Скрытые строки пропущены/);

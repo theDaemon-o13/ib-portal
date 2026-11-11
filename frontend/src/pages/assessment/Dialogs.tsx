@@ -126,7 +126,7 @@ export function ProfileDialog({ a, onClose }: { a: Assessment; onClose: () => vo
 }
 
 /**
- * Обновить методику черновика до активной (1.13.8, ADR-0050): ответы, цели и комментарии имеющихся разделов
+ * Обновить методику черновика до активной (1.13.10, ADR-0050): ответы, цели и комментарии имеющихся разделов
  * сохраняются, новые разделы добавляются пустыми, итог не меняется (новые домены вне итога). Действие — в журнале.
  */
 export function UpgradeDialog({ a, to, onClose }: { a: Assessment; to: { code: string; version: number; name: string }; onClose: () => void }) {

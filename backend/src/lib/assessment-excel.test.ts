@@ -68,7 +68,7 @@ describe('самооценка: разбор исходного Excel (спец�
     expect(parseLevel('много')).toEqual({ error: 'балл «много» вне 1–4' });
   });
 
-  it('эталон в методике v2 (1.13.8): 24 раздела, домен 11 «Контроль ИИ» в файле отсутствует — одной строкой, без перечня 11.x', async () => {
+  it('эталон в методике v2 (1.13.10): 24 раздела, домен 11 «Контроль ИИ» в файле отсутствует — одной строкой, без перечня 11.x', async () => {
     const m2 = JSON.parse(readFileSync(new URL('../../prisma/seed/assessment-methodology-v2.json', import.meta.url), 'utf8')) as Methodology;
     const p = parseAssessmentBook(await book(), m2, { targetId: 'x' });
     expect(p.errors).toEqual([]);

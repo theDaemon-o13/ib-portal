@@ -53,7 +53,7 @@ describe('самооценка: импорт Excel', () => {
       const file = await editedFixture((ws) => { ws.getRow(COMMENT_1_1).getCell(5).value = 'Секрет импорта'; });
       const v = await x.version(id);
       const preview = await importAssessment(tx, await x.as(), id, file, { dryRun: true });
-      // Оценка на v2 (1.13.8): в шаблоне 24 раздела из 28, домен 11 остаётся пустым — итог 34 из 96 «предварительно».
+      // Оценка на v2 (1.13.10): в шаблоне 24 раздела из 28, домен 11 остаётся пустым — итог 34 из 96 «предварительно».
       expect(preview).toMatchObject({ format: 'checklist', version: v, found: 24, answered: 24, errors: [], total: 34, max: 96, preliminary: true, level: { name: 'Цифровая гигиена' }, applied: false });
       expect(preview.notes).toContain('Домен 11 «Контроль ИИ» в файле отсутствует — его разделы остаются пустыми');
       expect(preview.changes).toHaveLength(24);
@@ -145,7 +145,7 @@ describe('самооценка: выгрузка для анализа', () => {
       expect(row?.getCell(3).value).toBeInstanceOf(Date);
       expect(row?.getCell(5).value).toBe(34);
       expect(row?.getCell(8).value).toBe('Цифровая гигиена');
-      // 1.13.8: итог из 96, 28 заполнено; «ИИ: сумма / максимум / заполнено» — 10 / 16 / 4.
+      // 1.13.10: итог из 96, 28 заполнено; «ИИ: сумма / максимум / заполнено» — 10 / 16 / 4.
       expect([row?.getCell(6).value, row?.getCell(7).value]).toEqual([96, 28]);
       expect([11, 12, 13].map((c) => row?.getCell(c).value)).toEqual([10, 16, 4]);
       expect(wb.getWorksheet('Ответы')?.rowCount).toBe(29);
@@ -180,7 +180,7 @@ describe('самооценка: выгрузка для анализа', () => {
 
       const second = await x.create('Экспресс-оценка 2026');
       const preview = await importAssessment(tx, await x.as(), second, buffer, { dryRun: true });
-      // Лист «Ответы» выгрузки v2 несёт и 11.x (1.13.8): 28 разделов, ни одной ошибки.
+      // Лист «Ответы» выгрузки v2 несёт и 11.x (1.13.10): 28 разделов, ни одной ошибки.
       expect(preview).toMatchObject({ format: 'answers', found: 28, errors: [], sourceId: first, total: 34 });
       expect(preview.notes.some((n) => n.includes('отсутствует'))).toBe(false);
       // Дата — из «Общей информации» эталона: импорт переносит и её.
@@ -192,7 +192,7 @@ describe('самооценка: выгрузка для анализа', () => {
     }));
 });
 
-describe('самооценка: Excel и методика v1 рядом с v2 (1.13.8)', () => {
+describe('самооценка: Excel и методика v1 рядом с v2 (1.13.10)', () => {
   it('оценка на v1 в книге: «ИИ: …» пусто, «Методика» — снимок v1 и v2 по группам; выгрузка v1 импортируется в v2 без 11.x', () =>
     inTx(async (tx) => {
       const x = await fixture(tx);
