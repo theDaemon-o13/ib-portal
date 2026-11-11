@@ -52,12 +52,15 @@ async function loginAs(login, password) {
   return password;
 }
 
-async function shot(name, theme, width) {
+/** focus — на узком экране прокрутить к блоку домена 11 (карточка «Контроль ИИ» или заголовок домена в чек-листе). */
+async function shot(name, theme, width, focus = null) {
   const height = width < 500 ? 812 : 1000;
   await ui.viewport(width, height);
   const title = theme === 'ocean' ? 'Тема «Океан»' : 'Тема «Чёрный океан»';
   await ui.evaluate(`(() => { const b = document.querySelector('.seg-top button[title=${JSON.stringify(title).replace(/"/g, '\\"')}]');
     if (b) b.click(); else { localStorage.setItem('ibportal.theme', ${JSON.stringify(theme)}); document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)}); } })()`);
+  if (focus) await ui.evaluate(`document.querySelector(${JSON.stringify(focus)})?.scrollIntoView({ block: 'start' })`);
+  else await ui.evaluate('window.scrollTo(0, 0)');
   await sleep(1200);
   writeFileSync(join(DIR, `${name}-${theme}-${width}.jpg`), await ui.screenshot('jpeg', 82));
 }
@@ -103,14 +106,14 @@ after(async () => {
 });
 
 it('скриншоты обзора и чек-листа с доменом 11 в обеих темах, 1440 и 375 px', async () => {
-  for (const [name, path] of [['assessment-ai-overview', `/assessment/overview?id=${assessmentId}`], ['assessment-ai-checklist', `/assessment/checklist?id=${assessmentId}&dom=11`]]) {
+  for (const [name, path, focus] of [['assessment-ai-overview', `/assessment/overview?id=${assessmentId}`, '[data-testid=sa-extra]'], ['assessment-ai-checklist', `/assessment/checklist?id=${assessmentId}&dom=11`, '.sa-dom-h']]) {
     await ui.viewport(1440, 1000);
     await ui.goto(path);
     await ui.waitFor(`!!document.querySelector('[data-testid=sa-extra], .sa-dom-h')`, `страница ${name}`);
     await sleep(1200);
     for (const theme of ['ocean', 'black']) {
       await shot(name, theme, 1440);
-      await shot(name, theme, 375);
+      await shot(name, theme, 375, focus);
     }
   }
 });

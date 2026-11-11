@@ -28,8 +28,9 @@
 .sa-track i{display:block;height:100%;opacity:.85}
 .sa-z1{background:var(--crit)}.sa-z2{background:var(--high)}.sa-z3{background:var(--accent)}.sa-z4{background:var(--low)}
 .sa-zl{display:flex;gap:2px;margin-top:7px}
-.sa-zl span{font-size:11.5px;color:var(--muted);line-height:1.25;min-width:0}
-.sa-zl b{display:block;color:var(--fg);font-weight:600;font-size:12px}
+/* Узкая карточка уровня рядом с «Контролем ИИ» (1.13.10): длинные названия зон переносятся, а не наползают на соседние. */
+.sa-zl span{font-size:11.5px;color:var(--muted);line-height:1.25;min-width:0;padding-right:4px}
+.sa-zl b{display:block;color:var(--fg);font-weight:600;font-size:12px;hyphens:auto;overflow-wrap:anywhere}
 .sa-mk{position:absolute;top:0;transform:translateX(-50%);display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
 .sa-mk::after{content:"";width:2px;height:20px;border-radius:2px;background:currentColor}
 .sa-mk.cur{color:var(--fg)}
