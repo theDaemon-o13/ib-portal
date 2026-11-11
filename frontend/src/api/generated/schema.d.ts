@@ -48200,6 +48200,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal?: boolean;
                                     sections: {
                                         code: string;
                                         name: string;
@@ -48211,6 +48212,11 @@ export interface paths {
                                     }[];
                                 }[];
                             };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
                             answers: {
                                 code: string;
                                 level: number | null;
@@ -48238,6 +48244,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -48259,6 +48266,7 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };
@@ -48449,6 +48457,7 @@ export interface paths {
                             domains: {
                                 no: number;
                                 name: string;
+                                inTotal?: boolean;
                                 sections: {
                                     code: string;
                                     name: string;
@@ -48795,6 +48804,7 @@ export interface paths {
                             sections: {
                                 code: string;
                                 name: string;
+                                inA: boolean;
                                 a: number | null;
                                 b: number | null;
                             }[];
@@ -48986,6 +48996,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal?: boolean;
                                     sections: {
                                         code: string;
                                         name: string;
@@ -48997,6 +49008,11 @@ export interface paths {
                                     }[];
                                 }[];
                             };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
                             answers: {
                                 code: string;
                                 level: number | null;
@@ -49024,6 +49040,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -49045,6 +49062,7 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };
@@ -49274,6 +49292,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal?: boolean;
                                     sections: {
                                         code: string;
                                         name: string;
@@ -49285,6 +49304,11 @@ export interface paths {
                                     }[];
                                 }[];
                             };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
                             answers: {
                                 code: string;
                                 level: number | null;
@@ -49312,6 +49336,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -49333,6 +49358,7 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };
@@ -49537,6 +49563,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -49558,6 +49585,7 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };
@@ -50246,7 +50274,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Зафиксировать: только при 24 из 24, итог замораживается */
+        /** Зафиксировать: только при всех разделах снимка (24 у v1, 28 у v2), итог замораживается */
         post: {
             parameters: {
                 query?: never;
@@ -50321,6 +50349,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal?: boolean;
                                     sections: {
                                         code: string;
                                         name: string;
@@ -50332,6 +50361,11 @@ export interface paths {
                                     }[];
                                 }[];
                             };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
                             answers: {
                                 code: string;
                                 level: number | null;
@@ -50359,6 +50393,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -50380,6 +50415,7 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };
@@ -50608,6 +50644,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal?: boolean;
                                     sections: {
                                         code: string;
                                         name: string;
@@ -50619,6 +50656,11 @@ export interface paths {
                                     }[];
                                 }[];
                             };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
                             answers: {
                                 code: string;
                                 level: number | null;
@@ -50646,6 +50688,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -50667,6 +50710,302 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
+                                }[];
+                                gapPoints: number;
+                            };
+                            tasks: {
+                                code: string;
+                                id: string;
+                                number: number;
+                                title: string;
+                                assignee: string | null;
+                                dueDate: string | null;
+                                status: string;
+                                done: boolean;
+                                archived: boolean;
+                                deleted: boolean;
+                            }[];
+                            previous: {
+                                id: string;
+                                title: string;
+                                assessedOn: string;
+                                total: number;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                domains: {
+                                    no: number;
+                                    sum: number;
+                                    avg: number | null;
+                                }[];
+                                answers: {
+                                    code: string;
+                                    level: number | null;
+                                }[];
+                                delta: {
+                                    total: number;
+                                    domains: {
+                                        no: number;
+                                        sum: number | null;
+                                        avg: number | null;
+                                    }[];
+                                    sections: {
+                                        code: string;
+                                        from: number | null;
+                                        to: number | null;
+                                        delta: number | null;
+                                    }[];
+                                };
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assessments/{id}/upgrade-methodology": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Обновить методику черновика до активной: ответы сохраняются, новые разделы пустые; та же — 409 SAME_METHODOLOGY */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            title: string;
+                            assessedOn: string;
+                            /** @enum {string} */
+                            status: "draft" | "final" | "archived";
+                            statusName: string;
+                            total: number;
+                            max: number;
+                            answered: number;
+                            sections: number;
+                            preliminary: boolean;
+                            level: {
+                                code: string;
+                                name: string;
+                            };
+                            finalizedAt: string | null;
+                            version: number;
+                            profile: {
+                                organization?: string;
+                                respondent?: string;
+                                position?: string;
+                                industries?: string[];
+                                employees?: number | null;
+                                kbExperience?: string;
+                                kbStaff?: string;
+                            };
+                            reopenComment: string;
+                            methodology: {
+                                code: string;
+                                name: string;
+                                version: number;
+                                scale: {
+                                    level: number;
+                                    name: string;
+                                }[];
+                                maturity: {
+                                    code: string;
+                                    name: string;
+                                    min: number;
+                                    max: number;
+                                    description: string;
+                                }[];
+                                rules: {
+                                    effectiveRequiresMaxIn: string[];
+                                    fallbackLevel: string;
+                                    criterionThresholdPct: number;
+                                };
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    inTotal?: boolean;
+                                    sections: {
+                                        code: string;
+                                        name: string;
+                                        target: string;
+                                        criteria: {
+                                            [key: string]: string;
+                                        };
+                                        key?: boolean;
+                                    }[];
+                                }[];
+                            };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
+                            answers: {
+                                code: string;
+                                level: number | null;
+                                targetLevel: number | null;
+                                comment: string;
+                                version: number;
+                                updatedAt: string;
+                                updatedBy: string | null;
+                            }[];
+                            score: {
+                                total: number;
+                                max: number;
+                                answered: number;
+                                sections: number;
+                                preliminary: boolean;
+                                level: {
+                                    code: string;
+                                    name: string;
+                                };
+                                keySections: {
+                                    code: string;
+                                    name: string;
+                                    level: number | null;
+                                }[];
+                                domains: {
+                                    no: number;
+                                    name: string;
+                                    inTotal: boolean;
+                                    sections: number;
+                                    answered: number;
+                                    sum: number;
+                                    max: number;
+                                    avg: number | null;
+                                    targetAvg: number | null;
+                                }[];
+                                distribution: {
+                                    1: number;
+                                    2: number;
+                                    3: number;
+                                    4: number;
+                                };
+                                gaps: {
+                                    code: string;
+                                    name: string;
+                                    domainNo: number;
+                                    level: number;
+                                    target: number;
+                                    gap: number;
+                                    key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };
@@ -50896,6 +51235,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal?: boolean;
                                     sections: {
                                         code: string;
                                         name: string;
@@ -50907,6 +51247,11 @@ export interface paths {
                                     }[];
                                 }[];
                             };
+                            methodologyUpgrade: {
+                                code: string;
+                                version: number;
+                                name: string;
+                            } | null;
                             answers: {
                                 code: string;
                                 level: number | null;
@@ -50934,6 +51279,7 @@ export interface paths {
                                 domains: {
                                     no: number;
                                     name: string;
+                                    inTotal: boolean;
                                     sections: number;
                                     answered: number;
                                     sum: number;
@@ -50955,6 +51301,7 @@ export interface paths {
                                     target: number;
                                     gap: number;
                                     key: boolean;
+                                    inTotal: boolean;
                                 }[];
                                 gapPoints: number;
                             };

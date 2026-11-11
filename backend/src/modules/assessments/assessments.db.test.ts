@@ -6,6 +6,7 @@ import { argon2Hasher } from '../../lib/passwords.js';
 import { sectionsOf, type Methodology } from '../../lib/assessment-score.js';
 import { TEST_PORTAL_URL, TEST_SECRET } from '../../test/helpers.js';
 import { actorFor, expectCode, inTx, makeUser, must, roleId, type Tx } from '../../test/db.js';
+import { seedAssessmentMethodology } from '../../../prisma/seed/assessment.js';
 import { prismaAuditWriter } from '../audit/audit.js';
 import { listAudit, auditFacets } from '../audit/service.js';
 import { prismaAuthRepository } from '../auth/repository.prisma.js';
@@ -34,7 +35,12 @@ async function fixture(tx: Tx) {
     for (const [i, code] of list.entries()) await answer(id, code, { level: levels[i] ?? 1 });
   };
   const version = async (id: string) => (await tx.assessment.findUniqueOrThrow({ where: { id } })).version;
-  return { owner, admin, as, create, codes, answer, fill, version };
+  /** Сделать активной методику по коду (v1 — чтобы завести оценку на прежней версии); индекс допускает одну активную. */
+  const activate = async (code: string) => {
+    await tx.assessmentMethodology.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    await tx.assessmentMethodology.updateMany({ where: { code }, data: { isActive: true } });
+  };
+  return { owner, admin, as, create, codes, answer, fill, version, activate };
 }
 
 describe('самооценка: права (ADR-0026)', () => {
@@ -75,7 +81,7 @@ describe('самооценка: права (ADR-0026)', () => {
       }
       const mine = await app.inject({ url: `/api/v1/assessments/${id}`, headers: { cookie: O } });
       expect(mine.statusCode).toBe(200);
-      expect(mine.json()).toMatchObject({ status: 'draft', total: 0, answered: 0, sections: 24, preliminary: true });
+      expect(mine.json()).toMatchObject({ status: 'draft', total: 0, max: 96, answered: 0, sections: 28, preliminary: true });
       // Без ib.work разделов ИБ нет.
       expect((await app.inject({ url: '/api/v1/tasks', headers: { cookie: O } })).statusCode).toBe(403);
     }));
@@ -104,16 +110,23 @@ describe('самооценка: жизненный цикл и расчёт', ()
       const x = await fixture(tx);
       const id = await x.create();
       await expectCode(x.create('Вторая'), 'DRAFT_EXISTS');
+      // Активна v2 (1.13.8): 28 разделов, итог по-прежнему из 96, домен 11 вне итога.
       const codes = await x.codes(id);
-      expect(codes).toHaveLength(24);
+      expect(codes).toHaveLength(28);
       for (const [i, code] of codes.slice(0, 23).entries()) await x.answer(id, code, { level: ETALON[i] ?? null });
       const partial = await svc.getAssessment(tx, id);
-      expect(partial).toMatchObject({ answered: 23, preliminary: true });
+      expect(partial).toMatchObject({ answered: 23, sections: 28, preliminary: true });
       await expectCode(svc.finalizeAssessment(tx, await x.as(), id, { version: await x.version(id) }), 'INCOMPLETE');
 
       const saved = await x.answer(id, must(codes[23]), { level: 1, targetLevel: 3, comment: 'Пентест не проводился' });
-      expect(saved.score).toMatchObject({ total: 34, preliminary: false, level: { name: 'Цифровая гигиена' } });
-      expect(saved.score.domains.map((d) => d.sum)).toEqual([5, 4, 5, 2, 3, 5, 1, 2, 6, 1]);
+      // 24 из 28: итог 34 из 96 уже полный по доменам в итоге, но оценка «предварительно» и не фиксируется.
+      expect(saved.score).toMatchObject({ total: 34, max: 96, answered: 24, preliminary: true, level: { name: 'Цифровая гигиена' } });
+      expect(saved.score.domains.map((d) => d.sum)).toEqual([5, 4, 5, 2, 3, 5, 1, 2, 6, 1, 0]);
+      await expectCode(svc.finalizeAssessment(tx, await x.as(), id, { version: await x.version(id) }), 'INCOMPLETE');
+      for (const [i, code] of ['11.1', '11.2', '11.3', '11.4'].entries()) await x.answer(id, code, { level: [4, 3, 2, 1][i] ?? 1 });
+      const full = await svc.getAssessment(tx, id);
+      expect(full.score).toMatchObject({ total: 34, max: 96, answered: 28, preliminary: false, level: { name: 'Цифровая гигиена' } });
+      expect(full.score.domains[10]).toMatchObject({ no: 11, inTotal: false, sum: 10, max: 16, answered: 4, avg: 2.5 });
       await expectCode(x.answer(id, '1.1', { level: 5 }), 'BAD_LEVEL');
       // Устаревшая версия ответа — 409.
       await expectCode(svc.saveAnswer(tx, await x.as(), id, '10.1', { version: 1, level: 2 }), 'VERSION_CONFLICT');
@@ -226,5 +239,101 @@ describe('самооценка: журнал (ADR-0026)', () => {
       const res = await app.inject({ url: `/api/v1/audit?limit=100&q=${encodeURIComponent('Оценка для журнала')}`, headers: { cookie: H } });
       expect(res.statusCode).toBe(200);
       expect(res.json().items).toEqual([]);
+    }));
+});
+
+describe('самооценка: методика v2 — домен «Контроль ИИ» (1.13.8, ADR-0050)', () => {
+  it('seed: активна cyber-express-v2; v1 выключена и остаётся; повторный прогон ничего не меняет; ручной возврат v1 отменяется seed', () =>
+    inTx(async (tx) => {
+      const rows = await tx.assessmentMethodology.findMany({ orderBy: { version: 'asc' } });
+      expect(rows.map((r) => [r.code, r.version, r.isActive])).toEqual([['cyber-express-v1', 1, false], ['cyber-express-v2', 2, true]]);
+      const v2 = (rows[1]?.content as unknown as Methodology);
+      expect(v2.domains).toHaveLength(11);
+      expect(v2.domains[10]).toMatchObject({ no: 11, name: 'Контроль ИИ', inTotal: false });
+      const before = await tx.auditLog.count({ where: { action: 'assessment.methodology_activated' } });
+      await seedAssessmentMethodology(tx);
+      expect(await tx.auditLog.count({ where: { action: 'assessment.methodology_activated' } })).toBe(before);
+      expect(await tx.assessmentMethodology.count()).toBe(2);
+      // Откат на 1.13.7 с ручным SQL — и повторное обновление: seed снова включает v2.
+      await tx.assessmentMethodology.updateMany({ where: { version: 2 }, data: { isActive: false } });
+      await tx.assessmentMethodology.updateMany({ where: { version: 1 }, data: { isActive: true } });
+      await seedAssessmentMethodology(tx);
+      const after = await tx.assessmentMethodology.findMany({ orderBy: { version: 'asc' } });
+      expect(after.map((r) => r.isActive)).toEqual([false, true]);
+      expect(await tx.auditLog.count({ where: { action: 'assessment.methodology_activated' } })).toBe(before + 1);
+    }));
+
+  it('оценка на v1 не меняется; «Копия последней» на v2 переносит ответы и цели по кодам, домен 11 пустой; сравнение v1 и v2', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      await x.activate('cyber-express-v1');
+      const first = await x.create('Экспресс-оценка 2025');
+      expect(await x.codes(first)).toHaveLength(24);
+      await x.fill(first);
+      await x.answer(first, '1.1', { targetLevel: 4 });
+      await svc.finalizeAssessment(tx, await x.as(), first, { version: await x.version(first) });
+      await x.activate('cyber-express-v2');
+      // Оценка v1 читается со своим снимком и замороженным итогом.
+      let d1 = await svc.getAssessment(tx, first);
+      expect(d1).toMatchObject({ total: 34, max: 96, sections: 24, methodologyUpgrade: null });
+      expect(d1.methodology.domains).toHaveLength(10);
+      expect(d1.score.domains.every((d) => d.inTotal)).toBe(true);
+
+      const second = await x.create('Экспресс-оценка 2026', { copyFromId: first });
+      const d2 = await svc.getAssessment(tx, second);
+      expect(d2).toMatchObject({ total: 34, max: 96, answered: 24, sections: 28, preliminary: true, methodologyUpgrade: null, previous: { id: first, total: 34 } });
+      expect(d2.answers.find((a) => a.code === '1.1')).toMatchObject({ level: 2, targetLevel: 4 });
+      expect(d2.answers.filter((a) => a.code.startsWith('11.')).map((a) => [a.code, a.level, a.targetLevel])).toEqual([['11.1', null, null], ['11.2', null, null], ['11.3', null, null], ['11.4', null, null]]);
+      // Динамика: домены 1–10 как обычно, у домена 11 разницы нет.
+      expect(d2.previous?.delta.domains[10]).toEqual({ no: 11, sum: null, avg: null });
+      expect(d2.previous?.domains.find((d) => d.no === 11)).toBeUndefined();
+      await expectCode(svc.finalizeAssessment(tx, await x.as(), second, { version: await x.version(second) }), 'INCOMPLETE');
+
+      const cmp = await svc.compareAssessments(tx, first, second);
+      expect(cmp.domains).toHaveLength(11);
+      expect(cmp.domains[0]).toMatchObject({ no: 1, a: 5, b: 5 });
+      expect(cmp.domains[10]).toMatchObject({ no: 11, a: null, b: 0 });
+      expect(cmp.sections.filter((s) => !s.inA).map((s) => s.code)).toEqual(['11.1', '11.2', '11.3', '11.4']);
+      expect(cmp.sections.find((s) => s.code === '1.1')).toMatchObject({ inA: true, a: 2, b: 2 });
+      // Оценка v1 в базе не тронута: 24 строки ответов, снимок v1.
+      expect(await tx.assessmentAnswer.count({ where: { assessmentId: first } })).toBe(24);
+      d1 = await svc.getAssessment(tx, first);
+      expect((d1.methodology as Methodology).version).toBe(1);
+    }));
+
+  it('«Обновить методику до v2»: только черновик, ответы 1–10 сохранены, домен 11 добавлен пустым, журнал; та же методика — 409', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      await x.activate('cyber-express-v1');
+      const id = await x.create('Черновик на v1');
+      await x.fill(id);
+      await x.answer(id, '5.3', { targetLevel: 4, comment: 'Скан раз в квартал' });
+      // Пока активна v1 — обновлять некуда.
+      expect((await svc.getAssessment(tx, id)).methodologyUpgrade).toBeNull();
+      await expectCode(svc.upgradeMethodology(tx, await x.as(), id, { version: await x.version(id) }), 'SAME_METHODOLOGY');
+      await x.activate('cyber-express-v2');
+      let d = await svc.getAssessment(tx, id);
+      expect(d).toMatchObject({ total: 34, sections: 24, preliminary: false, methodologyUpgrade: { code: 'cyber-express-v2', version: 2 } });
+      // Устаревшая версия — 409.
+      await expectCode(svc.upgradeMethodology(tx, await x.as(), id, { version: 1 }), 'VERSION_CONFLICT');
+      const v = await x.version(id);
+      await svc.upgradeMethodology(tx, await x.as(), id, { version: v });
+      d = await svc.getAssessment(tx, id);
+      expect(d).toMatchObject({ total: 34, max: 96, answered: 24, sections: 28, preliminary: true, version: v + 1, methodologyUpgrade: null, level: { name: 'Цифровая гигиена' } });
+      expect(d.methodology.domains).toHaveLength(11);
+      expect(d.answers.find((a) => a.code === '5.3')).toMatchObject({ level: ETALON[13], targetLevel: 4, comment: 'Скан раз в квартал' });
+      expect(d.answers.filter((a) => a.code.startsWith('11.')).every((a) => a.level === null && a.targetLevel === null)).toBe(true);
+      expect(await tx.assessmentAnswer.count({ where: { assessmentId: id } })).toBe(28);
+      const log = await tx.auditLog.findMany({ where: { entity: 'assessment', entityId: id, action: 'assessment.methodology_upgraded' } });
+      expect(log).toHaveLength(1);
+      expect((log[0]?.diff as { summary: string }).summary).toMatch(/методика обновлена — cyber-express-v1 v1 → cyber-express-v2 v2, новых разделов 4 \(11\.1, 11\.2, 11\.3, 11\.4\)$/);
+      expect((await svc.assessmentLog(tx, id)).items[0]?.action).toBe('assessment.methodology_upgraded');
+      // Повторно — та же методика; вне черновика — 409 и кнопки нет.
+      await expectCode(svc.upgradeMethodology(tx, await x.as(), id, { version: await x.version(id) }), 'SAME_METHODOLOGY');
+      await svc.archiveAssessment(tx, await x.as(), id, { version: await x.version(id) });
+      await x.activate('cyber-express-v1');
+      expect((await svc.getAssessment(tx, id)).methodologyUpgrade).toBeNull();
+      await expectCode(svc.upgradeMethodology(tx, await x.as(), id, { version: await x.version(id) }), 'NOT_DRAFT');
+      await x.activate('cyber-express-v2');
     }));
 });

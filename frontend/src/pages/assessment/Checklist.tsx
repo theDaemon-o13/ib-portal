@@ -162,8 +162,8 @@ export function Checklist({ a }: { a: Assessment }) {
     <div className="sa-cl">
       <nav className="panel sa-doms" aria-label="Домены">
         {a.score.domains.map((d) => (
-          <button key={d.no} type="button" aria-pressed={d.no === domain.no} onClick={() => pick(d.no)}>
-            <b>{d.no}. {d.name}</b>
+          <button key={d.no} type="button" aria-pressed={d.no === domain.no} data-in-total={d.inTotal} onClick={() => pick(d.no)}>
+            <b>{d.no}. {d.name}{!d.inTotal && <span className="chip sa-out">вне итога</span>}</b>
             <span className="avg">{n1(d.avg)}</span>
             <small>{d.answered}/{d.sections} · {d.sum} из {d.max}</small>
             <span className="sa-prog"><i className={d.answered === d.sections ? 'full' : ''} style={{ width: `${(d.answered / d.sections) * 100}%` }} /></span>
@@ -172,8 +172,8 @@ export function Checklist({ a }: { a: Assessment }) {
       </nav>
       <div className="sa-secs">
         <div className="sa-dom-h">
-          <h2>{domain.no}. {domain.name}</h2>
-          <span className="hint">Сумма {ds?.sum ?? 0} из {ds?.max ?? 0} · средний {n1(ds?.avg)}</span>
+          <h2>{domain.no}. {domain.name}{ds && !ds.inTotal && <span className="chip sa-out">вне итога</span>}</h2>
+          <span className="hint">Сумма {ds?.sum ?? 0} из {ds?.max ?? 0} · средний {n1(ds?.avg)}{ds && !ds.inTotal ? ' · в итог и уровень КБ не входит, считается отдельно' : ''}</span>
         </div>
         {why ? <div className="note ro">{why}</div> : (
           <div className="note">

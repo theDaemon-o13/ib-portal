@@ -50,6 +50,8 @@ const ACTION_LABELS: Record<string, string> = {
   'assessment.archived': 'Самооценка в архиве',
   'assessment.task_linked': 'Самооценка: задача по разделу',
   'assessment.imported': 'Самооценка: импорт из Excel',
+  'assessment.methodology_upgraded': 'Самооценка: методика обновлена',
+  'assessment.methodology_activated': 'Самооценка: активная методика',
   'assessment.exported': 'Самооценка: выгрузка в Excel',
   'assessment.methodology_loaded': 'Самооценка: загружена методика',
   'auth.login': 'Вход',

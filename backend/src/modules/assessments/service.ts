@@ -3,7 +3,7 @@
 // → архив, удаления нет. Итог черновика считается при чтении (lib/assessment-score.ts), при фиксации замораживается.
 // В журнал аудита — баллы и цели как есть, текст комментариев — нет («комментарий изменён»).
 import { Prisma } from '../../generated/prisma/client.js';
-import { compareScores, score, sectionsOf, type AnswerInput, type Methodology, type Score } from '../../lib/assessment-score.js';
+import { compareScores, normalizeScore, score, sectionsOf, type AnswerInput, type Methodology, type Score } from '../../lib/assessment-score.js';
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { formatDateRu } from '../../lib/register-values.js';
@@ -40,11 +40,13 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 const snapshotOf = (r: { methodologySnapshot: unknown }) => r.methodologySnapshot as Methodology;
 const answersOf = (r: Pick<Row, 'answers'>) => new Map<string, AnswerInput>(r.answers.map((a) => [a.sectionCode, { level: a.level, target: a.targetLevel }]));
 
-/** Итог: у зафиксированной — замороженный при фиксации; у черновика — на лету. */
+/** Итог: у зафиксированной — замороженный при фиксации (до 1.13.8 — без признака inTotal); у черновика — на лету. */
 function scoreOf(r: Row): Score {
-  if (r.result) return r.result as unknown as Score;
+  if (r.result) return normalizeScore(r.result);
   return score(snapshotOf(r), answersOf(r));
 }
+
+const sameMethodology = (a: Pick<Methodology, 'code' | 'version'>, b: Pick<Methodology, 'code' | 'version'>) => a.code === b.code && a.version === b.version;
 
 function summaryDto(r: Row) {
   const s = scoreOf(r);
@@ -160,6 +162,14 @@ async function linkedTasks(db: Db, assessmentId: string) {
   });
 }
 
+/** Куда можно обновить методику черновика (1.13.8): активная отличается от снимка по коду или версии; иначе null. */
+async function methodologyUpgradeOf(db: Db, r: Row): Promise<{ code: string; version: number; name: string } | null> {
+  if (r.status !== 'draft') return null;
+  const active = await db.assessmentMethodology.findFirst({ where: { isActive: true, archivedAt: null }, orderBy: { version: 'desc' } });
+  if (!active || sameMethodology(active, snapshotOf(r))) return null;
+  return { code: active.code, version: active.version, name: active.name };
+}
+
 export async function getAssessment(db: Db, id: string) {
   const r = await getRow(db, id);
   const m = snapshotOf(r);
@@ -171,6 +181,7 @@ export async function getAssessment(db: Db, id: string) {
     profile: r.profile as Profile,
     reopenComment: r.reopenComment,
     methodology: m,
+    methodologyUpgrade: await methodologyUpgradeOf(db, r),
     answers: r.answers.map((a) => ({
       code: a.sectionCode, level: a.level, targetLevel: a.targetLevel, comment: a.comment, version: a.version,
       updatedAt: a.updatedAt.toISOString(), updatedBy: a.updater?.fullName ?? null,
@@ -276,7 +287,38 @@ export async function saveAnswer(db: Db, actor: Actor, id: string, code: string,
   });
 }
 
-/** Зафиксировать: только при 24 из 24, итог замораживается (правила 5 и «Жизненный цикл»). */
+/**
+ * Обновить методику черновика до активной (1.13.8, ADR-0050): новый снимок, пустые строки ответов для новых разделов;
+ * ответы, цели и комментарии существующих разделов не трогаются, итог не меняется (новые домены вне итога).
+ * Только черновик; активная совпадает со снимком — 409 SAME_METHODOLOGY.
+ */
+export async function upgradeMethodology(db: Db, actor: Actor, id: string, input: { version: number }) {
+  return withTx(db, async (tx) => {
+    const r = await getRow(tx, id);
+    if (r.version !== input.version) throw versionConflict();
+    draftOnly(r);
+    const m = await activeMethodology(tx);
+    const from = snapshotOf(r);
+    const to = m.content as unknown as Methodology;
+    if (sameMethodology(from, to)) throw conflict('SAME_METHODOLOGY', `Оценка уже на методике ${to.code} v${to.version}`);
+    const have = new Set(r.answers.map((a) => a.sectionCode));
+    const added = sectionsOf(to).filter((sec) => !have.has(sec.code)).map((sec) => sec.code);
+    const res = await tx.assessment.updateMany({
+      where: { id, version: input.version },
+      data: { methodologyId: m.id, methodologySnapshot: m.content as Prisma.InputJsonValue, version: { increment: 1 } },
+    });
+    if (res.count === 0) throw versionConflict();
+    if (added.length) await tx.assessmentAnswer.createMany({ data: added.map((code) => ({ assessmentId: id, sectionCode: code })) });
+    await auditSettings(tx, actor, {
+      action: 'assessment.methodology_upgraded', entity: ENTITY, entityId: id,
+      summary: `Самооценка «${r.title}»: методика обновлена — ${from.code} v${from.version} → ${to.code} v${to.version}, новых разделов ${added.length}${added.length ? ` (${added.join(', ')})` : ''}`,
+      before: { methodology: `${from.code} v${from.version}` },
+      after: { methodology: `${to.code} v${to.version}`, added },
+    });
+  });
+}
+
+/** Зафиксировать: только при всех разделах снимка (24 у v1, 28 у v2), итог замораживается (правила 5 и «Жизненный цикл»). */
 export async function finalizeAssessment(db: Db, actor: Actor, id: string, input: { version: number }) {
   return withTx(db, async (tx) => {
     const r = await getRow(tx, id);
@@ -356,14 +398,16 @@ export async function compareAssessments(db: Db, aId: string, bId: string) {
   const [a, b] = await Promise.all([getRow(db, aId), getRow(db, bId)]);
   const sa = scoreOf(a);
   const sb = scoreOf(b);
+  const inA = new Set(sectionsOf(snapshotOf(a)).map((s) => s.code));
   return {
     a: summaryDto(a), b: summaryDto(b),
     domains: sb.domains.map((d) => {
       const x = sa.domains.find((y) => y.no === d.no);
       return { no: d.no, name: d.name, a: x?.sum ?? null, b: d.sum, aAvg: x?.avg ?? null, bAvg: d.avg };
     }),
+    // inA — раздел есть в снимке первой оценки (1.13.8): иначе «нет в прошлой оценке», а не «не отвечено».
     sections: sectionsOf(snapshotOf(b)).map((s) => ({
-      code: s.code, name: s.name,
+      code: s.code, name: s.name, inA: inA.has(s.code),
       a: a.answers.find((x) => x.sectionCode === s.code)?.level ?? null,
       b: b.answers.find((x) => x.sectionCode === s.code)?.level ?? null,
     })),

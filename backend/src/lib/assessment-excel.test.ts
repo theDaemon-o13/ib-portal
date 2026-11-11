@@ -68,6 +68,17 @@ describe('самооценка: разбор исходного Excel (спец�
     expect(parseLevel('много')).toEqual({ error: 'балл «много» вне 1–4' });
   });
 
+  it('эталон в методике v2 (1.13.8): 24 раздела, домен 11 «Контроль ИИ» в файле отсутствует — одной строкой, без перечня 11.x', async () => {
+    const m2 = JSON.parse(readFileSync(new URL('../../prisma/seed/assessment-methodology-v2.json', import.meta.url), 'utf8')) as Methodology;
+    const p = parseAssessmentBook(await book(), m2, { targetId: 'x' });
+    expect(p.errors).toEqual([]);
+    expect(p.answers).toHaveLength(24);
+    expect(p.notes).toContain('Домен 11 «Контроль ИИ» в файле отсутствует — его разделы остаются пустыми');
+    expect(p.notes.some((n) => n.startsWith('Нет в файле'))).toBe(false);
+    const s = score(m2, new Map<string, AnswerInput>(p.answers.map((a) => [a.code, { level: a.level, target: null }])));
+    expect(s).toMatchObject({ total: 34, max: 96, answered: 24, sections: 28, preliminary: true, level: { name: 'Цифровая гигиена' } });
+  });
+
   it('книга без «Чек-листа» и «Ответов» — ошибка', () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet('Лист1');

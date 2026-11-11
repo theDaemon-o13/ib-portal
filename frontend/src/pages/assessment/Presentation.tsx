@@ -8,7 +8,7 @@ import { Overlay } from '../../components/Overlay';
 import { Signature } from '../../components/Signature';
 import { dateRu } from '../dashboard/logic';
 import { DomainBars, Donut, LevelPill, Radar, RadarLegend, Scale } from './Charts';
-import { deltaTone, flipSlide, PRESENTATION_SLIDES, shortTitle, signed, taskState, weakSections } from './logic';
+import { deltaTone, extraDomains, extraLabel, flipSlide, PRESENTATION_SLIDES, shortTitle, signed, taskState, weakSections } from './logic';
 
 const icons = {
   prev: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>,
@@ -35,6 +35,8 @@ function Slides({ a, i }: { a: Assessment; i: number }): ReactNode {
           <h1>{a.title}</h1>
           <div className="sa-ps-big"><b>{s.total}</b><span>из {s.max}</span></div>
           <div className="sa-ps-lvl">{s.level.name}</div>
+          {/* Домены вне итога (1.13.8): отдельной строкой, в итог не входят. */}
+          {extraDomains(s).map((d) => <div key={d.no} className="sa-ps-extra" data-testid="sa-ps-extra">{extraLabel(d)} (вне итога)</div>)}
           {description && <p>{description}</p>}
           {prev && delta !== null && <div className={`sa-delta ${deltaTone(delta)} sa-ps-delta`}>{signed(delta)} баллов к «{shortTitle(prev.title)}»</div>}
         </div>

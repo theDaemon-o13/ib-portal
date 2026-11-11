@@ -64,7 +64,7 @@ describe('самооценка: задачи по разрывам (ADR-0026)', 
       const x = await fixture(tx);
       const id = await x.create();
       const input = { title: 'Задача', categoryId: x.category.id, assigneeId: x.staff.id };
-      await expectCode(svc.createGapTask(tx, await x.as(), id, '11.1', input), 'NOT_FOUND');
+      await expectCode(svc.createGapTask(tx, await x.as(), id, '12.1', input), 'NOT_FOUND');
       const v = (await tx.assessment.findUniqueOrThrow({ where: { id } })).version;
       await svc.archiveAssessment(tx, await x.as(), id, { version: v });
       await expectCode(svc.createGapTask(tx, await x.as(), id, '5.3', input), 'ARCHIVED');

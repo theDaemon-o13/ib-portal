@@ -21,6 +21,7 @@ import { AWARENESS_EMPLOYEES_KEY, AWARENESS_RESULTS_KEY, EMPLOYEE_FIELDS, RESULT
 import { AWARENESS_GRADES_KEY, GradesSchema } from '../src/modules/awareness/grades.js';
 import { SERVICE_ROLE_CODE } from '../src/lib/work-users.js';
 import { letterIntegrity } from '../src/modules/awareness-letters/integrity.js';
+import { ACTIVE_METHODOLOGY } from '../prisma/seed/assessment.js';
 
 const prisma = createPrisma();
 let failed = 0;
@@ -378,8 +379,11 @@ async function main() {
   // Самооценка (ADR-0026): право только у системной роли «Самооценка», методика загружена, удаления нет.
   const assessmentRoles = await prisma.rolePermission.findMany({ where: { permissionCode: 'assessment.manage' }, select: { role: { select: { code: true } } } });
   check(assessmentRoles.length === 1 && assessmentRoles[0]?.role.code === 'assessment', 'право «Самооценка» есть только у системной роли «Самооценка»', 'выполните seed');
-  const activeMethodologies = await prisma.assessmentMethodology.count({ where: { isActive: true } });
-  check(activeMethodologies >= 1, 'методика самооценки загружена', 'выполните seed');
+  const activeMethodologies = await prisma.assessmentMethodology.findMany({ where: { isActive: true }, select: { code: true, version: true } });
+  check(activeMethodologies.length >= 1, 'методика самооценки загружена', 'выполните seed');
+  // 1.13.8 (ADR-0050): активная — последняя версия из seed (cyber-express-v2, домен «Контроль ИИ» вне итога).
+  check(activeMethodologies.length === 1 && activeMethodologies[0]?.code === ACTIVE_METHODOLOGY.code && activeMethodologies[0]?.version === ACTIVE_METHODOLOGY.version,
+    `активная методика самооценки — ${ACTIVE_METHODOLOGY.code} v${ACTIVE_METHODOLOGY.version}`, 'выполните seed (migrate)');
   const assessmentPrivs = await prisma.$queryRaw<{ granted: boolean }[]>`
     SELECT bool_or(has_table_privilege('ibportal_app', 'public.' || t, p)) AS granted
     FROM unnest(ARRAY['assessments', 'assessment_answers', 'assessment_links']) AS t, unnest(ARRAY['DELETE', 'TRUNCATE']) AS p`;

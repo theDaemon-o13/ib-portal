@@ -11,7 +11,7 @@
 
 .sa-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
 .sa-grid > *{min-width:0}
-.sa-w4{grid-column:span 4}.sa-w5{grid-column:span 5}.sa-w6{grid-column:span 6}.sa-w7{grid-column:span 7}.sa-w8{grid-column:span 8}.sa-w12{grid-column:span 12}
+.sa-w3{grid-column:span 3}.sa-w4{grid-column:span 4}.sa-w5{grid-column:span 5}.sa-w6{grid-column:span 6}.sa-w7{grid-column:span 7}.sa-w8{grid-column:span 8}.sa-w12{grid-column:span 12}
 .sa-grid .panel-h{flex-wrap:wrap}
 
 /* карточка уровня и шкала */
@@ -173,7 +173,7 @@ body.sa-ps-open{overflow:hidden}
 @media (max-width:860px){.sa-ps-two{grid-template-columns:1fr}.sa-ps-sign{max-width:60vw}.sa-ps-pg{display:none}}
 
 @media (max-width:1240px){.sa-opts{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:1100px){.sa-w4,.sa-w5,.sa-w6,.sa-w7,.sa-w8{grid-column:span 12}}
+@media (max-width:1100px){.sa-w3,.sa-w4,.sa-w5,.sa-w6,.sa-w7,.sa-w8{grid-column:span 12}}
 @media (max-width:860px){
   .sa-cl{grid-template-columns:1fr}
   .sa-doms{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -183,6 +183,21 @@ body.sa-ps-open{overflow:hidden}
   .sa-zl b{font-size:10.5px}
 }
 @media (max-width:560px){.sa-opts,.sa-doms{grid-template-columns:1fr}.sa-dbar{grid-template-columns:minmax(0,1fr) 70px 32px 40px}}
+/* 1.13.8: домен вне итога («Контроль ИИ», ADR-0050) — чип «вне итога», карточка рядом с уровнем, пометка на радаре. */
+.chip.sa-out{background:var(--fill);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-2);font-weight:500;margin-left:6px;vertical-align:middle}
+.sa-doms b .chip.sa-out{font-size:10px;padding:1px 6px}
+.sa-extra .panel-b{display:grid;gap:10px;align-content:start}
+.sa-extra-n b{font-family:var(--f-display);font-size:34px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.sa-extra-n > span{color:var(--muted);font-size:14px}
+.sa-extra-rows{display:grid;gap:6px}
+.sa-extra-rows > div{display:flex;justify-content:space-between;gap:10px;align-items:baseline;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)}
+.sa-extra-rows > div:last-child{border-bottom:0}
+.sa-extra-rows b{font-variant-numeric:tabular-nums}
+.sa-extra-rows .sa-delta{font-size:13px}
+.sa-extra-foot{font-size:12px}
+.sa-radar .sa-radar-note{fill:var(--faint)}
+.sa-ps-extra{font-family:var(--f-display);font-size:1.3em;font-weight:600;color:var(--muted);margin-top:.3em}
+.sa-upgrade-list{margin:8px 0;padding-left:20px;display:grid;gap:4px}
 /* 1.13.0: «designed by» в левом нижнем углу презентации — инициалы автора дизайна (signature-initials). */
 .sa-ps-by{position:fixed;left:max(2.2vw,env(safe-area-inset-left,0px));bottom:calc(2.2vh + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;font-size:.78em;color:var(--muted)}
 .sa-ps-by .sig{color:var(--fg);height:30px}

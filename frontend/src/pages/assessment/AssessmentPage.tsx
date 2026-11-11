@@ -7,7 +7,7 @@ import { akeys, assessmentsApi, type Assessment } from '../../api/assessments';
 import type { Me } from '../../api/client';
 import { dateRu } from '../dashboard/logic';
 import { Checklist } from './Checklist';
-import { ArchiveDialog, NewAssessmentDialog, ProfileDialog, ReopenDialog } from './Dialogs';
+import { ArchiveDialog, NewAssessmentDialog, ProfileDialog, ReopenDialog, UpgradeDialog } from './Dialogs';
 import { History } from './History';
 import { ImportDialog } from './ImportDialog';
 import { defaultAssessmentId, STATUS_TONE } from './logic';
@@ -26,7 +26,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
 
-type Dialog = 'new' | 'reopen' | 'profile' | 'import' | 'present' | { archive: { id: string; title: string; version: number } } | null;
+type Dialog = 'new' | 'reopen' | 'profile' | 'import' | 'present' | 'upgrade' | { archive: { id: string; title: string; version: number } } | null;
 
 export function AssessmentPage() {
   const me = useOutletContext<Me>();
@@ -75,7 +75,7 @@ export function AssessmentPage() {
       <div className="head">
         <div>
           <h1>Самооценка уровня кибербезопасности</h1>
-          <p>Личный раздел. Экспресс-оценка по 10 доменам и 24 разделам: баллы 1–4, итог от 24 до 96, уровень считается сам.</p>
+          <p>Личный раздел. Экспресс-оценка по доменам и разделам методики: баллы 1–4, итог из 96 и уровень считаются сами; домены вне итога — отдельно.</p>
         </div>
       </div>
 
@@ -99,6 +99,12 @@ export function AssessmentPage() {
                 <span className="grow" />
                 {a?.status === 'draft' && (
                   <>
+                    {/* Черновик на прежней методике (1.13.8): обновить до активной с подтверждением. */}
+                    {a.methodologyUpgrade && (
+                      <button className="btn" type="button" data-testid="sa-upgrade" onClick={() => setDialog('upgrade')}>
+                        Обновить методику до v{a.methodologyUpgrade.version}
+                      </button>
+                    )}
                     <button className="btn" type="button" onClick={() => setDialog('import')}>Импорт Excel</button>
                     <button className="btn" type="button" onClick={() => setDialog('profile')}>Профиль</button>
                     <button className="btn primary" type="button" disabled={a.preliminary || finalize.isPending}
@@ -133,6 +139,7 @@ export function AssessmentPage() {
       {dialog === 'reopen' && a && <ReopenDialog a={a} onClose={() => setDialog(null)} />}
       {dialog === 'profile' && a && <ProfileDialog a={a} onClose={() => setDialog(null)} />}
       {dialog === 'import' && a && <ImportDialog a={a} onClose={() => setDialog(null)} />}
+      {dialog === 'upgrade' && a?.methodologyUpgrade && <UpgradeDialog a={a} to={a.methodologyUpgrade} onClose={() => setDialog(null)} />}
       {/* «Подготовил» — ФИО вошедшего из сессии, вручную не вводится. */}
       {dialog === 'present' && a && <Presentation a={a} preparedBy={me.fullName} onClose={() => setDialog(null)} />}
       {dialog && typeof dialog === 'object' && <ArchiveDialog target={dialog.archive} onClose={() => setDialog(null)} />}

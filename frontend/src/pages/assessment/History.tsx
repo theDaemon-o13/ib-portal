@@ -35,11 +35,12 @@ function Compare({ items, current }: { items: readonly AssessmentSummary[]; curr
                 {cmp.data.sections.map((s) => {
                   const d = s.a !== null && s.b !== null ? s.b - s.a : null;
                   return (
-                    <tr key={s.code}>
+                    <tr key={s.code} data-code={s.code}>
                       <td><span className="sa-code">{s.code}</span> {s.name}</td>
-                      <td><LevelPill level={s.a} /></td>
+                      {/* Раздела нет в первой оценке (другая методика, 1.13.8) — так и пишем, а не «—». */}
+                      <td>{s.inA ? <LevelPill level={s.a} /> : <span className="hint">нет</span>}</td>
                       <td><LevelPill level={s.b} /></td>
-                      <td className={`sa-delta ${deltaTone(d)}`}>{d === null ? '—' : d === 0 ? 'без изменений' : signed(d)}</td>
+                      <td className={`sa-delta ${deltaTone(d)}`}>{!s.inA ? 'нет в прошлой оценке' : d === null ? '—' : d === 0 ? 'без изменений' : signed(d)}</td>
                     </tr>
                   );
                 })}

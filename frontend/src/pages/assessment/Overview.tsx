@@ -3,7 +3,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { Assessment } from '../../api/assessments';
 import { DomainBars, Donut, LevelPill, Radar, RadarLegend, Ring, Scale } from './Charts';
-import { answersByCode, deltaTone, shortTitle, signed, unanswered, weakSections } from './logic';
+import { answersByCode, deltaTone, extraDomains, extraLabel, n1, shortTitle, signed, unanswered, weakSections } from './logic';
 
 const WEAK_LIMIT = 8;
 
@@ -21,10 +21,12 @@ export function Overview({ a }: { a: Assessment }) {
   const domainOf = (code: string) => m.domains.find((d) => d.sections.some((x) => x.code === code))?.no ?? 1;
   const nameOf = (code: string) => m.domains.flatMap((d) => d.sections).find((x) => x.code === code)?.name ?? code;
   const top = m.maturity.reduce((x, y) => (y.min > x.min ? y : x), m.maturity[0] ?? { name: '', min: 0 });
+  // Домены вне итога (1.13.8, «Контроль ИИ»): своя карточка рядом с уровнем; карточка уровня не меняется.
+  const extra = extraDomains(s);
 
   return (
     <div className="sa-grid">
-      <section className="panel sa-w8">
+      <section className={`panel ${extra.length ? 'sa-w5' : 'sa-w8'}`}>
         <div className="sa-lvl">
           <div className="sa-lvl-top">
             <div>
@@ -42,6 +44,32 @@ export function Overview({ a }: { a: Assessment }) {
           <Scale m={m} total={s.total} prevTotal={prev?.total} />
         </div>
       </section>
+
+      {extra.map((d) => {
+        const pd = prev?.domains.find((x) => x.no === d.no);
+        const dd = pd && d.avg !== null && pd.avg !== null ? d.avg - pd.avg : null;
+        return (
+          <section key={d.no} className="panel sa-w3 sa-extra" data-testid="sa-extra">
+            <div className="panel-h"><h3>{d.name}</h3><span className="chip sa-out">вне итога</span></div>
+            <div className="panel-b">
+              <div className="sa-extra-n"><b className="num" data-testid="sa-extra-total">{d.sum}</b> <span>из {d.max}</span></div>
+              <div className="sa-extra-rows">
+                <div><span className="hint">Средний балл</span><b className="num">{n1(d.avg)}</b></div>
+                <div><span className="hint">Заполнено</span><b className="num">{d.answered} из {d.sections}</b></div>
+                <div>
+                  <span className="hint">К прошлой оценке</span>
+                  {prev ? (
+                    pd ? <b className={`sa-delta ${deltaTone(dd)}`}>{dd === null ? '—' : `${signed(dd, 1)} к среднему`}</b>
+                      : <span className="hint">нет в прошлой оценке</span>
+                  ) : <span className="hint">нет прошлой оценки</span>}
+                </div>
+              </div>
+              <button type="button" className="btn ghost sm" onClick={() => goto(d.no)}>Открыть в чек-листе</button>
+              <div className="hint sa-extra-foot">В итог и уровень КБ не входит: {extraLabel(d)} считается отдельно.</div>
+            </div>
+          </section>
+        );
+      })}
 
       <section className="panel sa-w4">
         <div className="panel-h"><h3>Готовность</h3><span className="hint">{a.statusName}</span></div>
@@ -100,6 +128,7 @@ export function Overview({ a }: { a: Assessment }) {
                     <span>{nameOf(x.code)} <span className="hint">· {x.domainName}</span></span>
                     <span className="row">
                       {x.key && <span className="chip high">ключевой</span>}
+                      {!x.inTotal && <span className="chip sa-out">вне итога</span>}
                       {target && <span className="chip low">цель {target}</span>}
                     </span>
                   </button>

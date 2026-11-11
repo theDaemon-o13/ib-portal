@@ -68,7 +68,14 @@ export function Radar({ score, prev }: { score: Score; prev?: readonly (number |
       })}
       {score.domains.map((d, i) => {
         const [x, y] = radarPoint(i, 4.62, n, cx, cy, R);
-        return <text key={d.no} x={x.toFixed(1)} y={(y + 4).toFixed(1)} fontSize="11" textAnchor={radarAnchor(x, cx)}>{d.no}. {domainShort(d.no, d.name)}</text>;
+        const anchor = radarAnchor(x, cx);
+        // Домен вне итога (1.13.8): подпись оси с пометкой второй строкой.
+        return (
+          <text key={d.no} x={x.toFixed(1)} y={(y + (d.inTotal ? 4 : -2)).toFixed(1)} fontSize="11" textAnchor={anchor}>
+            {d.no}. {domainShort(d.no, d.name)}
+            {!d.inTotal && <tspan x={x.toFixed(1)} dy="12" fontSize="9.5" className="sa-radar-note">вне итога</tspan>}
+          </text>
+        );
       })}
       {hasTarget && <polygon points={radarPolygon(target, cx, cy, R)} fill="none" stroke="var(--low)" strokeWidth="1.6" strokeDasharray="5 4" />}
       {prev && <polygon points={radarPolygon(prev, cx, cy, R)} fill="none" stroke="var(--faint)" strokeWidth="1.6" />}
@@ -105,7 +112,7 @@ export function DomainBars({ score, prev, onPick }: {
         const dd = d.avg !== null && pv !== null ? d.avg - pv : null;
         const body = (
           <>
-            <span className="t">{d.no}. {d.name}</span>
+            <span className="t">{d.no}. {d.name}{!d.inTotal && <span className="chip sa-out">вне итога</span>}</span>
             <span className="track">
               <i style={{ width: `${((d.avg ?? 0) / MAX_LEVEL) * 100}%` }} />
               {pv !== null && <u style={{ left: `calc(${(pv / MAX_LEVEL) * 100}% - 1px)` }} />}
