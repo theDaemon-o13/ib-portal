@@ -16,7 +16,11 @@ async function fixture(tx: Tx) {
   const create = async (title = 'Экспресс-оценка 2025') => svc.createAssessment(tx, await as(), { title, assessedOn: '2026-10-30' });
   const version = async (id: string) => (await tx.assessment.findUniqueOrThrow({ where: { id } })).version;
   const levels = async (id: string) => (await svc.getAssessment(tx, id)).answers;
-  return { owner, as, create, version, levels };
+  const activate = async (code: string) => {
+    await tx.assessmentMethodology.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    await tx.assessmentMethodology.updateMany({ where: { code }, data: { isActive: true } });
+  };
+  return { owner, as, create, version, levels, activate };
 }
 
 /** Эталон с правками: ячейка ответа раздела → value, комментарий раздела → comment. */
@@ -28,6 +32,14 @@ async function editedFixture(edit: (ws: ExcelJS.Worksheet) => void): Promise<Buf
   for (const ws of wb.worksheets) ws.removeConditionalFormatting(undefined);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
+/** Домен 11 (v2) — вручную: в эталоне его нет, а фиксация требует 28 из 28. */
+async function fillAi(tx: Tx, x: Awaited<ReturnType<typeof fixture>>, id: string, levels = [2, 2, 2, 2]) {
+  for (const [i, code] of ['11.1', '11.2', '11.3', '11.4'].entries()) {
+    const a = must((await x.levels(id)).find((s) => s.code === code));
+    await svc.saveAnswer(tx, await x.as(), id, code, { version: a.version, level: levels[i] ?? 2 });
+  }
+}
+
 // Строки эталона: ответ 1.1 — E25, комментарий 1.1 — E27; ответ 5.3 — E153.
 const ANSWER_1_1 = 25;
 const COMMENT_1_1 = 27;
@@ -41,7 +53,9 @@ describe('самооценка: импорт Excel', () => {
       const file = await editedFixture((ws) => { ws.getRow(COMMENT_1_1).getCell(5).value = 'Секрет импорта'; });
       const v = await x.version(id);
       const preview = await importAssessment(tx, await x.as(), id, file, { dryRun: true });
-      expect(preview).toMatchObject({ format: 'checklist', version: v, found: 24, answered: 24, errors: [], total: 34, level: { name: 'Цифровая гигиена' }, applied: false });
+      // Оценка на v2 (1.13.10): в шаблоне 24 раздела из 28, домен 11 остаётся пустым — итог 34 из 96 «предварительно».
+      expect(preview).toMatchObject({ format: 'checklist', version: v, found: 24, answered: 24, errors: [], total: 34, max: 96, preliminary: true, level: { name: 'Цифровая гигиена' }, applied: false });
+      expect(preview.notes).toContain('Домен 11 «Контроль ИИ» в файле отсутствует — его разделы остаются пустыми');
       expect(preview.changes).toHaveLength(24);
       expect(preview.changes[0]).toEqual({ code: '1.1', name: 'Стратегия', from: null, to: 2, comment: true });
       expect(preview.profile.map((p) => p.label)).toEqual(['Организация', 'Дата проведения', 'Респондент', 'Должность', 'Численность сотрудников']);
@@ -51,8 +65,9 @@ describe('самооценка: импорт Excel', () => {
       const res = await importAssessment(tx, await x.as(), id, file, { dryRun: false, version: v });
       expect(res).toMatchObject({ applied: true, version: v + 1 });
       const d = await svc.getAssessment(tx, id);
-      expect(d).toMatchObject({ total: 34, answered: 24, preliminary: false, assessedOn: '2025-07-07', profile: { organization: 'ЗАО МДО "Хумо"', employees: 1800 } });
-      expect(d.score.domains.map((s) => s.sum)).toEqual([5, 4, 5, 2, 3, 5, 1, 2, 6, 1]);
+      expect(d).toMatchObject({ total: 34, answered: 24, sections: 28, preliminary: true, assessedOn: '2025-07-07', profile: { organization: 'ЗАО МДО "Хумо"', employees: 1800 } });
+      expect(d.score.domains.map((s) => s.sum)).toEqual([5, 4, 5, 2, 3, 5, 1, 2, 6, 1, 0]);
+      expect(d.answers.filter((a) => a.code.startsWith('11.')).every((a) => a.level === null)).toBe(true);
       expect(d.answers.find((a) => a.code === '1.1')?.comment).toBe('Секрет импорта');
       const log = await tx.auditLog.findMany({ where: { entity: 'assessment', entityId: id, action: 'assessment.imported' } });
       expect(log).toHaveLength(1);
@@ -96,6 +111,7 @@ describe('самооценка: импорт Excel', () => {
       await expectCode(importAssessment(tx, await x.as(), id, FIXTURE, { dryRun: false }), 'VERSION_CONFLICT');
 
       await importAssessment(tx, await x.as(), id, FIXTURE, { dryRun: false, version: await x.version(id) });
+      await fillAi(tx, x, id);
       await svc.finalizeAssessment(tx, await x.as(), id, { version: await x.version(id) });
       await expectCode(importAssessment(tx, await x.as(), id, FIXTURE, { dryRun: true }), 'NOT_DRAFT');
       await expectCode(importAssessment(tx, await x.as(), id, Buffer.from('не excel'), { dryRun: true }), 'BAD_FILE');
@@ -108,6 +124,7 @@ describe('самооценка: выгрузка для анализа', () => {
       const x = await fixture(tx);
       const id = await x.create();
       await importAssessment(tx, await x.as(), id, FIXTURE, { dryRun: false, version: await x.version(id) });
+      await fillAi(tx, x, id, [4, 3, 2, 1]);
       await svc.finalizeAssessment(tx, await x.as(), id, { version: await x.version(id) });
       const { fileName, buffer } = await exportAssessments(tx, await x.as(), [id]);
       expect(fileName).toMatch(/^Самооценка_КБ_\d{4}-\d{2}-\d{2}\.xlsx$/);
@@ -115,11 +132,11 @@ describe('самооценка: выгрузка для анализа', () => {
       await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
       expect(wb.worksheets.map((w) => w.name)).toEqual(['Оценки', 'Ответы', 'Домены', 'Задачи', 'Методика']);
       const header = (name: string) => (wb.getWorksheet(name)?.getRow(1).values as unknown[]).slice(1);
-      expect(header('Оценки')).toEqual(['ID оценки', 'Оценка', 'Дата', 'Статус', 'Итог', 'Максимум', 'Заполнено разделов', 'Уровень КБ', 'Итог предварительный', 'Дата фиксации']);
-      expect(header('Ответы')).toEqual(['ID оценки', 'Оценка', 'Дата', 'Домен №', 'Домен', 'Код', 'Раздел', 'Ключевой', 'Балл', 'Уровень', 'Целевой балл', 'Разрыв', 'Комментарий', 'Задач', 'Задач выполнено']);
-      expect(header('Домены')).toEqual(['ID оценки', 'Оценка', 'Дата', 'Домен №', 'Домен', 'Разделов', 'Отвечено', 'Сумма', 'Максимум', 'Средний балл', 'Средний целевой']);
+      expect(header('Оценки')).toEqual(['ID оценки', 'Оценка', 'Дата', 'Статус', 'Итог', 'Максимум', 'Заполнено разделов', 'Уровень КБ', 'Итог предварительный', 'Дата фиксации', 'ИИ: сумма', 'ИИ: максимум', 'ИИ: заполнено']);
+      expect(header('Ответы')).toEqual(['ID оценки', 'Оценка', 'Дата', 'Домен №', 'Домен', 'В итоге', 'Код', 'Раздел', 'Ключевой', 'Балл', 'Уровень', 'Целевой балл', 'Разрыв', 'Комментарий', 'Задач', 'Задач выполнено']);
+      expect(header('Домены')).toEqual(['ID оценки', 'Оценка', 'Дата', 'Домен №', 'Домен', 'В итоге', 'Разделов', 'Отвечено', 'Сумма', 'Максимум', 'Средний балл', 'Средний целевой']);
       expect(header('Задачи')).toEqual(['ID оценки', 'Оценка', 'Код', 'Раздел', 'Задача', 'Исполнитель', 'Срок', 'Статус']);
-      expect(header('Методика')).toEqual(['Домен №', 'Домен', 'Код', 'Раздел', 'Ключевой', 'Целевое состояние', '1 Базовый', '2 Средний', '3 Высокий', '4 Продвинутый']);
+      expect(header('Методика')).toEqual(['Методика', 'Версия', 'Домен №', 'Домен', 'В итоге', 'Код', 'Раздел', 'Ключевой', 'Целевое состояние', '1 Базовый', '2 Средний', '3 Высокий', '4 Продвинутый']);
       for (const ws of wb.worksheets) {
         expect(ws.autoFilter, ws.name).toBeTruthy();
         expect(ws.views[0], ws.name).toMatchObject({ state: 'frozen', ySplit: 1 });
@@ -128,9 +145,20 @@ describe('самооценка: выгрузка для анализа', () => {
       expect(row?.getCell(3).value).toBeInstanceOf(Date);
       expect(row?.getCell(5).value).toBe(34);
       expect(row?.getCell(8).value).toBe('Цифровая гигиена');
-      expect(wb.getWorksheet('Ответы')?.rowCount).toBe(25);
-      expect(wb.getWorksheet('Домены')?.rowCount).toBe(11);
-      expect(wb.getWorksheet('Ответы')?.getRow(2).getCell(9).value).toBe(2);
+      // 1.13.10: итог из 96, 28 заполнено; «ИИ: сумма / максимум / заполнено» — 10 / 16 / 4.
+      expect([row?.getCell(6).value, row?.getCell(7).value]).toEqual([96, 28]);
+      expect([11, 12, 13].map((c) => row?.getCell(c).value)).toEqual([10, 16, 4]);
+      expect(wb.getWorksheet('Ответы')?.rowCount).toBe(29);
+      expect(wb.getWorksheet('Домены')?.rowCount).toBe(12);
+      expect(wb.getWorksheet('Ответы')?.getRow(2).getCell(10).value).toBe(2);
+      expect(wb.getWorksheet('Ответы')?.getRow(2).getCell(6).value).toBe('да');
+      expect(wb.getWorksheet('Ответы')?.getRow(29).getCell(6).value).toBe('нет');
+      expect(wb.getWorksheet('Домены')?.getRow(12).values).toEqual(expect.arrayContaining([11, 'Контроль ИИ', 'нет', 4, 4, 10, 16, 2.5]));
+      // «Методика» — из снимка оценки: v2, 28 строк, домен 11 «нет» в итоге.
+      const ms = wb.getWorksheet('Методика');
+      expect(ms?.rowCount).toBe(29);
+      expect(ms?.getRow(2).values).toEqual(expect.arrayContaining(['cyber-express-v2', 2, 1, 'Целеполагание', 'да', '1.1']));
+      expect(ms?.getRow(29).values).toEqual(expect.arrayContaining(['cyber-express-v2', 2, 11, 'Контроль ИИ', 'нет', '11.4']));
       expect(await tx.auditLog.count({ where: { action: 'assessment.exported', userId: x.owner.id } })).toBe(1);
 
       // Без ids — все, кроме архивных.
@@ -146,17 +174,48 @@ describe('самооценка: выгрузка для анализа', () => {
       const x = await fixture(tx);
       const first = await x.create('Экспресс-оценка 2025');
       await importAssessment(tx, await x.as(), first, FIXTURE, { dryRun: false, version: await x.version(first) });
+      await fillAi(tx, x, first, [1, 2, 3, 4]);
       await svc.finalizeAssessment(tx, await x.as(), first, { version: await x.version(first) });
       const { buffer } = await exportAssessments(tx, await x.as(), [first]);
 
       const second = await x.create('Экспресс-оценка 2026');
       const preview = await importAssessment(tx, await x.as(), second, buffer, { dryRun: true });
-      expect(preview).toMatchObject({ format: 'answers', found: 24, errors: [], sourceId: first, total: 34 });
+      // Лист «Ответы» выгрузки v2 несёт и 11.x (1.13.10): 28 разделов, ни одной ошибки.
+      expect(preview).toMatchObject({ format: 'answers', found: 28, errors: [], sourceId: first, total: 34 });
+      expect(preview.notes.some((n) => n.includes('отсутствует'))).toBe(false);
       // Дата — из «Общей информации» эталона: импорт переносит и её.
       expect(preview.sources).toEqual([{ id: first, title: 'Экспресс-оценка 2025', date: '2025-07-07' }]);
       await importAssessment(tx, await x.as(), second, buffer, { dryRun: false, version: preview.version });
       const [a, b] = await Promise.all([x.levels(first), x.levels(second)]);
       expect(b.map((s) => [s.code, s.level])).toEqual(a.map((s) => [s.code, s.level]));
       expect(a.find((s) => s.code === '1.1')?.level).toBe(ETALON[0]);
+    }));
+});
+
+describe('самооценка: Excel и методика v1 рядом с v2 (1.13.10)', () => {
+  it('оценка на v1 в книге: «ИИ: …» пусто, «Методика» — снимок v1 и v2 по группам; выгрузка v1 импортируется в v2 без 11.x', () =>
+    inTx(async (tx) => {
+      const x = await fixture(tx);
+      await x.activate('cyber-express-v1');
+      const v1 = await x.create('Экспресс-оценка 2025');
+      await importAssessment(tx, await x.as(), v1, FIXTURE, { dryRun: false, version: await x.version(v1) });
+      await svc.finalizeAssessment(tx, await x.as(), v1, { version: await x.version(v1) });
+      await x.activate('cyber-express-v2');
+      const v2 = await x.create('Экспресс-оценка 2026');
+      const only = new ExcelJS.Workbook();
+      await only.xlsx.load((await exportAssessments(tx, await x.as(), [v1])).buffer as unknown as ExcelJS.Buffer);
+      const row = only.getWorksheet('Оценки')?.getRow(2);
+      expect([row?.getCell(5).value, row?.getCell(6).value, row?.getCell(7).value]).toEqual([34, 96, 24]);
+      expect([11, 12, 13].map((c) => row?.getCell(c).value ?? null)).toEqual([null, null, null]);
+      expect(only.getWorksheet('Методика')?.rowCount).toBe(25);
+      expect(only.getWorksheet('Методика')?.getRow(2).values).toEqual(expect.arrayContaining(['cyber-express-v1', 1]));
+      const both = new ExcelJS.Workbook();
+      await both.xlsx.load((await exportAssessments(tx, await x.as(), [v1, v2])).buffer as unknown as ExcelJS.Buffer);
+      expect(both.getWorksheet('Методика')?.rowCount).toBe(1 + 24 + 28);
+      expect(both.getWorksheet('Ответы')?.rowCount).toBe(1 + 24 + 28);
+      // Лист «Ответы» выгрузки v1 — в оценку v2: 24 раздела, домен 11 отсутствует.
+      const preview = await importAssessment(tx, await x.as(), v2, Buffer.from(await only.xlsx.writeBuffer()), { dryRun: true });
+      expect(preview).toMatchObject({ format: 'answers', found: 24, errors: [], total: 34, preliminary: true });
+      expect(preview.notes).toContain('Домен 11 «Контроль ИИ» в файле отсутствует — его разделы остаются пустыми');
     }));
 });

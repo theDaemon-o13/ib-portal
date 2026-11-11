@@ -9,7 +9,13 @@ export interface MethodologySection {
   /** Ключевой раздел для «Результативной КБ». */
   key?: boolean;
 }
-export interface MethodologyDomain { no: number; name: string; sections: MethodologySection[] }
+export interface MethodologyDomain {
+  no: number;
+  name: string;
+  sections: MethodologySection[];
+  /** Входит ли домен в итог и уровень КБ (1.13.10): нет поля — входит. Домен вне итога считается отдельно. */
+  inTotal?: boolean;
+}
 export interface MaturityLevel { code: string; name: string; min: number; max: number; description: string }
 export interface Methodology {
   code: string;
@@ -29,6 +35,8 @@ export const MAX_LEVEL = 4;
 export interface DomainScore {
   no: number;
   name: string;
+  /** Входит в итог и уровень КБ (правило 2, 1.13.10). */
+  inTotal: boolean;
   sections: number;
   answered: number;
   sum: number;
@@ -39,12 +47,13 @@ export interface DomainScore {
   targetAvg: number | null;
 }
 
-export interface Gap { code: string; name: string; domainNo: number; level: number; target: number; gap: number; key: boolean }
+export interface Gap { code: string; name: string; domainNo: number; level: number; target: number; gap: number; key: boolean; inTotal: boolean }
 
 export interface Score {
+  /** Итог и максимум — только по доменам в итоге (у cyber-express — из 96). */
   total: number;
   max: number;
-  /** Сколько разделов отвечено. */
+  /** Сколько разделов отвечено — по всем разделам снимка, включая домены вне итога. */
   answered: number;
   sections: number;
   /** Не всё заполнено — итог и уровень «предварительно», фиксация недоступна (правило 5). */
@@ -56,11 +65,14 @@ export interface Score {
   /** Число разделов на каждом уровне 1–4 (правило 6). */
   distribution: Record<'1' | '2' | '3' | '4', number>;
   gaps: Gap[];
-  /** Сколько баллов добавят цели: сумма разрывов. */
+  /** Сколько баллов добавят цели к итогу: сумма разрывов разделов доменов в итоге. */
   gapPoints: number;
 }
 
-export const sectionsOf = (m: Methodology) => m.domains.flatMap((d) => d.sections.map((s) => ({ ...s, domainNo: d.no })));
+/** Домен входит в итог, если признак не выставлен в false (1.13.10, ADR-0050). */
+export const isInTotal = (d: Pick<MethodologyDomain, 'inTotal'>) => d.inTotal !== false;
+
+export const sectionsOf = (m: Methodology) => m.domains.flatMap((d) => d.sections.map((s) => ({ ...s, domainNo: d.no, inTotal: isInTotal(d) })));
 
 /**
  * Уровень КБ по итогу (правило 4): полоса методики, в которую попадает итог; «Результативная КБ» — только если ключевые
@@ -86,15 +98,18 @@ export function score(m: Methodology, answers: Answers): Score {
   let answered = 0;
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0 } as Record<'1' | '2' | '3' | '4', number>;
   const gaps: Gap[] = [];
+  // Итог и максимум — только по доменам в итоге; заполненность и распределение — по всем разделам (1.13.10).
+  let max = 0;
   for (const s of all) {
+    if (s.inTotal) max += MAX_LEVEL;
     const a = answers.get(s.code);
     if (a?.level) {
-      total += a.level;
+      if (s.inTotal) total += a.level;
       answered += 1;
       distribution[String(a.level) as '1'] += 1;
       // Разрыв — только если цель задана и выше текущего (правило 7).
       if (a.target && a.target > a.level) {
-        gaps.push({ code: s.code, name: s.name, domainNo: s.domainNo, level: a.level, target: a.target, gap: a.target - a.level, key: s.key === true });
+        gaps.push({ code: s.code, name: s.name, domainNo: s.domainNo, level: a.level, target: a.target, gap: a.target - a.level, key: s.key === true, inTotal: s.inTotal });
       }
     }
   }
@@ -103,14 +118,14 @@ export function score(m: Methodology, answers: Answers): Score {
     const targets = d.sections.map((s) => answers.get(s.code)?.target ?? null).filter((v): v is number => v !== null);
     const sum = levels.reduce((x, y) => x + y, 0);
     return {
-      no: d.no, name: d.name, sections: d.sections.length, answered: levels.length, sum, max: d.sections.length * MAX_LEVEL,
+      no: d.no, name: d.name, inTotal: isInTotal(d), sections: d.sections.length, answered: levels.length, sum, max: d.sections.length * MAX_LEVEL,
       avg: levels.length ? round2(sum / levels.length) : null,
       targetAvg: targets.length ? round2(targets.reduce((x, y) => x + y, 0) / targets.length) : null,
     };
   });
   return {
     total,
-    max: all.length * MAX_LEVEL,
+    max,
     answered,
     sections: all.length,
     preliminary: answered < all.length,
@@ -121,9 +136,25 @@ export function score(m: Methodology, answers: Answers): Score {
     domains,
     distribution,
     gaps,
-    gapPoints: gaps.reduce((x, g) => x + g.gap, 0),
+    gapPoints: gaps.filter((g) => g.inTotal).reduce((x, g) => x + g.gap, 0),
   };
 }
+
+/**
+ * Замороженный итог оценки, зафиксированной до 1.13.10: у доменов и разрывов нет признака inTotal — тогда все в итоге.
+ * Сам итог не пересчитывается (ADR-0025).
+ */
+export function normalizeScore(raw: unknown): Score {
+  const s = raw as Score;
+  return {
+    ...s,
+    domains: (s.domains ?? []).map((d) => ({ ...d, inTotal: d.inTotal !== false })),
+    gaps: (s.gaps ?? []).map((g) => ({ ...g, inTotal: g.inTotal !== false })),
+  };
+}
+
+/** Домены вне итога (например, «Контроль ИИ»): считаются отдельно — сумма, максимум, средний, заполненность. */
+export const extraDomains = (s: Pick<Score, 'domains'>) => s.domains.filter((d) => !d.inTotal);
 
 /** Динамика (правило 8): разница с предыдущей оценкой по итогу, доменам и разделам (по совпадающим кодам). */
 export function compareScores(cur: { score: Score; answers: Answers }, prev: { score: Score; answers: Answers }) {

@@ -28,6 +28,8 @@ const Methodology = z.object({
   rules: z.object({ effectiveRequiresMaxIn: z.array(z.string()), fallbackLevel: z.string(), criterionThresholdPct: z.number() }),
   domains: z.array(z.object({
     no: z.number().int(), name: z.string(),
+    /** Входит ли домен в итог и уровень КБ (1.13.10, ADR-0050); нет поля — входит. */
+    inTotal: z.boolean().optional(),
     sections: z.array(z.object({ code: z.string(), name: z.string(), target: z.string(), criteria: z.record(z.string(), z.string()), key: z.boolean().optional() })),
   })),
 });
@@ -37,11 +39,11 @@ const Score = z.object({
   level: LevelRef,
   keySections: z.array(z.object({ code: z.string(), name: z.string(), level: z.number().int().nullable() })),
   domains: z.array(z.object({
-    no: z.number().int(), name: z.string(), sections: z.number().int(), answered: z.number().int(), sum: z.number().int(), max: z.number().int(),
+    no: z.number().int(), name: z.string(), inTotal: z.boolean(), sections: z.number().int(), answered: z.number().int(), sum: z.number().int(), max: z.number().int(),
     avg: z.number().nullable(), targetAvg: z.number().nullable(),
   })),
   distribution: z.object({ 1: z.number().int(), 2: z.number().int(), 3: z.number().int(), 4: z.number().int() }),
-  gaps: z.array(z.object({ code: z.string(), name: z.string(), domainNo: z.number().int(), level: z.number().int(), target: z.number().int(), gap: z.number().int(), key: z.boolean() })),
+  gaps: z.array(z.object({ code: z.string(), name: z.string(), domainNo: z.number().int(), level: z.number().int(), target: z.number().int(), gap: z.number().int(), key: z.boolean(), inTotal: z.boolean() })),
   gapPoints: z.number().int(),
 });
 const Summary = z.object({
@@ -68,7 +70,10 @@ const LinkedTask = z.object({
   status: z.string(), done: z.boolean(), archived: z.boolean(), deleted: z.boolean(),
 });
 const Detail = Summary.extend({
-  profile: Profile, reopenComment: z.string(), methodology: Methodology, answers: z.array(Answer), score: Score,
+  profile: Profile, reopenComment: z.string(), methodology: Methodology,
+  /** Черновик на прежней методике: куда можно обновить (1.13.10); иначе null. */
+  methodologyUpgrade: z.object({ code: z.string(), version: z.number().int(), name: z.string() }).nullable(),
+  answers: z.array(Answer), score: Score,
   /** Задачи по разделам (связи раздела); в самой задаче следа самооценки нет. */
   tasks: z.array(LinkedTask),
   previous: z.object({
@@ -126,7 +131,7 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
         200: z.object({
           a: Summary, b: Summary,
           domains: z.array(z.object({ no: z.number().int(), name: z.string(), a: z.number().int().nullable(), b: z.number().int(), aAvg: z.number().nullable(), bAvg: z.number().nullable() })),
-          sections: z.array(z.object({ code: z.string(), name: z.string(), a: z.number().int().nullable(), b: z.number().int().nullable() })),
+          sections: z.array(z.object({ code: z.string(), name: z.string(), inA: z.boolean(), a: z.number().int().nullable(), b: z.number().int().nullable() })),
           delta: Delta,
         }),
         ...errors,
@@ -224,8 +229,9 @@ export const assessmentRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, {
   }, async (request) => svc.assessmentLog(db, request.params.id));
 
   for (const [path, fn, summary] of [
-    ['finalize', svc.finalizeAssessment, 'Зафиксировать: только при 24 из 24, итог замораживается'],
+    ['finalize', svc.finalizeAssessment, 'Зафиксировать: только при всех разделах снимка (24 у v1, 28 у v2), итог замораживается'],
     ['archive', svc.archiveAssessment, 'В архив (удаления нет)'],
+    ['upgrade-methodology', svc.upgradeMethodology, 'Обновить методику черновика до активной: ответы сохраняются, новые разделы пустые; та же — 409 SAME_METHODOLOGY'],
   ] as const) {
     app.post(`/assessments/:id/${path}`, {
       preHandler: owner,

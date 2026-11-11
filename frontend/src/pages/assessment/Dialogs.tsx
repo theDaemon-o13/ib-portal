@@ -125,6 +125,30 @@ export function ProfileDialog({ a, onClose }: { a: Assessment; onClose: () => vo
   );
 }
 
+/**
+ * Обновить методику черновика до активной (1.13.10, ADR-0050): ответы, цели и комментарии имеющихся разделов
+ * сохраняются, новые разделы добавляются пустыми, итог не меняется (новые домены вне итога). Действие — в журнале.
+ */
+export function UpgradeDialog({ a, to, onClose }: { a: Assessment; to: { code: string; version: number; name: string }; onClose: () => void }) {
+  const from = a.methodology;
+  const upgrade = useAssessmentAction(
+    () => assessmentsApi.upgradeMethodology(a.id, a.version),
+    (x) => `Методика обновлена: ${x.methodology.code} v${x.methodology.version}`,
+    onClose,
+  );
+  return (
+    <Modal title={`Обновить методику до v${to.version}?`} onClose={onClose} onSubmit={() => upgrade.mutate(undefined)} busy={upgrade.isPending} submit="Обновить методику">
+      <p>Оценка «{a.title}» сейчас на методике {from.code} v{from.version}. После обновления — {to.code} v{to.version}.</p>
+      <ul className="sa-upgrade-list">
+        <li>Ответы, целевые уровни и комментарии разделов {from.domains[0]?.no}–{from.domains.at(-1)?.no} сохраняются.</li>
+        <li>Новые разделы добавляются пустыми: их нужно заполнить, чтобы зафиксировать оценку.</li>
+        <li>Итог и уровень КБ не меняются: новые домены в итог не входят и считаются отдельно.</li>
+      </ul>
+      <p className="hint">Назад к прежней методике вернуться нельзя. Действие попадёт в журнал оценки.</p>
+    </Modal>
+  );
+}
+
 /** В архив: удаления нет, архивная оценка остаётся в истории и в сравнении. */
 export function ArchiveDialog({ target, onClose }: { target: { id: string; title: string; version: number }; onClose: () => void }) {
   const archive = useAssessmentAction(

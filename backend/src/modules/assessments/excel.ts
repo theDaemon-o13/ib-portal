@@ -7,7 +7,7 @@
 import ExcelJS from 'exceljs';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { parseAssessmentBook, type ParsedProfile } from '../../lib/assessment-excel.js';
-import { score, sectionsOf, type AnswerInput, type Methodology } from '../../lib/assessment-score.js';
+import { extraDomains, isInTotal, normalizeScore, score, sectionsOf, type AnswerInput, type Methodology } from '../../lib/assessment-score.js';
 import { withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { todayIso } from '../../lib/today.js';
@@ -123,7 +123,11 @@ function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec) {
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: spec.columns.length } };
 }
 
-/** Книга: «Оценки», «Ответы», «Домены», «Задачи», «Методика». Без ids — все оценки, кроме архивных. */
+/**
+ * Книга: «Оценки», «Ответы», «Домены», «Задачи», «Методика». Без ids — все оценки, кроме архивных.
+ * 1.13.10: «В итоге» у доменов и ответов, «ИИ: …» у оценок (домены вне итога); «Методика» — из снимков оценок книги
+ * (по группе строк на каждую пару «код + версия»), без оценок — активная.
+ */
 export async function exportAssessments(db: Db, actor: Actor, ids?: readonly string[]): Promise<{ fileName: string; buffer: Buffer }> {
   const rows = await db.assessment.findMany({
     where: ids?.length ? { id: { in: [...ids] } } : { status: { not: 'archived' } },
@@ -145,12 +149,19 @@ export async function exportAssessments(db: Db, actor: Actor, ids?: readonly str
   const answers: Cell[][] = [];
   const domains: Cell[][] = [];
   const taskRows: Cell[][] = [];
+  const snapshots = new Map<string, Methodology>();
   for (const r of rows) {
     const m = r.methodologySnapshot as unknown as Methodology;
+    if (!snapshots.has(`${m.code} v${m.version}`)) snapshots.set(`${m.code} v${m.version}`, m);
     const by = new Map(r.answers.map((a) => [a.sectionCode, a]));
-    const s = r.result ? (r.result as unknown as ReturnType<typeof score>) : score(m, new Map(r.answers.map((a) => [a.sectionCode, { level: a.level, target: a.targetLevel }])));
+    const s = r.result ? normalizeScore(r.result) : score(m, new Map(r.answers.map((a) => [a.sectionCode, { level: a.level, target: a.targetLevel }])));
     const head = [r.id, r.title, day(r.assessedOn)] as Cell[];
-    assessments.push([...head, STATUS_NAMES[r.status as AssessmentStatus], s.total, s.max, s.answered, s.level.name, yesNo(s.preliminary), day(r.finalizedAt)]);
+    // Домены вне итога («Контроль ИИ»): сумма, максимум, отвечено; у методики без них — пусто.
+    const extra = extraDomains(s);
+    const ai: Cell[] = extra.length
+      ? [extra.reduce((x, d) => x + d.sum, 0), extra.reduce((x, d) => x + d.max, 0), extra.reduce((x, d) => x + d.answered, 0)]
+      : [null, null, null];
+    assessments.push([...head, STATUS_NAMES[r.status as AssessmentStatus], s.total, s.max, s.answered, s.level.name, yesNo(s.preliminary), day(r.finalizedAt), ...ai]);
     for (const d of m.domains) {
       for (const sec of d.sections) {
         const a = by.get(sec.code);
@@ -158,7 +169,7 @@ export async function exportAssessments(db: Db, actor: Actor, ids?: readonly str
         const target = a?.targetLevel ?? null;
         const ts = tasksOf(r.id, sec.code);
         answers.push([
-          ...head, d.no, d.name, sec.code, sec.name, yesNo(sec.key === true), level, level ? m.scale.find((x) => x.level === level)?.name ?? '' : '',
+          ...head, d.no, d.name, yesNo(isInTotal(d)), sec.code, sec.name, yesNo(sec.key === true), level, level ? m.scale.find((x) => x.level === level)?.name ?? '' : '',
           target, level !== null && target !== null && target > level ? target - level : null, a?.comment ?? '', ts.length, ts.filter((t) => t.completedAt).length,
         ]);
         for (const t of ts) {
@@ -166,32 +177,38 @@ export async function exportAssessments(db: Db, actor: Actor, ids?: readonly str
         }
       }
       const ds = s.domains.find((x) => x.no === d.no);
-      domains.push([...head, d.no, d.name, ds?.sections ?? d.sections.length, ds?.answered ?? 0, ds?.sum ?? 0, ds?.max ?? 0, ds?.avg ?? null, ds?.targetAvg ?? null]);
+      domains.push([...head, d.no, d.name, yesNo(isInTotal(d)), ds?.sections ?? d.sections.length, ds?.answered ?? 0, ds?.sum ?? 0, ds?.max ?? 0, ds?.avg ?? null, ds?.targetAvg ?? null]);
     }
   }
-  const active = (await activeMethodology(db)).content as unknown as Methodology;
-  const methodology: Cell[][] = active.domains.flatMap((d) => d.sections.map((s) => [
-    d.no, d.name, s.code, s.name, yesNo(s.key === true), s.target, ...[1, 2, 3, 4].map((l) => s.criteria[String(l)] ?? ''),
-  ]));
+  if (!snapshots.size) {
+    const active = (await activeMethodology(db)).content as unknown as Methodology;
+    snapshots.set(`${active.code} v${active.version}`, active);
+  }
+  const books = [...snapshots.values()];
+  const scale = books[0]?.scale ?? [];
+  const methodology: Cell[][] = books.flatMap((m) => m.domains.flatMap((d) => d.sections.map((s) => [
+    m.code, m.version, d.no, d.name, yesNo(isInTotal(d)), s.code, s.name, yesNo(s.key === true), s.target, ...scale.map((x) => s.criteria[String(x.level)] ?? ''),
+  ])));
 
   const wb = new ExcelJS.Workbook();
   const base = [{ header: 'ID оценки', width: 38 }, { header: 'Оценка', width: 28 }, { header: 'Дата', width: 12, date: true }];
   addSheet(wb, {
     name: 'Оценки',
     columns: [...base, { header: 'Статус', width: 15 }, { header: 'Итог', width: 8 }, { header: 'Максимум', width: 10 }, { header: 'Заполнено разделов', width: 12 },
-      { header: 'Уровень КБ', width: 24 }, { header: 'Итог предварительный', width: 14 }, { header: 'Дата фиксации', width: 14, date: true }],
+      { header: 'Уровень КБ', width: 24 }, { header: 'Итог предварительный', width: 14 }, { header: 'Дата фиксации', width: 14, date: true },
+      { header: 'ИИ: сумма', width: 10 }, { header: 'ИИ: максимум', width: 12 }, { header: 'ИИ: заполнено', width: 12 }],
     rows: assessments,
   });
   addSheet(wb, {
     name: 'Ответы',
-    columns: [...base, { header: 'Домен №', width: 9 }, { header: 'Домен', width: 30 }, { header: 'Код', width: 7 }, { header: 'Раздел', width: 40 },
+    columns: [...base, { header: 'Домен №', width: 9 }, { header: 'Домен', width: 30 }, { header: 'В итоге', width: 9 }, { header: 'Код', width: 7 }, { header: 'Раздел', width: 40 },
       { header: 'Ключевой', width: 10 }, { header: 'Балл', width: 7 }, { header: 'Уровень', width: 13 }, { header: 'Целевой балл', width: 9 },
       { header: 'Разрыв', width: 8 }, { header: 'Комментарий', width: 40 }, { header: 'Задач', width: 8 }, { header: 'Задач выполнено', width: 10 }],
     rows: answers,
   });
   addSheet(wb, {
     name: 'Домены',
-    columns: [...base, { header: 'Домен №', width: 9 }, { header: 'Домен', width: 30 }, { header: 'Разделов', width: 10 }, { header: 'Отвечено', width: 10 },
+    columns: [...base, { header: 'Домен №', width: 9 }, { header: 'Домен', width: 30 }, { header: 'В итоге', width: 9 }, { header: 'Разделов', width: 10 }, { header: 'Отвечено', width: 10 },
       { header: 'Сумма', width: 8 }, { header: 'Максимум', width: 10 }, { header: 'Средний балл', width: 10 }, { header: 'Средний целевой', width: 10 }],
     rows: domains,
   });
@@ -203,8 +220,9 @@ export async function exportAssessments(db: Db, actor: Actor, ids?: readonly str
   });
   addSheet(wb, {
     name: 'Методика',
-    columns: [{ header: 'Домен №', width: 9 }, { header: 'Домен', width: 30 }, { header: 'Код', width: 7 }, { header: 'Раздел', width: 40 }, { header: 'Ключевой', width: 10 },
-      { header: 'Целевое состояние', width: 60 }, ...active.scale.map((x) => ({ header: `${x.level} ${x.name}`, width: 50 }))],
+    columns: [{ header: 'Методика', width: 18 }, { header: 'Версия', width: 8 }, { header: 'Домен №', width: 9 }, { header: 'Домен', width: 30 }, { header: 'В итоге', width: 9 },
+      { header: 'Код', width: 7 }, { header: 'Раздел', width: 40 }, { header: 'Ключевой', width: 10 },
+      { header: 'Целевое состояние', width: 60 }, ...scale.map((x) => ({ header: `${x.level} ${x.name}`, width: 50 }))],
     rows: methodology,
   });
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());

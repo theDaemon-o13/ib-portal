@@ -39,6 +39,7 @@ export function Plan({ a }: { a: Assessment }) {
                     <td rowSpan={span}>
                       <button className="btn ghost sm" type="button" onClick={() => goto(g.code)}><span className="sa-code">{g.code}</span> {g.name}</button>
                       {g.key && <span className="chip high">ключевой</span>}
+                      {!g.inTotal && <span className="chip sa-out" title="Домен вне итога: разрыв не меняет итог КБ">вне итога</span>}
                     </td>
                     <td rowSpan={span} className="sa-nowrap"><LevelPill level={g.level} /> → <LevelPill level={g.target} /></td>
                   </>

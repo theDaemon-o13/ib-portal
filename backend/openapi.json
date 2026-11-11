@@ -157335,6 +157335,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "array",
                                 "items": {
@@ -157391,6 +157394,35 @@
                         "domains"
                       ],
                       "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "answers": {
                       "type": "array",
@@ -157541,6 +157573,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -157577,6 +157612,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -157652,6 +157688,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -157661,7 +157700,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -157982,6 +158022,7 @@
                     "profile",
                     "reopenComment",
                     "methodology",
+                    "methodologyUpgrade",
                     "answers",
                     "score",
                     "tasks",
@@ -158302,6 +158343,9 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "inTotal": {
+                            "type": "boolean"
                           },
                           "sections": {
                             "type": "array",
@@ -159108,6 +159152,9 @@
                           "name": {
                             "type": "string"
                           },
+                          "inA": {
+                            "type": "boolean"
+                          },
                           "a": {
                             "anyOf": [
                               {
@@ -159136,6 +159183,7 @@
                         "required": [
                           "code",
                           "name",
+                          "inA",
                           "a",
                           "b"
                         ],
@@ -159707,6 +159755,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "array",
                                 "items": {
@@ -159763,6 +159814,35 @@
                         "domains"
                       ],
                       "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "answers": {
                       "type": "array",
@@ -159913,6 +159993,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -159949,6 +160032,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -160024,6 +160108,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -160033,7 +160120,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -160354,6 +160442,7 @@
                     "profile",
                     "reopenComment",
                     "methodology",
+                    "methodologyUpgrade",
                     "answers",
                     "score",
                     "tasks",
@@ -160880,6 +160969,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "array",
                                 "items": {
@@ -160936,6 +161028,35 @@
                         "domains"
                       ],
                       "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "answers": {
                       "type": "array",
@@ -161086,6 +161207,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -161122,6 +161246,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -161197,6 +161322,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -161206,7 +161334,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -161527,6 +161656,7 @@
                     "profile",
                     "reopenComment",
                     "methodology",
+                    "methodologyUpgrade",
                     "answers",
                     "score",
                     "tasks",
@@ -161971,6 +162101,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -162007,6 +162140,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -162082,6 +162216,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -162091,7 +162228,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -163685,7 +163823,7 @@
     },
     "/api/v1/assessments/{id}/finalize": {
       "post": {
-        "summary": "Зафиксировать: только при 24 из 24, итог замораживается",
+        "summary": "Зафиксировать: только при всех разделах снимка (24 у v1, 28 у v2), итог замораживается",
         "tags": [
           "assessments"
         ],
@@ -163950,6 +164088,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "array",
                                 "items": {
@@ -164006,6 +164147,35 @@
                         "domains"
                       ],
                       "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "answers": {
                       "type": "array",
@@ -164156,6 +164326,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -164192,6 +164365,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -164267,6 +164441,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -164276,7 +164453,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -164597,6 +164775,7 @@
                     "profile",
                     "reopenComment",
                     "methodology",
+                    "methodologyUpgrade",
                     "answers",
                     "score",
                     "tasks",
@@ -165072,6 +165251,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "array",
                                 "items": {
@@ -165128,6 +165310,35 @@
                         "domains"
                       ],
                       "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "answers": {
                       "type": "array",
@@ -165278,6 +165489,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -165314,6 +165528,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -165389,6 +165604,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -165398,7 +165616,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -165719,6 +165938,1170 @@
                     "profile",
                     "reopenComment",
                     "methodology",
+                    "methodologyUpgrade",
+                    "answers",
+                    "score",
+                    "tasks",
+                    "previous"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assessments/{id}/upgrade-methodology": {
+      "post": {
+        "summary": "Обновить методику черновика до активной: ответы сохраняются, новые разделы пустые; та же — 409 SAME_METHODOLOGY",
+        "tags": [
+          "assessments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "assessedOn": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "final",
+                        "archived"
+                      ]
+                    },
+                    "statusName": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "max": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "answered": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "sections": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "preliminary": {
+                      "type": "boolean"
+                    },
+                    "level": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "finalizedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "profile": {
+                      "type": "object",
+                      "properties": {
+                        "organization": {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "respondent": {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "position": {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "industries": {
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 300
+                          }
+                        },
+                        "employees": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kbExperience": {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "kbStaff": {
+                          "type": "string",
+                          "maxLength": 300
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "reopenComment": {
+                      "type": "string"
+                    },
+                    "methodology": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "scale": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "level": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "level",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "maturity": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "min": {
+                                "type": "number"
+                              },
+                              "max": {
+                                "type": "number"
+                              },
+                              "description": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "name",
+                              "min",
+                              "max",
+                              "description"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "rules": {
+                          "type": "object",
+                          "properties": {
+                            "effectiveRequiresMaxIn": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "fallbackLevel": {
+                              "type": "string"
+                            },
+                            "criterionThresholdPct": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "effectiveRequiresMaxIn",
+                            "fallbackLevel",
+                            "criterionThresholdPct"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "no": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
+                              "sections": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "code": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "target": {
+                                      "type": "string"
+                                    },
+                                    "criteria": {
+                                      "type": "object",
+                                      "propertyNames": {
+                                        "type": "string"
+                                      },
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "key": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "code",
+                                    "name",
+                                    "target",
+                                    "criteria"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "no",
+                              "name",
+                              "sections"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "name",
+                        "version",
+                        "scale",
+                        "maturity",
+                        "rules",
+                        "domains"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "answers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "level": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "targetLevel": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "comment": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "updatedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "level",
+                          "targetLevel",
+                          "comment",
+                          "version",
+                          "updatedAt",
+                          "updatedBy"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "score": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "max": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "answered": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "sections": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "preliminary": {
+                          "type": "boolean"
+                        },
+                        "level": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "keySections": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "level": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "name",
+                              "level"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "no": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
+                              "sections": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "answered": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "sum": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "max": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "avg": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "targetAvg": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "no",
+                              "name",
+                              "inTotal",
+                              "sections",
+                              "answered",
+                              "sum",
+                              "max",
+                              "avg",
+                              "targetAvg"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "distribution": {
+                          "type": "object",
+                          "properties": {
+                            "1": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "2": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "3": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "4": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "1",
+                            "2",
+                            "3",
+                            "4"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "gaps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "code": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "domainNo": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "level": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "target": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "gap": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "key": {
+                                "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "name",
+                              "domainNo",
+                              "level",
+                              "target",
+                              "gap",
+                              "key",
+                              "inTotal"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "gapPoints": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "max",
+                        "answered",
+                        "sections",
+                        "preliminary",
+                        "level",
+                        "keySections",
+                        "domains",
+                        "distribution",
+                        "gaps",
+                        "gapPoints"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "assignee": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "done": {
+                            "type": "boolean"
+                          },
+                          "archived": {
+                            "type": "boolean"
+                          },
+                          "deleted": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "id",
+                          "number",
+                          "title",
+                          "assignee",
+                          "dueDate",
+                          "status",
+                          "done",
+                          "archived",
+                          "deleted"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "previous": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "assessedOn": {
+                              "type": "string"
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "level": {
+                              "type": "object",
+                              "properties": {
+                                "code": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "code",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "domains": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "no": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "sum": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "avg": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "no",
+                                  "sum",
+                                  "avg"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "answers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "level": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "code",
+                                  "level"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "delta": {
+                              "type": "object",
+                              "properties": {
+                                "total": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "domains": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "no": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "sum": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "avg": {
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "no",
+                                      "sum",
+                                      "avg"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "sections": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "code": {
+                                        "type": "string"
+                                      },
+                                      "from": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "to": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "delta": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "code",
+                                      "from",
+                                      "to",
+                                      "delta"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "total",
+                                "domains",
+                                "sections"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "title",
+                            "assessedOn",
+                            "total",
+                            "level",
+                            "domains",
+                            "answers",
+                            "delta"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "assessedOn",
+                    "status",
+                    "statusName",
+                    "total",
+                    "max",
+                    "answered",
+                    "sections",
+                    "preliminary",
+                    "level",
+                    "finalizedAt",
+                    "version",
+                    "profile",
+                    "reopenComment",
+                    "methodology",
+                    "methodologyUpgrade",
                     "answers",
                     "score",
                     "tasks",
@@ -166198,6 +167581,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "array",
                                 "items": {
@@ -166254,6 +167640,35 @@
                         "domains"
                       ],
                       "additionalProperties": false
+                    },
+                    "methodologyUpgrade": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "version",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "answers": {
                       "type": "array",
@@ -166404,6 +167819,9 @@
                               "name": {
                                 "type": "string"
                               },
+                              "inTotal": {
+                                "type": "boolean"
+                              },
                               "sections": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -166440,6 +167858,7 @@
                             "required": [
                               "no",
                               "name",
+                              "inTotal",
                               "sections",
                               "answered",
                               "sum",
@@ -166515,6 +167934,9 @@
                               },
                               "key": {
                                 "type": "boolean"
+                              },
+                              "inTotal": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -166524,7 +167946,8 @@
                               "level",
                               "target",
                               "gap",
-                              "key"
+                              "key",
+                              "inTotal"
                             ],
                             "additionalProperties": false
                           }
@@ -166845,6 +168268,7 @@
                     "profile",
                     "reopenComment",
                     "methodology",
+                    "methodologyUpgrade",
                     "answers",
                     "score",
                     "tasks",

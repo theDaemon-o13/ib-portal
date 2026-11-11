@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Answer, AssessmentSummary, Methodology } from '../../api/assessments';
 import {
-  defaultAssessmentId, defaultTaskTitle, deltaTone, flipSlide, logText, planCounts, PRESENTATION_SLIDES, taskState, donutArcs, n1, radarAnchor, radarPoint, radarPolygon, scalePct, scaleZones, sectionsOf, signed,
+  defaultAssessmentId, defaultTaskTitle, deltaTone, domainShort, extraDomains, extraLabel, flipSlide, isInTotal, logText, planCounts, PRESENTATION_SLIDES, taskState, donutArcs, n1, radarAnchor, radarPoint, radarPolygon, scalePct, scaleZones, sectionsOf, signed,
   unanswered, weakSections,
 } from './logic';
 
@@ -107,9 +107,24 @@ describe('самооценка: списки и подписи', () => {
     expect(taskState(t('1.1', true))).toEqual({ text: 'Выполнено', tone: 'low' });
     expect(taskState({ ...t('1.1'), archived: true })).toEqual({ text: 'в архиве · Поставленные', tone: '' });
     expect(taskState(t('1.1', false, true)).text).toBe('удалена');
-    const gap = (code: string, g: number) => ({ code, name: code, domainNo: 1, level: 1, target: 1 + g, gap: g, key: false });
+    const gap = (code: string, g: number) => ({ code, name: code, domainNo: 1, level: 1, target: 1 + g, gap: g, key: false, inTotal: true });
     expect(planCounts({ gaps: [gap('1.1', 2), gap('5.3', 1), gap('7.1', 1)], gapPoints: 4 }, [t('1.1', true), t('1.1'), t('5.3', false, true)]))
       .toEqual({ gaps: 3, points: 4, withoutTask: 2, done: 1, total: 2 });
+  });
+
+  it('домен вне итога (1.13.10): признак, разделы, отдельная карточка и подпись, короткое имя на радаре', () => {
+    const m2: Methodology = { ...m, domains: [...m.domains, { no: 11, name: 'Контроль ИИ', inTotal: false, sections: [{ code: '11.1', name: 'Процесс', target: '', criteria: {}, key: false }] }] };
+    expect(isInTotal({})).toBe(true);
+    expect(isInTotal({ inTotal: false })).toBe(false);
+    expect(sectionsOf(m2).filter((s) => !s.inTotal).map((s) => s.code)).toEqual(['11.1']);
+    expect(scaleZones(m2)).toEqual(scaleZones(m));
+    const dom = (no: number, inTotal: boolean, sum: number, max: number) => ({ no, name: no === 11 ? 'Контроль ИИ' : `Домен ${no}`, inTotal, sections: 1, answered: 1, sum, max, avg: null, targetAvg: null });
+    const extra = extraDomains({ domains: [dom(1, true, 3, 4), dom(11, false, 8, 16)] });
+    expect(extra.map((d) => d.no)).toEqual([11]);
+    expect(extraLabel(extra[0] as NonNullable<(typeof extra)[0]>)).toBe('Контроль ИИ: 8 из 16');
+    expect(domainShort(11, 'Контроль ИИ')).toBe('Контроль ИИ');
+    // Слабые места включают 11.x.
+    expect(weakSections(m2, [answer('1.2', 1), answer('11.1', 1)]).map((s) => s.code)).toEqual(['1.2', '11.1']);
   });
 
   it('презентация: шесть слайдов, листание без перехода по кругу', () => {

@@ -3,7 +3,8 @@
 //   npm run test:e2e   (логин и пароль администратора — из frontend/.env.e2e или E2E_LOGIN / E2E_PASSWORD)
 //
 // Пользователь только с ролью «Самооценка» (без ib.work): пункт меню, новая оценка, ответы с итогом «предварительно»,
-// «Зафиксировать» недоступно до 24 из 24, фиксация, только просмотр, возврат в черновик, журнал, архив.
+// «Зафиксировать» недоступно до 28 из 28 (методика v2, 1.13.10: домен 11 «Контроль ИИ» вне итога, итог из 96),
+// фиксация, только просмотр, возврат в черновик, журнал, архив.
 // Задача по разрыву из «Плана улучшений» — на общей доске; в карточке у исполнителя нет следа самооценки.
 // Импорт эталона Excel через окно (предпросмотр → применить): 34 балла; выгрузка .xlsx.
 // Презентация: 6 слайдов, ← → пробел Esc, подпись «Спроектировано» из настроек и «Подготовил» — ФИО вошедшего;
@@ -160,7 +161,11 @@ describe('Самооценка', () => {
     await ui.waitFor(`!document.querySelector('form.modal') && document.querySelector('[data-testid=sa-total]')?.textContent === '0'`, 'обзор новой оценки');
     assert.equal(await status(), 'draft');
     assert.match(await ui.evaluate(`document.querySelector('.sa-lvl .hint').textContent`), /предварительно/);
-    assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 0 из 24');
+    assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 0 из 28');
+    // Методика v2 (1.13.10): 28 разделов, итог из 96, карточка «Контроль ИИ: 0 из 16» рядом с уровнем.
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=sa-answered]')?.textContent`), '0 из 28');
+    assert.match(await ui.evaluate(`document.querySelector('.sa-lvl-score')?.textContent`), /из 96/);
+    assert.match(await ui.evaluate(`document.querySelector('[data-testid=sa-extra]')?.textContent ?? ''`), /Контроль ИИ.*вне итога.*0 из 16/s, 'карточка домена вне итога');
 
     // Чек-лист: ответ щелчком сохраняется сразу, итог пересчитывает backend.
     await ui.click(tab('Чек-лист'), 'вкладка «Чек-лист»');
@@ -172,20 +177,33 @@ describe('Самооценка', () => {
     await ui.waitFor(`${option('1.1', 3)}?.getAttribute('aria-pressed') === 'true'`, 'выбранный вариант 1.1');
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Сохранено. Итог 3 из 96'`, 'уведомление с итогом');
 
-    // Остальные разделы, кроме 10.1, — через API (уровень 2); последний — снова в интерфейсе.
+    // Домен 11 в списке слева — с пометкой «вне итога».
+    const dom11 = `[...document.querySelectorAll('.sa-doms button')].find((b) => b.textContent.startsWith('11. Контроль ИИ'))`;
+    assert.match(await ui.evaluate(`${dom11}?.textContent ?? ''`), /вне итога/, 'домен 11 помечен «вне итога»');
+    assert.equal(await ui.evaluate(`document.querySelectorAll('.sa-doms button').length`), 11, '11 доменов');
+
+    // Остальные разделы, кроме 10.1 и 11.4, — через API (уровень 2); последние — снова в интерфейсе.
     const a = (await mine());
     const detail = await ok('GET', `/api/v1/assessments/${a.id}`);
+    assert.equal(detail.answers.length, 28);
     for (const ans of detail.answers) {
-      if (ans.code === '1.1' || ans.code === '10.1') continue;
+      if (ans.code === '1.1' || ans.code === '10.1' || ans.code === '11.4') continue;
       await ok('PUT', `/api/v1/assessments/${a.id}/answers/${ans.code}`, { version: ans.version, level: 2 });
     }
     await ui.goto(`/assessment/checklist?id=${a.id}&dom=10`);
     await ui.waitFor(`!!${option('10.1', 1)}`, 'домен 10');
-    assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 23 из 24');
+    assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 26 из 28');
     await ui.click(option('10.1', 1), 'раздел 10.1, уровень 1');
-    // 3 + 22 × 2 + 1 = 48 — «Классическая ИБ».
+    // 3 + 22 × 2 + 1 = 48 — «Классическая ИБ»; домен 11 в итог не входит.
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Сохранено. Итог 48 из 96'`, 'итог 48');
-    await ui.waitFor(`${finalizeBtn} && !${finalizeBtn}.disabled`, '«Зафиксировать» доступно при 24 из 24');
+    // Домены 1–10 заполнены, но 11.4 пуст — фиксация по-прежнему недоступна (28 из 28, 1.13.10).
+    assert.ok(await ui.evaluate(`${finalizeBtn}.disabled`), '«Зафиксировать» недоступно при 27 из 28');
+    await ui.click(dom11, 'домен 11 в списке');
+    await ui.waitFor(`!!${option('11.4', 2)}`, 'домен 11 в чек-листе');
+    assert.match(await ui.evaluate(`document.querySelector('.sa-dom-h')?.textContent ?? ''`), /вне итога/, 'заголовок домена 11 — «вне итога»');
+    await ui.click(option('11.4', 2), 'раздел 11.4, уровень 2');
+    await ui.waitFor(`document.querySelector('.toast.on')?.textContent === 'Сохранено. Итог 48 из 96'`, 'итог не изменился: домен 11 вне итога');
+    await ui.waitFor(`${finalizeBtn} && !${finalizeBtn}.disabled`, '«Зафиксировать» доступно при 28 из 28');
 
     // Фиксация: статус, итог заморожен, ответы — только просмотр.
     m = ui.mark();
@@ -194,10 +212,15 @@ describe('Самооценка', () => {
     await ui.waitFor(`document.querySelector('.sa-bar .chip')?.dataset.status === 'final'`, 'статус «Зафиксирована»');
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent.includes('Оценка зафиксирована: 48 из 96, «Классическая ИБ»')`, 'уведомление о фиксации');
     await ui.waitFor(`document.querySelector('.note.ro')?.textContent.includes('верните её в черновик')`, 'пояснение «только просмотр»');
-    assert.ok(await ui.evaluate(`${option('10.1', 2)}.disabled`), 'варианты недоступны');
+    assert.ok(await ui.evaluate(`${option('11.4', 2)}.disabled`), 'варианты недоступны');
     await ui.click(tab('Обзор'), 'вкладка «Обзор»');
     await ui.waitFor(`document.querySelector('[data-testid=sa-level]')?.textContent === 'Классическая ИБ'`, 'уровень на обзоре');
     assert.doesNotMatch(await ui.evaluate(`document.querySelector('.sa-lvl .hint').textContent`), /предварительно/);
+    // «Контроль ИИ: 8 из 16» (4 × 2) — отдельно от итога 48 из 96; на радаре 11 осей, одна с пометкой.
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=sa-extra-total]')?.textContent`), '8');
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=sa-total]')?.textContent`), '48');
+    assert.equal(await ui.evaluate(`document.querySelectorAll('.sa-radar circle').length`), 11, '11 осей радара');
+    assert.equal(await ui.evaluate(`document.querySelectorAll('.sa-radar .sa-radar-note').length`), 1, 'ось домена 11 подписана «вне итога»');
 
     // Возврат в черновик с комментарием.
     await ui.click($.button('Вернуть в черновик'), '«Вернуть в черновик»');
@@ -295,9 +318,11 @@ describe('Самооценка', () => {
     await ui.setFiles('[role=dialog] input[type=file]', [FIXTURE]);
     const dry = await ui.request(m, 'POST', `/assessments/${a.id}/import?dryRun=true`);
     assert.equal(dry.status, 200);
-    await ui.waitFor(`document.querySelector('[data-testid=sa-import-preview]')?.textContent.includes('Найдено разделов: 24 из 24')`, 'предпросмотр импорта');
+    await ui.waitFor(`document.querySelector('[data-testid=sa-import-preview]')?.textContent.includes('Найдено разделов: 24 из 28')`, 'предпросмотр импорта');
     const text = await ui.evaluate(`document.querySelector('[data-testid=sa-import-preview]').textContent`);
-    assert.match(text, /итог — 34 из 96, «Цифровая гигиена»/);
+    // Методика v2 (1.13.10): шаблон без домена 11 — итог 34 из 96 «предварительно», домен 11 остаётся пустым.
+    assert.match(text, /итог — 34 из 96, «Цифровая гигиена» \(предварительно\)/);
+    assert.match(text, /Домен 11 «Контроль ИИ» в файле отсутствует/);
     assert.match(text, /Скрытые строки пропущены/);
     assert.equal((await mine(TITLE3)).total, 0, 'предпросмотр ничего не записал');
     m = ui.mark();
@@ -343,6 +368,7 @@ describe('Самооценка', () => {
     await openPresentation();
     await slideIs(0);
     assert.match(await ui.evaluate(`document.querySelector('.sa-pres').textContent`), /предварительно/, 'черновик — «предварительно» на первом слайде');
+    assert.equal(await ui.evaluate(`document.querySelector('[data-testid=sa-ps-extra]')?.textContent`), 'Контроль ИИ: 0 из 16 (вне итога)', 'первый слайд — строка домена вне итога');
     assert.equal(await sign(), `Спроектировано: ${signature}\nПодготовил: Владелец самооценки ${RUN} · ${new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
     // Клавиша за клавишей: каждое нажатие — следующий слайд, иначе быстрые нажатия могли бы слиться.
     let n = 0;

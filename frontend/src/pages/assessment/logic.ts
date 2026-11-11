@@ -5,10 +5,19 @@ import type { Answer, AssessmentSummary, LinkedTask, Methodology, Score } from '
 export const MAX_LEVEL = 4;
 export const LEVELS = [1, 2, 3, 4] as const;
 
-/** Разделы методики по порядку, с номером домена. */
+/** Домен входит в итог, если признак не выставлен в false (1.13.10, ADR-0050). */
+export const isInTotal = (d: { inTotal?: boolean | null }) => d.inTotal !== false;
+
+/** Разделы методики по порядку, с номером домена и признаком «в итоге». */
 export function sectionsOf(m: Methodology) {
-  return m.domains.flatMap((d) => d.sections.map((s) => ({ ...s, domainNo: d.no, domainName: d.name })));
+  return m.domains.flatMap((d) => d.sections.map((s) => ({ ...s, domainNo: d.no, domainName: d.name, inTotal: isInTotal(d) })));
 }
+
+/** Домены вне итога (например, «Контроль ИИ»): считаются отдельно — сумма, максимум, средний, заполненность. */
+export const extraDomains = (s: Pick<Score, 'domains'>) => s.domains.filter((d) => !d.inTotal);
+
+/** Подпись домена вне итога: «Контроль ИИ: 8 из 16». */
+export const extraLabel = (d: Pick<Score['domains'][number], 'name' | 'sum' | 'max'>) => `${d.name}: ${d.sum} из ${d.max}`;
 export type Section = ReturnType<typeof sectionsOf>[number];
 
 /** Название уровня шкалы: «1» → «Базовый». */
@@ -46,7 +55,8 @@ export function shortTitle(title: string): string {
  * максимум — по 4). «0–43» на деле начинается с 24 (спецификация, раздел 2).
  */
 export function scaleZones(m: Methodology) {
-  const n = sectionsOf(m).length;
+  // Диапазон — только по разделам доменов в итоге (1.13.10): домен вне итога шкалу не растягивает.
+  const n = sectionsOf(m).filter((s) => s.inTotal).length;
   const lo = n;
   const hi = n * MAX_LEVEL;
   const zones = [...m.maturity]
@@ -85,7 +95,7 @@ export function radarAnchor(x: number, cx: number): 'middle' | 'start' | 'end' {
 /** Короткие подписи доменов на радаре; домен не из списка — его название. */
 const SHORT_DOMAINS: Record<number, string> = {
   1: 'Целеполагание', 2: 'Активы', 3: 'Мониторинг', 4: 'Инциденты', 5: 'Уязвимости',
-  6: 'Доступ', 7: 'Конфигурации', 8: 'Устойчивость', 9: 'Сеть и инфр.', 10: 'Контроль защищ.',
+  6: 'Доступ', 7: 'Конфигурации', 8: 'Устойчивость', 9: 'Сеть и инфр.', 10: 'Контроль защищ.', 11: 'Контроль ИИ',
 };
 export const domainShort = (no: number, name: string) => SHORT_DOMAINS[no] ?? name;
 
