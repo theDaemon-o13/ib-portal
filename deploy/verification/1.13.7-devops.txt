@@ -1,0 +1,61 @@
+Портал ИБ 1.13.7 — обновление прода с 1.13.6. Меняются образы backend и frontend. Миграций, новых переменных .env,
+прав и seed нет — шаг migrate НЕ выполнять. Образ db по содержимому тот же, что у 1.13.6. Подробно — RELEASE.md в архиве.
+Если на проде ещё не 1.13.6 — сначала цепочка 1.13.3 → 1.13.4 → 1.13.5 → 1.13.6, каждый по своему архиву и devops.txt.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.7            → c677efe1df79556b4c8c91126c32f1d9629f18d6   (объект тега)
+     git rev-parse 'v1.13.7^{commit}' → 5d850d2a3d14830864f2d404bae502e40cc81fb7   (коммит)
+   Архив: ibportal-1.13.7.tar.gz + ibportal-1.13.7.tar.gz.sha256
+     sha256 ibportal-1.13.7.tar.gz = 914c97f3b9ce14365af30ac4c5370efc513988d000a4eae39b35d9fa02d98185
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.7.tar.gz.sha256          → OK
+     tar -xzf ibportal-1.13.7.tar.gz && cd ibportal-1.13.7 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.7.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.6)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома, как при прошлых выкладках
+   (tar копии + sha256sum, проверка на месте хранения). Нет копии — стоп.
+   Для сверки:
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT count(*), count(DISTINCT language) FROM document_translations WHERE removed_at IS NULL;"'
+     → два числа: строк перевода | разных языков
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT count(*) FROM audit_log WHERE action = '"'"'auth.login_failed'"'"';"'
+     → число неудачных входов
+
+2. ВЫКЛАДКА — замена backend и frontend, БЕЗ migrate
+   cp /srv/ibportal/releases/ibportal-1.13.7/docker-compose.yml .     (файл не изменился с 1.13.6)
+   cp /srv/ibportal/releases/ibportal-1.13.7/scripts/*.sh scripts/    (скрипты не изменились)
+   sed -i 's/^VERSION=.*/VERSION=1.13.7/' .env
+   docker compose up -d backend frontend
+   (db перезапустится с образом ibportal-db:1.13.7 — по содержимому тот же, что 1.13.6; данные в томе не трогаются.)
+
+3. ПОСЛЕ
+   docker compose ps                → backend healthy, frontend Up
+   docker compose logs backend | grep -E 'startup.address_lists|startup.monitor_ips_empty'
+                                    → одна строка со списками TRUSTED_PROXY_IPS, MONITOR_ALLOWED_IPS, ADMIN_ALLOWED_IPS;
+                                      строка-предупреждение — только если MONITOR_ALLOWED_IPS пуста (тогда монитор
+                                      не войдёт ни с одного адреса — задать адрес и docker compose up -d backend)
+   ./scripts/smoke.sh --after       → «Smoke-проверка пройдена», число записей не изменилось
+   SQL из шага 1                    → строки перевода и языки — те же два числа; неудачных входов — не меньше
+   Вручную в Chrome и в Edge на Windows, обе темы:
+     - «Журнал» → действие «Неудачный вход» → у строк есть подпись причины (например, «адрес не разрешён для
+       настенного монитора (MONITOR_ALLOWED_IPS)»); у логина, которого нет в портале, показаны 2 символа и длина;
+     - «Настройки → Пользователи и роли» → у учётки настенного монитора либо ничего, либо чип «Монитор: адреса не
+       заданы» / «Вход отклонён по адресу» с временем и адресом последнего отказа — этот адрес и есть тот, что нужно
+       вписать в MONITOR_ALLOWED_IPS (если он не совпадает со шлюзом Docker или адресом nginx — иначе теряется адрес
+       клиента, см. docs/runbook/deploy.md, раздел 10);
+     - «Документы» → документ на этапе «Перевод» → «Добавить язык» → в поле «Язык» список из трёх языков, занятые
+       недоступны. Ничего не добавлять, «Отмена».
+   Вкладки портала, открытые до выкладки, при добавлении языка перевода получат ошибку проверки запроса — F5.
+   Ничего не сохранять. Если что-то не так — снимок экрана разработчику (выкладку не откатывать, если данные в порядке).
+
+4. ОТКАТ НА 1.13.6 (образы backend и frontend, база не меняется)
+   sed -i 's/^VERSION=.*/VERSION=1.13.6/' .env && docker compose up -d backend frontend
+   1.13.6 показывает строки перевода, добавленные на 1.13.7, их названием («Таджикский»); подписи причин в «Журнале»
+   пропадают, записи остаются. Проверено разработчиком по коду 1.13.6. Образы 1.13.6 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; backend не стал healthy; любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.13.7 (с 1.13.6), кто, имя копии и место хранения, результат, проверка в Chrome и Edge,
+   и — отдельно — адрес из предупреждения у учётки монитора (если было) и что с ним сделали.
