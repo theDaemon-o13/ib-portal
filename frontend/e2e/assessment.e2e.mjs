@@ -212,7 +212,7 @@ describe('Самооценка', () => {
     await ui.waitFor(`document.querySelector('.sa-bar .chip')?.dataset.status === 'final'`, 'статус «Зафиксирована»');
     await ui.waitFor(`document.querySelector('.toast.on')?.textContent.includes('Оценка зафиксирована: 48 из 96, «Классическая ИБ»')`, 'уведомление о фиксации');
     await ui.waitFor(`document.querySelector('.note.ro')?.textContent.includes('верните её в черновик')`, 'пояснение «только просмотр»');
-    assert.ok(await ui.evaluate(`${option('10.1', 2)}.disabled`), 'варианты недоступны');
+    assert.ok(await ui.evaluate(`${option('11.4', 2)}.disabled`), 'варианты недоступны');
     await ui.click(tab('Обзор'), 'вкладка «Обзор»');
     await ui.waitFor(`document.querySelector('[data-testid=sa-level]')?.textContent === 'Классическая ИБ'`, 'уровень на обзоре');
     assert.doesNotMatch(await ui.evaluate(`document.querySelector('.sa-lvl .hint').textContent`), /предварительно/);
