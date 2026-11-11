@@ -340,6 +340,7 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
         Enter: { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
         Plus: { key: '+', code: 'Equal', windowsVirtualKeyCode: 187, text: '+' },
         Minus: { key: '-', code: 'Minus', windowsVirtualKeyCode: 189, text: '-' },
+        Delete: { key: 'Delete', code: 'Delete', windowsVirtualKeyCode: 46 },
       };
       const k = keys[key];
       if (!k) throw new Error(`нет клавиши ${key}`);
@@ -358,6 +359,17 @@ export async function launchBrowser({ baseUrl, port = 9400 + Math.floor(Math.ran
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers, commands: ['selectAll'] });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers });
       await sleep(80);
+    },
+
+    /** Сочетание Cmd (macOS) или Ctrl с буквой — как «Mod-…» редактора (Ctrl+E — по центру). */
+    async mod(letter) {
+      const mac = await evaluate(`/Mac/.test(navigator.platform)`);
+      const modifiers = mac ? 4 : 2;
+      const up = letter.toUpperCase();
+      const k = { key: letter.toLowerCase(), code: `Key${up}`, windowsVirtualKeyCode: up.charCodeAt(0), modifiers };
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', ...k });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', ...k });
+      await sleep(120);
     },
 
     /** Ввести текст в элемент с фокусом (заменяет выделенное). */
