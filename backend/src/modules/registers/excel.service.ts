@@ -1,10 +1,11 @@
 // Экспорт реестра в Excel и импорт обратно с обновлением по колонке ID (CLAUDE.md, раздел 7, п. 7).
 // Импорт всегда в два шага: предпросмотр (ничего не меняет) → применение одной транзакцией.
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { awarenessImportWarnings, titleFromParts, type ImportRowView } from '../awareness/derive.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import ExcelJS from 'exceljs';
-import { withTx, type Db } from '../../lib/db.js';
+import { createManyChunked, updateRecordValues, type RecordValuesUpdate } from '../../lib/bulk.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import { textLimit } from '../../lib/field-settings.js';
 import {
@@ -19,7 +20,7 @@ import {
   type Values,
 } from '../../lib/register-values.js';
 import { todayIso } from '../../lib/today.js';
-import { auditSettings, type Actor } from '../settings/common.js';
+import { auditSettings, auditSettingsMany, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { isVulnRegister } from '../vulns/definition.js';
 import { requiredTitleField } from '../assets/derive.js';
 import { applyDerived } from '../vulns/derive.js';
@@ -835,27 +836,30 @@ async function insertRecords(tx: Db, actor: Actor, reg: RegisterDef, list: Value
   const status = reg.fields.find((f) => f.isStatus && !f.archived);
   const firstStatus = status?.options.find((o) => !o.archived);
   let number = await nextNumbers(tx, reg.id, list.length);
-  const ids: string[] = [];
+  // Пачками (1.13.9): id — в приложении, записи и журнал — createMany; строки журнала те же и в том же порядке.
+  const rows: Prisma.RegisterRecordCreateManyInput[] = [];
+  const audits: SettingsAuditEntry[] = [];
   for (const input of list) {
     const { values, manualFieldIds } = applyDerived(reg, { before: {}, after: { ...input }, manual: [], edited: Object.keys(input), isNew: true });
     if (status && firstStatus && values[status.id] === undefined) values[status.id] = firstStatus.id;
     applyDateDefaults(reg, values, today);
-    const rec = await tx.registerRecord.create({
-      data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users, links) },
-    });
+    const id = randomUUID();
+    rows.push({ id, registerId: reg.id, number, values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, number, values, users, links) });
     const changes = Object.keys(values).map((fid) => {
       const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
       return { fieldId: fid, label: f.label, from: '', to: displayValue(f, values[fid], { users, links }) };
     });
-    await auditSettings(tx, actor, {
-      action: 'register_record.created', entity: 'register_record', entityId: rec.id,
+    audits.push({
+      action: 'register_record.created', entity: 'register_record', entityId: id,
       summary: `«${reg.name}»: создана запись #${number} импортом из Excel «${fileName}»`,
       after: { registerId: reg.id, number, changes, via: 'import', importId },
     });
-    ids.push(rec.id);
     number++;
   }
-  return ids;
+  // id, register_id, number, values, manual_field_ids, search_text.
+  await createManyChunked(rows, 6, (data) => tx.registerRecord.createMany({ data }));
+  await auditSettingsMany(tx, actor, audits);
+  return rows.map((r) => r.id as string);
 }
 
 /**
@@ -1048,9 +1052,13 @@ export async function applyImport(db: Db, actor: Actor, importId: string, opts: 
       }
     }
     const users = await loadUsers(tx, [...usersNeeded, ...userIdsIn(reg, current.map((r) => r.values))]);
-    const allValues = [...current.map((r) => ({ ...r.values, ...(payload.updates.find((u) => u.recordId === r.id)?.changes ?? {}) })), ...payload.creates.map((c) => c.values)];
+    const changesOf = new Map(payload.updates.map((u) => [u.recordId, u.changes]));
+    const allValues = [...current.map((r) => ({ ...r.values, ...(changesOf.get(r.id) ?? {}) })), ...payload.creates.map((c) => c.values)];
     const links = linkLabels(await loadLinkRefs(tx, linkIdsIn(reg, allValues)));
 
+    // Пачками (1.13.9): значения и журнал — число запросов от числа пачек, не записей.
+    const updates: RecordValuesUpdate[] = [];
+    const audits: SettingsAuditEntry[] = [];
     for (const u of payload.updates) {
       const r = byId.get(u.recordId);
       if (!r) continue;
@@ -1058,20 +1066,19 @@ export async function applyImport(db: Db, actor: Actor, importId: string, opts: 
       const { values, manualFieldIds, derived } = applyDerived(reg, {
         before: r.values, after: { ...r.values, ...u.changes }, manual: r.manual_field_ids, edited: Object.keys(u.changes), isNew: false,
       });
-      await tx.registerRecord.update({
-        where: { id: r.id },
-        data: { values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, r.number, values, users, links), version: { increment: 1 } },
-      });
+      updates.push({ id: r.id, values, manualFieldIds, searchText: searchTextOf(reg, r.number, values, users, links) });
       const changes = [...new Set([...Object.keys(u.changes), ...derived])].filter((fid) => !sameValue(r.values[fid], values[fid])).map((fid) => {
         const f = reg.fields.find((x) => x.id === fid) as FieldMeta;
         return { fieldId: fid, label: f.label, from: displayValue(f, r.values[fid], { users, links }), to: displayValue(f, values[fid], { users, links }) };
       });
-      await auditSettings(tx, actor, {
+      audits.push({
         action: 'register_record.updated', entity: 'register_record', entityId: r.id,
         summary: `«${reg.name}», запись #${r.number}: импорт из Excel «${summary.fileName}»`,
         after: { changes, via: 'import', importId },
       });
     }
+    await updateRecordValues(tx, updates);
+    await auditSettingsMany(tx, actor, audits);
 
     await insertRecords(tx, actor, reg, payload.creates.map((c) => c.values), summary.fileName, importId);
 
@@ -1089,7 +1096,7 @@ export async function applyImport(db: Db, actor: Actor, importId: string, opts: 
       },
     });
     return { added: payload.creates.length, updated: payload.updates.length, skipped: summary.errorRows };
-  });
+  }, BULK_TX);
 }
 
 export async function cancelImport(db: Db, actor: Actor, importId: string) {

@@ -93,6 +93,23 @@ async function nameOf(db: Db, id: string | null): Promise<string> {
   return (await db.user.findUnique({ where: { id }, select: { fullName: true } }))?.fullName ?? '—';
 }
 
+/**
+ * «Вам назначена задача» от системы — пачкой (1.13.9, задачи из событий автоматизаций): те же строки, что у
+ * notifyAssignee(task, null, assigneeId, null) на каждую задачу; отключённым не пишем; один запрос на пачку.
+ */
+export async function notifyAssignedBySystemMany(db: Db, items: readonly { task: TaskRef; assigneeId: string }[]): Promise<number> {
+  if (!items.length) return 0;
+  const active = new Set((await db.user.findMany({ where: { id: { in: [...new Set(items.map((i) => i.assigneeId))] }, isActive: true }, select: { id: true } })).map((u) => u.id));
+  const who = await nameOf(db, null);
+  const data = items.filter((i) => active.has(i.assigneeId)).map((i) => ({
+    userId: i.assigneeId, kind: 'task_assigned', title: clip(`Вам назначена задача ${label(i.task)}`), body: clip(`Назначил: ${who}`.trim()),
+    taskId: i.task.id, documentId: null, actorId: null, dedupeKey: null,
+  }));
+  let count = 0;
+  for (let i = 0; i < data.length; i += 1000) count += (await db.notification.createMany({ data: data.slice(i, i + 1000), skipDuplicates: true })).count;
+  return count;
+}
+
 /** Смена исполнителя: новому — «назначена», прежнему — «снята». Создание с исполнителем — prev = null. */
 export async function notifyAssignee(db: Db, t: TaskRef, prev: string | null, next: string | null, actorId: string | null): Promise<void> {
   if (prev === next) return;

@@ -30,6 +30,31 @@ function devEnv() {
   throw new Error('нет deploy/.env.dev');
 }
 
+/**
+ * Испортить предпросмотр импорта скана (1.13.9): строки находок — null, применение падает не ожидаемой ошибкой.
+ * Так e2e проверяет ответ «Импорт не завершён… номер запроса». Только одноразовая e2e-база или dev, только импорт в узел
+ * группы «E2E-…».
+ */
+export async function breakScanImport(importId) {
+  if (process.env.NODE_ENV === 'production') throw new Error('e2e запрещён при NODE_ENV=production');
+  const env = devEnv();
+  const database = process.env.E2E_DB_NAME ?? 'ibportal_dev';
+  const host = process.env.E2E_DB_HOST ?? '127.0.0.1';
+  if (!database.endsWith('_dev') && !database.endsWith('_e2e')) throw new Error(`только dev-база (*_dev) или одноразовая e2e (*_e2e), а не «${database}»`);
+  if (!['127.0.0.1', 'localhost'].includes(host)) throw new Error(`только локально, а не ${host}`);
+  const db = new Client({ host, port: Number(process.env.E2E_DB_PORT ?? 5433), database, user: env.DB_OWNER_USER, password: env.DB_OWNER_PASSWORD });
+  await db.connect();
+  try {
+    const res = await db.query(
+      `UPDATE register_imports i SET payload = jsonb_set(i.payload, '{rows}', 'null'::jsonb)
+       FROM vuln_nodes n JOIN vuln_groups g ON g.id = n.group_id
+       WHERE i.id = $1::uuid AND i.status = 'preview' AND n.id = (i.payload->>'nodeId')::uuid AND g.name LIKE 'E2E-%'`, [importId]);
+    if (res.rowCount !== 1) throw new Error(`предпросмотр ${importId} не найден в группе E2E-…`);
+  } finally {
+    await db.end();
+  }
+}
+
 /** Удалить группы «E2E-…». Возвращает, что удалено. Против стенда релиза (https) — ничего не делает. */
 export async function cleanE2eGroups() {
   if (process.env.NODE_ENV === 'production') throw new Error('очистка e2e запрещена при NODE_ENV=production');

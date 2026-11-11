@@ -25,18 +25,24 @@ export const SCAN_HEADERS: Record<ScanColumn, string> = {
   hits: 'Обнаружений',
 };
 
-/** Распознавание заголовка колонки находок: точное название или начало (нормализованные). */
+/**
+ * Распознавание заголовка колонки находок: точное название или начало (нормализованные). Все синонимы колонок —
+ * здесь. Отчёт Linux (Debian, 1.13.9): «Вектор» — это «Сетевой вектор», «Описание (из CVE, англ.)» — «Краткое описание».
+ */
 const HEADER_MATCH: Record<ScanColumn, { exact: string[]; prefix?: string[] }> = {
   pkg: { exact: ['пакет'] },
   cve: { exact: ['cve'], prefix: ['идентификатор'] },
   level: { exact: ['уровень'] },
   cvss: { exact: ['cvss'] },
   exploit: { exact: ['эксплойт'] },
-  vector: { exact: ['сетевой вектор'] },
+  vector: { exact: ['сетевой вектор', 'вектор'] },
   fixVersion: { exact: ['обновить до версии'], prefix: ['обновить до'] },
-  desc: { exact: ['краткое описание', 'описание'] },
+  desc: { exact: ['краткое описание'], prefix: ['описание'] },
   hits: { exact: ['обнаружений'] },
 };
+
+/** Колонки отчёта, которые портал знает и не читает: в предпросмотре — справка, а не предупреждение. */
+const IGNORED_HEADERS = ['задача №'];
 
 export interface ScanRow {
   /** Лист и номер строки на нём (для сообщений). */
@@ -83,6 +89,8 @@ export interface ParsedScan {
   /** Строки, которые загрузятся, но со значением, заменённым на пустое (CVSS или «Обнаружений» не число). */
   notes: ScanIssue[];
   warnings: string[];
+  /** Справка без предупреждения: известные колонки, которые портал не читает (1.13.9). */
+  info: string[];
   /** Дата скана из имени файла (ГГГГ_ММ_ДД, ГГГГ-ММ-ДД, ГГГГ.ММ.ДД) или null — тогда её вводят в предпросмотре. */
   reportDate: string | null;
 }
@@ -115,15 +123,17 @@ function columnOf(header: string): ScanColumn | undefined {
 }
 
 /** Строка заголовков листа находок: есть «Пакет» и «CVE» / «Идентификатор». */
-export function headerMap(ws: ExcelJS.Worksheet): { row: number; cols: Map<ScanColumn, number> } | null {
+export function headerMap(ws: ExcelJS.Worksheet): { row: number; cols: Map<ScanColumn, number>; ignored: string[] } | null {
   for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, ws.rowCount); r++) {
     const cols = new Map<ScanColumn, number>();
+    const ignored: string[] = [];
     ws.getRow(r).eachCell((cell, col) => {
       const h = text(cell.value);
       const key = h ? columnOf(h) : undefined;
       if (key && !cols.has(key)) cols.set(key, col);
+      else if (h && IGNORED_HEADERS.includes(norm(h))) ignored.push(h);
     });
-    if (cols.has('pkg') && cols.has('cve')) return { row: r, cols };
+    if (cols.has('pkg') && cols.has('cve')) return { row: r, cols, ignored };
   }
   return null;
 }
@@ -190,6 +200,7 @@ export async function parseScanReport(buffer: Buffer, fileName: string): Promise
   if (total > SCAN_MAX_ROWS) throw badRequest('TOO_MANY_ROWS', `В отчёте больше ${SCAN_MAX_ROWS} строк`);
 
   const warnings: string[] = [];
+  const info: string[] = [];
   const rows: ScanRow[] = [];
   const errors: ScanIssue[] = [];
   const notes: ScanIssue[] = [];
@@ -198,6 +209,7 @@ export async function parseScanReport(buffer: Buffer, fileName: string): Promise
     const { cols } = h;
     const missing = (Object.keys(SCAN_HEADERS) as ScanColumn[]).filter((k) => !cols.has(k));
     if (missing.length) warnings.push(`Лист «${ws.name}»: нет колонок ${missing.map((k) => `«${SCAN_HEADERS[k]}»`).join(', ')} — эти поля останутся пустыми`);
+    for (const name of h.ignored) if (!info.includes(`Колонка «${name}» не используется`)) info.push(`Колонка «${name}» не используется`);
     let count = 0;
     for (let r = h.row + 1; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
@@ -254,7 +266,7 @@ export async function parseScanReport(buffer: Buffer, fileName: string): Promise
 
   return {
     sheets, sheet: finding[0]?.ws.name ?? '', coverageTitle, department: coverageTitle, hostsSheet: hostsWs?.ws.name ?? null,
-    hosts, rows, errors, notes, warnings, reportDate: reportDateFromFileName(fileName),
+    hosts, rows, errors, notes, warnings, info, reportDate: reportDateFromFileName(fileName),
   };
 }
 

@@ -1,11 +1,11 @@
 // «Перенести» и «Перенести выбранные» (релиз 1.5.0, ADR-0029): записи из «Без группы / Из прежнего реестра» — в узел.
 // Ключ «Пакет + Идентификатор» уникален в узле: запись, ключ которой в узле уже есть (или повторяется среди
 // выбранных), не переносится — отказ по строке, остальные переносятся. «Срок из прежнего реестра» сохраняется.
-import { withTx, type Db } from '../../lib/db.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { badRequest, conflict } from '../../lib/errors.js';
 import type { Values } from '../../lib/register-values.js';
 import { loadRegister } from '../registers/definition.js';
-import { auditSettings, type Actor } from '../settings/common.js';
+import { auditSettings, auditSettingsMany, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { VULN_REGISTER_KEY, vulnFields } from './definition.js';
 import { loadNode, nodeLabel } from './groups.service.js';
 import { keyNorm } from './keys.js';
@@ -35,6 +35,9 @@ export async function transferRecords(db: Db, actor: Actor, input: { recordIds: 
       where: { nodeId: target.id, keyNorm: { not: null } }, select: { keyNorm: true, record: { select: { number: true } } },
     })).map((r) => [r.keyNorm as string, r.record.number]));
     const result: TransferResult = { moved: [], rejected: [] };
+    // Пачкой (1.13.9): узел и ключ — одним запросом, журнал — createMany, в прежнем порядке.
+    const moves: { id: string; k: string }[] = [];
+    const audits: SettingsAuditEntry[] = [];
     const reject = (id: string, number: number | null, title: string, reason: string) => result.rejected.push({ id, number, title, reason });
     for (const id of ids) {
       const r = rows.find((x) => x.id === id);
@@ -58,8 +61,8 @@ export async function transferRecords(db: Db, actor: Actor, input: { recordIds: 
           continue;
         }
         taken.set(key, r.number);
-        await tx.vulnRecord.update({ where: { recordId: id }, data: { nodeId: target.id, keyNorm: key, version: { increment: 1 } } });
-        await auditSettings(tx, actor, {
+        moves.push({ id, k: key });
+        audits.push({
           action: 'vuln.record.transferred', entity: 'register_record', entityId: id,
           summary: `«${reg.name}», запись #${r.number}: перенесена из «Без группы» в «${nodeLabel(target)}»`,
           after: { nodeId: target.id, via: 'transfer' },
@@ -67,6 +70,13 @@ export async function transferRecords(db: Db, actor: Actor, input: { recordIds: 
         result.moved.push({ id, number: r.number });
       }
     }
+    if (moves.length) {
+      await tx.$executeRaw`
+        UPDATE vuln_records AS v SET node_id = ${target.id}::uuid, key_norm = d.k, version = v.version + 1, updated_at = now()
+        FROM jsonb_to_recordset(${JSON.stringify(moves)}::jsonb) AS d(id uuid, k text)
+        WHERE v.record_id = d.id`;
+    }
+    await auditSettingsMany(tx, actor, audits);
     if (result.moved.length > 1 || result.rejected.length) {
       await auditSettings(tx, actor, {
         action: 'vuln.records.transferred', entity: 'vuln_node', entityId: target.id,
@@ -75,5 +85,5 @@ export async function transferRecords(db: Db, actor: Actor, input: { recordIds: 
       });
     }
     return result;
-  });
+  }, BULK_TX);
 }
