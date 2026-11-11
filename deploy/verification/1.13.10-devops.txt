@@ -1,0 +1,52 @@
+Портал ИБ 1.13.10 — обновление прода с 1.13.9. Самооценка: домен «Контроль ИИ». Меняются образы backend и frontend,
+ШАГ MIGRATE ОБЯЗАТЕЛЕН: миграций схемы нет, но seed загружает методику самооценки v2 и делает её активной.
+Новых переменных .env и прав нет. Подробно — RELEASE.md в архиве.
+Порядок с прода 1.13.6: 1.13.7 → 1.13.9 → 1.13.10, каждый по своему архиву и devops.txt. Номера 1.13.8 нет.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.10            → c7a18e8996da8599136d6c8aee5efa3918fa68f3   (объект тега)
+     git rev-parse 'v1.13.10^{commit}' → 63e3e45154b8344f0c559db7fc5a05917dff68af   (коммит)
+   Архив: ibportal-1.13.10.tar.gz + ibportal-1.13.10.tar.gz.sha256 (GitHub Release v1.13.10)
+     sha256 ibportal-1.13.10.tar.gz = 885c0db96510a6e73b3e927e3b1da7718af873eae2d1397b99a8484b66cc870f
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.10.tar.gz.sha256           → OK
+     tar -xzf ibportal-1.13.10.tar.gz && cd ibportal-1.13.10 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.10.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.9)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома. Нет копии — стоп.
+   Для сверки:
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT code, version, is_active FROM assessment_methodologies ORDER BY version;"'
+     → одна строка: cyber-express-v1|1|t
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT (SELECT count(*) FROM assessments), (SELECT count(*) FROM assessment_answers);"'
+     → два числа: оценок | ответов
+
+2. ВЫКЛАДКА — новые образы и migrate
+   cp /srv/ibportal/releases/ibportal-1.13.10/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.10/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.10/' .env
+   docker compose --profile tools run --rm migrate
+     → «No pending migrations to apply» и «Seed выполнен: …» без ошибок
+   docker compose up -d backend frontend
+
+3. ПОСЛЕ
+   docker compose ps                → backend healthy, frontend Up
+   ./scripts/smoke.sh --after       → «Smoke-проверка пройдена»
+   SQL из шага 1:
+     методики → две строки: cyber-express-v1|1|f и cyber-express-v2|2|t
+     оценок | ответов → те же два числа
+   Вручную (владелец роли «Самооценка»): раздел открывается, прошлые оценки показывают прежний итог «N из 96».
+
+4. ОТКАТ НА 1.13.9 (база не откатывается, но нужен один SQL)
+   docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -c "UPDATE assessment_methodologies SET is_active = (version = 1);"'
+     → UPDATE 2
+   sed -i 's/^VERSION=.*/VERSION=1.13.9/' .env && docker compose up -d backend frontend
+   Без SQL 1.13.9 создаст оценку на v2 и посчитает итог из 112. Строка v2 остаётся в таблице; повторная выкладка
+   1.13.10 снова сделает её активной. Образы 1.13.9 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; ошибка в выводе migrate; backend не стал healthy;
+   любой «✗» в smoke; после migrate методик не две.
+
+6. В журнал выкладок: дата, версия 1.13.10 (с 1.13.9), кто, имя копии и место хранения, вывод seed, результат.
