@@ -94,9 +94,19 @@ export function ColorPalette(p: {
   const [error, setError] = useState<string | null>(null);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const hold = useRef<number | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
   const id = useId();
   useEffect(() => {
     refs.current[Math.min(focus, swatches.length - 1)]?.focus();
+    // Палитра должна поместиться в окно: у правого края сдвигается влево, но не дальше левого края окна.
+    const r = root.current?.getBoundingClientRect();
+    if (r) {
+      let dx = 0;
+      if (r.right > window.innerWidth - 8) dx = window.innerWidth - 8 - r.right;
+      if (r.left + dx < 8) dx = 8 - r.left;
+      setShift(dx);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const customHex = strictHex(custom.startsWith('#') ? custom : `#${custom}`);
@@ -154,7 +164,7 @@ export function ColorPalette(p: {
   );
 
   return (
-    <div className="aw-palette" role="dialog" aria-label={`${p.label}: палитра`} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); p.onClose(); } }}>
+    <div ref={root} className="aw-palette" style={shift ? { left: shift } : undefined} role="dialog" aria-label={`${p.label}: палитра`} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); p.onClose(); } }}>
       <div className="aw-pal-sec" role="group" aria-labelledby={`${id}-fav`}>
         <div className="aw-pal-h" id={`${id}-fav`}>{FAV_TITLE[p.kind]}</div>
         {fav.list.length
