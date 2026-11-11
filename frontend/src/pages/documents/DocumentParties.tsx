@@ -424,16 +424,6 @@ export function DocumentTranslations({ d, at, onDone, onError, onPreview }: Prop
           </div>
         </form>
       )}
-      {mode?.kind === 'lang' && (
-        <form className="task-form" aria-label="Язык строки перевода" onSubmit={(e) => { e.preventDefault(); lang.mutate(mode.t); }}>
-          {presetCode(mode.t) === '' && <div className="hint">Сейчас: «{mode.t.language}». Язык не изменится, пока вы не выберете его из списка.</div>}
-          <label>Язык<LanguageSelect value={code} onChange={setCode} rows={d.translations} exceptId={mode.t.id} /></label>
-          <div className="row">
-            <button className="btn primary" type="submit" disabled={busy || !code || code === presetCode(mode.t)}>Сохранить язык</button>
-            <button className="btn" type="button" onClick={close}>Отмена</button>
-          </div>
-        </form>
-      )}
       {mode?.kind === 'due' && (
         <form className="task-form" aria-label="Срок перевода" onSubmit={(e) => { e.preventDefault(); due.mutate(mode.t); }}>
           <label>Новый срок<input className="inp" type="date" required value={form.dueDate} onChange={set('dueDate')} /></label>
