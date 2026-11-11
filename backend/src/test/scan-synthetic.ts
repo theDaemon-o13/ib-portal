@@ -69,7 +69,7 @@ export function syntheticRows(count: number, seed = 1339): SyntheticRow[] {
         vector: cvss === null ? null : SYNTHETIC_VECTORS[Math.floor(rand() * SYNTHETIC_VECTORS.length)] ?? null,
         fixVersion: rand() < 0.8 ? `${1 + Math.floor(rand() * 9)}.${Math.floor(rand() * 20)}-${1 + Math.floor(rand() * 5)}+deb12u${1 + Math.floor(rand() * 4)}` : null,
         task: rand() < 0.1 ? String(1000 + Math.floor(rand() * 9000)) : null,
-        desc: words.join(' ').slice(0, 300),
+        desc: words.join(' ').slice(0, 300).trim(),
       });
     }
   }

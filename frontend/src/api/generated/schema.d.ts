@@ -21031,6 +21031,7 @@ export interface paths {
                                     message: string;
                                 }[];
                                 warnings: string[];
+                                info: string[];
                                 previousScan: {
                                     id: string;
                                     scanDate: string;
@@ -21660,6 +21661,7 @@ export interface paths {
                                     message: string;
                                 }[];
                                 warnings: string[];
+                                info: string[];
                                 previousScan: {
                                     id: string;
                                     scanDate: string;
@@ -22012,6 +22014,7 @@ export interface paths {
                                     message: string;
                                 }[];
                                 warnings: string[];
+                                info: string[];
                                 previousScan: {
                                     id: string;
                                     scanDate: string;

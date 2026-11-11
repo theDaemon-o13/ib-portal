@@ -2,9 +2,10 @@
 // файл с реестром узла и ничего не меняет в записях, применение — выбранное, одной транзакцией.
 // Пять групп: новые, повторно обнаружены, изменились, без изменений, пропали. Ключ — «Пакет + Идентификатор».
 // Импорт срок не запускает: «Уведомлено ДИКТ» ставит передача скана ИКТ (ADR-0030).
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
-import { withTx, type Db } from '../../lib/db.js';
+import { createManyChunked, idChunks, updateRecordValues, type RecordValuesUpdate } from '../../lib/bulk.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import type { FileStore } from '../../lib/file-store.js';
 import { formatDateRu, isIsoDate, type Values } from '../../lib/register-values.js';
@@ -15,7 +16,7 @@ import { uploadFile } from '../files/service.js';
 import { IMPORT_TTL_MS } from '../registers/excel.service.js';
 import { assertNotArchived, calendarFor, dateOf, isClosed, loadRegister, loadUsers, searchTextOf, type FieldMeta, type RegisterDef } from '../registers/definition.js';
 import { describeChanges, nextNumbers } from '../registers/records.service.js';
-import { auditSettings, type Actor } from '../settings/common.js';
+import { auditSettings, auditSettingsMany, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { CRIT_LABELS, optionByKey, VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { applyDerived } from './derive.js';
 import { reasonText, vulnKeyOf } from '../trash/service.js';
@@ -26,10 +27,14 @@ import { deptKey, mergeDuplicates, norm, parseScanReport, type ScanHostRow, type
 
 const MAX_LIST = 500;
 
-/** Тексты сканера → системные ключи значений: так множитель находится, даже если значение переименовали. */
+/**
+ * Тексты сканера → системные ключи значений: так множитель находится, даже если значение переименовали.
+ * Вектор отчёта Linux (Debian, 1.13.9): «Сеть» — то же, что «Удалённо (сеть)» отчётов Windows; «Смежная сеть»
+ * и «Физический» таких значений в списке нет — они добавляются новыми, как любое новое значение.
+ */
 const OPTION_ALIASES: Partial<Record<keyof VulnFields, Record<string, string>>> = {
   exploit: { 'есть, эксплуатируется': 'exploited', есть: 'exists', нет: 'none', 'нет данных': 'nodata' },
-  vector: { 'удалённо (сеть)': 'remote', 'удаленно (сеть)': 'remote', локально: 'local' },
+  vector: { 'удалённо (сеть)': 'remote', 'удаленно (сеть)': 'remote', сеть: 'remote', локально: 'local' },
 };
 
 /** Списки, значения которых сравниваются со строкой файла. */
@@ -99,6 +104,8 @@ export interface ScanSummary {
   /** Строка загрузится, но значение считается пустым (CVSS или «Обнаружений» не число). */
   notes: ScanIssue[];
   warnings: string[];
+  /** Справка без предупреждения (1.13.9): известные колонки, которые портал не читает. Предпросмотры до 1.13.9 — []. */
+  info: string[];
   previousScan: { id: string; scanDate: string; fileName: string; handedOver: boolean } | null;
   /** Хосты против прошлого скана узла. Хосты — только охват: выбывший хост объясняет «Пропали», но не доказывает. */
   coverage: { newHosts: string[]; goneHosts: string[] };
@@ -176,15 +183,43 @@ async function deletedRecords(db: Db, reg: RegisterDef, nodeId: string): Promise
   return out;
 }
 
+type FieldOption = FieldMeta['options'][number];
+
+/**
+ * Указатель «подпись → значение» по списку значений поля (1.13.9): у «Пакета» тысячи значений, и перебор на каждую
+ * строку файла — миллионы сравнений. Первое значение с подписью побеждает, как у прежнего find. Список вырос мимо
+ * addOption — указатель строится заново.
+ */
+const optionIndex = new WeakMap<FieldOption[], { size: number; byLabel: Map<string, FieldOption> }>();
+
+function indexOf(options: FieldOption[]) {
+  let idx = optionIndex.get(options);
+  if (!idx || idx.size !== options.length) {
+    const byLabel = new Map<string, FieldOption>();
+    for (const o of options) if (!byLabel.has(norm(o.label))) byLabel.set(norm(o.label), o);
+    idx = { size: options.length, byLabel };
+    optionIndex.set(options, idx);
+  }
+  return idx;
+}
+
+/** Новое значение — в список поля и в указатель. */
+function addOption(field: FieldMeta, o: FieldOption) {
+  const idx = indexOf(field.options);
+  field.options.push(o);
+  if (!idx.byLabel.has(norm(o.label))) idx.byLabel.set(norm(o.label), o);
+  idx.size = field.options.length;
+}
+
 /** Существующее значение списка по системному ключу (через синонимы) или по подписи, без учёта регистра. */
-function findOption(vf: VulnFields, key: keyof VulnFields, label: string): FieldMeta['options'][number] | undefined {
+function findOption(vf: VulnFields, key: keyof VulnFields, label: string): FieldOption | undefined {
   const field = vf[key];
   const sys = OPTION_ALIASES[key]?.[norm(label)];
   if (sys) {
     const bySys = field.options.find((o) => o.systemKey === sys);
     if (bySys) return bySys;
   }
-  return field.options.find((o) => norm(o.label) === norm(label));
+  return indexOf(field.options).byLabel.get(norm(label));
 }
 
 /** Значение поля «Отдел» для охвата скана: сравнение без регистра, пробелов и «ё» (deptKey). */
@@ -401,6 +436,7 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
     errors: parsed.errors.slice(0, MAX_LIST),
     notes: parsed.notes.slice(0, MAX_LIST),
     warnings,
+    info: parsed.info,
     previousScan: previous && prevDate ? { id: previous.id, scanDate: prevDate, fileName: previous.fileName, handedOver: previous.handedOverOn !== null } : null,
     coverage,
     counts: { new: c.items.new.length, reopened: c.items.reopened.length, changed: c.items.changed.length, unchanged: c.items.unchanged.length, deleted: c.items.deleted.length, gone: c.gone.length },
@@ -442,12 +478,19 @@ async function previewScan(db: Db, store: FileStore, actor: Actor, target: ScanT
 
 const isNodeScan = (p: ScanPayload) => !!p.nodeId || !!p.newNode;
 
+/** Узел и число строк импорта — для строки лога, если применение не выполнилось (1.13.9). */
+export async function importBrief(db: Db, id: string): Promise<{ node: string; rows: number } | null> {
+  const [row] = await db.$queryRaw<{ node: string | null; rows: number | null }[]>`
+    SELECT summary->'node'->>'label' AS node, (summary->>'rows')::int AS rows FROM register_imports WHERE id = ${id}::uuid`;
+  return row ? { node: row.node ?? '', rows: row.rows ?? 0 } : null;
+}
+
 export async function getNodeScanImport(db: Db, id: string) {
   const imp = await db.registerImport.findUnique({ where: { id } });
   if (!imp || imp.kind !== 'scan' || !isNodeScan(imp.payload as unknown as ScanPayload)) throw notFound('Импорт');
   const status = imp.status === 'preview' && imp.expiresAt < new Date() ? 'expired' : imp.status;
   const summary = imp.summary as unknown as ScanSummary;
-  return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary: { ...summary, profile: summary.profile ?? null } };
+  return { id: imp.id, registerId: imp.registerId, status, expiresAt: imp.expiresAt.toISOString(), summary: { ...summary, profile: summary.profile ?? null, info: summary.info ?? [] } };
 }
 
 // ---------------------------------------------------------------- применение
@@ -472,8 +515,36 @@ function pick(all: readonly { key: string }[], chosen: readonly string[] | undef
   return new Set(chosen);
 }
 
-export async function applyNodeScan(db: Db, actor: Actor, importId: string, input: ApplyScanInput) {
+/** Шаг применения — для строки лога, если импорт не выполнится (1.13.9). */
+export interface ApplyProgress {
+  step: string;
+}
+
+/** Пространство advisory-блокировок импорта в узел: второй ключ — hashtext(id узла). */
+export const NODE_IMPORT_LOCK = 0x5ca7;
+
+/** Колонок в пачке новых записей: id, register_id, number, values, search_text. */
+const RECORD_COLUMNS = 5;
+/** Колонок в пачке связей «запись — узел»: record_id, node_id, key_norm, first_scan_id, last_scan_id. */
+const VULN_RECORD_COLUMNS = 5;
+/** Колонок в пачке «встречалась в скане»: record_id, scan_id, outcome, cycle, changes. */
+const RECORD_SCAN_COLUMNS = 5;
+/** Колонок в пачке значений списков: id, field_id, label, sort_order. */
+const OPTION_COLUMNS = 4;
+
+export async function applyNodeScan(db: Db, actor: Actor, importId: string, input: ApplyScanInput, progress: ApplyProgress = { step: '' }) {
   return withTx(db, async (tx) => {
+    // Один импорт в узел за раз (1.13.9): второй — сразу 409, а не ожидание и IMPORT_STALE после первого.
+    progress.step = 'блокировка узла';
+    const [head] = await tx.$queryRaw<{ node_id: string | null; group_id: string | null; type_id: string | null }[]>`
+      SELECT payload->>'nodeId' AS node_id, payload->'newNode'->>'groupId' AS group_id, payload->'newNode'->>'systemTypeId' AS type_id
+      FROM register_imports WHERE id = ${importId}::uuid`;
+    if (!head) throw notFound('Импорт');
+    const lockKey = head.node_id ?? `${head.group_id ?? ''}:${head.type_id ?? ''}`;
+    const [lock] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT pg_try_advisory_xact_lock(${NODE_IMPORT_LOCK}::int, hashtext(${lockKey})) AS ok`;
+    if (!lock?.ok) throw conflict('IMPORT_IN_PROGRESS', 'В этот узел уже идёт импорт. Дождитесь его окончания');
+
+    progress.step = 'проверка';
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM register_imports WHERE id = ${importId}::uuid FOR UPDATE`;
     if (!locked.length) throw notFound('Импорт');
     const imp = await tx.registerImport.findUniqueOrThrow({ where: { id: importId } });
@@ -519,6 +590,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     }
     const previous = await previousScanOf(tx, node.id);
     if ((previous?.id ?? null) !== payload.previousScanId) throw conflict('IMPORT_STALE', 'После предпросмотра в узел загрузили другой скан. Повторите предпросмотр');
+    // Записи узла с ключом — одним запросом (они же заблокированы выше).
     const known = await nodeRecords(tx, node.id);
     const was = new Map(payload.known.map((k) => [k.id, k]));
     const moved = known.filter((k) => {
@@ -544,16 +616,23 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     const system = systemId ? vf.system.options.find((o) => o.id === systemId && !o.archived) : null;
     if (systemId && !system) throw badRequest('BAD_SYSTEM', 'Нет такой системы в справочнике «Системы» (или она в архиве)');
 
-    // Значения списков: недостающие пакеты, уровни и т. п. добавляются в реестр.
+    // Значения списков: недостающие пакеты, уровни и т. п. добавляются в реестр. Id — в приложении, вставка — одной
+    // пачкой ниже; порядок (sort_order) — по первому появлению, как при построчной записи.
+    progress.step = 'значения списков';
     const createdOptions: string[] = [];
+    const newOptions: { id: string; fieldId: string; label: string; sortOrder: number }[] = [];
+    const maxOrder = new Map<string, number>();
     const ensureOption = async (key: keyof VulnFields, label: string | null): Promise<string | null> => {
       if (!label) return null;
       const field = vf[key];
       const found = findOption(vf, key, label);
       if (found) return found.id;
-      const max = await tx.registerFieldOption.aggregate({ where: { fieldId: field.id }, _max: { sortOrder: true } });
-      const o = await tx.registerFieldOption.create({ data: { fieldId: field.id, label: label.slice(0, 200), sortOrder: (max._max.sortOrder ?? 0) + 1 } });
-      field.options.push({ id: o.id, label: o.label, isClosed: false, archived: false, sortOrder: o.sortOrder, version: o.version, systemKey: null });
+      let max = maxOrder.get(field.id);
+      if (max === undefined) max = (await tx.registerFieldOption.aggregate({ where: { fieldId: field.id }, _max: { sortOrder: true } }))._max.sortOrder ?? 0;
+      const o = { id: randomUUID(), fieldId: field.id, label: label.slice(0, 200), sortOrder: max + 1 };
+      maxOrder.set(field.id, o.sortOrder);
+      newOptions.push(o);
+      addOption(field, { id: o.id, label: o.label, isClosed: false, archived: false, sortOrder: o.sortOrder, version: 1, systemKey: null });
       createdOptions.push(`${field.label}: «${o.label}»`);
       return o.id;
     };
@@ -579,10 +658,13 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
     const statusFixed = optionByKey(vf.status, 'fixed');
 
     // Новые записи — до скана: скан не меняется, а в его сравнении нужны их номера.
+    progress.step = 'новые записи';
     const createdByKey = new Map<string, { id: string; number: number }>();
     // Выбранные «Были удалены» заводятся новыми записями: удалённая остаётся в корзине.
     const toCreate = [...c.items.new.filter((i) => chosen.new.has(i.key)), ...c.items.deleted.filter((i) => chosen.deleted.has(i.key))];
     let number = toCreate.length ? await nextNumbers(tx, reg.id, toCreate.length) : 0;
+    const recordRows: Prisma.RegisterRecordCreateManyInput[] = [];
+    const createdAudits: SettingsAuditEntry[] = [];
     for (const i of toCreate) {
       const r = c.rowOf.get(i.key) as ScanRow;
       const raw: Values = {
@@ -604,18 +686,22 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       set(vf.report, reportOption);
       // Критичность в отчёте не приходит — считается по Оценке.
       const { values } = applyDerived(reg, { before: {}, after: raw, manual: [], edited: Object.keys(raw), isNew: true });
-      const rec = await tx.registerRecord.create({
-        data: { registerId: reg.id, number, values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, number, values, users) },
-      });
-      createdByKey.set(i.key, { id: rec.id, number });
-      await auditSettings(tx, actor, {
-        action: 'register_record.created', entity: 'register_record', entityId: rec.id,
+      const id = randomUUID();
+      recordRows.push({ id, registerId: reg.id, number, values: values as Prisma.InputJsonValue, searchText: searchTextOf(reg, number, values, users) });
+      createdByKey.set(i.key, { id, number });
+      createdAudits.push({
+        action: 'register_record.created', entity: 'register_record', entityId: id,
         summary: `«${reg.name}»: создана запись #${number} из скана «${summary.fileName}» (${nodeLabel(node)})`,
         after: { registerId: reg.id, number, via: 'scan_import', importId, nodeId: node.id, sheet: r.sheet, row: r.row, ...(i.deleted ? { wasDeleted: i.deleted } : {}) },
       });
       number++;
     }
+    await createManyChunked(newOptions, OPTION_COLUMNS, (data) => tx.registerFieldOption.createMany({ data }));
+    await createManyChunked(recordRows, RECORD_COLUMNS, (data) => tx.registerRecord.createMany({ data }));
+    progress.step = 'журнал новых записей';
+    await auditSettingsMany(tx, actor, createdAudits);
 
+    progress.step = 'скан';
     const selectedOf = (group: ScanGroup, key: string) => (group === 'unchanged' ? true : chosen[group].has(key));
     const groupOf = new Map<string, ScanGroup>();
     for (const g of ['new', 'reopened', 'changed', 'unchanged', 'deleted'] as const) for (const i of c.items[g]) groupOf.set(i.key, g);
@@ -657,17 +743,17 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       vulnRows.push({ recordId: rec.id, nodeId: node.id, keyNorm: key, firstScanId: scan.id, lastScanId: scan.id });
       seen.push({ recordId: rec.id, scanId: scan.id, outcome: 'new', cycle: 1 });
     }
-    if (vulnRows.length) await tx.vulnRecord.createMany({ data: vulnRows });
+    await createManyChunked(vulnRows, VULN_RECORD_COLUMNS, (data) => tx.vulnRecord.createMany({ data }));
 
-    /** Запись изменена сканом: значения, журнал и история. */
-    const rewrite = async (rec: NodeRecord, values: Values, manualFieldIds: string[], text: string, extra: Record<string, unknown> = {}) => {
+    // Записи, изменённые сканом: значения, журнал и история — пачками ниже, в прежнем порядке строк журнала.
+    progress.step = 'изменения записей';
+    const updates: RecordValuesUpdate[] = [];
+    const rewriteAudits: SettingsAuditEntry[] = [];
+    const rewrite = (rec: NodeRecord, values: Values, manualFieldIds: string[], text: string, extra: Record<string, unknown> = {}) => {
       const fields = reg.fields.filter((f) => shown(rec.values[f.id]) !== shown(values[f.id]));
       const changes = describeChanges(reg, rec.values, values, fields, users);
-      await tx.registerRecord.update({
-        where: { id: rec.id },
-        data: { values: values as Prisma.InputJsonValue, manualFieldIds, searchText: searchTextOf(reg, rec.number, values, users), version: { increment: 1 } },
-      });
-      await auditSettings(tx, actor, {
+      updates.push({ id: rec.id, values, manualFieldIds, searchText: searchTextOf(reg, rec.number, values, users) });
+      rewriteAudits.push({
         action: 'register_record.updated', entity: 'register_record', entityId: rec.id,
         summary: `«${reg.name}», запись #${rec.number}: ${text} (скан «${summary.fileName}»)`,
         after: { changes, via: 'scan_import', importId, scanId: scan.id, nodeId: node.id, ...extra },
@@ -679,17 +765,15 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       return applyDerived(reg, { before: rec.values, after: patch.values, manual: rec.manual_field_ids, edited: patch.edited, isNew: false });
     };
 
+    const reopenedIds: string[] = [];
     const found: string[] = [];
     for (const i of c.items.reopened) {
       if (!chosen.reopened.has(i.key)) continue; // не выбрана — остаётся устранённой
       const rec = c.recordOf.get(i.key) as NodeRecord;
       const { values, manualFieldIds } = fromRow(rec, i.key);
       const after = { ...reopenedValues(vf, values), ...(reportOption ? { [vf.report.id]: reportOption } : {}) };
-      const changes = await rewrite(rec, after, manualFieldIds, 'повторно обнаружена, открыта заново, срок пойдёт от передачи ИКТ', { reopened: true, cycle: rec.cycle + 1 });
-      await tx.vulnRecord.update({
-        where: { recordId: rec.id },
-        data: { cycle: { increment: 1 }, reopenedAt: new Date(), deadlineScanId: null, lastScanId: scan.id, firstScanId: rec.first_scan_id ?? scan.id, version: { increment: 1 } },
-      });
+      const changes = rewrite(rec, after, manualFieldIds, 'повторно обнаружена, открыта заново, срок пойдёт от передачи ИКТ', { reopened: true, cycle: rec.cycle + 1 });
+      reopenedIds.push(rec.id);
       seen.push({ recordId: rec.id, scanId: scan.id, outcome: 'reopened', cycle: rec.cycle + 1, changes });
     }
     for (const i of c.items.changed) {
@@ -701,26 +785,43 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
         continue;
       }
       const { values, manualFieldIds } = fromRow(rec, i.key);
-      seen.push({ recordId: rec.id, scanId: scan.id, outcome: 'changed', cycle: rec.cycle, changes: await rewrite(rec, values, manualFieldIds, 'обновлена по скану') });
+      seen.push({ recordId: rec.id, scanId: scan.id, outcome: 'changed', cycle: rec.cycle, changes: rewrite(rec, values, manualFieldIds, 'обновлена по скану') });
     }
     for (const i of c.items.unchanged) {
       const rec = c.recordOf.get(i.key) as NodeRecord;
       found.push(rec.id);
       seen.push({ recordId: rec.id, scanId: scan.id, outcome: 'unchanged', cycle: rec.cycle });
     }
-    if (found.length) {
-      await tx.vulnRecord.updateMany({ where: { recordId: { in: found }, firstScanId: null }, data: { firstScanId: scan.id } });
-      await tx.vulnRecord.updateMany({ where: { recordId: { in: found } }, data: { lastScanId: scan.id, version: { increment: 1 } } });
-    }
+    const goneIds: string[] = [];
     for (const g of c.gone) {
       if (!chosen.gone.has(g.key)) continue;
       const rec = c.recordOf.get(g.key) as NodeRecord;
-      const changes = await rewrite(rec, { ...rec.values, [vf.status.id]: statusFixed }, rec.manual_field_ids, 'нет в скане, отмечена устранённой', { gone: true });
-      await tx.vulnRecord.update({ where: { recordId: rec.id }, data: { version: { increment: 1 } } });
+      const changes = rewrite(rec, { ...rec.values, [vf.status.id]: statusFixed }, rec.manual_field_ids, 'нет в скане, отмечена устранённой', { gone: true });
+      goneIds.push(rec.id);
       seen.push({ recordId: rec.id, scanId: scan.id, outcome: 'fixed', cycle: rec.cycle, changes });
     }
-    if (seen.length) await tx.vulnRecordScan.createMany({ data: seen });
+    await updateRecordValues(tx, updates);
+    for (const ids of idChunks(reopenedIds)) {
+      // Повторное обнаружение: новый цикл, срок не идёт до передачи ИКТ этого скана.
+      await tx.$executeRaw`
+        UPDATE vuln_records SET cycle = cycle + 1, reopened_at = now(), deadline_scan_id = NULL, last_scan_id = ${scan.id}::uuid,
+          first_scan_id = COALESCE(first_scan_id, ${scan.id}::uuid), version = version + 1, updated_at = now()
+        WHERE record_id = ANY(${ids}::uuid[])`;
+    }
+    for (const ids of idChunks(found)) {
+      await tx.$executeRaw`
+        UPDATE vuln_records SET first_scan_id = COALESCE(first_scan_id, ${scan.id}::uuid), last_scan_id = ${scan.id}::uuid, version = version + 1, updated_at = now()
+        WHERE record_id = ANY(${ids}::uuid[])`;
+    }
+    for (const ids of idChunks(goneIds)) {
+      await tx.$executeRaw`UPDATE vuln_records SET version = version + 1, updated_at = now() WHERE record_id = ANY(${ids}::uuid[])`;
+    }
+    progress.step = 'журнал изменений';
+    await auditSettingsMany(tx, actor, rewriteAudits);
+    progress.step = 'история сканов';
+    await createManyChunked(seen, RECORD_SCAN_COLUMNS, (data) => tx.vulnRecordScan.createMany({ data }));
 
+    progress.step = 'итог';
     await tx.registerImport.update({ where: { id: importId }, data: { status: 'applied', appliedAt: new Date() } });
     const result = {
       scanId: scan.id, created: createdByKey.size, reopened: chosen.reopened.size, changed: chosen.changed.size,
@@ -732,7 +833,7 @@ export async function applyNodeScan(db: Db, actor: Actor, importId: string, inpu
       after: { nodeId: node.id, importId, fileId: payload.fileId, sha256: imp.fileSha256, scanDate, system: system?.label ?? null, ...result, hosts: payload.hosts.length, newOptions: createdOptions, profileMismatch: comparison.profileMismatch },
     });
     return result;
-  });
+  }, BULK_TX);
 }
 
 // ---------------------------------------------------------------- отчёты прежнего реестра (1.1.0–1.4.0)

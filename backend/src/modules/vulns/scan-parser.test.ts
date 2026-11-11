@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { detectFormat } from './import-detect.js';
+import { syntheticReport, SYNTHETIC_HOST } from '../../test/scan-synthetic.js';
 import { mergeDuplicates, parseScanReport, reportDateFromFileName } from './scan-parser.js';
 
 // Образец владельца: лист «Хосты» с охватом в первой строке, находки — на листе с произвольным названием.
@@ -105,4 +106,42 @@ describe('разбор отчёта сканера по содержимому',
     plain.addWorksheet('Лист1').addRow(['Имя', 'Дата', 'Сумма']);
     expect(() => detectFormat(plain)).toThrowError(/Ожидался отчёт сканера.*«Лист1»: «Имя», «Дата», «Сумма»/);
   });
+
+  it('образец Windows (1.13.9): разбор не меняется — все колонки найдены, ни предупреждений о колонках, ни справки', async () => {
+    const p = await parseScanReport(SAMPLE, NAME);
+    expect([p.warnings, p.info]).toEqual([[], []]);
+    expect(p.rows.filter((r) => r.vector).length).toBeGreaterThan(80);
+    expect(p.rows.filter((r) => r.desc).length).toBe(90);
+  });
 });
+
+describe('отчёт Linux (Debian, 1.13.9)', () => {
+  it('«Вектор» и «Описание (из CVE, англ.)» распознаны; «Задача №» — справка, не предупреждение; нет «Обнаружений» — предупреждение остаётся', async () => {
+    const { buffer, fileName, rows } = await syntheticReport(500);
+    const p = await parseScanReport(buffer, fileName);
+    expect([p.hostsSheet, p.coverageTitle, p.hosts]).toEqual(['Хост', '', [SYNTHETIC_HOST]]);
+    expect(p.rows).toHaveLength(500);
+    expect(p.rows.map((r) => r.vector)).toEqual(rows.map((r) => r.vector));
+    expect(p.rows.map((r) => r.desc)).toEqual(rows.map((r) => r.desc));
+    expect(p.rows.map((r) => r.fixVersion)).toEqual(rows.map((r) => r.fixVersion));
+    expect(p.info).toEqual(['Колонка «Задача №» не используется']);
+    expect(p.warnings).toEqual(['Лист «Все уязвимости»: нет колонок «Обнаружений» — эти поля останутся пустыми']);
+    expect(p.warnings.join(' ')).not.toContain('Задача');
+    // Около 38 % строк без CVSS и вектора, Уровень «Нет оценки».
+    const unscored = p.rows.filter((r) => r.cvss === null);
+    expect(unscored.length / p.rows.length).toBeGreaterThan(0.3);
+    expect(unscored.every((r) => r.vector === null && r.level === 'Нет оценки')).toBe(true);
+  });
+
+  it('синтетика: ключи «Пакет + CVE» уникальны, одна CVE у нескольких пакетов, описания до 300 символов', async () => {
+    const { rows } = await syntheticReport(3390);
+    expect(rows).toHaveLength(3390);
+    expect(new Set(rows.map((r) => `${r.pkg}|${r.cve}`)).size).toBe(3390);
+    const perCve = new Map<string, number>();
+    for (const r of rows) perCve.set(r.cve, (perCve.get(r.cve) ?? 0) + 1);
+    expect([...perCve.values()].some((n) => n > 1)).toBe(true);
+    expect(Math.max(...rows.map((r) => r.desc.length))).toBeLessThanOrEqual(300);
+    expect(rows.every((r) => /^pkg-\d{4}$/.test(r.pkg) && /^CVE-2099-\d{5}$/.test(r.cve))).toBe(true);
+  });
+});
+

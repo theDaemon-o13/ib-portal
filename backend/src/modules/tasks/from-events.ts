@@ -1,7 +1,9 @@
 // События автоматизаций → задачи (этап 5, docs/concept.md — «Получатели»).
 // Вызывается внутри прогона автоматизаций, под его advisory-блокировкой и в той же транзакции:
 // событие становится «обработано» вместе с созданием задач, поэтому повторная обработка дублей не даёт.
+import { randomUUID } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { chunks, chunkSize, createManyChunked } from '../../lib/bulk.js';
 import { workUsersWhere } from '../../lib/work-users.js';
 import { RECIPIENTS_CATALOG, SYSTEM_OWNER_KEY, SYSTEMS_CATALOG } from '../../lib/catalogs.js';
 import type { Db } from '../../lib/db.js';
@@ -10,7 +12,7 @@ import { addDaysIso } from '../../lib/today.js';
 import { addWorkingDays, isoDate, parseIsoDate, type WorkCalendar } from '../../lib/working-days.js';
 import { digestTitle } from '../automations/conditions.js';
 import { deadlineField, dateOf, isClosed, loadRegister, type RegisterDef } from '../registers/definition.js';
-import { notifyAssignee } from '../notifications/service.js';
+import { notifyAssignee, notifyAssignedBySystemMany } from '../notifications/service.js';
 import { recordTransition, statusIdOf } from './flow.js';
 import { systemItemId, TITLE_MAX } from './service.js';
 
@@ -111,9 +113,58 @@ export async function tasksFromEvents(
     return targets;
   };
 
+  // Пачками (1.13.9): на тысячах просроченных записей построчная запись — десятки тысяч запросов и таймаут часового
+  // прогона. Задачи, переходы, уведомления, связи и журнал те же и в том же порядке; меняется только способ вставки.
+  const systemOwnerOf = await systemOwners(tx, events, registers);
+  const openTasks = await openRecordTasks(tx, events);
+  const openKey = (automationId: string, recordId: string, assigneeId: string | null) => `${automationId}|${recordId}|${assigneeId ?? ''}`;
+  type Plan =
+    | { kind: 'comment'; eventId: string; taskId: string; body: string }
+    | { kind: 'create'; eventId: string; taskId: string; data: Prisma.TaskCreateManyInput; title: string; assigneeId: string | null; recordId: string; recipientLabel: string; rule: RuleText };
+  let plans: Plan[] = [];
+  let doneIds: string[] = [];
+  const numberOf = new Map<string, number>();
+  for (const t of openTasks.values()) numberOf.set(t.id, t.number);
+
+  const flush = async () => {
+    const creates = plans.filter((p): p is Extract<Plan, { kind: 'create' }> => p.kind === 'create');
+    for (const part of chunks(creates, chunkSize(TASK_COLUMNS))) {
+      const rows = await tx.task.createManyAndReturn({ data: part.map((p) => ({ ...p.data, id: p.taskId })), select: { id: true, number: true } });
+      for (const r of rows) numberOf.set(r.id, r.number);
+    }
+    await createManyChunked(creates.map((p) => ({ taskId: p.taskId, fromStatusId: null, toStatusId: p.data.statusId, actorId: null, kind: 'system', comment: '', reviewerId: null })), 7,
+      (data) => tx.taskTransition.createMany({ data }));
+    await notifyAssignedBySystemMany(tx, creates.filter((p) => p.assigneeId).map((p) => ({ task: { id: p.taskId, number: numberOf.get(p.taskId) as number, title: p.title }, assigneeId: p.assigneeId as string })));
+    await createManyChunked(plans.filter((p) => p.kind === 'comment').map((p) => ({ taskId: p.taskId, eventId: p.eventId, body: p.body })), 3,
+      (data) => tx.taskComment.createMany({ data }));
+    await createManyChunked(plans.map((p) => ({ eventId: p.eventId, taskId: p.taskId, action: p.kind === 'create' ? 'created' : 'commented' })), 3,
+      (data) => tx.automationEventTask.createMany({ data }));
+    await createManyChunked(plans.map((p): Prisma.AuditLogCreateManyInput => {
+      const number = numberOf.get(p.taskId) as number;
+      if (p.kind === 'comment') {
+        return {
+          userId: null, action: 'task.commented', entity: 'task', entityId: p.taskId,
+          diff: { summary: `Задача #${number}: повторное событие автоматизации`, after: { eventId: p.eventId } } as Prisma.InputJsonValue,
+        };
+      }
+      return {
+        userId: null, action: 'task.created', entity: 'task', entityId: p.taskId,
+        diff: {
+          summary: `Задача #${number} создана автоматизацией: ${p.rule.when} → ${p.rule.then}${p.assigneeId ? '' : ' (ответственный не назначен)'}`,
+          after: { source: 'automation', eventId: p.eventId, recordId: p.recordId, recipientLabel: p.recipientLabel },
+        } as Prisma.InputJsonValue,
+      };
+    }), 6, (data) => tx.auditLog.createMany({ data }));
+    for (const ids of chunks(doneIds, 1000)) await tx.automationEvent.updateMany({ where: { id: { in: ids }, status: 'new' }, data: { status: 'processed', processedAt: now } });
+    plans = [];
+    doneIds = [];
+  };
+
   for (const row of events) {
     if (row.recordId === null && row.registerId !== null && row.automationId !== null && row.automation !== null) {
       // Сводное событие правила по реестру (этап 8б, «Продление разрешений»): одна задача со списком записей.
+      // Накопленное — сначала: порядок строк журнала прежний.
+      await flush();
       let reg = registers.get(row.registerId);
       if (!reg) {
         reg = await loadRegister(tx, row.registerId);
@@ -130,10 +181,9 @@ export async function tasksFromEvents(
       continue;
     }
     const e = registerEvent(row);
-    const done = () => tx.automationEvent.updateMany({ where: { id: e.id, status: 'new' }, data: { status: 'processed', processedAt: now } });
     // Запись успели удалить или убрать в архив — задача уже не нужна.
     if (e.record.deletedAt || e.record.archivedAt) {
-      await done();
+      doneIds.push(e.id);
       continue;
     }
     let reg = registers.get(e.registerId);
@@ -144,9 +194,7 @@ export async function tasksFromEvents(
     const values = e.record.values as Values;
     const systemField = systemFieldOf(reg);
     const systemItemIdOfRecord = systemField ? values[systemField.id] : undefined;
-    const systemOwner = typeof systemItemIdOfRecord === 'string'
-      ? (await tx.catalogItem.findUnique({ where: { id: systemItemIdOfRecord }, select: { ownerUserId: true } }))?.ownerUserId ?? null
-      : null;
+    const systemOwner = typeof systemItemIdOfRecord === 'string' ? systemOwnerOf.get(systemItemIdOfRecord) ?? null : null;
 
     // Получатели → ответственные. null — «не назначен»: метка без пользователей, только e-mail,
     // владелец системы без ib.work или не задан. Метки собираются для карточки.
@@ -164,26 +212,17 @@ export async function tasksFromEvents(
 
     for (const [assigneeId, labelSet] of targets) {
       const recipientLabel = [...labelSet].join(', ').slice(0, 500);
-      const open = await tx.task.findFirst({
-        where: { automationId: e.automationId, recordId: e.recordId, assigneeId, completedAt: null, archivedAt: null, deletedAt: null },
-        select: { id: true, number: true },
-      });
+      const key = openKey(e.automationId, e.recordId, assigneeId);
+      const open = openTasks.get(key);
       if (open) {
         // По той же записи и правилу задача ещё открыта — повторное срабатывание в неё комментарием.
-        await tx.taskComment.create({
-          data: { taskId: open.id, eventId: e.id, body: `Повторное срабатывание ${fireAt}: ${rule.when} → ${rule.then}` },
-        });
-        await tx.automationEventTask.create({ data: { eventId: e.id, taskId: open.id, action: 'commented' } });
-        await tx.auditLog.create({
-          data: {
-            userId: null, action: 'task.commented', entity: 'task', entityId: open.id,
-            diff: { summary: `Задача #${open.number}: повторное событие автоматизации`, after: { eventId: e.id } } as Prisma.InputJsonValue,
-          },
-        });
+        plans.push({ kind: 'comment', eventId: e.id, taskId: open.id, body: `Повторное срабатывание ${fireAt}: ${rule.when} → ${rule.then}` });
         result.commented++;
         continue;
       }
-      const task = await tx.task.create({
+      const taskId = randomUUID();
+      plans.push({
+        kind: 'create', eventId: e.id, taskId, title, assigneeId, recordId: e.recordId, recipientLabel, rule,
         data: {
           title,
           description: `Реестр «${reg.name}», запись #${e.record.number}${recordTitle ? ` «${recordTitle}»` : ''}.\nПравило: ${rule.when} → ${rule.then}.\nСработало: ${fireAt}.`,
@@ -197,25 +236,59 @@ export async function tasksFromEvents(
           automationId: e.automationId,
           recipientLabel,
         },
-        select: { id: true, number: true, statusId: true },
       });
-      await recordTransition(tx, { taskId: task.id, from: null, to: task.statusId, actorId: null, kind: 'system' });
-      await notifyAssignee(tx, { id: task.id, number: task.number, title }, null, assigneeId, null);
-      await tx.automationEventTask.create({ data: { eventId: e.id, taskId: task.id, action: 'created' } });
-      await tx.auditLog.create({
-        data: {
-          userId: null, action: 'task.created', entity: 'task', entityId: task.id,
-          diff: {
-            summary: `Задача #${task.number} создана автоматизацией: ${rule.when} → ${rule.then}${assigneeId ? '' : ' (ответственный не назначен)'}`,
-            after: { source: 'automation', eventId: e.id, recordId: e.recordId, recipientLabel },
-          } as Prisma.InputJsonValue,
-        },
-      });
+      // Следующее событие той же записи и правила в этом прогоне дополнит эту задачу, как раньше.
+      openTasks.set(key, { id: taskId, number: 0 });
       result.created++;
     }
-    await done();
+    doneIds.push(e.id);
   }
+  await flush();
   return result;
+}
+
+/** Колонок в строке задачи из события: id, title, description, status, priority, category, assignee, due, source, record, automation, recipient_label. */
+const TASK_COLUMNS = 12;
+
+/** Владельцы систем записей событий — одним запросом (поле «Система» — значение справочника «Системы»). */
+async function systemOwners(tx: Db, events: readonly { registerId: string | null; record: { values: Prisma.JsonValue } | null }[], registers: Map<string, RegisterDef>): Promise<Map<string, string | null>> {
+  const itemIds = new Set<string>();
+  for (const e of events) {
+    if (!e.registerId || !e.record) continue;
+    let reg = registers.get(e.registerId);
+    if (!reg) {
+      reg = await loadRegister(tx, e.registerId);
+      registers.set(e.registerId, reg);
+    }
+    const field = systemFieldOf(reg);
+    const v = field ? (e.record.values as Values)[field.id] : undefined;
+    if (typeof v === 'string') itemIds.add(v);
+  }
+  const out = new Map<string, string | null>();
+  for (const ids of chunks([...itemIds], 1000)) {
+    for (const i of await tx.catalogItem.findMany({ where: { id: { in: ids } }, select: { id: true, ownerUserId: true } })) out.set(i.id, i.ownerUserId);
+  }
+  return out;
+}
+
+/** Открытые задачи правил по записям событий: ключ «правило | запись | ответственный» → задача. */
+async function openRecordTasks(tx: Db, events: readonly { automationId: string | null; recordId: string | null }[]): Promise<Map<string, { id: string; number: number }>> {
+  const automationIds = [...new Set(events.map((e) => e.automationId).filter((x): x is string => !!x))];
+  const recordIds = [...new Set(events.map((e) => e.recordId).filter((x): x is string => !!x))];
+  const out = new Map<string, { id: string; number: number }>();
+  if (!automationIds.length || !recordIds.length) return out;
+  for (const ids of chunks(recordIds, 1000)) {
+    const rows = await tx.task.findMany({
+      where: { automationId: { in: automationIds }, recordId: { in: ids }, completedAt: null, archivedAt: null, deletedAt: null },
+      select: { id: true, number: true, automationId: true, recordId: true, assigneeId: true },
+      orderBy: { number: 'asc' },
+    });
+    for (const t of rows) {
+      const key = `${t.automationId}|${t.recordId}|${t.assigneeId ?? ''}`;
+      if (!out.has(key)) out.set(key, { id: t.id, number: t.number });
+    }
+  }
+  return out;
 }
 
 /** Строк списка в сводной задаче (остальное — «и ещё N»). */
