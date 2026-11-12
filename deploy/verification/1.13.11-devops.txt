@@ -1,0 +1,52 @@
+Портал ИБ 1.13.11 — обновление прода с 1.13.10. Осведомлённость: оформление в редакторе письма. Меняются образы
+backend и frontend. Миграций, новых переменных .env, прав и seed нет — шаг migrate НЕ выполнять. Образ db по
+содержимому тот же, что у 1.13.10. Подробно — RELEASE.md в архиве.
+Порядок с прода 1.13.6: 1.13.7 → 1.13.9 → 1.13.10 (с migrate) → 1.13.11, каждый по своему архиву и devops.txt.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.11            → 274826c063b10a76e8c7f9bdfbab896cbe6b7005   (объект тега)
+     git rev-parse 'v1.13.11^{commit}' → b355a9a9183e442e65b0ecc2cc38c4312c9d7ca8   (коммит)
+   Архив: ibportal-1.13.11.tar.gz + ibportal-1.13.11.tar.gz.sha256 (GitHub Release v1.13.11)
+     sha256 ibportal-1.13.11.tar.gz = 1630fcf28103cc0a51d17f41e2cc7feee5ad70057e33778321f7d32218bf4e9c
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.11.tar.gz.sha256           → OK
+     tar -xzf ibportal-1.13.11.tar.gz && cd ibportal-1.13.11 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.11.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.10)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома. Нет копии — стоп.
+   Для сверки:
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT (SELECT count(*) FROM awareness_letter_versions), (SELECT count(*) FROM awareness_templates), (SELECT count(*) FROM awareness_letters WHERE frozen);"'
+     → три числа: версий писем | шаблонов | отправленных (замороженных) писем
+
+2. ВЫКЛАДКА — замена backend и frontend, БЕЗ migrate
+   cp /srv/ibportal/releases/ibportal-1.13.11/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.11/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.11/' .env
+   docker compose up -d backend frontend
+   (db перезапустится с образом ibportal-db:1.13.11 — по содержимому тот же, что 1.13.10; данные в томе не трогаются.)
+
+3. ПОСЛЕ
+   docker compose ps                → backend healthy, frontend Up
+   ./scripts/smoke.sh --after       → «Smoke-проверка пройдена», число записей не изменилось
+   SQL из шага 1                    → те же три числа (выкладка данные не меняет)
+   Вручную в Chrome на Windows, обе темы:
+     - «Осведомлённость → Шаблоны» → любой шаблон → на панели редактора есть список «Шрифт», кнопки A и ab со
+       стрелками, выравнивание; лист редактора белый и в тёмной теме. «Закрыть» без сохранения.
+   Вручную в почте (сотрудник ИБ, при первом письме с новым оформлением; чек-лист — в руководстве, «Учебные письма»):
+     - «Скачать для Outlook (.eml)» → открыть в Outlook классическом, в новом Outlook и через WorldClient
+       («Скопировать с оформлением»): Times New Roman, цвет и фон текста, выравнивание, картинка сбоку с отступом,
+       ширина столбцов и заливка таблицы; вид на телефоне. Известно: Outlook классический рисует цветное
+       подчёркивание цветом текста. Расхождения — снимок экрана разработчику (выкладку не откатывать).
+   Открытые до выкладки вкладки редактора — обновить (F5).
+
+4. ОТКАТ НА 1.13.10 (образы backend и frontend, база не меняется)
+   sed -i 's/^VERSION=.*/VERSION=1.13.10/' .env && docker compose up -d backend frontend
+   Письма, сохранённые на 1.13.11 с новым оформлением, на 1.13.10 открываются; при следующем сохранении на 1.13.10
+   оформление пропадёт (текст останется). Проверено разработчиком по коду. Образы 1.13.10 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; backend не стал healthy; любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.13.11 (с 1.13.10), кто, имя копии и место хранения, результат, проверка в почте.

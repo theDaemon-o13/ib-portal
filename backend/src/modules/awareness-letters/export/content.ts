@@ -2,6 +2,11 @@
 // на входе HTML после санитайзера (белый список тегов без style и class), на выходе — те же теги со встроенными стилями
 // макета, выделенные блоки — таблицами с полосой слева. Ведущие пробелы и &nbsp; в начале абзаца (отступ первой строки
 // из Word) вырезаются, абзацы, оставшиеся пустыми, выбрасываются.
+// Оформление 1.13.11 (docs/plans/release-1.13.11.md, раздел 4): шрифт, цвет и фон текста — span со встроенным стилем;
+// цветное подчёркивание — text-decoration-color; выравнивание — align и text-align; картинка — абзац с align или img
+// с align и hspace; таблица с шириной столбцов — width="100%" и width="NN%"; заливка — bgcolor и background-color.
+// Без float, div и классов. Содержимое без новых атрибутов выгружается как в 1.13.10.
+import { imageAlign, imageWidth, styleMap, type ImageAlign } from '../../../lib/letter-format.js';
 
 export const MAIL_FONT = "font-family:Arial, 'Segoe UI', Helvetica, sans-serif";
 const TEXT = `${MAIL_FONT};font-size:15px;line-height:23px;color:#0F172A;`;
@@ -34,7 +39,37 @@ const attr = (attrs: string, name: string): string | null => {
   return m ? m[1] ?? '' : null;
 };
 
-interface Frame { tag: string; callout?: CalloutKind; /** Индексы открывающих <p> выделенного блока: у последнего — без отступа снизу. */ ps?: number[] }
+interface Frame { tag: string; callout?: CalloutKind; /** Индексы открывающих <p> выделенного блока: у последнего — без отступа снизу. */ ps?: number[]; firstRow?: boolean }
+
+/** Выравнивание текста из style: «align» и text-align для почты (Outlook классический учитывает атрибут). */
+function alignOf(attrs: string): string | null {
+  const a = styleMap(attr(attrs, 'style'))['text-align'];
+  return a === 'left' || a === 'center' || a === 'right' || a === 'justify' ? a : null;
+}
+/** Открывающий тег со стилем макета + выравнивание: `<p style="…">` → `<p align="center" style="…text-align:center;">`. */
+function withAlign(open: string, a: string | null): string {
+  if (!a) return open;
+  return open.replace(/^<([a-z0-9]+) style="([^"]*)">$/, `<$1 align="${a}" style="$2text-align:${a};">`);
+}
+
+/** Картинка: на отдельной строке — абзац с выравниванием; с обтеканием — img с align, hspace и отступом. */
+function imageMail(src: string, alt: string | null, width: number | null, height: string | null, align: ImageAlign): string {
+  const altAttr = ` alt="${alt ?? ''}"`;
+  const w = width !== null ? ` width="${width}"` : '';
+  if (align === 'wrap-left' || align === 'wrap-right') {
+    const side = align === 'wrap-left' ? 'left' : 'right';
+    const margin = side === 'left' ? '0 12px 8px 0' : '0 0 8px 12px';
+    // Outlook классический не применяет margin у картинки — отступ даёт hspace/vspace; остальным — margin (сильнее атрибута).
+    return `<img src="${src}"${altAttr}${w} align="${side}" hspace="12" vspace="4" style="max-width:45%;height:auto;border:0;margin:${margin};">`;
+  }
+  const h = width === null && height ? ` height="${height}"` : '';
+  return `<p align="${align}" style="margin:0 0 14px 0;text-align:${align};${TEXT}"><img src="${src}"${altAttr}${w}${h} style="display:inline-block;max-width:100%;height:auto;border:0;"></p>`;
+}
+
+/** Таблицы с заданной шириной столбцов (по порядку в HTML): у них width="100%" и ширины ячеек первой строки. */
+function tablesWithWidths(html: string): boolean[] {
+  return [...html.matchAll(/<table\b[\s\S]*?<\/table>/gi)].map((m) => /<t[hd]\b[^>]*\swidth="\d{1,3}%"/i.test(m[0]));
+}
 
 /**
  * Перевести HTML редактора в почтовый. Абзац — 15/23, отступ 14 px снизу; в ячейке таблицы и выделенном блоке — свои
@@ -46,6 +81,10 @@ export function contentToMail(html: string): string {
   /** Открытый абзац: индекс его тега в out — пустой абзац выбрасывается целиком. */
   let openP: { at: number; empty: boolean } | null = null;
   const inside = (tag: string) => stack.some((f) => f.tag === tag);
+  const widths = tablesWithWidths(html);
+  let tableNo = 0;
+  /** Строк в текущей таблице: ширина столбцов — у ячеек первой. */
+  let rowNo = 0;
   const callout = () => [...stack].reverse().find((f) => f.callout);
 
   for (const m of html.matchAll(TOKEN_RE)) {
@@ -89,7 +128,7 @@ export function contentToMail(html: string): string {
       case 'p': {
         const c = callout();
         const cell = inside('td') || inside('th');
-        out.push(cell ? P('0') : c ? P('0 0 4px 0') : inside('li') ? P('0') : P('0 0 14px 0'));
+        out.push(withAlign(cell ? P('0') : c ? P('0 0 4px 0') : inside('li') ? P('0') : P('0 0 14px 0'), alignOf(attrs)));
         openP = { at: out.length - 1, empty: true };
         if (c && !cell) (c.ps ??= []).push(out.length - 1);
         stack.push({ tag });
@@ -119,20 +158,63 @@ export function contentToMail(html: string): string {
         stack.push({ tag });
         break;
       }
+      case 'table': {
+        const sized = widths[tableNo++] ?? false;
+        rowNo = 0;
+        out.push(sized ? (STYLES.table ?? '<table>').replace('<table ', '<table width="100%" ').replace('style="', 'style="width:100%;') : STYLES.table ?? '<table>');
+        stack.push({ tag });
+        break;
+      }
+      case 'tr':
+        rowNo++;
+        out.push('<tr>');
+        stack.push({ tag, firstRow: rowNo === 1 });
+        break;
       case 'td':
       case 'th': {
         const span = ['colspan', 'rowspan'].map((k) => attr(attrs, k)).map((v, i) => (v ? ` ${i ? 'rowspan' : 'colspan'}="${v}"` : '')).join('');
-        out.push(`<${tag}${span} style="${CELL}${tag === 'th' ? 'background:#F1F5F9;font-weight:bold;' : ''}">`);
+        const firstRow = [...stack].reverse().find((f) => f.tag === 'tr')?.firstRow ?? false;
+        const w = firstRow ? /^(\d{1,3})%$/.exec(attr(attrs, 'width') ?? '')?.[1] : undefined;
+        const bg = styleMap(attr(attrs, 'style'))['background-color'];
+        // Заливка — и bgcolor (Outlook классический), и background-color; сильнее серого фона заголовка.
+        const head = tag === 'th' ? 'background:#F1F5F9;font-weight:bold;' : '';
+        const fill = bg ? `${tag === 'th' ? 'font-weight:bold;' : ''}background-color:${bg};` : head;
+        out.push(`<${tag}${span}${w ? ` width="${w}%"` : ''}${bg ? ` bgcolor="${bg}"` : ''} style="${CELL}${fill}">`);
         stack.push({ tag });
         break;
       }
       case 'img': {
         const src = attr(attrs, 'src') ?? '';
         const alt = attr(attrs, 'alt');
+        const align = imageAlign(attr(attrs, 'data-align') ?? undefined);
+        if (align && !openP) {
+          out.push(imageMail(src, alt, imageWidth(attr(attrs, 'width') ?? undefined), attr(attrs, 'height'), align));
+          break;
+        }
         const size = ['width', 'height'].map((k) => attr(attrs, k)).map((v, i) => (v ? ` ${i ? 'height' : 'width'}="${v}"` : '')).join('');
         out.push(`<img src="${src}"${alt !== null ? ` alt="${alt}"` : ' alt=""'}${size} style="display:block;max-width:100%;height:auto;border:0;margin:0 0 14px 0;">`);
         break;
       }
+      case 'span': {
+        const style = attr(attrs, 'style');
+        out.push(style ? `<span style="${style};">` : '<span>');
+        stack.push({ tag });
+        break;
+      }
+      case 'u': {
+        const color = styleMap(attr(attrs, 'style'))['text-decoration-color'];
+        // Цветное подчёркивание: новый Outlook и WorldClient; Outlook классический рисует его цветом текста.
+        out.push(color ? `<u style="text-decoration:underline;text-decoration-color:${color};">` : '<u>');
+        stack.push({ tag });
+        break;
+      }
+      case 'h2':
+      case 'h3':
+      case 'h4':
+      case 'li':
+        out.push(withAlign(STYLES[tag] ?? `<${tag}>`, alignOf(attrs)));
+        stack.push({ tag });
+        break;
       case 'br':
         out.push('<br>');
         break;
