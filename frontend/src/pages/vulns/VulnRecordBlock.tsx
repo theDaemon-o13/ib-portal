@@ -49,7 +49,7 @@ export function VulnRecordBlock({ recordId, go }: { recordId: string; go: (v: Vu
           <div className="v-seen">
             {d.scans.map((s) => (
               <div key={s.id} className="row v-between">
-                <button className="btn ghost sm" type="button" onClick={() => go({ kind: 'scan', id: s.id })}>Скан {formatDate(s.scanDate)}</button>
+                <button className="btn ghost sm" type="button" onClick={() => go({ kind: 'scan', id: s.id })}>Скан {formatDate(s.scanDate)}{s.annulled ? ' · аннулирован' : ''}</button>
                 <span className="hint">{OUTCOME[s.outcome] ?? s.outcome}{s.changes.length ? `: ${s.changes.map((c) => `${c.label} ${c.from || '—'} → ${c.to || '—'}`).join('; ')}` : ''}</span>
               </div>
             ))}

@@ -405,6 +405,16 @@ async function main() {
   check(vulnPrivs[0]?.granted === false && vulnSeen[0]?.granted === false, 'ibportal_app: нет DELETE и TRUNCATE в разделе «Уязвимости», сканы записи только пополняются');
   const ungrouped = await prisma.vulnNode.count({ where: { systemKey: 'legacy', group: { systemKey: 'ungrouped' } } });
   check(ungrouped === 1, 'есть «Без группы / Из прежнего реестра»', 'выполните seed');
+  // Аннулированные сканы (1.13.12, ADR-0052): не переданы ИКТ; у их узлов есть хотя бы один неаннулированный скан.
+  const annulBad = await prisma.$queryRaw<{ handed: bigint; bare: bigint }[]>`
+    WITH a AS (SELECT DISTINCT entity_id FROM deletions WHERE entity = 'vuln_scan' AND restored_at IS NULL)
+    SELECT
+      (SELECT count(*) FROM vuln_scans s JOIN a ON a.entity_id = s.id WHERE s.handed_over_on IS NOT NULL) AS handed,
+      (SELECT count(DISTINCT s.node_id) FROM vuln_scans s JOIN a ON a.entity_id = s.id
+        WHERE NOT EXISTS (SELECT 1 FROM vuln_scans o WHERE o.node_id = s.node_id AND o.id NOT IN (SELECT entity_id FROM a))) AS bare`;
+  check(Number(annulBad[0]?.handed ?? 0) === 0 && Number(annulBad[0]?.bare ?? 0) === 0,
+    'аннулированные сканы: не переданы ИКТ, в их узлах есть неаннулированный скан',
+    `переданных ИКТ — ${annulBad[0]?.handed ?? 0}, узлов без неаннулированного скана — ${annulBad[0]?.bare ?? 0}`);
   const orphans = await prisma.$queryRaw<{ n: bigint }[]>`
     SELECT count(*) AS n FROM register_records r JOIN registers g ON g.id = r.register_id
     LEFT JOIN vuln_records v ON v.record_id = r.id WHERE g.system_key = 'vulns' AND v.record_id IS NULL`;

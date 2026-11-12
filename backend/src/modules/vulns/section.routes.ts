@@ -18,6 +18,8 @@ import * as scanImport from './scan-import.service.js';
 import * as scans from './scans.service.js';
 import * as section from './section.service.js';
 import { SCAN_MAX_ROWS } from './scan-parser.js';
+import * as annul from './annul.service.js';
+import { SCAN_REASONS } from '../trash/service.js';
 import { importFailure } from '../../lib/import-failure.js';
 import * as transfer from './transfer.service.js';
 import * as trash from '../trash/service.js';
@@ -101,8 +103,14 @@ const ScanBrief = z.object({
   counts: z.object({ new: z.number().int(), reopened: z.number().int(), changed: z.number().int(), unchanged: z.number().int(), deleted: z.number().int().optional(), gone: z.number().int() }).nullable(),
   critCounts: z.array(z.object({ key: z.string(), label: z.string(), count: z.number().int() })),
   legacy: z.boolean(), createdBy: z.string(), createdAt: z.string(), handover: Handover.nullable(),
+  /** Аннулирован (1.13.12): в списке — только с «Показать аннулированные». */
+  annulled: z.boolean(),
 });
+const Annulment = z.object({ at: z.string(), by: z.string(), reasonCode: z.string().nullable(), reasonLabel: z.string().nullable(), reason: z.string(), deletionId: z.string() });
 const ScanDetail = ScanBrief.extend({
+  annulment: Annulment.nullable(),
+  /** Условия аннулирования выполнены (право data.delete проверяет маршрут). */
+  canAnnul: z.boolean(),
   node: z.object({ id: z.string(), label: z.string() }),
   previousScan: z.object({ id: z.string(), scanDate: z.string(), fileName: z.string() }).nullable(),
   legacyArchived: z.boolean(),
@@ -406,8 +414,23 @@ export const vulnSectionRoutes: FastifyPluginAsyncZod<{ db: Db; store: FileStore
 
   app.get('/vulns/nodes/:id/scans', {
     preHandler: view,
-    schema: { tags: ['vulns'], summary: 'Итоги сканирования узла: новые сверху', params: IdParams, response: { 200: z.object({ items: z.array(ScanBrief) }), ...errors } },
-  }, async (request) => ({ items: await scans.listScans(db, request.params.id) }));
+    schema: {
+      tags: ['vulns'], summary: 'Итоги сканирования узла: новые сверху; аннулированные — только с annulled=1', params: IdParams,
+      querystring: z.object({ annulled: z.enum(['0', '1']).optional() }),
+      response: { 200: z.object({ items: z.array(ScanBrief) }), ...errors },
+    },
+  }, async (request) => ({ items: await scans.listScans(db, request.params.id, { withAnnulled: request.query.annulled === '1' }) }));
+
+  app.post('/vulns/scans/:id/annul', {
+    preHandler: dataDelete,
+    schema: {
+      tags: ['vulns'],
+      summary: '«Аннулировать скан» (data.delete): только не переданный ИКТ и не последний в узле (409 SCAN_HANDED_OVER, SCAN_LAST). Изменения реестра не откатываются; событие — в корзине',
+      params: IdParams,
+      body: z.object({ reason: z.enum(SCAN_REASONS), comment: z.string().max(2000).nullable().optional() }),
+      response: { 200: z.object({ deletionId: z.string(), annulled: Annulment.nullable() }), ...errors },
+    },
+  }, async (request) => annul.annulScan(db, actorOf(request), request.params.id, request.body));
 
   app.get('/vulns/scans/:id', {
     preHandler: view,

@@ -45,7 +45,7 @@ export const vkeys = {
   records: (nodeId: string, q: unknown) => ['vulns', 'records', nodeId, q] as const,
   recordInfo: (id: string) => ['vulns', 'record', id] as const,
   nodeHistory: (id: string) => ['vulns', 'node-history', id] as const,
-  scans: (nodeId: string) => ['vulns', 'scans', nodeId] as const,
+  scans: (nodeId: string, withAnnulled = false) => ['vulns', 'scans', nodeId, withAnnulled] as const,
   scan: (id: string) => ['vulns', 'scan', id] as const,
   extensions: (scope: { nodeId?: string; groupId?: string }) => ['vulns', 'extensions', scope] as const,
   deletionStats: (scope: { nodeId?: string; groupId?: string }, from: string, to: string) => ['vulns', 'deletion-stats', scope, from, to] as const,
@@ -84,7 +84,10 @@ export const vulnsApi = {
     request<NodeRecordsPage>('GET', `/api/v1/vulns/nodes/${nodeId}/records${qs({ ...q, limit: '100' })}`),
   recordInfo: (id: string) => request<RecordInfo>('GET', `/api/v1/vulns/records/${id}`),
   transfer: (recordIds: string[], nodeId: string) => request<TransferResult>('POST', '/api/v1/vulns/records/transfer', { recordIds, nodeId }),
-  scans: (nodeId: string) => request<Res<'/api/v1/vulns/nodes/{id}/scans', 'get'>>('GET', `/api/v1/vulns/nodes/${nodeId}/scans`),
+  scans: (nodeId: string, withAnnulled = false) => request<Res<'/api/v1/vulns/nodes/{id}/scans', 'get'>>('GET', `/api/v1/vulns/nodes/${nodeId}/scans${withAnnulled ? '?annulled=1' : ''}`),
+  /** «Аннулировать скан» (1.13.12): право data.delete; только не переданный ИКТ и не последний в узле. */
+  annulScan: (id: string, body: Body<'/api/v1/vulns/scans/{id}/annul', 'post'>) =>
+    request<Res<'/api/v1/vulns/scans/{id}/annul', 'post'>>('POST', `/api/v1/vulns/scans/${id}/annul`, body),
   scan: (id: string) => request<ScanDetail>('GET', `/api/v1/vulns/scans/${id}`),
   handover: (id: string, body: Body<'/api/v1/vulns/scans/{id}/handover', 'post'>) =>
     request<Res<'/api/v1/vulns/scans/{id}/handover', 'post'>>('POST', `/api/v1/vulns/scans/${id}/handover`, body),

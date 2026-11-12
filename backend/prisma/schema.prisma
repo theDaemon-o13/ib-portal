@@ -834,13 +834,13 @@ model VulnExtensionItem {
 /// Строка не удаляется; меняется один раз — при восстановлении (триггер deletions_guard).
 model Deletion {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  /// register | vuln_group | vuln_node | register_records (CHECK в SQL миграции)
+  /// register | vuln_group | vuln_node | register_records | vuln_scan (аннулирование скана, 1.13.12) — CHECK в SQL миграции
   entity     String
-  /// Реестр, группа или узел; для записей — их реестр.
+  /// Реестр, группа, узел или скан; для записей — их реестр.
   entityId   String    @map("entity_id") @db.Uuid
   /// Снимок названия для корзины и журнала.
   title      String
-  /// Для записей: wrong_import | false_positive | duplicate | other; у остальных — NULL, причина текстом.
+  /// Для записей: wrong_import | false_positive | duplicate | other; для скана: reupload | wrong_file | other; у остальных — NULL.
   reasonCode String?   @map("reason_code")
   reason     String    @default("")
   /// { nodes, records, scans, automations }

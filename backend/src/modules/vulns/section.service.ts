@@ -9,6 +9,7 @@ import { calendarFor, dateOf, isClosed, loadRegister, toRecordDtos, type Registe
 import { VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { recordExtensions } from './extensions.service.js';
 import { loadNode, nodeLabel } from './groups.service.js';
+import { annulledScanIds } from './annul.service.js';
 import { getVulnSettings, scanFreshness } from './profiles.js';
 
 export type RecordState = 'overdue' | 'not_handed' | 'in_work' | 'fixed' | 'accepted';
@@ -54,8 +55,10 @@ export async function overview(db: Db) {
     }
     stats.set(r.nodeId, s);
   }
+  // Аннулированные сканы (1.13.12) — не в дереве, не в «ждут передачи ИКТ» и не в возрасте узла.
+  const annulled = await annulledScanIds(db);
   const scans = await db.vulnScan.findMany({
-    where: { node: { deletedAt: null, group: { deletedAt: null } } },
+    where: { node: { deletedAt: null, group: { deletedAt: null } }, ...(annulled.length ? { id: { notIn: annulled } } : {}) },
     select: { id: true, nodeId: true, scanDate: true, fileName: true, handedOverOn: true, createdAt: true, legacyReportId: true },
     orderBy: [{ scanDate: 'desc' }, { createdAt: 'desc' }],
   });
@@ -159,7 +162,7 @@ export const RecordInfo = z.object({
   })),
   scans: z.array(z.object({
     id: z.string(), scanDate: z.string(), fileName: z.string(), outcome: z.string(), cycle: z.number().int(),
-    handedOver: z.boolean(), changes: z.array(z.object({ label: z.string(), from: z.string(), to: z.string() })),
+    handedOver: z.boolean(), annulled: z.boolean(), changes: z.array(z.object({ label: z.string(), from: z.string(), to: z.string() })),
   })),
   firstScanDate: z.string().nullable(),
   lastScanDate: z.string().nullable(),
@@ -193,6 +196,11 @@ export async function recordInfo(db: Db, id: string) {
   const extra = values[vf.extDays.id];
   const seen = await db.vulnRecordScan.findMany({ where: { recordId: id }, include: { scan: true } });
   seen.sort((a, b) => b.scan.scanDate.getTime() - a.scan.scanDate.getTime() || b.scan.createdAt.getTime() - a.scan.createdAt.getTime());
+  // «Впервые» и «последний раз» — по неаннулированным сканам (1.13.12), на лету: строки записи не меняются.
+  const annulled = new Set(await annulledScanIds(db));
+  const live = seen.filter((s) => !annulled.has(s.scanId));
+  const firstLive = live.at(-1)?.scan ?? null;
+  const lastLive = live[0]?.scan ?? null;
   return {
     node: { id: v.nodeId, label: nodeLabel(v.node), legacy: v.node.systemKey !== null },
     state: stateOf(reg, vf, values, final, todayIso()),
@@ -210,9 +218,11 @@ export async function recordInfo(db: Db, id: string) {
     extensions: await recordExtensions(db, id, v.cycle),
     scans: seen.map((s) => ({
       id: s.scanId, scanDate: iso(s.scan.scanDate), fileName: s.scan.fileName, outcome: s.outcome, cycle: s.cycle, handedOver: s.scan.handedOverOn !== null,
+      annulled: annulled.has(s.scanId),
       changes: ((s.changes ?? []) as { label: string; from: string; to: string }[]).map((c) => ({ label: c.label, from: c.from, to: c.to })),
     })),
-    firstScanDate: v.firstScan ? iso(v.firstScan.scanDate) : null,
-    lastScanDate: v.lastScan ? iso(v.lastScan.scanDate) : null,
+    // Встреч нет совсем (запись прежнего реестра) — как раньше; встречи только в аннулированных — пусто.
+    firstScanDate: firstLive ? iso(firstLive.scanDate) : live.length === seen.length && v.firstScan ? iso(v.firstScan.scanDate) : null,
+    lastScanDate: lastLive ? iso(lastLive.scanDate) : live.length === seen.length && v.lastScan ? iso(v.lastScan.scanDate) : null,
   };
 }

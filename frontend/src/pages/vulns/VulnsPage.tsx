@@ -18,7 +18,7 @@ import { CRIT_TONE, dueHint, groupStats, lastScanOf, parseView, STATE_FILTERS, S
 import { GroupScanImportDialog, ScanImportDialog } from './ScanImportDialog';
 import { useTodayIso } from './today';
 import { VulnRecordBlock } from './VulnRecordBlock';
-import { DeletedStats, DeleteGroupDialog, DeleteNodeDialog } from './Deletion';
+import { AnnulScanDialog, DeletedStats, DeleteGroupDialog, DeleteNodeDialog } from './Deletion';
 import '../../styles/vulns.css';
 import { Select } from '../../components/Select';
 
@@ -298,7 +298,8 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
   const canDeadlines = me.permissions.includes('vulns.deadlines');
   const q = { search: search || undefined, crit: crit || undefined, state, cursor };
   const records = useQuery({ queryKey: vkeys.records(node.id, q), queryFn: () => vulnsApi.records(node.id, q) });
-  const scans = useQuery({ queryKey: vkeys.scans(node.id), queryFn: () => vulnsApi.scans(node.id), enabled: tab === 'scans' });
+  const [withAnnulled, setWithAnnulled] = useState(false);
+  const scans = useQuery({ queryKey: vkeys.scans(node.id, withAnnulled), queryFn: () => vulnsApi.scans(node.id, withAnnulled), enabled: tab === 'scans' });
   const ext = useQuery({ queryKey: vkeys.extensions({ nodeId: node.id }), queryFn: () => vulnsApi.extensions({ nodeId: node.id }), enabled: tab === 'ext' });
   const history = useQuery({ queryKey: vkeys.nodeHistory(node.id), queryFn: () => vulnsApi.nodeHistory(node.id), enabled: tab === 'history' });
   const critField = reg.fields.find((x) => x.systemKey === 'crit');
@@ -369,7 +370,7 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
           </div>
         </section>
       )}
-      {tab === 'scans' && <ScansTab items={scans.data?.items ?? []} go={go} />}
+      {tab === 'scans' && <ScansTab items={scans.data?.items ?? []} go={go} withAnnulled={withAnnulled} onToggle={setWithAnnulled} />}
       {tab === 'ext' && (
         <section className="panel">
           <div className="panel-h"><h3>Продления сроков</h3><span className="hint">Только по обоснованию ОИКТ, каждое можно отменить целиком</span></div>
@@ -402,8 +403,14 @@ function NodeView({ node, group, reg, stats, go, me, groups }: { node: VulnNode;
   );
 }
 
-function ScansTab({ items, go }: { items: ScanBrief[]; go: Go }) {
-  if (!items.length) return <section className="panel panel-b hint">Сканов пока нет.</section>;
+function ScansTab({ items, go, withAnnulled, onToggle }: { items: ScanBrief[]; go: Go; withAnnulled: boolean; onToggle: (v: boolean) => void }) {
+  // Аннулированные сканы (1.13.12) — только по переключателю, с отметкой.
+  const toggle = (
+    <label className="check v-annul-toggle">
+      <input type="checkbox" checked={withAnnulled} onChange={(e) => onToggle(e.target.checked)} /> Показать аннулированные
+    </label>
+  );
+  if (!items.length) return <section className="panel panel-b hint">Сканов пока нет.{toggle}</section>;
   return (
     <section className="panel">
       <div className="tbl-wrap">
@@ -411,15 +418,16 @@ function ScansTab({ items, go }: { items: ScanBrief[]; go: Go }) {
           <thead><tr><th>Скан</th><th>Файл</th><th>Охват</th><th className="v-r">Находок</th><th>Изменения</th><th>Передача ИКТ</th></tr></thead>
           <tbody>
             {items.map((s) => (
-              <tr key={s.id} onClick={() => go({ kind: 'scan', id: s.id })}>
-                <td><b>{formatDate(s.scanDate)}</b></td><td>{s.fileName}</td><td>{s.coverageTitle || '—'} · {s.hostsCount}</td><td className="v-r">{s.findingsCount}</td>
+              <tr key={s.id} className={s.annulled ? 'v-annulled' : undefined} onClick={() => go({ kind: 'scan', id: s.id })}>
+                <td><b>{formatDate(s.scanDate)}</b>{s.annulled && <span className="chip" data-testid="scan-annulled-chip"> аннулирован</span>}</td><td>{s.fileName}</td><td>{s.coverageTitle || '—'} · {s.hostsCount}</td><td className="v-r">{s.findingsCount}</td>
                 <td>{s.counts ? `+${s.counts.new} · повторно ${s.counts.reopened} · изм. ${s.counts.changed} · пропали ${s.counts.gone}` : '—'}</td>
-                <td><IctChip handedOver={!!s.handover} date={s.handover?.date} /></td>
+                <td>{s.annulled ? '—' : <IctChip handedOver={!!s.handover} date={s.handover?.date} />}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <div className="panel-b">{toggle}</div>
     </section>
   );
 }
@@ -433,6 +441,7 @@ function ScanView({ id, go, me, groups }: { id: string; go: Go; me: Me; groups: 
   const [tab, setTab] = useState<'diff' | 'rows' | 'hosts'>('diff');
   const [group, setGroup] = useState('new');
   const [handing, setHanding] = useState(false);
+  const [annulling, setAnnulling] = useState(false);
   const viewer = useFileViewer();
   const s = scan.data;
   if (!s) return scan.isError ? <div className="panel panel-b form-error">Скан не найден.</div> : null;
@@ -460,7 +469,13 @@ function ScanView({ id, go, me, groups }: { id: string; go: Go; me: Me; groups: 
         {s.critCounts.map((c) => <div key={c.key}><span>Новых: {c.label.toLowerCase()}</span><b>{c.count}</b></div>)}
         {s.fileId && <button className="btn sm" type="button" onClick={() => void viewer.open({ id: s.fileId as string, name: s.fileName, mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })}>Файл отчёта</button>}
       </div>
-      {s.handover
+      {s.annulment && (
+        <div className="note v-annul" role="status" data-testid="scan-annulled">
+          <b>Аннулирован {formatDateTime(s.annulment.at)}</b>, {s.annulment.by}. Причина: {[s.annulment.reasonLabel, s.annulment.reason].filter(Boolean).join(' — ')}.
+          {' '}Изменения, которые скан внёс в реестр, не откатывались. Восстановить может супер-администратор в корзине.
+        </div>
+      )}
+      {s.annulment ? null : s.handover
         ? (
           <div className="note v-ok">
             Передан ИКТ <b>{formatDate(s.handover.date)}</b> · {s.handover.by} → {s.handover.to}.
@@ -470,7 +485,10 @@ function ScanView({ id, go, me, groups }: { id: string; go: Go; me: Me; groups: 
         : (
           <div className="note v-warn row v-between">
             <span>Отчёт ещё не передан ИКТ. Срок по {newCount ? `новым уязвимостям (${newCount})` : 'записям скана'} начнётся с даты передачи.</span>
-            {canEdit && <button className="btn sm primary" type="button" onClick={() => setHanding(true)}>Передать ИКТ</button>}
+            <span className="row">
+              {s.canAnnul && me.permissions.includes('data.delete') && <button className="btn sm danger-t" type="button" onClick={() => setAnnulling(true)}>Аннулировать скан</button>}
+              {canEdit && <button className="btn sm primary" type="button" onClick={() => setHanding(true)}>Передать ИКТ</button>}
+            </span>
           </div>
         )}
       {s.comparison?.profileMismatch && (
@@ -559,6 +577,7 @@ function ScanView({ id, go, me, groups }: { id: string; go: Go; me: Me; groups: 
         </section>
       )}
       {handing && <HandoverDialog scan={s} count={newCount} onClose={() => setHanding(false)} />}
+      {annulling && <AnnulScanDialog scan={s} onClose={() => setAnnulling(false)} />}
       {viewer.element}
     </>
   );

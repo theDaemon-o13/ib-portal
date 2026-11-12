@@ -430,6 +430,61 @@ describe('Раздел «Уязвимости»', () => {
     assert.equal((await api(`/api/v1/vulns/nodes/${node.id}/records?state=all`)).total, 90);
   });
 
+  it('аннулировать скан (1.13.12): дубль уходит из дерева и «ждут передачи», плашка, «Показать аннулированные», корзина', async () => {
+    const types = (await api('/api/v1/catalogs/system_types/items')).items ?? [];
+    const windows = types.find((t) => t.value === 'Windows');
+    const group = await send('POST', '/api/v1/vulns/groups', { name: `${GROUP}-дубль`, kind: 'department', systemTypeIds: [windows.id] });
+    const node = group.nodes[0];
+    // Тот же отчёт дважды, как пользователь: «Импорт скана» → «Загрузить».
+    const upload = async (name) => {
+      const file = join(tmp, name);
+      copyFileSync(SAMPLE, file);
+      await open(`/vulns/node/${node.id}`, `!!${button('Импорт скана')}`, 'экран узла');
+      await ui.click(button('Импорт скана'));
+      await ui.waitFor(`!!${dialog('Импорт скана')}`, 'окно импорта');
+      await ui.setFiles('[role=dialog] input[type=file]', [file]);
+      await ui.waitFor(`!!document.querySelector('[role=dialog] .v-dcards')`, 'предпросмотр', 20_000);
+      await ui.click(`document.querySelector('[role=dialog] .btn.primary')`, 'Загрузить');
+      await ui.waitFor(`location.pathname.startsWith('/vulns/scan/')`, 'экран скана', 30_000);
+      return ui.evaluate(`location.pathname.split('/').pop()`);
+    };
+    const first = await upload('vuln-dup-2026-10-15.xlsx');
+    const second = await upload('vuln-dup-2026-10-16.xlsx');
+    assert.ok((await api('/api/v1/vulns/overview')).awaiting.some((a) => a.id === first), 'до: первый ждёт передачи');
+
+    // Строк «Скан 15.10.2026» в дереве до аннулирования (у других групп прогона — тот же образец).
+    await open(`/vulns/node/${node.id}`, `!!${treeBtn('Скан 16.10.2026')}`, 'дерево до');
+    const countFirst = `[...document.querySelectorAll('.v-tree button')].filter((b) => b.textContent.includes('Скан 15.10.2026')).length`;
+    const before = await ui.evaluate(countFirst);
+    // Последний скан аннулировать нельзя — кнопки нет.
+    await open(`/vulns/scan/${second}`, `!!${button('Передать ИКТ')}`, 'второй скан');
+    assert.equal(await ui.evaluate(`!!${button('Аннулировать скан')}`), false, 'у последнего скана кнопки нет');
+
+    await open(`/vulns/scan/${first}`, `!!${button('Аннулировать скан')}`, 'первый скан');
+    await ui.click(button('Аннулировать скан'));
+    const dlg = `document.querySelector('[data-testid=annul-dialog]')`;
+    await ui.waitFor(`${dlg}?.textContent.includes('Изменения, которые этот скан внёс в реестр, не откатываются. Скан остаётся в истории с отметкой «Аннулирован».')`, 'окно с предупреждением');
+    await ui.click(button('Аннулировать', dlg));
+    await ui.waitFor(`(document.querySelector('[data-testid=scan-annulled]')?.textContent ?? '').includes('Повторная загрузка')`, 'плашка «Аннулирован»');
+    assert.equal(await ui.evaluate(`!!${button('Передать ИКТ')}`), false, 'передать ИКТ нельзя');
+    assert.ok(!(await api('/api/v1/vulns/overview')).awaiting.some((a) => a.id === first), 'после: не ждёт передачи');
+
+    // В дереве узла — только второй скан, точки первого нет.
+    await open(`/vulns/node/${node.id}`, `!!${treeBtn('Скан 16.10.2026')}`, 'дерево со вторым сканом');
+    await ui.waitFor(`${countFirst} === ${before - 1}`, 'аннулированного скана в дереве нет');
+    const ov = await api('/api/v1/vulns/overview');
+    assert.deepEqual(ov.nodes.find((n) => n.nodeId === node.id).scans.map((x) => x.id), [second], 'в дереве узла — только второй скан');
+    // «Итоги сканирования»: по переключателю — с отметкой.
+    await ui.click(startsWith('Итоги сканирования'));
+    await ui.waitFor(`document.querySelectorAll('.v-main table tbody tr').length === 1`, 'один скан');
+    await ui.click(`document.querySelector('.v-annul-toggle input')`, 'Показать аннулированные');
+    await ui.waitFor(`!!document.querySelector('[data-testid=scan-annulled-chip]')`, 'аннулированный с отметкой');
+
+    // Корзина: строка «Скан уязвимостей».
+    const trash = await api(`/api/v1/trash?scope=vulns&nodeId=${node.id}`);
+    assert.ok(trash.items.some((i) => i.entity === 'vuln_scan' && i.reasonLabel === 'Повторная загрузка'), 'в корзине');
+  });
+
   it('страница «Реестры» у реестра уязвимостей: нет «Новая запись» и нет загрузки отчёта', async () => {
     const regId = (await api('/api/v1/vulns/overview')).registerId;
     await ui.goto(`/registers?run=${Date.now()}#${regId}/records`);

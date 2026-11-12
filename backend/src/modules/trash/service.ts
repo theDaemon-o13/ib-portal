@@ -11,7 +11,7 @@ import { auditSettings, trimmed, type Actor } from '../settings/common.js';
 import { isVulnRegister, VULN_REGISTER_KEY, vulnFields } from '../vulns/definition.js';
 import { keyNorm } from '../vulns/keys.js';
 
-export const DELETION_ENTITIES = ['register', 'vuln_group', 'vuln_node', 'register_records'] as const;
+export const DELETION_ENTITIES = ['register', 'vuln_group', 'vuln_node', 'register_records', 'vuln_scan'] as const;
 export type DeletionEntity = (typeof DELETION_ENTITIES)[number];
 
 export const ENTITY_LABELS: Record<DeletionEntity, string> = {
@@ -19,6 +19,7 @@ export const ENTITY_LABELS: Record<DeletionEntity, string> = {
   vuln_group: 'Группа уязвимостей',
   vuln_node: 'Тип систем в группе',
   register_records: 'Записи реестра',
+  vuln_scan: 'Скан уязвимостей',
 };
 
 export const RECORD_REASONS = ['wrong_import', 'false_positive', 'duplicate', 'other'] as const;
@@ -29,6 +30,17 @@ export const REASON_LABELS: Record<RecordReasonCode, string> = {
   duplicate: 'Дубль',
   other: 'Другое',
 };
+
+/** Причины аннулирования скана (1.13.12, ADR-0052). */
+export const SCAN_REASONS = ['reupload', 'wrong_file', 'other'] as const;
+export type ScanReasonCode = (typeof SCAN_REASONS)[number];
+export const SCAN_REASON_LABELS: Record<ScanReasonCode, string> = {
+  reupload: 'Повторная загрузка',
+  wrong_file: 'Ошибочный файл',
+  other: 'Другое',
+};
+/** Подписи всех причин корзины — для журнала и списка. */
+const ALL_REASON_LABELS: Record<string, string> = { ...REASON_LABELS, ...SCAN_REASON_LABELS };
 
 const REASON_MAX = 2000;
 
@@ -63,7 +75,7 @@ export function checkConfirmName(confirm: string, name: string, what: string): v
 }
 
 export const reasonText = (code: string | null, reason: string) => {
-  const label = code ? REASON_LABELS[code as RecordReasonCode] ?? code : '';
+  const label = code ? ALL_REASON_LABELS[code] ?? code : '';
   return [label, reason].filter(Boolean).join(': ');
 };
 
@@ -111,7 +123,7 @@ export interface DeletionInput {
   entity: DeletionEntity;
   entityId: string;
   title: string;
-  reasonCode?: RecordReasonCode | null;
+  reasonCode?: RecordReasonCode | ScanReasonCode | null;
   reason: string;
   counts: Record<string, number>;
   snapshot?: VulnSnapshotItem[];
@@ -165,6 +177,10 @@ export async function listDeletions(db: Db, q: TrashQuery) {
         ...(q.groupId ? [{ entity: 'vuln_group', entityId: q.groupId }] : []),
         { entity: 'vuln_node', ...(nodeIds ? { entityId: { in: nodeIds } } : {}) },
         ...(vulnReg ? [{ entity: 'register_records', entityId: vulnReg }] : []),
+        // Аннулированные сканы (1.13.12): весь раздел или сканы этих узлов.
+        nodeIds
+          ? { entity: 'vuln_scan', entityId: { in: (await db.vulnScan.findMany({ where: { nodeId: { in: nodeIds } }, select: { id: true } })).map((s) => s.id) } }
+          : { entity: 'vuln_scan' },
       ],
     });
   }
@@ -197,6 +213,10 @@ async function deletionDto(db: Db, r: DeletionRow, vulnReg: string | null) {
     const node = await db.vulnNode.findUnique({ where: { id: r.entityId }, include: { group: true } });
     path = node ? `Группа «${node.group.name}»` : '';
   }
+  if (r.entity === 'vuln_scan') {
+    const scan = await db.vulnScan.findUnique({ where: { id: r.entityId }, include: { node: { include: { group: true, systemType: true } } } });
+    path = scan ? `${scan.node.group.name} / ${scan.node.systemType?.value ?? ''}` : '';
+  }
   if (r.entity === 'register_records') {
     if (snapshot.length) {
       items = snapshot.slice(0, ITEMS_SHOWN).map((i) => ({ number: i.number, title: i.title, status: i.status, open: i.open, due: i.due }));
@@ -215,11 +235,11 @@ async function deletionDto(db: Db, r: DeletionRow, vulnReg: string | null) {
     entity: r.entity as DeletionEntity,
     entityLabel: ENTITY_LABELS[r.entity as DeletionEntity] ?? r.entity,
     entityId: r.entityId,
-    vulns: r.entity === 'vuln_group' || r.entity === 'vuln_node' || (r.entity === 'register_records' && r.entityId === vulnReg),
+    vulns: r.entity === 'vuln_group' || r.entity === 'vuln_node' || r.entity === 'vuln_scan' || (r.entity === 'register_records' && r.entityId === vulnReg),
     title: r.title,
     path,
     reasonCode: r.reasonCode,
-    reasonLabel: r.reasonCode ? REASON_LABELS[r.reasonCode as RecordReasonCode] ?? r.reasonCode : null,
+    reasonLabel: r.reasonCode ? ALL_REASON_LABELS[r.reasonCode] ?? r.reasonCode : null,
     reason: r.reason,
     counts: r.counts as Record<string, number>,
     openRecords: snapshot.filter((i) => i.open).length,
@@ -346,6 +366,14 @@ export async function restoreDeletion(db: Db, actor: Actor, id: string, input: {
       counts.records = await restoreRecords(tx, d.id);
       entity = 'vuln_node';
       summary = `Уязвимости: в группе «${node.group.name}» восстановлен тип «${node.systemType?.value ?? ''}»: записей ${counts.records}`;
+    } else if (d.entity === 'vuln_scan') {
+      // Аннулированный скан (1.13.12): скан не менялся, восстановление — снять отметку. Условие одно — узел и группа на месте.
+      const scan = await tx.vulnScan.findUnique({ where: { id: d.entityId }, include: { node: { include: { group: true, systemType: true } } } });
+      if (!scan) throw notFound('Скан');
+      if (scan.node.group.deletedAt) throw conflict('PARENT_DELETED', `Группа «${scan.node.group.name}» удалена — сначала восстановите её`);
+      if (scan.node.deletedAt) throw conflict('PARENT_DELETED', `Тип «${scan.node.systemType?.value ?? ''}» в группе «${scan.node.group.name}» удалён — сначала восстановите его`);
+      entity = 'vuln_scan';
+      summary = `Уязвимости, «${scan.node.group.name} / ${scan.node.systemType?.value ?? ''}»: восстановлен аннулированный скан от ${formatDateRu(scan.scanDate.toISOString().slice(0, 10))} («${scan.fileName}»)${scan.handedOverOn ? '' : ' — снова ждёт передачи ИКТ'}`;
     } else {
       const reg = await tx.register.findUnique({ where: { id: d.entityId } });
       if (!reg) throw notFound('Реестр');

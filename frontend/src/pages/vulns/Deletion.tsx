@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { trashKeys } from '../../api/trash';
 import { vkeys, vulnsApi, type VulnGroup, type VulnNode } from '../../api/vulns';
 import { DeleteDialog } from '../../components/DeleteDialog';
+import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { plural } from '../registers/compare';
 import { vulnDeleteBlock, vulnDeleteLines } from '../settings/trash';
@@ -83,5 +84,56 @@ export function DeletedStats({ scope }: { scope: { nodeId?: string; groupId?: st
       )}
       <Link to={`/settings/trash?${q.toString()}`}>Корзина</Link>
     </div>
+  );
+}
+
+/**
+ * «Аннулировать скан» (1.13.12, ADR-0052): причина из списка («Другое» — с текстом), прямое предупреждение, что изменения
+ * реестра не откатываются. Скан уходит в корзину; восстановить может супер-администратор.
+ */
+const ANNUL_REASONS = [
+  { code: 'reupload', label: 'Повторная загрузка' },
+  { code: 'wrong_file', label: 'Ошибочный файл' },
+  { code: 'other', label: 'Другое' },
+] as const;
+
+export function AnnulScanDialog({ scan, onClose }: { scan: { id: string; nodeId: string; scanDate: string; fileName: string }; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [reason, setReason] = useState<(typeof ANNUL_REASONS)[number]['code']>('reupload');
+  const [comment, setComment] = useState('');
+  const annul = useMutation({
+    mutationFn: () => vulnsApi.annulScan(scan.id, { reason, comment: comment.trim() || null }),
+    onSuccess: async () => {
+      await Promise.all([qc.invalidateQueries({ queryKey: vkeys.all }), qc.invalidateQueries({ queryKey: trashKeys.all })]);
+      toast('Скан аннулирован');
+      onClose();
+    },
+  });
+  const ready = !annul.isPending && (reason !== 'other' || comment.trim() !== '');
+  return (
+    <Overlay>
+      <div className="backdrop" role="presentation">
+        <form className="modal panel delete-dialog" role="dialog" aria-modal="true" aria-labelledby="annul-title" data-testid="annul-dialog"
+          onSubmit={(e) => { e.preventDefault(); if (ready) annul.mutate(); }}>
+          <h2 id="annul-title">Аннулировать скан {scan.scanDate.split('-').reverse().join('.')}</h2>
+          <p className="note v-warn">Изменения, которые этот скан внёс в реестр, не откатываются. Скан остаётся в истории с отметкой «Аннулирован».</p>
+          <p className="hint">Скан пропадёт из дерева, из «Сканы ждут передачи ИКТ» и не будет «прошлым» для следующего импорта. Файл, находки и сравнение сохраняются. Восстановить может супер-администратор в корзине.</p>
+          <label>Причина
+            <Select className="inp" value={reason} onChange={(e) => setReason(e.target.value as typeof reason)} aria-label="Причина">
+              {ANNUL_REASONS.map((r) => <option key={r.code} value={r.code}>{r.label}</option>)}
+            </Select>
+          </label>
+          <label>{reason === 'other' ? 'Опишите причину' : 'Комментарий (необязательно)'}
+            <textarea className="inp" maxLength={2000} value={comment} onChange={(e) => setComment(e.target.value)} aria-label="Комментарий" required={reason === 'other'} />
+          </label>
+          {annul.error && <p className="form-error" role="alert">{annul.error.message}</p>}
+          <div className="row end">
+            <button className="btn" type="button" onClick={onClose} disabled={annul.isPending}>Отмена</button>
+            <button className="btn danger" type="submit" disabled={!ready}>{annul.isPending ? 'Аннулируем…' : 'Аннулировать'}</button>
+          </div>
+        </form>
+      </div>
+    </Overlay>
   );
 }

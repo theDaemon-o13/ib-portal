@@ -148,8 +148,10 @@ interface ScanHost { name: string; scanId: string; ip: string; os: string }
 
 /** Хосты из сканов за окно: новые сканы — vuln_scans.hosts, перенесённые — scan_hosts. Ключи — имя и IP. */
 async function recentScanHosts(db: Db, since: string): Promise<Map<string, ScanHost>> {
+  // Аннулированный скан (1.13.12) — не источник хостов.
+  const annulled = (await db.deletion.findMany({ where: { entity: 'vuln_scan', restoredAt: null }, select: { entityId: true } })).map((d) => d.entityId);
   const scans = await db.vulnScan.findMany({
-    where: { scanDate: { gte: new Date(`${since}T00:00:00Z`) }, node: { deletedAt: null, group: { deletedAt: null } } },
+    where: { scanDate: { gte: new Date(`${since}T00:00:00Z`) }, node: { deletedAt: null, group: { deletedAt: null } }, ...(annulled.length ? { id: { notIn: annulled } } : {}) },
     orderBy: { scanDate: 'desc' },
     select: { id: true, hosts: true, legacyReportId: true },
   });
@@ -185,7 +187,8 @@ export async function assetFacts(db: Db, now: Date = new Date()): Promise<AssetF
   const dlpReg = settings.dlpRegisterId ? await db.register.findFirst({ where: { id: settings.dlpRegisterId, archivedAt: null, deletedAt: null }, select: { id: true } }) : null;
   const dlp = dlpReg ? await loadRows(db, await loadRegister(db, dlpReg.id)) : null;
   const systems = await db.catalogItem.findMany({ where: { catalogCode: 'systems', deletedAt: null, archivedAt: null }, select: { id: true, value: true } });
-  const scansTotal = await db.vulnScan.count({ where: { node: { deletedAt: null, group: { deletedAt: null } } } });
+  const annulledScans = (await db.deletion.findMany({ where: { entity: 'vuln_scan', restoredAt: null }, select: { entityId: true } })).map((d) => d.entityId);
+  const scansTotal = await db.vulnScan.count({ where: { node: { deletedAt: null, group: { deletedAt: null } }, ...(annulledScans.length ? { id: { notIn: annulledScans } } : {}) } });
   const scanned = await recentScanHosts(db, addDaysIso(today, -SCAN_WINDOW_DAYS));
 
   const facts: AssetFact[] = [];
