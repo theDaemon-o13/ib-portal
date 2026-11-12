@@ -22917,6 +22917,7 @@ export interface paths {
                                 outcome: string;
                                 cycle: number;
                                 handedOver: boolean;
+                                annulled: boolean;
                                 changes: {
                                     label: string;
                                     from: string;
@@ -23030,10 +23031,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Итоги сканирования узла: новые сверху */
+        /** Итоги сканирования узла: новые сверху; аннулированные — только с annulled=1 */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    annulled?: "0" | "1";
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -23081,6 +23084,7 @@ export interface paths {
                                     by: string;
                                     at: string;
                                 } | null;
+                                annulled: boolean;
                             }[];
                         };
                     };
@@ -23180,6 +23184,147 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vulns/scans/{id}/annul": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Аннулировать скан» (data.delete): только не переданный ИКТ и не последний в узле (409 SCAN_HANDED_OVER, SCAN_LAST). Изменения реестра не откатываются; событие — в корзине */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        reason: "reupload" | "wrong_file" | "other";
+                        comment?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deletionId: string;
+                            annulled: {
+                                at: string;
+                                by: string;
+                                reasonCode: string | null;
+                                reasonLabel: string | null;
+                                reason: string;
+                                deletionId: string;
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vulns/scans/{id}": {
         parameters: {
             query?: never;
@@ -23237,6 +23382,16 @@ export interface paths {
                                 by: string;
                                 at: string;
                             } | null;
+                            annulled: boolean;
+                            annulment: {
+                                at: string;
+                                by: string;
+                                reasonCode: string | null;
+                                reasonLabel: string | null;
+                                reason: string;
+                                deletionId: string;
+                            } | null;
+                            canAnnul: boolean;
                             node: {
                                 id: string;
                                 label: string;
@@ -63457,7 +63612,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    entity?: "register" | "vuln_group" | "vuln_node" | "register_records";
+                    entity?: "register" | "vuln_group" | "vuln_node" | "register_records" | "vuln_scan";
                     scope?: "vulns";
                     nodeId?: string;
                     groupId?: string;
@@ -63481,7 +63636,7 @@ export interface paths {
                             items: {
                                 id: string;
                                 /** @enum {string} */
-                                entity: "register" | "vuln_group" | "vuln_node" | "register_records";
+                                entity: "register" | "vuln_group" | "vuln_node" | "register_records" | "vuln_scan";
                                 entityLabel: string;
                                 entityId: string;
                                 vulns: boolean;

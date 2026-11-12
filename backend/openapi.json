@@ -62371,6 +62371,9 @@
                           "handedOver": {
                             "type": "boolean"
                           },
+                          "annulled": {
+                            "type": "boolean"
+                          },
                           "changes": {
                             "type": "array",
                             "items": {
@@ -62402,6 +62405,7 @@
                           "outcome",
                           "cycle",
                           "handedOver",
+                          "annulled",
                           "changes"
                         ],
                         "additionalProperties": false
@@ -62636,11 +62640,23 @@
     },
     "/api/v1/vulns/nodes/{id}/scans": {
       "get": {
-        "summary": "Итоги сканирования узла: новые сверху",
+        "summary": "Итоги сканирования узла: новые сверху; аннулированные — только с annulled=1",
         "tags": [
           "vulns"
         ],
         "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1"
+              ]
+            },
+            "in": "query",
+            "name": "annulled",
+            "required": false
+          },
           {
             "schema": {
               "type": "string",
@@ -62817,6 +62833,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "annulled": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -62833,7 +62852,8 @@
                           "legacy",
                           "createdBy",
                           "createdAt",
-                          "handover"
+                          "handover",
+                          "annulled"
                         ],
                         "additionalProperties": false
                       }
@@ -62841,6 +62861,322 @@
                   },
                   "required": [
                     "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vulns/scans/{id}/annul": {
+      "post": {
+        "summary": "«Аннулировать скан» (data.delete): только не переданный ИКТ и не последний в узле (409 SCAN_HANDED_OVER, SCAN_LAST). Изменения реестра не откатываются; событие — в корзине",
+        "tags": [
+          "vulns"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "reupload",
+                      "wrong_file",
+                      "other"
+                    ]
+                  },
+                  "comment": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deletionId": {
+                      "type": "string"
+                    },
+                    "annulled": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string"
+                            },
+                            "by": {
+                              "type": "string"
+                            },
+                            "reasonCode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "reasonLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "reason": {
+                              "type": "string"
+                            },
+                            "deletionId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "by",
+                            "reasonCode",
+                            "reasonLabel",
+                            "reason",
+                            "deletionId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "deletionId",
+                    "annulled"
                   ],
                   "additionalProperties": false
                 }
@@ -63224,6 +63560,57 @@
                         }
                       ]
                     },
+                    "annulled": {
+                      "type": "boolean"
+                    },
+                    "annulment": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "at": {
+                              "type": "string"
+                            },
+                            "by": {
+                              "type": "string"
+                            },
+                            "reasonCode": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "reasonLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "reason": {
+                              "type": "string"
+                            },
+                            "deletionId": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "at",
+                            "by",
+                            "reasonCode",
+                            "reasonLabel",
+                            "reason",
+                            "deletionId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "canAnnul": {
+                      "type": "boolean"
+                    },
                     "node": {
                       "type": "object",
                       "properties": {
@@ -63477,6 +63864,9 @@
                     "createdBy",
                     "createdAt",
                     "handover",
+                    "annulled",
+                    "annulment",
+                    "canAnnul",
                     "node",
                     "previousScan",
                     "legacyArchived",
@@ -204592,7 +204982,8 @@
                 "register",
                 "vuln_group",
                 "vuln_node",
-                "register_records"
+                "register_records",
+                "vuln_scan"
               ]
             },
             "in": "query",
@@ -204685,7 +205076,8 @@
                               "register",
                               "vuln_group",
                               "vuln_node",
-                              "register_records"
+                              "register_records",
+                              "vuln_scan"
                             ]
                           },
                           "entityLabel": {

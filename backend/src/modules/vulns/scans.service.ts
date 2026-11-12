@@ -1,5 +1,6 @@
 // Сканы узла и передача ИКТ (релиз 1.5.0, ADR-0029, ADR-0030). Скан не удаляется и не редактируется (триггер);
 // передача — один раз. От неё начинается срок записей, которые встречались в скане после последнего открытия.
+// Аннулированный скан (1.13.12, annul.service.ts) — не в списке по умолчанию, ИКТ не передаётся.
 import type { Prisma } from '../../generated/prisma/client.js';
 import { idChunks, updateRecordValues, type RecordValuesUpdate } from '../../lib/bulk.js';
 import { BULK_TX, withTx, type Db } from '../../lib/db.js';
@@ -11,6 +12,7 @@ import { claimFiles } from '../files/links.js';
 import { calendarFor, isClosed, loadRegister, loadUsers, searchTextOf, type RegisterDef } from '../registers/definition.js';
 import { auditSettings, auditSettingsMany, trimmed, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
+import { annulBlocker, annulInfo, annulledScanIds } from './annul.service.js';
 import { loadNode, nodeLabel } from './groups.service.js';
 
 export const HANDOVER_TO_DEFAULT = 'ОИКТ';
@@ -34,9 +36,10 @@ interface Comparison {
   profileMismatch?: { fileProfile: { id: string; label: string } | null; nodeType: { id: string; label: string } | null; confirmedBy: string; confirmedAt: string } | null;
 }
 
-function scanBrief(s: ScanRow) {
+function scanBrief(s: ScanRow, annulled: ReadonlySet<string> = new Set()) {
   const cmp = (s.comparison ?? {}) as Comparison;
   return {
+    annulled: annulled.has(s.id),
     id: s.id,
     nodeId: s.nodeId,
     scanDate: iso(s.scanDate),
@@ -58,10 +61,15 @@ function scanBrief(s: ScanRow) {
 
 const withPeople = { creator: { select: { fullName: true } }, handedBy: { select: { fullName: true } } } as const;
 
-export async function listScans(db: Db, nodeId: string) {
+/** Сканы узла, новые сверху. Аннулированные — только с withAnnulled («Показать аннулированные»), с отметкой. */
+export async function listScans(db: Db, nodeId: string, opts: { withAnnulled?: boolean } = {}) {
   await loadNode(db, nodeId);
-  const rows = await db.vulnScan.findMany({ where: { nodeId }, include: withPeople, orderBy: [{ scanDate: 'desc' }, { createdAt: 'desc' }] });
-  return rows.map(scanBrief);
+  const annulled = new Set(await annulledScanIds(db));
+  const rows = await db.vulnScan.findMany({
+    where: { nodeId, ...(opts.withAnnulled || !annulled.size ? {} : { id: { notIn: [...annulled] } }) },
+    include: withPeople, orderBy: [{ scanDate: 'desc' }, { createdAt: 'desc' }],
+  });
+  return rows.map((r) => scanBrief(r, annulled));
 }
 
 export async function getScan(db: Db, id: string) {
@@ -77,8 +85,11 @@ export async function getScan(db: Db, id: string) {
   // Хосты прежнего реестра лежат в scan_hosts и не копируются.
   const hosts = (s.legacyReport ? s.legacyReport.hosts.map((h) => ({ name: h.name, ip: h.ip, os: h.os })) : (s.hosts as unknown as { name: string; ip: string; os: string }[]))
     .map((h) => ({ ...h, status: fresh.has(h.name) ? 'new' as const : 'same' as const }));
+  const annulled = await annulInfo(db, s.id);
   return {
-    ...scanBrief(s),
+    ...scanBrief(s, new Set(annulled ? [s.id] : [])),
+    annulment: annulled,
+    canAnnul: !s.legacyReportId && (await annulBlocker(db, s)) === null,
     node: { id: s.nodeId, label: nodeLabel(s.node) },
     previousScan: s.previous ? { id: s.previous.id, scanDate: iso(s.previous.scanDate), fileName: s.previous.fileName } : null,
     legacyArchived: s.legacyReport ? s.legacyReport.archivedAt !== null : false,
@@ -115,6 +126,7 @@ export async function handOverScan(db: Db, actor: Actor, id: string, input: Hand
     await tx.$queryRaw`SELECT id FROM vuln_scans WHERE id = ${id}::uuid FOR UPDATE`;
     const scan = await tx.vulnScan.findUnique({ where: { id }, include: { node: { include: { group: true, systemType: true } } } });
     if (!scan || scan.node.deletedAt || scan.node.group.deletedAt) throw notFound('Скан');
+    if ((await annulledScanIds(tx)).includes(id)) throw conflict('SCAN_ANNULLED', 'Скан аннулирован — передавать ИКТ нечего. Передайте более поздний скан узла');
     if (scan.handedOverOn) throw conflict('ALREADY_HANDED_OVER', `Скан уже передан ИКТ ${formatDateRu(iso(scan.handedOverOn))}. Повторная передача и правка даты не предусмотрены`);
     if (!isIsoDate(input.date)) throw badRequest('BAD_DATE', 'Дата передачи: неверная дата');
     const scanDate = iso(scan.scanDate);

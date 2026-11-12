@@ -19,6 +19,7 @@ import { describeChanges, nextNumbers } from '../registers/records.service.js';
 import { auditSettings, auditSettingsMany, type Actor, type SettingsAuditEntry } from '../settings/common.js';
 import { CRIT_LABELS, optionByKey, VULN_REGISTER_KEY, vulnFields, type VulnFields } from './definition.js';
 import { applyDerived } from './derive.js';
+import { activeScanWhere } from './annul.service.js';
 import { reasonText, vulnKeyOf } from '../trash/service.js';
 import { checkNewNode, loadNode, nodeLabel } from './groups.service.js';
 import { keyNorm } from './keys.js';
@@ -350,8 +351,9 @@ function classify(
   return out;
 }
 
+/** Прошлый скан узла — последний неаннулированный (1.13.12): с ним сравнивается охват, его id сверяется при применении. */
 async function previousScanOf(db: Db, nodeId: string) {
-  return db.vulnScan.findFirst({ where: { nodeId }, orderBy: [{ scanDate: 'desc' }, { createdAt: 'desc' }] });
+  return db.vulnScan.findFirst({ where: { nodeId, ...(await activeScanWhere(db)) }, orderBy: [{ scanDate: 'desc' }, { createdAt: 'desc' }] });
 }
 
 // ---------------------------------------------------------------- предпросмотр

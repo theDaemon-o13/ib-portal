@@ -266,7 +266,8 @@ async function nodeDeleteInfo(db: Db, nodes: readonly NodeRow[]): Promise<NodeDe
     where: { nodeId: { in: ids }, record: { deletedAt: null } },
     select: { nodeId: true, record: { select: { values: true, archivedAt: true } } },
   });
-  const scans = await db.vulnScan.groupBy({ by: ['nodeId'], where: { nodeId: { in: ids } }, _count: { _all: true } });
+  const annulled = (await db.deletion.findMany({ where: { entity: 'vuln_scan', restoredAt: null }, select: { entityId: true } })).map((d) => d.entityId);
+  const scans = await db.vulnScan.groupBy({ by: ['nodeId'], where: { nodeId: { in: ids }, ...(annulled.length ? { id: { notIn: annulled } } : {}) }, _count: { _all: true } });
   return [...nodes].sort(nodeOrder).map((n) => {
     const own = records.filter((r) => r.nodeId === n.id);
     return {

@@ -105,3 +105,9 @@
 .v-mb{margin-bottom:12px}
 .v-deleted{gap:8px;align-items:center;font-size:13px}
 .v-deleted .inp{width:auto;padding:4px 8px}
+
+/* Аннулированный скан (1.13.12) */
+.v-annul{background:var(--fill-2);color:var(--fg)}
+.cat-tbl tr.v-annulled td{color:var(--muted)}
+.cat-tbl tr.v-annulled td b{text-decoration:line-through}
+.v-annul-toggle{display:inline-flex;gap:6px;align-items:center;margin-top:8px;font-size:13px}

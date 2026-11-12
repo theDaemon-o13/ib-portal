@@ -19,6 +19,7 @@ const ENTITY_FILTERS: { value: '' | DeletionEntity | 'vulns'; label: string }[] 
   { value: 'register', label: 'Реестры' },
   { value: 'vuln_group', label: 'Группы уязвимостей' },
   { value: 'vuln_node', label: 'Типы систем в группах' },
+  { value: 'vuln_scan', label: 'Аннулированные сканы' },
   { value: 'register_records', label: 'Записи' },
 ];
 
