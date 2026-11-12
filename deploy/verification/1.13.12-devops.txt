@@ -1,0 +1,49 @@
+Портал ИБ 1.13.12 — обновление прода с 1.13.11. Уязвимости: «Аннулировать скан». Меняются образы backend и frontend,
+ШАГ MIGRATE ОБЯЗАТЕЛЕН: одна миграция 20261112060342_vuln_scan_annul (расширяет допустимые значения двух CHECK у
+deletions и добавляет индекс; 0 изменённых строк). Новых переменных .env и прав нет. Подробно — RELEASE.md в архиве.
+Порядок с прода 1.13.6: 1.13.7 → 1.13.9 → 1.13.10 (с migrate) → 1.13.11 → 1.13.12 (с migrate), каждый по своему архиву.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.13.12            → 5d3c0d48bd90c122e67bdc1513246a58495cbaad   (объект тега)
+     git rev-parse 'v1.13.12^{commit}' → 91e20ce630b2beca1431db5f373eec8b055d298e   (коммит)
+   Архив: ibportal-1.13.12.tar.gz + ibportal-1.13.12.tar.gz.sha256 (GitHub Release v1.13.12)
+     sha256 ibportal-1.13.12.tar.gz = 85e299c080bd8b3d4b57c39853bedea687e1a11913c71b2ce69b06a5f53206a4
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.13.12.tar.gz.sha256           → OK
+     tar -xzf ibportal-1.13.12.tar.gz && cd ibportal-1.13.12 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.13.12.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.11)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома. Нет копии — стоп.
+   Для сверки:
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT (SELECT count(*) FROM vuln_scans), (SELECT count(*) FROM vuln_scans WHERE handed_over_on IS NULL), (SELECT count(*) FROM deletions);"'
+     → три числа: сканов | ждут передачи ИКТ | событий корзины
+
+2. ВЫКЛАДКА — новые образы и migrate
+   cp /srv/ibportal/releases/ibportal-1.13.12/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.13.12/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.13.12/' .env
+   docker compose --profile tools run --rm migrate
+     → «Applying migration `20261112060342_vuln_scan_annul`», затем «Seed выполнен: …», без ошибок
+   docker compose up -d backend frontend
+
+3. ПОСЛЕ
+   docker compose ps                → backend healthy, frontend Up
+   ./scripts/smoke.sh --after       → «Smoke-проверка пройдена»
+   SQL из шага 1                    → те же три числа
+   Вручную в Chrome на Windows: «Уязвимости» → узел с двумя сканами → страница более раннего, не переданного ИКТ
+   скана — у пользователя с правом «Удаление данных» есть кнопка «Аннулировать скан». НИЧЕГО НЕ НАЖИМАТЬ:
+   аннулирует сотрудник ИБ сам (скан-дубль, ради которого делалось исправление).
+
+4. ОТКАТ НА 1.13.11 (образы backend и frontend, база НЕ откатывается)
+   sed -i 's/^VERSION=.*/VERSION=1.13.11/' .env && docker compose up -d backend frontend
+   Миграция только расширила допустимые значения — 1.13.11 на этой базе работает. Сканы, аннулированные на 1.13.12,
+   на 1.13.11 снова видны как обычные; после повторной выкладки 1.13.12 — снова аннулированы.
+   Проверено разработчиком по коду. Образы 1.13.11 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; копия не создалась; ошибка в выводе migrate; backend не стал healthy;
+   любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.13.12 (с 1.13.11), кто, имя копии и место хранения, вывод migrate, результат.
