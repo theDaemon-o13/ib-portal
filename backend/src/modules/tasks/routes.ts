@@ -77,7 +77,7 @@ export const Task = z.object({
   evidence: z.object({ id: z.string(), number: z.number().int(), reason: z.enum(['rejected', 'expiring']) }).nullable(),
   completedAt: z.string().nullable(),
   /** Цепочка (1.7.0, ADR-0035): группировка по теме, на процесс не влияет. */
-  chain: z.object({ id: z.string(), number: z.number().int(), title: z.string(), status: z.enum(['open', 'closed']) }).nullable(),
+  chain: z.object({ id: z.string(), number: z.number().int(), title: z.string(), status: z.enum(['open', 'closed']), kind: z.enum(['manual', 'system']) }).nullable(),
   createdBy: Person.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

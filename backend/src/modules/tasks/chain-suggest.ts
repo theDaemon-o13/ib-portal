@@ -56,6 +56,8 @@ export async function suggestChains(db: Db, actor: TaskActor, title: string, opt
   const rows = await db.taskChain.findMany({
     where: {
       deletedAt: null,
+      // Системные цепочки (1.14.0, ADR-0053) не предлагаются и в расчёте не участвуют.
+      kind: 'manual',
       tasks: { some: visible },
       OR: [{ status: 'open' }, { closedAt: { gte: since } }, { tasks: { some: { AND: [visible, { completedAt: null }] } } }],
       ...(own?.chainId ? { NOT: { id: own.chainId } } : {}),

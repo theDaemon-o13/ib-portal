@@ -45,7 +45,7 @@ async function groupsOf(db: Db, actor: TaskActor): Promise<DiscoverGroup[]> {
   const keys = [...byKey].filter(([, list]) => list.length >= 2).map(([k]) => k);
   const chains = keys.length
     ? await db.taskChain.findMany({
-      where: { titleKey: { in: keys }, status: 'open', deletedAt: null, tasks: { some: visibleTasksWhere(actor) } },
+      where: { titleKey: { in: keys }, status: 'open', kind: 'manual', deletedAt: null, tasks: { some: visibleTasksWhere(actor) } },
       select: { id: true, number: true, title: true, titleKey: true, updatedAt: true }, orderBy: { updatedAt: 'desc' },
     })
     : [];

@@ -46,7 +46,7 @@ export const taskInclude = {
   document: { select: { id: true, number: true } },
   evidence: { select: { id: true, number: true } },
   candidates: { select: { user: userBrief }, orderBy: { user: { fullName: 'asc' } } },
-  chain: { select: { id: true, number: true, title: true, status: true, deletedAt: true } },
+  chain: { select: { id: true, number: true, title: true, status: true, deletedAt: true, kind: true } },
   _count: { select: { comments: { where: { deletedAt: null } } } },
   // Происхождение задач модуля писем (1.9.0, вариант A): по таблицам модуля, source у них 'manual'.
   ...taskOriginInclude,
@@ -87,7 +87,11 @@ export function toTaskDto(t: TaskRow, today: string) {
     evidence: t.evidence ? { ...t.evidence, reason: t.evidenceReason as 'rejected' | 'expiring' } : null,
     completedAt: t.completedAt?.toISOString() ?? null,
     /** Цепочка (1.7.0, ADR-0035): группировка по теме; на процесс не влияет. */
-    chain: t.chain && !t.chain.deletedAt ? { id: t.chain.id, number: t.chain.number, title: t.chain.title, status: t.chain.status as 'open' | 'closed' } : null,
+    chain: t.chain && !t.chain.deletedAt ? {
+      id: t.chain.id, number: t.chain.number, title: t.chain.title,
+      status: (t.chain.kind === 'system' ? 'open' : t.chain.status) as 'open' | 'closed',
+      kind: (t.chain.kind === 'system' ? 'system' : 'manual') as 'manual' | 'system',
+    } : null,
     createdBy: t.creator,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),

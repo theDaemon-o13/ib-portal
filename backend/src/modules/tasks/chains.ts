@@ -13,6 +13,7 @@ import { stripReplyPrefixes, titleKey } from '../../lib/title-key.js';
 import { auditSettings, ensureVersioned, trimmed } from '../settings/common.js';
 import type { TaskActor } from './flow.js';
 import { assertAssignee } from './service.js';
+import { assertNotSystem, type SourceType } from './system-chains.js';
 
 export const CHAIN_TITLE_MAX = 300;
 export const CHAIN_SUMMARY_MAX = 20_000;
@@ -34,7 +35,8 @@ export function canManageChain(actor: TaskActor, chain: { createdBy: string; own
   return chain.createdBy === actor.id || chain.ownerId === actor.id || actor.perms.has('tasks.assign');
 }
 
-function assertManage(actor: TaskActor, chain: { createdBy: string; ownerId: string | null; number: number }) {
+function assertManage(actor: TaskActor, chain: { createdBy: string; ownerId: string | null; number: number; kind: string }) {
+  assertNotSystem(chain);
   if (!canManageChain(actor, chain)) {
     throw new AppError(403, 'CHAIN_FORBIDDEN', `Цепочку #${chain.number} меняют её создатель, ответственный или пользователь с правом «Задачи: постановка другим»`);
   }
@@ -44,28 +46,54 @@ const userBrief = { select: { id: true, fullName: true } } as const;
 const chainInclude = { owner: userBrief, creator: userBrief } as const;
 type ChainRow = Prisma.TaskChainGetPayload<{ include: typeof chainInclude }>;
 
-export interface ChainCounts { total: number; done: number }
+/** active (1.14.0) — не выполнены и не в архиве: такие задачи на доске. */
+export interface ChainCounts { total: number; done: number; active: number }
+const NO_COUNTS: ChainCounts = { total: 0, done: 0, active: 0 };
 
-/** Счётчики по видимым задачам: всего и выполнено (completed_at), включая архивные. */
+/** Счётчики по видимым задачам: всего и выполнено (completed_at), включая архивные; активные — на доске. */
 async function countsOf(db: Db, actor: TaskActor, chainIds: string[]): Promise<Map<string, ChainCounts>> {
   const out = new Map<string, ChainCounts>();
   if (!chainIds.length) return out;
   const where: Prisma.TaskWhereInput = { AND: [visibleTasksWhere(actor), { chainId: { in: chainIds } }] };
-  const [all, done] = await Promise.all([
+  const [all, done, active] = await Promise.all([
     db.task.groupBy({ by: ['chainId'], where, _count: { _all: true } }),
     db.task.groupBy({ by: ['chainId'], where: { AND: [where, { completedAt: { not: null } }] }, _count: { _all: true } }),
+    db.task.groupBy({ by: ['chainId'], where: { AND: [where, { completedAt: null, archivedAt: null }] }, _count: { _all: true } }),
   ]);
-  for (const r of all) if (r.chainId) out.set(r.chainId, { total: r._count._all, done: 0 });
-  for (const r of done) if (r.chainId) out.set(r.chainId, { total: out.get(r.chainId)?.total ?? 0, done: r._count._all });
+  const at = (id: string) => out.get(id) ?? out.set(id, { ...NO_COUNTS }).get(id) as ChainCounts;
+  for (const r of all) if (r.chainId) at(r.chainId).total = r._count._all;
+  for (const r of done) if (r.chainId) at(r.chainId).done = r._count._all;
+  for (const r of active) if (r.chainId) at(r.chainId).active = r._count._all;
   return out;
 }
 
-export function toChainDto(c: ChainRow, counts: ChainCounts, actor: TaskActor) {
+/** Источник системной цепочки (1.14.0): группа «Уязвимостей» или реестр; deleted — источник удалён (в корзине). */
+export interface ChainSourceInfo { type: SourceType; id: string; name: string; deleted: boolean }
+
+export async function sourcesInfo(db: Db, rows: readonly { kind: string; sourceType: string | null; sourceId: string | null }[]): Promise<Map<string, ChainSourceInfo>> {
+  const ids = (t: string) => [...new Set(rows.filter((r) => r.kind === 'system' && r.sourceType === t && r.sourceId).map((r) => r.sourceId as string))];
+  const [groups, registers] = await Promise.all([
+    ids('vuln_group').length ? db.vulnGroup.findMany({ where: { id: { in: ids('vuln_group') } }, select: { id: true, name: true, deletedAt: true } }) : [],
+    ids('register').length ? db.register.findMany({ where: { id: { in: ids('register') } }, select: { id: true, name: true, deletedAt: true } }) : [],
+  ]);
+  const out = new Map<string, ChainSourceInfo>();
+  for (const g of groups) out.set(`vuln_group|${g.id}`, { type: 'vuln_group', id: g.id, name: g.name, deleted: g.deletedAt !== null });
+  for (const r of registers) out.set(`register|${r.id}`, { type: 'register', id: r.id, name: r.name, deleted: r.deletedAt !== null });
+  return out;
+}
+const sourceOf = (c: { kind: string; sourceType: string | null; sourceId: string | null }, info: Map<string, ChainSourceInfo>) =>
+  (c.kind === 'system' ? info.get(`${c.sourceType}|${c.sourceId}`) ?? null : null);
+
+export function toChainDto(c: ChainRow, counts: ChainCounts, actor: TaskActor, source: ChainSourceInfo | null = null) {
+  const system = c.kind === 'system';
   return {
     id: c.id,
     number: c.number,
     title: c.title,
-    status: c.status as 'open' | 'closed',
+    /** Системная цепочка всегда открыта (закрыть её мог только 1.13.12 после отката). */
+    status: (system ? 'open' : c.status) as 'open' | 'closed',
+    kind: (system ? 'system' : 'manual') as 'manual' | 'system',
+    source,
     owner: c.owner,
     dueDate: c.dueDate ? c.dueDate.toISOString().slice(0, 10) : null,
     summary: c.summary,
@@ -76,8 +104,8 @@ export function toChainDto(c: ChainRow, counts: ChainCounts, actor: TaskActor) {
     version: c.version,
     counts,
     /** Все видимые задачи выполнены — интерфейс предлагает «Закрыть цепочку» (сам портал не закрывает). */
-    allDone: counts.total > 0 && counts.done === counts.total,
-    canManage: canManageChain(actor, c),
+    allDone: !system && counts.total > 0 && counts.done === counts.total,
+    canManage: !system && canManageChain(actor, c),
   };
 }
 export type ChainDto = ReturnType<typeof toChainDto>;
@@ -86,6 +114,7 @@ export type ChainDto = ReturnType<typeof toChainDto>;
 
 export interface ChainListQuery {
   status?: 'open' | 'closed';
+  kind?: 'manual' | 'system';
   ownerId?: string;
   q?: string;
   limit: number;
@@ -99,7 +128,9 @@ export async function listChains(db: Db, actor: TaskActor, q: ChainListQuery) {
   const where: Prisma.TaskChainWhereInput = {
     deletedAt: null,
     tasks: { some: visibleTasksWhere(actor) },
-    ...(q.status ? { status: q.status } : {}),
+    // Системная цепочка — всегда «открыта», что бы ни лежало в status.
+    ...(q.status === 'open' ? { OR: [{ status: 'open' }, { kind: 'system' }] } : q.status === 'closed' ? { status: 'closed', kind: 'manual' } : {}),
+    ...(q.kind ? { kind: q.kind } : {}),
     ...(q.ownerId ? { ownerId: q.ownerId } : {}),
     ...(text ? { OR: [{ title: { contains: text, mode: 'insensitive' } }, ...(/^#?\d+$/.test(text) ? [{ number: Number(text.replace('#', '')) }] : [])] } : {}),
   };
@@ -108,9 +139,9 @@ export async function listChains(db: Db, actor: TaskActor, q: ChainListQuery) {
     db.taskChain.count({ where }),
   ]);
   const page = rows.slice(0, q.limit);
-  const counts = await countsOf(db, actor, page.map((c) => c.id));
+  const [counts, info] = await Promise.all([countsOf(db, actor, page.map((c) => c.id)), sourcesInfo(db, page)]);
   return {
-    items: page.map((c) => toChainDto(c, counts.get(c.id) ?? { total: 0, done: 0 }, actor)),
+    items: page.map((c) => toChainDto(c, counts.get(c.id) ?? NO_COUNTS, actor, sourceOf(c, info))),
     nextCursor: rows.length > q.limit ? String(offset + q.limit) : null,
     total,
   };
@@ -129,9 +160,10 @@ export async function getChain(db: Db, actor: TaskActor, id: string) {
     where: { AND: [visibleTasksWhere(actor), { chainId: id }] }, select: memberSelect, orderBy: [{ createdAt: 'asc' }, { number: 'asc' }],
   });
   if (!tasks.length) throw notFound('Цепочка');
-  const counts = { total: tasks.length, done: tasks.filter((t) => t.completedAt).length };
+  const counts = { total: tasks.length, done: tasks.filter((t) => t.completedAt).length, active: tasks.filter((t) => !t.completedAt && !t.archivedAt).length };
+  const info = await sourcesInfo(db, [c]);
   return {
-    ...toChainDto(c, counts, actor),
+    ...toChainDto(c, counts, actor, sourceOf(c, info)),
     tasks: tasks.map((t) => ({
       id: t.id, number: t.number, title: t.title, status: t.status, assignee: t.assignee,
       dueDate: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null, createdAt: t.createdAt.toISOString(),
@@ -143,9 +175,23 @@ export async function getChain(db: Db, actor: TaskActor, id: string) {
 /** Короткие сведения о цепочках задач — для карточек доски и карточки задачи. */
 export async function chainBriefs(db: Db, chainIds: string[]) {
   const ids = [...new Set(chainIds)];
-  if (!ids.length) return new Map<string, { id: string; number: number; title: string; status: 'open' | 'closed' }>();
-  const rows = await db.taskChain.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true, number: true, title: true, status: true } });
-  return new Map(rows.map((r) => [r.id, { ...r, status: r.status as 'open' | 'closed' }]));
+  if (!ids.length) return new Map<string, { id: string; number: number; title: string; status: 'open' | 'closed'; kind: 'manual' | 'system' }>();
+  const rows = await db.taskChain.findMany({ where: { id: { in: ids }, deletedAt: null }, select: { id: true, number: true, title: true, status: true, kind: true } });
+  return new Map(rows.map((r) => [r.id, { ...r, status: (r.kind === 'system' ? 'open' : r.status) as 'open' | 'closed', kind: (r.kind === 'system' ? 'system' : 'manual') as 'manual' | 'system' }]));
+}
+
+/**
+ * Системная цепочка источника — для ссылки «Задачи: N активных» на странице группы «Уязвимостей» и реестра.
+ * Нет цепочки или видимых задач — null.
+ */
+export async function chainBySource(db: Db, actor: TaskActor, type: SourceType, sourceId: string) {
+  const c = await db.taskChain.findFirst({
+    where: { kind: 'system', sourceType: type, sourceId, deletedAt: null, tasks: { some: visibleTasksWhere(actor) } },
+    select: { id: true, number: true, title: true },
+  });
+  if (!c) return { chain: null };
+  const counts = (await countsOf(db, actor, [c.id])).get(c.id) ?? NO_COUNTS;
+  return { chain: { ...c, active: counts.active, total: counts.total } };
 }
 
 // ---------------------------------------------------------------- проверки ввода
@@ -398,6 +444,8 @@ export async function attachTasks(db: Db, actor: TaskActor, id: string, input: {
 export async function attachTx(tx: Db, actor: TaskActor, id: string, input: { tasks: TaskRef[]; reopen?: boolean }, via?: string) {
   if (!input.tasks.length) throw badRequest('NO_TASKS', 'Выберите задачу');
   const c = await lockChain(tx, id);
+  // В системную цепочку задачи добавляет только портал (1.14.0, ADR-0053).
+  assertNotSystem(c);
   if (c.status !== 'open') {
     if (!input.reopen) assertOpen(c);
     await reopenTx(tx, actor, c, input.tasks.length > 1 ? 'при добавлении задач' : 'при добавлении задачи');
@@ -425,6 +473,7 @@ export async function detachTask(db: Db, actor: TaskActor, id: string, taskId: s
 export async function moveTask(db: Db, actor: TaskActor, taskId: string, input: { version: number; toChainId: string }) {
   return withTx(db, async (tx) => {
     const to = await lockChain(tx, input.toChainId);
+    assertNotSystem(to);
     assertOpen(to);
     await setTaskChain(tx, actor, [{ id: taskId, version: input.version }], to, (from, number) => {
       if (!from) throw conflict('TASK_NOT_IN_CHAIN', `Задача #${number} не в цепочке — добавьте её`);

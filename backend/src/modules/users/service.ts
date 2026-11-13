@@ -4,6 +4,7 @@
 import { notifyServiceAction } from '../notifications/service.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { workUsersWhere } from '../../lib/work-users.js';
+import { assertNotSystemUser, NOT_SYSTEM_USER } from '../../lib/system-user.js';
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
 import { seniorIdsOf } from '../../lib/hierarchy.js';
@@ -62,6 +63,8 @@ export async function listUsers(db: Db, q: { limit: number; cursor?: string; sea
   const search = q.search?.trim();
   const rows = await db.user.findMany({
     where: {
+      // Служебная учётная запись «Портал» (1.14.0) в списке не показывается.
+      AND: [NOT_SYSTEM_USER],
       ...(q.cursor ? { login: { gt: q.cursor } } : {}),
       ...(search
         ? { OR: [{ login: { contains: search, mode: 'insensitive' } }, { fullName: { contains: search, mode: 'insensitive' } }] }
@@ -220,6 +223,7 @@ export async function updateUser(
   return withTx(db, async (tx) => {
     await lockRbac(tx);
     const u = await getUser(tx, id);
+    assertNotSystemUser(u);
     if (u.version !== input.version) throw versionConflict();
     const data: Prisma.UserUpdateInput = {};
     const changes: string[] = [];
@@ -310,6 +314,7 @@ export async function setActive(db: Db, actor: Actor, id: string, version: numbe
     await lockRbac(tx);
     if (id === actor.id && !active) throw conflict('SELF_DISABLE', 'Нельзя отключить собственную учётную запись');
     const u = await getUser(tx, id);
+    assertNotSystemUser(u);
     if (u.isActive === active) {
       if (u.version !== version) throw versionConflict();
       return toDto(u);
@@ -355,6 +360,7 @@ export async function setIbHead(db: Db, actor: Actor, id: string, input: { versi
   return withTx(db, async (tx) => {
     await lockRbac(tx);
     const u = await getUser(tx, id);
+    assertNotSystemUser(u);
     if (u.version !== input.version) throw versionConflict();
     if (u.isIbHead === input.value) return toDto(u);
     if (!input.value) {
@@ -393,6 +399,7 @@ export async function resetPassword(db: Db, actor: Actor, hasher: PasswordHasher
   const passwordHash = await hasher.hash(temporaryPassword);
   const user = await withTx(db, async (tx) => {
     const u = await getUser(tx, id);
+    assertNotSystemUser(u);
     if (!u.isActive) throw conflict('INACTIVE', 'Пользователь отключён. Сначала включите его');
     const now = new Date();
     const res = await tx.user.updateMany({
@@ -426,6 +433,7 @@ export async function resetPassword(db: Db, actor: Actor, hasher: PasswordHasher
 export async function unlock(db: Db, actor: Actor, id: string, version: number) {
   return withTx(db, async (tx) => {
     const u = await getUser(tx, id);
+    assertNotSystemUser(u);
     const res = await tx.user.updateMany({
       where: { id, version },
       data: { failedLoginCount: 0, lockedUntil: null, version: { increment: 1 } },

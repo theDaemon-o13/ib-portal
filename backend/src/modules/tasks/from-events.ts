@@ -15,6 +15,7 @@ import { deadlineField, dateOf, isClosed, loadRegister, type RegisterDef } from 
 import { notifyAssignee, notifyAssignedBySystemMany } from '../notifications/service.js';
 import { recordTransition, statusIdOf } from './flow.js';
 import { systemItemId, TITLE_MAX } from './service.js';
+import { ensureSystemChain, linkedAuditRows, sourceOfRegister, sourcesOfRecords, writeAudit, type SystemChainRef } from './system-chains.js';
 
 type EventType = 'remind' | 'notify' | 'escalate';
 type SnapshotRecipient = { kind: 'user'; userId: string; name: string } | { kind: 'label'; label: string; itemId?: string | null };
@@ -126,8 +127,19 @@ export async function tasksFromEvents(
   const numberOf = new Map<string, number>();
   for (const t of openTasks.values()) numberOf.set(t.id, t.number);
 
+  // Системные цепочки (1.14.0, ADR-0053): новая задача сразу в цепочке своего источника, в той же транзакции.
+  const chainCache = new Map<string, SystemChainRef>();
   const flush = async () => {
     const creates = plans.filter((p): p is Extract<Plan, { kind: 'create' }> => p.kind === 'create');
+    const sources = await sourcesOfRecords(tx, creates.map((p) => p.recordId));
+    const chainOf = new Map<string, SystemChainRef>();
+    for (const p of creates) {
+      const src = sources.get(p.recordId)?.source;
+      if (!src) continue;
+      const chain = await ensureSystemChain(tx, src, chainCache);
+      p.data.chainId = chain.id;
+      chainOf.set(p.taskId, chain);
+    }
     for (const part of chunks(creates, chunkSize(TASK_COLUMNS))) {
       const rows = await tx.task.createManyAndReturn({ data: part.map((p) => ({ ...p.data, id: p.taskId })), select: { id: true, number: true } });
       for (const r of rows) numberOf.set(r.id, r.number);
@@ -155,6 +167,10 @@ export async function tasksFromEvents(
         } as Prisma.InputJsonValue,
       };
     }), 6, (data) => tx.auditLog.createMany({ data }));
+    await writeAudit(tx, creates.flatMap((p) => {
+      const chain = chainOf.get(p.taskId);
+      return chain ? linkedAuditRows([{ id: p.taskId, number: numberOf.get(p.taskId) as number }], chain, 'system') : [];
+    }));
     for (const ids of chunks(doneIds, 1000)) await tx.automationEvent.updateMany({ where: { id: { in: ids }, status: 'new' }, data: { status: 'processed', processedAt: now } });
     plans = [];
     doneIds = [];
@@ -174,7 +190,7 @@ export async function tasksFromEvents(
         id: row.id, automationId: row.automationId, automation: row.automation, eventType: row.eventType as EventType,
         triggerKey: row.triggerKey, fireAt: row.fireAt.toISOString().slice(0, 10),
         targets: resolveTargets(row.recipients as unknown as SnapshotRecipient[], null),
-      }, { ...opts, statusNew, statusAssigned, category, normal, high, work, rule: opts.describe(reg, { condition: row.automation.condition, action: row.automation.action }) });
+      }, { ...opts, statusNew, statusAssigned, category, normal, high, work, chainCache, rule: opts.describe(reg, { condition: row.automation.condition, action: row.automation.action }) });
       result.created += r.created;
       result.commented += r.commented;
       await tx.automationEvent.updateMany({ where: { id: row.id, status: 'new' }, data: { status: 'processed', processedAt: now } });
@@ -247,8 +263,8 @@ export async function tasksFromEvents(
   return result;
 }
 
-/** Колонок в строке задачи из события: id, title, description, status, priority, category, assignee, due, source, record, automation, recipient_label. */
-const TASK_COLUMNS = 12;
+/** Колонок в строке задачи из события: id, title, description, status, priority, category, assignee, due, source, record, automation, recipient_label, chain. */
+const TASK_COLUMNS = 13;
 
 /** Владельцы систем записей событий — одним запросом (поле «Система» — значение справочника «Системы»). */
 async function systemOwners(tx: Db, events: readonly { registerId: string | null; record: { values: Prisma.JsonValue } | null }[], registers: Map<string, RegisterDef>): Promise<Map<string, string | null>> {
@@ -301,7 +317,7 @@ export const DIGEST_LINES_MAX = 300;
 async function digestTask(
   tx: Db, reg: RegisterDef,
   e: { id: string; automationId: string; automation: { condition: Prisma.JsonValue; action: Prisma.JsonValue }; eventType: EventType; triggerKey: string; fireAt: string; targets: Map<string | null, Set<string>> },
-  ctx: { today: string; calendar: WorkCalendar; statusNew: string; statusAssigned: string; category: string; normal: string; high: string; work: (n: number) => string; rule: RuleText },
+  ctx: { today: string; calendar: WorkCalendar; statusNew: string; statusAssigned: string; category: string; normal: string; high: string; work: (n: number) => string; rule: RuleText; chainCache: Map<string, SystemChainRef> },
 ): Promise<{ created: number; commented: number }> {
   const cond = e.automation.condition as { statusOptionIds?: string[] };
   const action = e.automation.action as { title?: string };
@@ -326,6 +342,8 @@ async function digestTask(
   const description = `Реестр «${reg.name}». Правило: ${ctx.rule.when} → ${ctx.rule.then}.\nСработало: ${e.fireAt}. Записей: ${rows.length}.\n\n${lines.join('\n') || 'Записей нет.'}`.slice(0, 20000);
   const due = e.eventType === 'remind' ? addDaysIso(ctx.today, 30) : ctx.work(DUE_WORKDAYS[e.eventType]);
   const out = { created: 0, commented: 0 };
+  // Сводная задача — в цепочку реестра; у «Уязвимостей» группы нет, такая задача без цепочки (ADR-0053).
+  const src = sourceOfRegister(reg).source;
   for (const [assigneeId, labelSet] of e.targets) {
     const recipientLabel = [...labelSet].join(', ').slice(0, 500);
     const open = await tx.task.findFirst({
@@ -338,10 +356,11 @@ async function digestTask(
       out.commented++;
       continue;
     }
+    const chain = src ? await ensureSystemChain(tx, src, ctx.chainCache) : null;
     const task = await tx.task.create({
       data: {
         title: taskTitle, description, statusId: assigneeId ? ctx.statusAssigned : ctx.statusNew, priorityId: e.eventType === 'remind' ? ctx.normal : ctx.high, categoryId: ctx.category,
-        assigneeId, dueDate: new Date(`${due}T00:00:00Z`), source: 'automation', recordId: null, automationId: e.automationId, recipientLabel,
+        assigneeId, dueDate: new Date(`${due}T00:00:00Z`), source: 'automation', recordId: null, automationId: e.automationId, recipientLabel, chainId: chain?.id ?? null,
       },
       select: { id: true, number: true, statusId: true },
     });
@@ -357,6 +376,7 @@ async function digestTask(
         } as Prisma.InputJsonValue,
       },
     });
+    if (chain) await writeAudit(tx, linkedAuditRows([task], chain, 'system'));
     out.created++;
   }
   return out;

@@ -120,7 +120,8 @@ describe('список пользователей', () => {
     inTx(async (tx) => {
       await setup(tx);
       for (let i = 0; i < 5; i++) await makeUser(tx, ['ib_staff']);
-      const total = await tx.user.count();
+      // Служебная учётная запись «Портал» (1.14.0) в списке не показывается.
+      const total = await tx.user.count({ where: { login: { not: 'portal-system' } } });
       const first = await users.listUsers(tx, { limit: 2 });
       expect(first.items).toHaveLength(2);
       expect(first.nextCursor).toBe(first.items[1]?.login);

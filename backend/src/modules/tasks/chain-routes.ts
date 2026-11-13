@@ -24,6 +24,10 @@ export const Chain = z.object({
   number: z.number().int(),
   title: z.string(),
   status: z.enum(['open', 'closed']),
+  /** 1.14.0, ADR-0053: system — системная цепочка автозадач реестра; её ведёт портал (правка, закрытие, удаление — 409 SYSTEM_CHAIN). */
+  kind: z.enum(['manual', 'system']),
+  /** Источник системной цепочки: группа «Уязвимостей» или реестр; deleted — источник в корзине. У ручной — null. */
+  source: z.object({ type: z.enum(['register', 'vuln_group']), id: z.string(), name: z.string(), deleted: z.boolean() }).nullable(),
   owner: Person.nullable(),
   dueDate: z.string().nullable(),
   summary: z.string(),
@@ -33,7 +37,7 @@ export const Chain = z.object({
   closedAt: z.string().nullable(),
   version: z.number().int(),
   /** По видимым задачам: всего и выполнено, включая архивные. */
-  counts: z.object({ total: z.number().int(), done: z.number().int() }),
+  counts: z.object({ total: z.number().int(), done: z.number().int(), active: z.number().int() }),
   /** Все задачи выполнены — предложить «Закрыть цепочку» (портал сам не закрывает). */
   allDone: z.boolean(),
   /** Текущий пользователь может править, закрывать, открывать и удалять цепочку. */
@@ -82,6 +86,7 @@ export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
       tags, summary: 'Цепочки с видимыми задачами: фильтр по статусу и ответственному, поиск по названию или номеру',
       querystring: z.object({
         status: z.enum(['open', 'closed']).optional(),
+        kind: z.enum(['manual', 'system']).optional(),
         ownerId: z.string().uuid().optional(),
         q: z.string().max(300).optional(),
         limit: z.coerce.number().int().min(1).max(chains.CHAIN_LIST_LIMIT).default(chains.CHAIN_LIST_LIMIT),
@@ -90,6 +95,18 @@ export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
       response: { 200: z.object({ items: z.array(Chain), nextCursor: z.string().nullable(), total: z.number().int() }), ...errors },
     },
   }, async (request) => chains.listChains(db, taskActor(request), request.query));
+
+  app.get('/task-chains/by-source', {
+    preHandler: view,
+    schema: {
+      tags, summary: 'Системная цепочка группы «Уязвимостей» или реестра — для ссылки «Задачи: N активных» (1.14.0). Нет цепочки или видимых задач — chain: null',
+      querystring: z.object({ type: z.enum(['register', 'vuln_group']), id: z.string().uuid() }),
+      response: {
+        200: z.object({ chain: z.object({ id: z.string(), number: z.number().int(), title: z.string(), active: z.number().int(), total: z.number().int() }).nullable() }),
+        ...errors,
+      },
+    },
+  }, async (request) => chains.chainBySource(db, taskActor(request), request.query.type, request.query.id));
 
   app.get('/task-chains/suggest', {
     preHandler: view,

@@ -45,11 +45,11 @@ describe('цепочки задач (1.7.0)', () => {
       const t2 = await x.task('FW: Тестовая тема');
       const t3 = await x.task('Тестовая тема');
       const c = await chains.createChain(tx, x.a.author, { title: 'Тестовая тема', tasks: [await ref(tx, t1.id), await ref(tx, t2.id), await ref(tx, t3.id)] });
-      expect(c.counts).toEqual({ total: 3, done: 0 });
+      expect(c.counts).toEqual({ total: 3, done: 0, active: 3 });
 
       await svc.deleteTask(tx, x.a.head, t3.id, (await ref(tx, t3.id)).version);
       const seen = await chains.getChain(tx, x.a.other, c.id);
-      expect(seen.counts).toEqual({ total: 2, done: 0 });
+      expect(seen.counts).toEqual({ total: 2, done: 0, active: 2 });
       expect(seen.tasks.map((t) => t.id)).toEqual([t1.id, t2.id]);
       expect((await chains.listChains(tx, x.a.other, { limit: 50 })).items.find((i) => i.id === c.id)?.counts.total).toBe(2);
 
@@ -75,7 +75,7 @@ describe('цепочки задач (1.7.0)', () => {
 
       const c = await chains.createChain(tx, x.a.other, { title: chains.chainTitleFrom('RE: Тестовая тема'), tasks: [await ref(tx, t1.id), await ref(tx, t2.id)] });
       expect(c.title).toBe('Тестовая тема');
-      expect(c.counts).toEqual({ total: 2, done: 1 });
+      expect(c.counts).toEqual({ total: 2, done: 1, active: 0 });
       expect(c.tasks.map((t) => [t.id, t.archived, !!t.completedAt])).toEqual([[t1.id, false, true], [t2.id, true, false]]);
 
       const after = await tx.task.findUniqueOrThrow({ where: { id: t2.id } });

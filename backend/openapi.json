@@ -73924,13 +73924,21 @@
                                       "open",
                                       "closed"
                                     ]
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "manual",
+                                      "system"
+                                    ]
                                   }
                                 },
                                 "required": [
                                   "id",
                                   "number",
                                   "title",
-                                  "status"
+                                  "status",
+                                  "kind"
                                 ],
                                 "additionalProperties": false
                               },
@@ -75025,13 +75033,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -77218,13 +77234,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -78297,13 +78321,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -79258,13 +79290,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -80209,13 +80249,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -81150,13 +81198,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -82091,13 +82147,21 @@
                                 "open",
                                 "closed"
                               ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "manual",
+                                "system"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "number",
                             "title",
-                            "status"
+                            "status",
+                            "kind"
                           ],
                           "additionalProperties": false
                         },
@@ -84776,6 +84840,18 @@
           {
             "schema": {
               "type": "string",
+              "enum": [
+                "manual",
+                "system"
+              ]
+            },
+            "in": "query",
+            "name": "kind",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
             },
@@ -84842,6 +84918,48 @@
                             "enum": [
                               "open",
                               "closed"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "system"
+                            ]
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "type": {
+                                    "type": "string",
+                                    "enum": [
+                                      "register",
+                                      "vuln_group"
+                                    ]
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "deleted": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "type",
+                                  "id",
+                                  "name",
+                                  "deleted"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
                           },
                           "owner": {
@@ -84921,11 +85039,17 @@
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
+                              },
+                              "active": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
                               }
                             },
                             "required": [
                               "total",
-                              "done"
+                              "done",
+                              "active"
                             ],
                             "additionalProperties": false
                           },
@@ -84941,6 +85065,8 @@
                           "number",
                           "title",
                           "status",
+                          "kind",
+                          "source",
                           "owner",
                           "dueDate",
                           "summary",
@@ -85277,6 +85403,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -85354,11 +85522,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -85476,6 +85650,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",
@@ -85488,6 +85664,292 @@
                     "allDone",
                     "canManage",
                     "tasks"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/task-chains/by-source": {
+      "get": {
+        "summary": "Системная цепочка группы «Уязвимостей» или реестра — для ссылки «Задачи: N активных» (1.14.0). Нет цепочки или видимых задач — chain: null",
+        "tags": [
+          "task-chains"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "register",
+                "vuln_group"
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "active": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "number",
+                            "title",
+                            "active",
+                            "total"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chain"
                   ],
                   "additionalProperties": false
                 }
@@ -86793,6 +87255,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -86870,11 +87374,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -86992,6 +87502,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",
@@ -87301,6 +87813,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -87378,11 +87932,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -87500,6 +88060,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",
@@ -87780,6 +88342,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -87857,11 +88461,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -87979,6 +88589,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",
@@ -88259,6 +88871,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -88336,11 +88990,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -88458,6 +89118,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",
@@ -89000,6 +89662,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -89077,11 +89781,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -89199,6 +89909,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",
@@ -89755,6 +90467,48 @@
                         "closed"
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "system"
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "register",
+                                "vuln_group"
+                              ]
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "deleted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "id",
+                            "name",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "owner": {
                       "anyOf": [
                         {
@@ -89832,11 +90586,17 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "active": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "total",
-                        "done"
+                        "done",
+                        "active"
                       ],
                       "additionalProperties": false
                     },
@@ -89954,6 +90714,8 @@
                     "number",
                     "title",
                     "status",
+                    "kind",
+                    "source",
                     "owner",
                     "dueDate",
                     "summary",

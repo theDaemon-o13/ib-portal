@@ -58,7 +58,7 @@ describe('подсказка цепочек (1.7.0)', () => {
       const item = must(s.items[0], 'вариант');
       expect(item.kind === 'chain' && [item.group, item.chain.counts]).toEqual(['open_exact', { total: 2, done: 2 }]);
       const detail = await chains.getChain(tx, x.a.author, c.id);
-      expect([detail.counts, detail.allDone, detail.tasks.map((t) => t.archived)]).toEqual([{ total: 2, done: 2 }, true, [false, true]]);
+      expect([detail.counts, detail.allDone, detail.tasks.map((t) => t.archived)]).toEqual([{ total: 2, done: 2, active: 0 }, true, [false, true]]);
     }));
 
   it('порядок: открытые точные, закрытые с незавершёнными (любой давности), похожие, недавно закрытые; старые закрытые — нет', () =>
@@ -125,7 +125,7 @@ describe('подсказка цепочек (1.7.0)', () => {
         chain: { withTasks: [await ref(tx, t1.id), await ref(tx, t2.id)] },
       });
       const c = await chains.getChain(tx, x.a.other, must(created.chain, 'цепочка').id);
-      expect([c.title, c.counts]).toEqual([`Тестовая тема ${x.tag}`, { total: 3, done: 1 }]);
+      expect([c.title, c.counts]).toEqual([`Тестовая тема ${x.tag}`, { total: 3, done: 1, active: 2 }]);
       expect((await tx.task.findUniqueOrThrow({ where: { id: sys.id } })).chainId).toBeNull();
     }));
 
