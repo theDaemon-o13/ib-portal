@@ -1065,3 +1065,5 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .sys-discover h3,.discover-dialog h3{margin:0;font-size:14px}
 .sys-unknown summary{cursor:pointer;font-size:13px}
 .sys-unknown ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;max-height:180px;overflow:auto;overflow-wrap:anywhere}
+.chain-group.sys .cc-row{flex-wrap:wrap;row-gap:4px}
+.chain-group.sys .cc-row .btn{max-width:100%;white-space:normal;text-align:left}
