@@ -9,6 +9,7 @@ import { auditSettings, auditSettingsMany, type Actor, type SettingsAuditEntry }
 import { VULN_REGISTER_KEY, vulnFields } from './definition.js';
 import { loadNode, nodeLabel } from './groups.service.js';
 import { keyNorm } from './keys.js';
+import { followRecordsToGroup } from '../tasks/system-chains.js';
 
 export const TRANSFER_MAX = 1000;
 
@@ -77,6 +78,8 @@ export async function transferRecords(db: Db, actor: Actor, input: { recordIds: 
         WHERE v.record_id = d.id`;
     }
     await auditSettingsMany(tx, actor, audits);
+    // Системные цепочки (1.14.0, ADR-0053): незавершённые задачи записей — в цепочку новой группы.
+    await followRecordsToGroup(tx, actor, result.moved, { id: target.group.id, name: target.group.name });
     if (result.moved.length > 1 || result.rejected.length) {
       await auditSettings(tx, actor, {
         action: 'vuln.records.transferred', entity: 'vuln_node', entityId: target.id,
