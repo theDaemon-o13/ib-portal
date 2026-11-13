@@ -1052,3 +1052,11 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .discover-list .check{display:flex;align-items:flex-start;gap:8px;min-width:0}
 .discover-list .check input{margin-top:3px;flex:none}
 .dg-t{min-width:0;overflow-wrap:anywhere;font-size:13px}
+/* Системная цепочка автозадач реестра на доске (1.14.0): сводка колонки, «Взять себе все», подзаголовки дат. */
+.chain-group.sys .chain-card{padding-bottom:6px}
+.sys-stats{flex-wrap:wrap;gap:6px;min-width:0}
+.sys-n{font-size:12px;font-weight:600;color:var(--fg)}
+.sys-confirm{flex-wrap:wrap}
+.sys-day{display:grid;gap:8px;min-width:0}
+.sys-day-h{font-size:11px;color:var(--muted);padding:2px 2px 0}
+.chip.sys-kind{background:var(--fill-2);color:var(--muted)}

@@ -7,7 +7,7 @@ import { actorOf } from '../settings/common.js';
 import { describeRules } from '../automations/service.js';
 import * as bulk from './bulk.js';
 import type { TaskActor } from './flow.js';
-import { PROCESS_ACTIONS, runAction, withActions } from './process.js';
+import { PROCESS_ACTIONS, runAction, TAKE_MANY_MAX, takeMany, withActions } from './process.js';
 import { exportTaskReport, REPORT_LIMIT, REPORT_PERIODS } from './report.js';
 import { STATS_LIMIT, taskStats } from './stats.js';
 import { replaceReviewer } from './reviewer.js';
@@ -307,6 +307,20 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
     const [t] = await withActions(db, actor, [await runAction(db, actor, request.params.id, request.params.action, request.body)]);
     return asTask(t);
   });
+
+  // «Взять себе все» на карточке системной цепочки (1.14.0): тот же шаг take для каждой задачи, одной транзакцией.
+  app.post('/tasks/take-many', {
+    preHandler: view,
+    schema: {
+      tags,
+      summary: 'Взять себе несколько задач из Backlog: для каждой — те же проверки и журнал, что у «Взять себе»; отказ по любой — не берётся ни одна',
+      body: z.object({
+        tasks: z.array(z.object({ id: z.string().uuid(), version: z.number().int().positive() })).min(1).max(TAKE_MANY_MAX),
+        comment: z.string().max(svc.COMMENT_MAX).optional(),
+      }),
+      response: { 200: z.object({ taken: z.number().int() }), ...errors },
+    },
+  }, async (request) => takeMany(db, taskActor(request), request.body.tasks, request.body.comment));
 
   // «Заменить проверяющего» (релиз 1.4.0, ADR-0028): задача «На проверке», новый — активный сотрудник ИБ, не исполнитель.
   app.post('/tasks/:id/reviewer', {

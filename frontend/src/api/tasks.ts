@@ -32,6 +32,7 @@ export type ChainSuggestion = ChainSuggestResult['items'][number];
 export type NewChain = Body<'/api/v1/task-chains', 'post'>;
 export type ChainPatch = Body<'/api/v1/task-chains/{id}', 'patch'>;
 export type TaskRef = { id: string; version: number };
+export type ChainBySource = Res<'/api/v1/task-chains/by-source', 'get'>;
 export type DiscoverPreview = Res<'/api/v1/task-chains/discover/preview', 'post'>;
 export type DiscoverGroup = DiscoverPreview['groups'][number];
 export type DiscoverApply = Body<'/api/v1/task-chains/discover/apply', 'post'>;
@@ -53,6 +54,8 @@ export const tasksApi = {
   // «Заменить проверяющего» (релиз 1.4.0): задача «На проверке», право «Задачи: свободная смена статуса».
   replaceReviewer: (id: string, version: number, reviewerId: string, comment?: string) =>
     request<Task>('POST', `/api/v1/tasks/${id}/reviewer`, { version, reviewerId, ...(comment ? { comment } : {}) }),
+  /** «Взять себе все» на карточке системной цепочки (1.14.0): отказ по любой — не берётся ни одна. */
+  takeMany: (tasks: TaskRef[], comment?: string) => request<{ taken: number }>('POST', '/api/v1/tasks/take-many', { tasks, ...(comment ? { comment } : {}) }),
   archive: (id: string, version: number) => request<Task>('POST', `/api/v1/tasks/${id}/archive`, { version }),
   restore: (id: string, version: number) => request<Task>('POST', `/api/v1/tasks/${id}/restore`, { version }),
   remove: (id: string, version: number) => request<undefined>('POST', `/api/v1/tasks/${id}/delete`, { version }),
@@ -80,12 +83,14 @@ export const tasksApi = {
 };
 
 export const chainsApi = {
-  list: (q: { status?: 'open' | 'closed'; ownerId?: string; q?: string } = {}) => {
+  list: (q: { status?: 'open' | 'closed'; kind?: 'manual' | 'system'; ownerId?: string; q?: string } = {}) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
     return request<ChainPage>('GET', `/api/v1/task-chains?${p.toString()}`);
   },
   get: (id: string) => request<ChainDetail>('GET', `/api/v1/task-chains/${id}`),
+  /** Системная цепочка группы «Уязвимостей» или реестра — ссылка «Задачи: N активных» (1.14.0). */
+  bySource: (type: 'register' | 'vuln_group', id: string) => request<ChainBySource>('GET', `/api/v1/task-chains/by-source?type=${type}&id=${id}`),
   suggest: (title: string, taskId?: string) =>
     request<ChainSuggestResult>('GET', `/api/v1/task-chains/suggest?title=${encodeURIComponent(title)}${taskId ? `&taskId=${taskId}` : ''}`),
   create: (body: NewChain) => request<ChainDetail>('POST', '/api/v1/task-chains', body),
@@ -111,6 +116,7 @@ export const tkeys = {
   chains: ['tasks', 'chains'] as const,
   chainList: (q: object) => ['tasks', 'chains', 'list', q] as const,
   chain: (id: string) => ['tasks', 'chains', 'detail', id] as const,
+  chainBySource: (type: string, id: string) => ['tasks', 'chains', 'source', type, id] as const,
   chainSuggest: (title: string, taskId = '') => ['tasks', 'chains', 'suggest', title, taskId] as const,
   statuses: ['settings', 'items', 'task_statuses'] as const,
   categories: ['settings', 'items', 'task_categories'] as const,

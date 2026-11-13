@@ -75,8 +75,14 @@ export function TaskChainsPage() {
               {list.data?.items.map((c) => (
                 <tr key={c.id} className={c.id === openId ? 'sel' : undefined} data-chain={c.title}>
                   <td className="mono">#{c.number}</td>
-                  <td><button type="button" className="btn ghost sm ct-title" onClick={() => set({ chain: c.id })}>{c.title}</button></td>
-                  <td>{chainCounts(c.counts)}{c.allDone && c.status === 'open' ? <span className="chip low">всё выполнено</span> : null}</td>
+                  <td>
+                    <button type="button" className="btn ghost sm ct-title" onClick={() => set({ chain: c.id })}>{c.title}</button>
+                    {c.kind === 'system' && <span className="chip acc" title="Задачи автоматизаций реестра собирает портал">системная</span>}
+                  </td>
+                  <td>
+                    {chainCounts(c.counts)}{c.allDone && c.status === 'open' ? <span className="chip low">всё выполнено</span> : null}
+                    {c.kind === 'system' && c.counts.active === 0 && <span className="chip" data-testid="chain-idle">Нет активных задач</span>}
+                  </td>
                   <td>{c.owner?.fullName ?? <span className="hint">—</span>}</td>
                   <td>{c.dueDate ? formatDate(c.dueDate) : <span className="hint">—</span>}</td>
                   <td>{c.status === 'open' ? 'Открыта' : <span className="chip">закрыта</span>}</td>

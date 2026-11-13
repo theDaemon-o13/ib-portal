@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../../api/tasks';
-import { actionNeedsComment, originText, sourceChip, candidatesChip, cardStep, chainCounts, chainTitleOf, columnEntries, matchTask, plural, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
+import { actionNeedsComment, originText, sourceChip, candidatesChip, cardStep, chainCounts, chainTitleOf, byDueDate, columnEntries, idleSystemChains, matchTask, plural, systemChainStats, categoryTone, dueLabel, initials, needsComment, processHint, sortColumn, workload, workloadOpen } from './logic';
 
 const task = (n: number, extra: Partial<Task> = {}): Task => ({
   id: `t${n}`, number: n, title: `Задача ${n}`, description: '', dueDate: null, overdue: false, urgent: false, source: 'manual',
@@ -104,7 +104,7 @@ describe('цепочки задач (1.7.0)', () => {
 });
 
 describe('доска: группировка по цепочкам и поиск (1.7.0)', () => {
-  const ch = (id: string, title: string) => ({ id, number: 1, title, status: 'open' as const });
+  const ch = (id: string, title: string) => ({ id, number: 1, title, status: 'open' as const, kind: 'manual' as const });
   it('две и больше задач цепочки — одна карточка на месте первой; одна — обычная карточка; без группировки — как есть', () => {
     const list = [task(1), task(2, { chain: ch('a', 'Тема А') }), task(3), task(4, { chain: ch('a', 'Тема А') }), task(5, { chain: ch('b', 'Тема Б') })];
     expect(columnEntries(list, true).map((e) => (e.kind === 'task' ? e.t.number : `${e.chain.id}:${e.tasks.map((t) => t.number).join(',')}`)))
@@ -141,5 +141,34 @@ describe('задача с удалённым письмом (1.13.3)', () => {
   it('«учебное письмо № N (удалено)»', () => {
     const t = { source: 'manual', origin: { kind: 'letter' as const, reason: 'urgent' as const, letter: { id: 'l', number: 7, status: 'draft' as const, deleted: true }, letterSent: false } };
     expect(originText(t)).toBe('учебное письмо № 7 (удалено)');
+  });
+});
+
+describe('доска: системные цепочки (1.14.0)', () => {
+  const sys = { id: 's', number: 7, title: 'Уязвимости · Сервис А', status: 'open' as const, kind: 'system' as const };
+  it('системная цепочка — карточка и при одной задаче; ручная с одной задачей — обычная карточка; без группировки — по одной', () => {
+    const manual = { id: 'm', number: 2, title: 'Тема', status: 'open' as const, kind: 'manual' as const };
+    const list = [task(1, { chain: sys }), task(2, { chain: manual }), task(3)];
+    expect(columnEntries(list, true).map((e) => (e.kind === 'task' ? e.t.number : `${e.chain.id}:${e.tasks.length}`))).toEqual(['s:1', 2, 3]);
+    expect(columnEntries(list, false).every((e) => e.kind === 'task')).toBe(true);
+  });
+  it('сводка: задач, не назначено, ближайший срок, просрочено, что можно взять', () => {
+    const a = { id: 'a', fullName: 'Иванов И.И.' };
+    const list = [
+      task(1, { chain: sys, dueDate: '2026-11-20', actions: ['take'] }),
+      task(2, { chain: sys, dueDate: '2026-11-10', overdue: true, actions: ['take'] }),
+      task(3, { chain: sys, dueDate: '2026-11-15', assignee: a }),
+    ];
+    const st = systemChainStats(list);
+    expect([st.count, st.unassigned, st.nearestDue, st.overdue, st.takeable.map((t) => t.number)]).toEqual([3, 2, '2026-11-10', 1, [1, 2]]);
+  });
+  it('подзаголовки по дате срока: по порядку, без срока — в конце', () => {
+    const list = [task(1, { dueDate: '2026-11-20' }), task(2), task(3, { dueDate: '2026-11-10' }), task(4, { dueDate: '2026-11-20' })];
+    expect(byDueDate(list).map((g) => [g.due, g.tasks.map((t) => t.number)])).toEqual([['2026-11-10', [3]], ['2026-11-20', [1, 4]], [null, [2]]]);
+  });
+  it('без активных задач системная цепочка не на доске', () => {
+    expect([...idleSystemChains([
+      { id: 's', kind: 'system', counts: { active: 0 } }, { id: 't', kind: 'system', counts: { active: 2 } }, { id: 'm', kind: 'manual', counts: { active: 0 } },
+    ])]).toEqual(['s']);
   });
 });

@@ -1,5 +1,6 @@
 // Раздел «Уязвимости» (релиз 1.5.0, ADR-0029, ADR-0030; эталон — docs/prototype/vulnerabilities-demo.html).
 // Дерево «группа → тип систем → сканы», экраны: все группы, группа, узел, скан. Адрес: /vulns/<вид>/<id>.
+import { SourceTasksLink } from '../tasks/SourceTasksLink';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
@@ -187,6 +188,7 @@ function GroupView({ group, ov, go, me }: { group: VulnGroup; ov: VulnOverview; 
           {!group.system && canEdit && <button className="btn primary" type="button" onClick={() => setDialog('import')}>Импорт скана</button>}
           {!group.system && canStructure && <button className="btn" type="button" onClick={() => setDialog('rename')}>Переименовать</button>}
           {!group.system && canStructure && <button className="btn" type="button" onClick={() => setDialog('type')}>Добавить тип</button>}
+          <SourceTasksLink type="vuln_group" id={group.id} />
           <button className="btn" type="button" disabled={!canDeadlines} title={canDeadlines ? undefined : 'Нужно право «Уязвимости: изменение сроков»'} onClick={() => setDialog('extend')}>Обновить сроки</button>
           {!group.system && canDeleteData && <button className="btn danger-t" type="button" onClick={() => setDialog('delete')}>Удалить группу</button>}
         </div>

@@ -8,10 +8,11 @@ import { ChipScroller } from '../../components/ChipScroller';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import {
-  actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, chainCounts, columnEntries, dueLabel, GROUP_CHAINS_KEY, initials, matchTask, needsComment,
+  actionNeedsComment, candidatesChip, candidatesLabel, cardStep, categoryTone, chainCounts, columnEntries, dueLabel, GROUP_CHAINS_KEY, idleSystemChains, initials, matchTask, needsComment,
   sortColumn, sourceChip, todayLocal, type ProcessAction, workload, WORKLOAD_KEY, workloadOpen,
 } from './logic';
 import { ChainPanel } from './ChainPanel';
+import { SystemChainCard } from './SystemChainCard';
 import { ChainSuggest, chainParam, type ChainChoice } from './ChainSuggest';
 import { MailDrawer } from './MailDrawer';
 import { TaskDrawer } from './TaskDrawer';
@@ -264,6 +265,23 @@ export function TasksPage() {
     onSuccess: moved,
     onError: moveFailed,
   });
+  // «Взять себе все» на карточке системной цепочки (1.14.0): тот же шаг take для каждой, одной транзакцией.
+  const takeAll = useMutation({
+    mutationFn: (list: Task[]) => tasksApi.takeMany(list.map((t) => ({ id: t.id, version: t.version }))),
+    onSuccess: async (r) => {
+      await qc.invalidateQueries({ queryKey: tkeys.all });
+      toast(`Взято задач: ${r.taken}. Они в колонке «Поставленные»`);
+    },
+    onError: moveFailed,
+  });
+  const onTakeAll = (list: Task[]) => {
+    const first = list[0];
+    if (first && (!statuses.isSuccess || actionNeedsComment(cols, first, 'take'))) {
+      toast('Для «Взять себе» нужен комментарий — возьмите задачи по одной из карточки', 'error');
+      return;
+    }
+    takeAll.mutate(list);
+  };
   // Шаг с карточки: без комментария — сразу; с обязательным комментарием и «Проверить» — открыть карточку.
   const onStep = (t: Task, a: ProcessAction | 'review') => {
     // Колонки ещё не загружены — неизвестно, нужен ли комментарий: открыть карточку, а не отправлять шаг без комментария.
@@ -327,7 +345,10 @@ export function TasksPage() {
   }, [drag !== null]);
 
   const boardAll = tasks.data?.items ?? [];
-  const list = search.trim() ? boardAll.filter((t) => matchTask(t, search)) : boardAll;
+  // Системная цепочка без активных задач (1.14.0) на доске не видна — и её выполненные задачи тоже; без группировки — как есть.
+  const idle = group ? idleSystemChains(chainList.data?.items ?? []) : new Set<string>();
+  const onBoard = idle.size ? boardAll.filter((t) => !(t.chain && idle.has(t.chain.id))) : boardAll;
+  const list = search.trim() ? onBoard.filter((t) => matchTask(t, search)) : onBoard;
   const counts = (categoryId ? all.data : tasks.data)?.categories ?? [];
   const totalCount = counts.reduce((s, c) => s + c.count, 0);
   const submitQuick = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
@@ -440,6 +461,13 @@ export function TasksPage() {
                   if (e.kind === 'task') return card(e.t);
                   const key = `${e.chain.id}:${c.id}`;
                   const isOpen = expanded.has(key) || e.tasks.some((t) => t.id === openId);
+                  const toggle = () => setExpanded((s0) => { const n = new Set(s0); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+                  if (e.chain.kind === 'system') {
+                    return (
+                      <SystemChainCard key={key} chain={e.chain} tasks={e.tasks} open={isOpen} onToggle={toggle} onOpenChain={() => setParam({ chain: e.chain.id })}
+                        renderTask={(t) => card(t, false)} onTakeAll={onTakeAll} taking={takeAll.isPending} />
+                    );
+                  }
                   const info = chainInfo.get(e.chain.id);
                   return (
                     <div key={key} className={`chain-group${isOpen ? ' open' : ''}`} data-chain={e.chain.title}>

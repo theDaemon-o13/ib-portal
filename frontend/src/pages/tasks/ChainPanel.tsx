@@ -1,15 +1,74 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { settingsApi } from '../../api/settings';
 import { chainsApi, tkeys, type ChainDetail } from '../../api/tasks';
 import { DetailPanel } from '../../components/DetailPanel';
 import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
-import { chainCounts } from './logic';
+import { chainCounts, dueLabel, todayLocal } from './logic';
 import { Select } from '../../components/Select';
 
 interface Draft { title: string; ownerId: string; dueDate: string; summary: string }
+
+type SystemFilter = 'active' | 'done' | 'all';
+const FILTER_LABEL: Record<SystemFilter, string> = { active: 'Активные', done: 'Выполненные', all: 'Все' };
+
+/** Ссылка на источник системной цепочки: страница группы «Уязвимостей» или реестр. */
+export function sourceLink(s: NonNullable<ChainDetail['source']>): string {
+  return s.type === 'vuln_group' ? `/vulns/group/${s.id}` : `/registers/${s.id}`;
+}
+
+/**
+ * Системная цепочка (1.14.0, ADR-0053): источник со ссылкой, задачи по сроку с фильтром «Активные / Выполненные / Все».
+ * Править, закрывать и удалять нечего: её ведёт портал. Отвязать задачу — в карточке задачи.
+ */
+function SystemChainBody({ c, onOpenTask }: { c: ChainDetail; onOpenTask: (taskId: string) => void }) {
+  const [filter, setFilter] = useState<SystemFilter>('active');
+  const today = todayLocal();
+  const pick = c.tasks.filter((m) => (filter === 'all' ? true : filter === 'done' ? !!m.completedAt : !m.completedAt && !m.archived));
+  // По сроку, без срока — в конце (как колонка доски).
+  const sorted = [...pick].sort((x, y) => (x.dueDate === y.dueDate ? x.number - y.number : !x.dueDate ? 1 : !y.dueDate ? -1 : x.dueDate < y.dueDate ? -1 : 1));
+  return (
+    <>
+      <div className="note" data-testid="system-chain-note">
+        Системная цепочка: сюда портал сам собирает задачи автоматизаций{' '}
+        {c.source ? (
+          <>
+            {c.source.type === 'vuln_group' ? 'группы «Уязвимостей» ' : 'реестра '}
+            {c.source.deleted ? <b>«{c.source.name}» (удалён)</b> : <Link to={sourceLink(c.source)}>«{c.source.name}»</Link>}
+          </>
+        ) : 'реестра'}
+        . Изменить или закрыть её нельзя. Задачу можно отвязать в её карточке.
+      </div>
+      <div className="field-ro"><span>Активных задач</span><b>{c.counts.active === 0 ? 'Нет активных задач' : c.counts.active}</b></div>
+      <div>
+        <div className="row chain-filter" role="group" aria-label="Какие задачи показать">
+          {(Object.keys(FILTER_LABEL) as SystemFilter[]).map((f) => (
+            <button key={f} type="button" className="btn sm" aria-pressed={filter === f} onClick={() => setFilter(f)}>{FILTER_LABEL[f]}</button>
+          ))}
+        </div>
+        <div className="eyebrow">Задачи по сроку <span className="count">{sorted.length}</span></div>
+        <ol className="chain-timeline" aria-label="Задачи цепочки">
+          {sorted.map((m) => {
+            const due = dueLabel({ dueDate: m.dueDate, overdue: !m.completedAt && !!m.dueDate && m.dueDate < today, completedAt: m.completedAt }, today);
+            return (
+              <li key={m.id} data-task={m.number}>
+                <time className={due.late ? 'late-t' : undefined}>{due.text}</time>
+                <button type="button" className="btn ghost sm ct-title" onClick={() => onOpenTask(m.id)}><b>#{m.number}</b> {m.title}</button>
+                <span className={`chip${m.completedAt ? ' low' : ''}`}>{m.status.value}</span>
+                {m.archived && <span className="chip">в архиве</span>}
+                <span className="hint">{m.assignee ? m.assignee.fullName : 'не назначен'}</span>
+              </li>
+            );
+          })}
+          {!sorted.length && <li className="hint">Задач нет</li>}
+        </ol>
+      </div>
+    </>
+  );
+}
 const draftOf = (c: ChainDetail): Draft => ({ title: c.title, ownerId: c.owner?.id ?? '', dueDate: c.dueDate ?? '', summary: c.summary });
 
 /**
@@ -73,7 +132,8 @@ export function ChainPanel({ id, onClose, onOpenTask }: { id: string; onClose: (
   };
   const owners = people.data?.items ?? [];
 
-  const footer = c && c.canManage && !confirm ? (
+  const system = c?.kind === 'system';
+  const footer = c && c.canManage && !system && !confirm ? (
     <div className="row dp-f-save">
       <button className="btn" form={formId} type="submit" disabled={busy || conflict}>Сохранить</button>
       {c.status === 'open'
@@ -87,9 +147,10 @@ export function ChainPanel({ id, onClose, onOpenTask }: { id: string; onClose: (
     <DetailPanel label="Цепочка" onClose={onClose} scrollKey={id} testId="chain-panel"
       eyebrow={c ? <>Цепочка #{c.number}. {chainCounts(c.counts)}</> : 'Цепочка'}
       title={c?.title ?? 'Загрузка…'}
-      badges={c?.status === 'closed' ? <span className="chip">закрыта{c.closedAt ? ` ${formatDateTime(c.closedAt).slice(0, 10)}` : ''}</span> : undefined}
+      badges={system ? <span className="chip acc">системная</span> : c?.status === 'closed' ? <span className="chip">закрыта{c.closedAt ? ` ${formatDateTime(c.closedAt).slice(0, 10)}` : ''}</span> : undefined}
       footer={footer}>
       {chain.isError && <div className="form-error">{chain.error.message}</div>}
+      {c && system && <SystemChainBody c={c} onOpenTask={onOpenTask} />}
       {conflict && (
         <div className="note conflict" role="alert">
           Цепочку изменил другой пользователь — ваши изменения не сохранены.
@@ -120,7 +181,7 @@ export function ChainPanel({ id, onClose, onOpenTask }: { id: string; onClose: (
           </div>
         </div>
       )}
-      {c && draft && (
+      {c && draft && !system && (
         <form className="task-form" id={formId} onSubmit={submit} aria-label="Цепочка">
           <label>Название<input className="inp" required maxLength={300} value={draft.title} disabled={ro} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
           <div className="fgrid">
@@ -139,7 +200,7 @@ export function ChainPanel({ id, onClose, onOpenTask }: { id: string; onClose: (
           {ro && <div className="hint">Цепочку меняют её создатель, ответственный или пользователь с правом «Задачи: постановка другим». Добавить или отвязать задачу может любой сотрудник ИБ — в карточке задачи.</div>}
         </form>
       )}
-      {c && (
+      {c && !system && (
         <div>
           <div className="eyebrow">Задачи по дате <span className="count">{c.counts.total}</span></div>
           <ol className="chain-timeline" aria-label="Задачи цепочки">

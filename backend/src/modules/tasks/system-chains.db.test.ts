@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { seedVulnLegacy } from '../../../prisma/seed/vuln-legacy.js';
 import { buildApp } from '../../app.js';
+import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { diskFileStore } from '../../lib/file-store.js';
 import { argon2Hasher } from '../../lib/passwords.js';
 import { SYSTEM_USER_LOGIN } from '../../lib/system-user.js';
@@ -28,6 +29,7 @@ import { transferRecords } from '../vulns/transfer.service.js';
 import { suggestChains } from './chain-suggest.js';
 import * as chains from './chains.js';
 import { statusIdOf } from './flow.js';
+import { takeMany } from './process.js';
 import * as svc from './service.js';
 import { ensureSystemChain } from './system-chains.js';
 
@@ -244,6 +246,38 @@ describe('системные цепочки автозадач реестров 
       for (const t of tasks) await tx.task.update({ where: { id: t.id }, data: { statusId: await statusIdOf(tx, 'done'), completedAt: new Date() } });
       const listed = must((await chains.listChains(tx, staff, { limit: 200, kind: 'system' })).items.find((c) => c.id === chainId));
       expect(listed).toMatchObject({ status: 'open', counts: { total: 3, done: 3, active: 0 }, allDone: false, canManage: false });
+    }));
+
+  it('«Взять себе все»: те же проверки и журнал, что у «Взять себе»; отказ по одной — не берётся ни одна', () =>
+    inTx(async (tx) => {
+      const x = await makeRegister(tx, unique('Реестр взятия'));
+      // Метка без участников — задачи «не назначен», в Backlog.
+      const label = await tx.catalogItem.create({ data: { catalogCode: RECIPIENTS_CATALOG, value: unique('Метка'), sortOrder: 9999 } });
+      const rule = await createRule(tx, x.actor, x.reg.id, {
+        condition: { kind: 'equals', fieldId: x.f.status, optionId: x.opt('status', 'В работе') },
+        action: { eventType: 'notify', recipients: [{ kind: 'label', itemId: label.id }] },
+      });
+      for (let i = 1; i <= 3; i++) await records.createRecord(tx, x.actor, x.reg.id, { values: { [x.f.title]: `Запись ${i}`, [x.f.status]: x.opt('status', 'В работе') } });
+      await runAutomations(tx, { now: NOV_11, registerId: x.reg.id });
+      const tasks = await tx.task.findMany({ where: { automationId: rule.id }, orderBy: { number: 'asc' } });
+      expect(tasks.map((t) => t.assigneeId)).toEqual([null, null, null]);
+      const staff = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
+      const other = await actorFor(tx, (await makeUser(tx, ['ib_staff'])).id);
+      const refs = tasks.map((t) => ({ id: t.id, version: t.version }));
+
+      // Одну успели взять — не берётся ни одна, в тексте номер задачи.
+      await svc.updateTask(tx, other, must(tasks[2]).id, { version: must(tasks[2]).version, assigneeId: other.id });
+      const err = await takeMany(tx, staff, refs).catch((e: Error & { code?: string }) => e);
+      expect(err).toMatchObject({ code: 'VERSION_CONFLICT' });
+      expect(await tx.task.count({ where: { automationId: rule.id, assigneeId: staff.id } })).toBe(0);
+
+      const res = await takeMany(tx, staff, refs.slice(0, 2));
+      expect(res).toEqual({ taken: 2 });
+      const assigned = await statusIdOf(tx, 'assigned');
+      for (const r of refs.slice(0, 2)) {
+        expect(await tx.task.findUniqueOrThrow({ where: { id: r.id } })).toMatchObject({ assigneeId: staff.id, statusId: assigned, chainId: must(tasks[0]).chainId });
+        expect(await tx.auditLog.count({ where: { action: 'task.transition', entityId: r.id, userId: staff.id } })).toBe(1);
+      }
     }));
 
   it('одновременное создание двух задач одного источника — одна цепочка', async () => {

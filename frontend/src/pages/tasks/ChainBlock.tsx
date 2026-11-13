@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast';
 import { formatDateTime } from '../settings/logic';
 import { ChainSuggest, type ChainChoice } from './ChainSuggest';
 import { chainCounts } from './logic';
+import { sourceLink } from './ChainPanel';
 import { Select } from '../../components/Select';
 
 /**
@@ -58,7 +59,8 @@ export function ChainBlock({ task, title, onOpenTask, onChanged }: {
     onError,
   });
   const busy = pick.isPending || detach.isPending || move.isPending;
-  const choices = (open.data?.items ?? []).filter((c) => c.id !== chainId);
+  // Системные цепочки (1.14.0) ведёт портал: в них не добавляют и не переносят.
+  const choices = (open.data?.items ?? []).filter((c) => c.id !== chainId && c.kind === 'manual');
 
   if (!task.chain) {
     return (
@@ -82,16 +84,25 @@ export function ChainBlock({ task, title, onOpenTask, onChanged }: {
   }
 
   const c = chain.data;
+  const system = task.chain.kind === 'system';
   return (
     <div className="chain-block" aria-label="Цепочка" data-testid="chain-block">
       <div className="eyebrow">Цепочка</div>
       <div className="row">
         <Link to={`/tasks/chains?chain=${task.chain.id}`}><b>{task.chain.title}</b></Link>
-        {c && <span className="hint">{chainCounts(c.counts)}</span>}
+        {system && <span className="chip acc">системная</span>}
+        {c && <span className="hint">{system ? `активных: ${c.counts.active}` : chainCounts(c.counts)}</span>}
         {task.chain.status === 'closed' && <span className="chip">закрыта</span>}
       </div>
+      {system && c?.source && (
+        <div className="hint" data-testid="chain-source">
+          Задачу добавил портал: автоматизация {c.source.type === 'vuln_group' ? 'группы «Уязвимостей» ' : 'реестра '}
+          {c.source.deleted ? `«${c.source.name}» (удалён)` : <Link to={sourceLink(c.source)}>«{c.source.name}»</Link>}.
+          Отвязанную задачу портал обратно не добавит.
+        </div>
+      )}
       {chain.isError && <div className="form-error">{chain.error.message}</div>}
-      {c && (
+      {c && !system && (
         <ol className="chain-timeline" aria-label="Задачи цепочки">
           {c.tasks.map((m) => (
             <li key={m.id} className={m.id === task.id ? 'cur' : undefined} data-task={m.number}>
@@ -109,7 +120,7 @@ export function ChainBlock({ task, title, onOpenTask, onChanged }: {
       {moving === null && (
         <div className="row">
           <button type="button" className="btn ghost sm" disabled={busy} onClick={() => detach.mutate()}>Отвязать</button>
-          <button type="button" className="btn ghost sm" disabled={busy} onClick={() => setMoving('')}>Перенести в другую цепочку…</button>
+          <button type="button" className="btn ghost sm" disabled={busy} onClick={() => setMoving('')}>{system ? 'Перенести в свою цепочку…' : 'Перенести в другую цепочку…'}</button>
         </div>
       )}
       {moving !== null && (

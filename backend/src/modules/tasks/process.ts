@@ -7,7 +7,7 @@
 //            Задачи, отправленные до 1.4.0 без проверяющего, — по прежним правилам: tasks.review, не исполнитель,
 //            и автор задачи, или старший над исполнителем, или у исполнителя нет руководителя.
 // Комментарий обязателен по признаку колонки, а не по коду действия.
-import { withTx, type Db } from '../../lib/db.js';
+import { BULK_TX, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, versionConflict } from '../../lib/errors.js';
 import { reviewerFor, subordinateIdsOf } from '../../lib/hierarchy.js';
 import { todayIso } from '../../lib/today.js';
@@ -143,4 +143,30 @@ export async function runAction(db: Db, actor: TaskActor, id: string, action: Pr
     });
     return toTaskDto(await getTaskRow(tx, id), todayIso());
   });
+}
+
+/** Задач за одно «Взять себе все» (1.14.0). */
+export const TAKE_MANY_MAX = 200;
+
+/**
+ * «Взять себе все» на карточке системной цепочки (1.14.0, ADR-0053): для каждой задачи — тот же шаг take, что у кнопки
+ * «Взять себе» (те же проверки, переход и строка журнала). Одна транзакция: отказ по любой задаче — не берётся ни одна,
+ * в тексте ошибки — номер задачи.
+ */
+export async function takeMany(db: Db, actor: TaskActor, refs: readonly { id: string; version: number }[], comment?: string) {
+  if (!refs.length) throw badRequest('NOTHING_SELECTED', 'Выберите задачи');
+  if (refs.length > TAKE_MANY_MAX) throw badRequest('TOO_MANY', `Не больше ${TAKE_MANY_MAX} задач за раз`);
+  if (new Set(refs.map((r) => r.id)).size !== refs.length) throw badRequest('DUPLICATE_TASK', 'Задача указана дважды');
+  return withTx(db, async (tx) => {
+    for (const r of refs) {
+      try {
+        await runAction(tx, actor, r.id, 'take', { version: r.version, comment });
+      } catch (err) {
+        if (!(err instanceof AppError)) throw err;
+        const t = await tx.task.findUnique({ where: { id: r.id }, select: { number: true } });
+        throw new AppError(err.statusCode, err.code, t ? `Задача #${t.number}: ${err.message}` : err.message, err.details);
+      }
+    }
+    return { taken: refs.length };
+  }, BULK_TX);
 }

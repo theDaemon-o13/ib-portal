@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SourceTasksLink } from '../tasks/SourceTasksLink';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { registersApi, type RegisterDetail, type RegisterListItem } from '../../api/registers';
 import { DeleteDialog } from '../../components/DeleteDialog';
@@ -188,6 +189,7 @@ export function RegisterBar({ reg, owner, tab, canManage, canDeleteRecords, canD
     <div className="panel reg-bar">
       <RegisterPicker current={reg} canManage={canManage} onPick={onPick} />
       <span className="reg-owner" title={owner ?? undefined}>Владелец: {owner ?? 'не назначен'}</span>
+      {reg && <SourceTasksLink type="register" id={reg.id} className="btn ghost sm" />}
       <div className="tabs reg-tabs" role="tablist" aria-label="Разделы реестра">
         {REG_TABS.map((t) => (
           // Неактивная вкладка — aria-disabled, а не disabled: у disabled браузер не показывает подсказку.
