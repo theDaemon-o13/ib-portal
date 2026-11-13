@@ -9,6 +9,7 @@ import { actorOf } from '../settings/common.js';
 import * as chains from './chains.js';
 import { suggestChains, SUGGEST_MAX } from './chain-suggest.js';
 import { discoverApply, discoverPreview } from './chain-discover.js';
+import { systemDiscoverApply, systemDiscoverPreview } from './system-chain-discover.js';
 import type { TaskActor } from './flow.js';
 
 const tags = ['task-chains'];
@@ -151,6 +152,39 @@ export const chainRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }
       response: { 200: z.object({ created: z.number().int(), attached: z.number().int(), tasks: z.number().int() }), ...errors },
     },
   }, async (request) => discoverApply(db, taskActor(request), request.body));
+
+  // «Системные цепочки реестров» среди старых задач (1.14.0, ADR-0053): автозадачи до 1.14.0 — в цепочки источников.
+  const SourceType = z.enum(['register', 'vuln_group']);
+  app.post('/task-chains/discover-system/preview', {
+    preHandler: view,
+    schema: {
+      tags, summary: 'Системные цепочки реестров среди старых задач — предпросмотр («Задачи: постановка другим» или «Настройки»): цепочки, число задач, неопределимые',
+      response: {
+        200: z.object({
+          groups: z.array(z.object({
+            sourceType: SourceType, sourceId: z.string(), title: z.string(),
+            chain: z.object({ id: z.string(), number: z.number().int() }).nullable(),
+            tasks: z.number().int(), completed: z.number().int(), archived: z.number().int(), fingerprint: z.string(),
+          })),
+          tasks: z.number().int(),
+          unknown: z.array(z.object({ id: z.string(), number: z.number().int(), title: z.string(), reason: z.enum(['vuln_without_node', 'vuln_digest', 'no_link']), reasonLabel: z.string() })),
+          unknownTotal: z.number().int(),
+          /** Задачи, цепочку которых менял человек: портал их не привязывает. */
+          skippedManual: z.number().int(),
+        }),
+        ...errors,
+      },
+    },
+  }, async (request) => systemDiscoverPreview(db, taskActor(request)));
+
+  app.post('/task-chains/discover-system/apply', {
+    preHandler: view,
+    schema: {
+      tags, summary: 'Системные цепочки реестров среди старых задач — применить все группы предпросмотра одной транзакцией; изменилось — 409 BULK_CHANGED',
+      body: z.object({ expected: z.array(z.object({ sourceType: SourceType, sourceId: z.string().uuid(), tasks: z.number().int().min(1), fingerprint: z.string().max(64) })).min(1).max(10_000) }),
+      response: { 200: z.object({ created: z.number().int(), attached: z.number().int(), tasks: z.number().int() }), ...errors },
+    },
+  }, async (request) => systemDiscoverApply(db, taskActor(request), request.body.expected));
 
   app.post('/task-chains', {
     preHandler: view,

@@ -211,4 +211,14 @@ describe('Системные цепочки автозадач реестров 
     const after = await call('GET', `/api/v1/tasks/${t.id}`);
     assert.equal(after.chain, null);
   });
+  it('«Найти цепочки среди старых задач»: блок «Системные цепочки реестров» — новые автозадачи уже в цепочках, собирать нечего', async () => {
+    await open('/tasks/chains', `!!${startsWith('Найти цепочки')}`, 'список цепочек');
+    const row = `[...document.querySelectorAll('tbody tr')].find((tr) => tr.textContent.includes(${JSON.stringify(groups.a.title)}))`;
+    assert.match(await ui.evaluate(`${row}?.textContent ?? ''`), /системная/);
+    await ui.click(startsWith('Найти цепочки'));
+    await ui.waitFor(`!!${q('[data-testid=system-discover]')} && !${q('[data-testid=system-discover]')}.textContent.includes('Ищем')`, 'блок системных цепочек');
+    const text = await ui.evaluate(`${q('[data-testid=system-discover]')}.textContent`);
+    assert.ok(!text.includes(groups.a.title) && !text.includes(groups.b.title), text);
+    await ui.click(button('Отмена'));
+  });
 });

@@ -5,6 +5,7 @@ import { chainsApi, tkeys, type DiscoverGroup } from '../../api/tasks';
 import { Overlay } from '../../components/Overlay';
 import { useToast } from '../../components/Toast';
 import { plural } from './logic';
+import { SystemDiscoverSection } from './SystemDiscoverSection';
 
 /**
  * «Найти цепочки среди старых задач» (1.7.0, ADR-0035): предпросмотр групп задач без цепочки с одинаковой темой
@@ -61,6 +62,8 @@ export function DiscoverDialog({ onClose }: { onClose: () => void }) {
       <div className="backdrop" role="presentation">
         <form className="modal panel discover-dialog" role="dialog" aria-modal="true" aria-labelledby="dc-title" onSubmit={(e) => void submit(e)}>
           <h2 id="dc-title">Найти цепочки среди старых задач</h2>
+          <SystemDiscoverSection />
+          <h3>Цепочки по теме</h3>
           <p className="hint">Задачи без цепочки с одинаковой темой («RE: тема» и «тема»), от двух задач, в том числе выполненные и архивные. Системные задачи (документы, автоматизации, доказательства) не участвуют. Ничего не меняется, пока вы не подтвердите.</p>
           {preview.isPending && <p className="hint">Ищем…</p>}
           {preview.isError && <p className="form-error">{preview.error.message}</p>}

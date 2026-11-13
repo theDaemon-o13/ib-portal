@@ -1060,3 +1060,8 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .sys-day{display:grid;gap:8px;min-width:0}
 .sys-day-h{font-size:11px;color:var(--muted);padding:2px 2px 0}
 .chip.sys-kind{background:var(--fill-2);color:var(--muted)}
+/* «Системные цепочки реестров» в окне поиска цепочек (1.14.0). */
+.sys-discover{display:grid;gap:8px;padding-bottom:12px;margin-bottom:4px;border-bottom:1px solid var(--line);min-width:0}
+.sys-discover h3,.discover-dialog h3{margin:0;font-size:14px}
+.sys-unknown summary{cursor:pointer;font-size:13px}
+.sys-unknown ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;max-height:180px;overflow:auto;overflow-wrap:anywhere}

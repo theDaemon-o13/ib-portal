@@ -25,7 +25,7 @@ export interface DiscoverGroup {
   target: { id: string; number: number; title: string } | null;
 }
 
-function assertAllowed(actor: TaskActor) {
+export function assertAllowed(actor: TaskActor) {
   if (!actor.perms.has('tasks.assign') && !actor.perms.has('settings.manage')) {
     throw new AppError(403, 'FORBIDDEN', 'Искать цепочки среди старых задач может пользователь с правом «Задачи: постановка другим» или «Настройки»');
   }

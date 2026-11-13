@@ -36,6 +36,8 @@ export type ChainBySource = Res<'/api/v1/task-chains/by-source', 'get'>;
 export type DiscoverPreview = Res<'/api/v1/task-chains/discover/preview', 'post'>;
 export type DiscoverGroup = DiscoverPreview['groups'][number];
 export type DiscoverApply = Body<'/api/v1/task-chains/discover/apply', 'post'>;
+/** «Системные цепочки реестров» среди старых задач (1.14.0). */
+export type SystemDiscoverPreview = Res<'/api/v1/task-chains/discover-system/preview', 'post'>;
 
 export const tasksApi = {
   list: (q: { archived: boolean; categoryId?: string; automationId?: string; overdue?: boolean; chainId?: string }) =>
@@ -103,6 +105,10 @@ export const chainsApi = {
   /** «Найти цепочки среди старых задач» — «Задачи: постановка другим». */
   discoverPreview: () => request<DiscoverPreview>('POST', '/api/v1/task-chains/discover/preview'),
   discoverApply: (body: DiscoverApply) => request<{ created: number; attached: number; tasks: number }>('POST', '/api/v1/task-chains/discover/apply', body),
+  systemDiscoverPreview: () => request<SystemDiscoverPreview>('POST', '/api/v1/task-chains/discover-system/preview'),
+  systemDiscoverApply: (p: SystemDiscoverPreview) => request<{ created: number; attached: number; tasks: number }>('POST', '/api/v1/task-chains/discover-system/apply', {
+    expected: p.groups.map((g) => ({ sourceType: g.sourceType, sourceId: g.sourceId, tasks: g.tasks, fingerprint: g.fingerprint })),
+  }),
   move: (taskId: string, version: number, toChainId: string) => request<ChainDetail>('POST', `/api/v1/tasks/${taskId}/move-chain`, { version, toChainId }),
 };
 
