@@ -165,7 +165,7 @@ describe('Цепочки задач (1.7.0)', () => {
     assert.equal(made.title, theme, 'название без «FW: RE:»');
     assert.equal(made.chain.id, chain.id);
     const detail = await api('GET', `/api/v1/task-chains/${chain.id}`);
-    assert.deepEqual(detail.counts, { total: 2, done: 1 });
+    assert.deepEqual(detail.counts, { total: 2, done: 1, active: 1 });
     assert.equal(detail.tasks[0].archived, true, 'архивная задача — в хронологии');
   });
 

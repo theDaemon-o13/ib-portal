@@ -346,7 +346,9 @@ export function TasksPage() {
 
   const boardAll = tasks.data?.items ?? [];
   // Системная цепочка без активных задач (1.14.0) на доске не видна — и её выполненные задачи тоже; без группировки — как есть.
-  const idle = group ? idleSystemChains(chainList.data?.items ?? []) : new Set<string>();
+  // Системные цепочки свёрнуты только на обычной доске: в режиме «Выбрать» и с фильтром по правилу или цепочке — по одной.
+  const systemGroup = group && !picking && !automationId && !chainId;
+  const idle = systemGroup ? idleSystemChains(chainList.data?.items ?? []) : new Set<string>();
   const onBoard = idle.size ? boardAll.filter((t) => !(t.chain && idle.has(t.chain.id))) : boardAll;
   const list = search.trim() ? onBoard.filter((t) => matchTask(t, search)) : onBoard;
   const counts = (categoryId ? all.data : tasks.data)?.categories ?? [];
@@ -451,7 +453,7 @@ export function TasksPage() {
             return (
               <div key={c.id} className={`col${drag?.moving && drag.over === c.id && drag.task.status.id !== c.id ? ' over' : ''}`} data-status={c.id} aria-label={`Колонка «${c.value}»`}>
                 <div className="col-h"><span>{c.value}</span><span className="mono">{items.length}</span></div>
-                {columnEntries(items, group).map((e) => {
+                {columnEntries(items, group, systemGroup).map((e) => {
                   // Метка цепочки — у отдельной карточки; внутри раскрытой цепочки она не нужна.
                   const card = (t: Task, standalone = true) => (
                     <Card key={t.id} t={t} today={today} archived={archived} drag={drag} canDrag={canOverride} onPointerDown={onPointerDown} onOpen={openTask}

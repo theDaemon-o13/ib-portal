@@ -151,6 +151,8 @@ describe('доска: системные цепочки (1.14.0)', () => {
     const list = [task(1, { chain: sys }), task(2, { chain: manual }), task(3)];
     expect(columnEntries(list, true).map((e) => (e.kind === 'task' ? e.t.number : `${e.chain.id}:${e.tasks.length}`))).toEqual(['s:1', 2, 3]);
     expect(columnEntries(list, false).every((e) => e.kind === 'task')).toBe(true);
+    // «Выбрать», фильтр по правилу или цепочке — системные по одной, ручные группируются как раньше.
+    expect(columnEntries([...list, task(4, { chain: manual })], true, false).map((e) => (e.kind === 'task' ? e.t.number : e.chain.id))).toEqual([1, 'm', 3]);
   });
   it('сводка: задач, не назначено, ближайший срок, просрочено, что можно взять', () => {
     const a = { id: 'a', fullName: 'Иванов И.И.' };

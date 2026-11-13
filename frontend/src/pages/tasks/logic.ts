@@ -187,12 +187,13 @@ export type ColumnEntry =
  * 04.11.2026). Системная цепочка (1.14.0) — карточка цепочки и при одной задаче. Колонка отсортирована по сроку,
  * поэтому карточка цепочки стоит на месте её ближайшего срока. Без группировки — задачи как есть.
  */
-export function columnEntries(items: readonly Task[], group: boolean): ColumnEntry[] {
+export function columnEntries(items: readonly Task[], group: boolean, systemGroup = group): ColumnEntry[] {
   if (!group) return items.map((t) => ({ kind: 'task', t }));
   const out: ColumnEntry[] = [];
   const byChain = new Map<string, Extract<ColumnEntry, { kind: 'chain' }>>();
   for (const t of items) {
-    if (!t.chain) {
+    // systemGroup = false (режим «Выбрать», фильтр по правилу или цепочке): задачи системной цепочки — по одной.
+    if (!t.chain || (t.chain.kind === 'system' && !systemGroup)) {
       out.push({ kind: 'task', t });
       continue;
     }
