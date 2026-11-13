@@ -25,7 +25,7 @@ export interface DiscoverGroup {
   target: { id: string; number: number; title: string } | null;
 }
 
-function assertAllowed(actor: TaskActor) {
+export function assertAllowed(actor: TaskActor) {
   if (!actor.perms.has('tasks.assign') && !actor.perms.has('settings.manage')) {
     throw new AppError(403, 'FORBIDDEN', 'Искать цепочки среди старых задач может пользователь с правом «Задачи: постановка другим» или «Настройки»');
   }
@@ -45,7 +45,7 @@ async function groupsOf(db: Db, actor: TaskActor): Promise<DiscoverGroup[]> {
   const keys = [...byKey].filter(([, list]) => list.length >= 2).map(([k]) => k);
   const chains = keys.length
     ? await db.taskChain.findMany({
-      where: { titleKey: { in: keys }, status: 'open', deletedAt: null, tasks: { some: visibleTasksWhere(actor) } },
+      where: { titleKey: { in: keys }, status: 'open', kind: 'manual', deletedAt: null, tasks: { some: visibleTasksWhere(actor) } },
       select: { id: true, number: true, title: true, titleKey: true, updatedAt: true }, orderBy: { updatedAt: 'desc' },
     })
     : [];

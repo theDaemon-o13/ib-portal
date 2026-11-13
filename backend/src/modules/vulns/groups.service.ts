@@ -3,6 +3,7 @@
 // переименовывается, не получает типов и не удаляется; пустая (нет неархивных записей) в списке не показывается.
 // Удаление группы и узла (1.6.1, ADR-0033) — мягкое, только без открытых записей: событие в корзине, скрываются узлы,
 // записи и сканы (сканы — вместе с узлом); продления остаются.
+import { renameSystemChain } from '../tasks/system-chains.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { isUniqueViolation, withTx, type Db } from '../../lib/db.js';
 import { AppError, badRequest, conflict, notFound, versionConflict } from '../../lib/errors.js';
@@ -156,6 +157,8 @@ export async function renameGroup(db: Db, actor: Actor, id: string, input: { nam
       await assertNameFree(tx, name, id);
       const { count } = await tx.vulnGroup.updateMany({ where: { id, version: input.version }, data: { name, version: { increment: 1 } } });
       await ensureVersioned(count, () => tx.vulnGroup.findUnique({ where: { id } }), 'Группа');
+      // Название системной цепочки группы (1.14.0) — следом, в той же транзакции.
+      await renameSystemChain(tx, { type: 'vuln_group', id, name });
       await auditSettings(tx, actor, {
         action: 'vuln.group.renamed', entity: 'vuln_group', entityId: id,
         summary: `Уязвимости: группа «${group.name}» переименована в «${name}»`,

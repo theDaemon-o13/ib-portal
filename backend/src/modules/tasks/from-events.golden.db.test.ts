@@ -1,4 +1,5 @@
-// Эталон задач из событий автоматизаций (1.13.9): после пакетной записи задачи, переходы, уведомления, комментарии,
+// Эталон задач из событий автоматизаций (1.13.9; 1.14.0 — плюс строка журнала «добавлена в цепочку автоматически» на
+// каждую новую задачу, остальное без изменений): после пакетной записи задачи, переходы, уведомления, комментарии,
 // связи с событиями и журнал те же, что у построчной записи 1.13.7. Эталон снят на коде v1.13.7 (UPDATE_GOLDEN=1);
 // id заменены именами, номера записей — от первой записи сценария. События одного прогона создаются одним запросом и
 // обрабатываются в порядке случайных id, поэтому номера задач от прогона к прогону разные и при старом коде:
@@ -48,7 +49,8 @@ async function snapshot(tx: Tx, ctx: { auditFrom: bigint; taskBase: number; reco
   const links = await tx.automationEventTask.findMany({ where: { taskId: { in: ids } } });
   const audit = await tx.auditLog.findMany({ where: { id: { gt: ctx.auditFrom }, entity: 'task' }, orderBy: { id: 'asc' } });
   // Номер задачи — после «задача»/«Задача», остальные «#N» — номера записей.
-  const label = (s: string) => s.replace(UUID, (id) => names.get(id) ?? '<id>')
+  // Номер системной цепочки (1.14.0) зависит от последовательности — в эталоне «#chain».
+  const label = (s: string) => s.replace(/(«[^»]*») \(#\d+\)/g, '$1 (#chain)').replace(UUID, (id) => names.get(id) ?? '<id>')
     .replace(/([Зз]адача) #(\d+)/g, (_m, w: string, n: string) => `${w} ${taskByNumber.get(Number(n)) ?? '?'}`)
     .replace(/#(\d+)/g, (m, n: string) => (Number(n) >= ctx.recordBase ? `#r${Number(n) - ctx.recordBase}` : m));
   const clean = (v: unknown): unknown => {

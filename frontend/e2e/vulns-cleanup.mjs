@@ -108,6 +108,10 @@ export async function cleanE2eGroups() {
     await del('DELETE FROM task_mail_sources WHERE task_id = ANY($1::uuid[])', [tasks]);
     await del('DELETE FROM notifications WHERE task_id = ANY($1::uuid[])', [tasks]);
     await del('DELETE FROM tasks WHERE id = ANY($1::uuid[])', [tasks]);
+    // Системные цепочки групп прогона (1.14.0): оставшиеся задачи (перенесённые записи прежнего реестра) отвязываются.
+    const sysChains = await ids(`SELECT id FROM task_chains WHERE kind = 'system' AND source_type = 'vuln_group' AND source_id = ANY($1::uuid[])`, [groups]);
+    await db.query('UPDATE tasks SET chain_id = NULL WHERE chain_id = ANY($1::uuid[])', [sysChains]);
+    await del('DELETE FROM task_chains WHERE id = ANY($1::uuid[])', [sysChains]);
     await del('DELETE FROM automation_events WHERE id = ANY($1::uuid[])', [events]);
     await del('DELETE FROM vuln_extension_items WHERE extension_id = ANY($1::uuid[]) OR record_id = ANY($2::uuid[])', [exts, records]);
     await del('DELETE FROM vuln_extensions WHERE id = ANY($1::uuid[])', [exts]);

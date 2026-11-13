@@ -1,4 +1,5 @@
 // Структура реестров (право registers.manage): реестры, поля, варианты списков, смена типа поля.
+import { renameSystemChain } from '../tasks/system-chains.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { RECIPIENTS_CATALOG } from '../../lib/catalogs.js';
 import { withTx, type Db } from '../../lib/db.js';
@@ -178,6 +179,8 @@ export async function updateRegister(db: Db, actor: Actor, id: string, input: {
     }
     const res = await tx.register.updateMany({ where: { id, version: input.version }, data: { ...data, version: { increment: 1 } } });
     await ensureVersioned(res.count, () => tx.register.findUnique({ where: { id } }), 'Реестр');
+    // Название системной цепочки реестра (1.14.0) — следом, в той же транзакции.
+    if (data.name !== undefined) await renameSystemChain(tx, { type: 'register', id, name: data.name as string });
     await auditSettings(tx, actor, {
       action: 'register.updated', entity: 'register', entityId: id,
       summary: `Реестр «${reg.name}»: ${changes.join(', ')}`,

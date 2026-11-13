@@ -184,14 +184,16 @@ export type ColumnEntry =
 /**
  * Колонка доски с группировкой по цепочкам: две и больше задач одной цепочки в колонке — одна свёрнутая карточка
  * на месте первой из них; одна задача цепочки в колонке — обычная карточка с меткой цепочки (решение владельца
- * 04.11.2026). Без группировки — задачи как есть.
+ * 04.11.2026). Системная цепочка (1.14.0) — карточка цепочки и при одной задаче. Колонка отсортирована по сроку,
+ * поэтому карточка цепочки стоит на месте её ближайшего срока. Без группировки — задачи как есть.
  */
-export function columnEntries(items: readonly Task[], group: boolean): ColumnEntry[] {
+export function columnEntries(items: readonly Task[], group: boolean, systemGroup = group): ColumnEntry[] {
   if (!group) return items.map((t) => ({ kind: 'task', t }));
   const out: ColumnEntry[] = [];
   const byChain = new Map<string, Extract<ColumnEntry, { kind: 'chain' }>>();
   for (const t of items) {
-    if (!t.chain) {
+    // systemGroup = false (режим «Выбрать», фильтр по правилу или цепочке): задачи системной цепочки — по одной.
+    if (!t.chain || (t.chain.kind === 'system' && !systemGroup)) {
       out.push({ kind: 'task', t });
       continue;
     }
@@ -203,7 +205,57 @@ export function columnEntries(items: readonly Task[], group: boolean): ColumnEnt
       out.push(e);
     }
   }
-  return out.map((e) => (e.kind === 'chain' && e.tasks.length === 1 ? { kind: 'task' as const, t: e.tasks[0] as Task } : e));
+  return out.map((e) => (e.kind === 'chain' && e.tasks.length === 1 && e.chain.kind !== 'system' ? { kind: 'task' as const, t: e.tasks[0] as Task } : e));
+}
+
+// ---------------------------------------------------------------- системные цепочки (1.14.0, ADR-0053)
+
+/** Сводка карточки системной цепочки в колонке: сколько задач, не назначено, ближайший срок, просрочено, что можно взять. */
+export interface SystemChainStats {
+  count: number;
+  unassigned: number;
+  nearestDue: string | null;
+  overdue: number;
+  /** Задачи, у которых есть «Взять себе» (Backlog, без исполнителя, пользователь среди кандидатов). */
+  takeable: Task[];
+}
+
+export function systemChainStats(tasks: readonly Task[]): SystemChainStats {
+  const dues = tasks.filter((t) => !t.completedAt && t.dueDate).map((t) => t.dueDate as string).sort();
+  return {
+    count: tasks.length,
+    unassigned: tasks.filter((t) => !t.assignee).length,
+    nearestDue: dues[0] ?? null,
+    overdue: tasks.filter((t) => t.overdue).length,
+    takeable: tasks.filter((t) => t.actions.includes('take')),
+  };
+}
+
+/** С какого числа задач раскрытая системная цепочка делится подзаголовками по дате срока. */
+export const DUE_HEADERS_FROM = 8;
+
+/** Задачи раскрытой цепочки по дате срока (без срока — в конце): подзаголовки «до 14.11.2026». */
+export function byDueDate(tasks: readonly Task[]): { due: string | null; tasks: Task[] }[] {
+  const out: { due: string | null; tasks: Task[] }[] = [];
+  for (const t of sortColumn(tasks)) {
+    const last = out[out.length - 1];
+    if (last && last.due === t.dueDate) last.tasks.push(t);
+    else out.push({ due: t.dueDate, tasks: [t] });
+  }
+  return out;
+}
+
+/**
+ * Системные цепочки, которых нет на доске: ни одной активной задачи (все выполнены или в архиве). Их выполненные задачи
+ * в «Выполнено» тоже не показываются — цепочка видна в списке «Цепочки» и в панели (1.14.0).
+ */
+export function idleSystemChains(chains: readonly { id: string; kind: string; counts: { active: number } }[]): Set<string> {
+  return new Set(chains.filter((c) => c.kind === 'system' && c.counts.active === 0).map((c) => c.id));
+}
+
+/** Подпись «N задач» в карточке цепочки. */
+export function tasksWord(n: number): string {
+  return `${n} ${plural(n, 'задача', 'задачи', 'задач')}`;
 }
 
 // ---------------------------------------------------------------- происхождение (1.9.0)

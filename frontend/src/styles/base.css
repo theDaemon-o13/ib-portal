@@ -1052,3 +1052,18 @@ tr.sel > td,table.recs tr.rec-row.sel td{background:var(--accent-soft)}
 .discover-list .check{display:flex;align-items:flex-start;gap:8px;min-width:0}
 .discover-list .check input{margin-top:3px;flex:none}
 .dg-t{min-width:0;overflow-wrap:anywhere;font-size:13px}
+/* Системная цепочка автозадач реестра на доске (1.14.0): сводка колонки, «Взять себе все», подзаголовки дат. */
+.chain-group.sys .chain-card{padding-bottom:6px}
+.sys-stats{flex-wrap:wrap;gap:6px;min-width:0}
+.sys-n{font-size:12px;font-weight:600;color:var(--fg)}
+.sys-confirm{flex-wrap:wrap}
+.sys-day{display:grid;gap:8px;min-width:0}
+.sys-day-h{font-size:11px;color:var(--muted);padding:2px 2px 0}
+.chip.sys-kind{background:var(--fill-2);color:var(--muted)}
+/* «Системные цепочки реестров» в окне поиска цепочек (1.14.0). */
+.sys-discover{display:grid;gap:8px;padding-bottom:12px;margin-bottom:4px;border-bottom:1px solid var(--line);min-width:0}
+.sys-discover h3,.discover-dialog h3{margin:0;font-size:14px}
+.sys-unknown summary{cursor:pointer;font-size:13px}
+.sys-unknown ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;max-height:180px;overflow:auto;overflow-wrap:anywhere}
+.chain-group.sys .cc-row{flex-wrap:wrap;row-gap:4px}
+.chain-group.sys .cc-row .btn{max-width:100%;white-space:normal;text-align:left}

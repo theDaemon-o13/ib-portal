@@ -1060,6 +1060,11 @@ model TaskChain {
   closedAt  DateTime? @map("closed_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   version   Int       @default(1)
+  /// manual | system (1.14.0, ADR-0053; CHECK в миграции). Системную цепочку ведёт портал: одна на источник.
+  kind       String  @default("manual")
+  /// register | vuln_group — только у системной; уникальность (тип, id) у неудалённых — частичный индекс в SQL.
+  sourceType String? @map("source_type")
+  sourceId   String? @map("source_id") @db.Uuid
 
   owner   User?  @relation("TaskChainOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   creator User   @relation("TaskChainCreator", fields: [createdBy], references: [id], onDelete: Restrict)

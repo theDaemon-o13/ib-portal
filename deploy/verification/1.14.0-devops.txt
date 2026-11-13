@@ -1,0 +1,53 @@
+Портал ИБ 1.14.0 — обновление прода с 1.13.12. Системные цепочки автозадач реестров. Меняются образы backend и frontend,
+ШАГ MIGRATE ОБЯЗАТЕЛЕН: одна миграция 20261113090000_task_chain_system (три новые колонки, ограничение и индекс в
+task_chains; 0 изменённых строк) и шаг seed system.portal_user.v1_14_0 (+1 отключённый служебный пользователь «Портал»,
+логин portal-system, без ролей). Новых переменных .env и прав нет. Подробно — RELEASE.md в архиве.
+Порядок с прода 1.13.6: 1.13.7 → 1.13.9 → 1.13.10 (с migrate) → 1.13.11 → 1.13.12 (с migrate) → 1.14.0 (с migrate),
+каждый по своему архиву.
+
+0. ПРОВЕРКА ИСТОЧНИКА
+   Если есть клон репозитория: git fetch --tags --force
+     git rev-parse v1.14.0            → 7f574daa54a61510bbe724c9be67f51d296b11ae   (объект тега)
+     git rev-parse 'v1.14.0^{commit}' → f01562c6eaf04d47daeb5f3cc21f2a9e0396183d   (коммит)
+   Архив: ibportal-1.14.0.tar.gz + ibportal-1.14.0.tar.gz.sha256 (GitHub Release v1.14.0)
+     sha256 ibportal-1.14.0.tar.gz = 26a8c4f8c30b1cff0eed90a5b1bde398bf8793cebcf3e41679bc9e4d9a279c31
+     cd /srv/ibportal/releases && sha256sum -c ibportal-1.14.0.tar.gz.sha256           → OK
+     tar -xzf ibportal-1.14.0.tar.gz && cd ibportal-1.14.0 && sha256sum -c SHA256SUMS → все OK
+     docker load -i ibportal-images-1.14.0.tar.gz
+   Не совпало — стоп, сообщить разработчику.
+
+1. ДО ВЫКЛАДКИ (на работающей 1.13.12)
+   cd /srv/ibportal/deploy && ./scripts/smoke.sh --before
+   Для сверки (до backup.sh):
+     docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d ibportal -Atc "SELECT (SELECT count(*) FROM tasks), (SELECT count(*) FROM tasks WHERE chain_id IS NOT NULL), (SELECT count(*) FROM task_chains), (SELECT count(*) FROM users), (SELECT count(*) FROM users WHERE login = '"'"'portal-system'"'"');"'
+     → пять чисел: задач | задач в цепочках | цепочек | пользователей | занят ли логин portal-system
+     Последнее число должно быть 0. Если 1 — стоп, сообщить разработчику (seed остановится).
+   ./scripts/backup.sh  → «Копия создана: <N>»; копию вынести за пределы тома. Нет копии — стоп.
+
+2. ВЫКЛАДКА — новые образы и migrate
+   cp /srv/ibportal/releases/ibportal-1.14.0/docker-compose.yml .
+   cp /srv/ibportal/releases/ibportal-1.14.0/scripts/*.sh scripts/
+   sed -i 's/^VERSION=.*/VERSION=1.14.0/' .env
+   docker compose --profile tools run --rm migrate
+     → «Applying migration `20261113090000_task_chain_system`», затем «Seed выполнен: …», без ошибок
+   docker compose up -d backend frontend
+
+3. ПОСЛЕ
+   docker compose ps                → backend healthy, frontend Up
+   ./scripts/smoke.sh --after       → «Smoke-проверка пройдена»
+   SQL из шага 1                    → задач, задач в цепочках и цепочек — те же числа; пользователей — на 1 больше;
+                                      последнее число — 1
+   Вручную в Chrome на Windows: «Задачи» и «Задачи → Цепочки» открываются. НИЧЕГО НЕ СОБИРАТЬ: старые автозадачи
+   в цепочки сотрудник ИБ соберёт сам из интерфейса после выкладки.
+
+4. ОТКАТ НА 1.13.12 (образы backend и frontend, база НЕ откатывается)
+   sed -i 's/^VERSION=.*/VERSION=1.13.12/' .env && docker compose up -d backend frontend
+   Миграция только добавила колонки — 1.13.12 на этой базе работает: системные цепочки видны как обычные (создатель —
+   «Портал»), «Портал» — как отключённый пользователь. Проверено разработчиком запуском кода 1.13.12 на схеме 1.14.0.
+   Образы 1.13.12 не удалять минимум неделю.
+
+5. СТОП и сообщить разработчику: sha256 не совпал; логин portal-system уже занят; копия не создалась; ошибка в выводе
+   migrate; backend не стал healthy; любой «✗» в smoke.
+
+6. В журнал выкладок: дата, версия 1.14.0 (с 1.13.12), кто, имя копии и место хранения, вывод migrate, числа SQL до и
+   после, результат.

@@ -27133,6 +27133,8 @@ export interface paths {
                                     title: string;
                                     /** @enum {string} */
                                     status: "open" | "closed";
+                                    /** @enum {string} */
+                                    kind: "manual" | "system";
                                 } | null;
                                 createdBy: {
                                     id: string;
@@ -27411,6 +27413,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -28162,6 +28166,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -28438,6 +28444,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -28695,6 +28703,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -28706,6 +28716,140 @@ export interface paths {
                             commentCount: number;
                             version: number;
                             actions: ("take" | "start" | "submit" | "complete" | "accept" | "return")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/take-many": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Взять себе несколько задач из Backlog: для каждой — те же проверки и журнал, что у «Взять себе»; отказ по любой — не берётся ни одна */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        tasks: {
+                            /** Format: uuid */
+                            id: string;
+                            version: number;
+                        }[];
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            taken: number;
                         };
                     };
                 };
@@ -28957,6 +29101,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -29216,6 +29362,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -29475,6 +29623,8 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
                             } | null;
                             createdBy: {
                                 id: string;
@@ -30672,6 +30822,7 @@ export interface paths {
             parameters: {
                 query?: {
                     status?: "open" | "closed";
+                    kind?: "manual" | "system";
                     ownerId?: string;
                     q?: string;
                     limit?: number;
@@ -30696,6 +30847,15 @@ export interface paths {
                                 title: string;
                                 /** @enum {string} */
                                 status: "open" | "closed";
+                                /** @enum {string} */
+                                kind: "manual" | "system";
+                                source: {
+                                    /** @enum {string} */
+                                    type: "register" | "vuln_group";
+                                    id: string;
+                                    name: string;
+                                    deleted: boolean;
+                                } | null;
                                 owner: {
                                     id: string;
                                     fullName: string;
@@ -30713,6 +30873,7 @@ export interface paths {
                                 counts: {
                                     total: number;
                                     done: number;
+                                    active: number;
                                 };
                                 allDone: boolean;
                                 canManage: boolean;
@@ -30846,6 +31007,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -30863,6 +31033,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;
@@ -30975,6 +31146,138 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/by-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Системная цепочка группы «Уязвимостей» или реестра — для ссылки «Задачи: N активных» (1.14.0). Нет цепочки или видимых задач — chain: null */
+        get: {
+            parameters: {
+                query: {
+                    type: "register" | "vuln_group";
+                    id: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            chain: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                active: number;
+                                total: number;
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -31423,6 +31726,291 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/task-chains/discover-system/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Системные цепочки реестров среди старых задач — предпросмотр («Задачи: постановка другим» или «Настройки»): цепочки, число задач, неопределимые */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            groups: {
+                                /** @enum {string} */
+                                sourceType: "register" | "vuln_group";
+                                sourceId: string;
+                                title: string;
+                                chain: {
+                                    id: string;
+                                    number: number;
+                                } | null;
+                                tasks: number;
+                                completed: number;
+                                archived: number;
+                                fingerprint: string;
+                            }[];
+                            tasks: number;
+                            unknown: {
+                                id: string;
+                                number: number;
+                                title: string;
+                                /** @enum {string} */
+                                reason: "vuln_without_node" | "vuln_digest" | "no_link";
+                                reasonLabel: string;
+                            }[];
+                            unknownTotal: number;
+                            skippedManual: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-chains/discover-system/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Системные цепочки реестров среди старых задач — применить все группы предпросмотра одной транзакцией; изменилось — 409 BULK_CHANGED */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        expected: {
+                            /** @enum {string} */
+                            sourceType: "register" | "vuln_group";
+                            /** Format: uuid */
+                            sourceId: string;
+                            tasks: number;
+                            fingerprint: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            created: number;
+                            attached: number;
+                            tasks: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: {
+                                code: string;
+                                message: string;
+                                details?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/task-chains/{id}": {
         parameters: {
             query?: never;
@@ -31454,6 +32042,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -31471,6 +32068,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;
@@ -31622,6 +32220,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -31639,6 +32246,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;
@@ -31792,6 +32400,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -31809,6 +32426,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;
@@ -31966,6 +32584,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -31983,6 +32610,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;
@@ -32272,6 +32900,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -32289,6 +32926,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;
@@ -32581,6 +33219,15 @@ export interface paths {
                             title: string;
                             /** @enum {string} */
                             status: "open" | "closed";
+                            /** @enum {string} */
+                            kind: "manual" | "system";
+                            source: {
+                                /** @enum {string} */
+                                type: "register" | "vuln_group";
+                                id: string;
+                                name: string;
+                                deleted: boolean;
+                            } | null;
                             owner: {
                                 id: string;
                                 fullName: string;
@@ -32598,6 +33245,7 @@ export interface paths {
                             counts: {
                                 total: number;
                                 done: number;
+                                active: number;
                             };
                             allDone: boolean;
                             canManage: boolean;

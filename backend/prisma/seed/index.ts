@@ -17,6 +17,7 @@ import { seedCompareKeys, seedRegisters } from './registers.js';
 import { seedRisks } from './risks.js';
 import { seedStarter } from './starter.js';
 import { seedSystemItems } from './system-items.js';
+import { seedSystemUser } from './system-user.js';
 import { seedTaskProcess, seedTaskReviewers } from './tasks.js';
 import { seedVulnGroups } from './vuln-groups.js';
 import { seedVulnLegacy } from './vuln-legacy.js';
@@ -83,6 +84,7 @@ async function main() {
     await seedMonitorSlides(tx);
     await seedReviewTasksGrouped(tx);
     await seedDocumentStageTasks(tx);
+    await seedSystemUser(tx);
     // Одна транзакция на весь seed: перенос прежнего реестра уязвимостей (1.5.0) на десятках тысяч записей идёт
     // минуты — таймаут по умолчанию (5 с) откатил бы всё обновление.
   }, { timeout: 30 * 60_000, maxWait: 60_000 });
